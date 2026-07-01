@@ -12,7 +12,7 @@ export default function Topbar({
   handleClearNotifications
 }) {
   return (
-    <header className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 bg-white/80 backdrop-blur-md border-b border-slate-100">
+    <header className="sticky top-0 z-10 flex items-center justify-between px-6 h-[72px] bg-white/80 backdrop-blur-md border-b border-slate-100">
       
       {/* Sidebar Toggle & Title */}
       <div className="flex items-center gap-4">
@@ -27,19 +27,13 @@ export default function Topbar({
           </svg>
         </button>
         <div>
-          <span className="text-xs font-black text-blue-600 tracking-widest uppercase">QPR System</span>
-          <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight leading-none mt-1">Quality Problem Report</h2>
+          <h2 className="text-sm sm:text-base font-black text-slate-900 tracking-wider uppercase">
+            Quality Problem Report System
+          </h2>
         </div>
       </div>
 
-      {/* Central Logo Panel */}
-      <div className="hidden lg:flex items-center">
-        <img
-          src="/logo-mtm.png"
-          alt="PT Menara Terus Makmur"
-          className="h-10 w-auto"
-        />
-      </div>
+
 
       {/* Right Action Controls */}
       <div className="flex items-center gap-2">

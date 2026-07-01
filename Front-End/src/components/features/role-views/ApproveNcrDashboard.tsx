@@ -25,7 +25,7 @@ export default function ApproveNcrDashboard({ pendingNcrs, handleApproveNcrActio
               levelTab === "foreman" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-900"
             }`}
           >
-            Foreman
+            STAFF
           </button>
           <button
             onClick={() => setLevelTab("section-head")}
@@ -33,7 +33,7 @@ export default function ApproveNcrDashboard({ pendingNcrs, handleApproveNcrActio
               levelTab === "section-head" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-900"
             }`}
           >
-            Section Head
+            SPV
           </button>
           <button
             onClick={() => setLevelTab("dept-head")}
@@ -41,7 +41,7 @@ export default function ApproveNcrDashboard({ pendingNcrs, handleApproveNcrActio
               levelTab === "dept-head" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-900"
             }`}
           >
-            Dept Head
+            MNG
           </button>
         </div>
       </div>

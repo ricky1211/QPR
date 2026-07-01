@@ -133,23 +133,92 @@ export default function DeptHeadView({
 
               <div className="grid grid-cols-2 gap-3 text-center text-xs">
                 <div className="p-3 bg-slate-50 rounded-md border border-slate-100/50">
-                  <span className="text-slate-400 block">Total Kirim:</span>
-                  <strong className="text-slate-800 font-bold">{selectedNcr.qty} pcs</strong>
+                  <span className="text-slate-400 block font-bold">Qty NG:</span>
+                  <strong className="text-slate-800 font-extrabold">{selectedNcr.qty} pcs</strong>
                 </div>
                 <div className="p-3 bg-slate-50 rounded-md border border-slate-100/50">
-                  <span className="text-slate-400 block">Qty Defect NG:</span>
-                  <strong className="text-red-600 font-bold">{selectedNcr.reject} pcs</strong>
+                  <span className="text-slate-400 block font-bold">NG Types:</span>
+                  <strong className="text-red-650 font-extrabold text-red-600 uppercase">{selectedNcr.reject}</strong>
                 </div>
               </div>
 
-              <div className="p-3 bg-red-50/30 border border-red-100/50 rounded-md space-y-2 text-xs">
+              <div className="p-3 bg-red-50/30 border border-red-100/50 rounded-md space-y-2.5 text-xs text-left">
                 <div className="flex justify-between">
-                  <span className="text-slate-500 font-medium">Jenis Cacat:</span>
-                  <span className="text-slate-800 font-bold">{selectedNcr.defectType}</span>
+                  <span className="text-slate-500 font-medium">Location Found:</span>
+                  <span className="text-slate-800 font-bold">{selectedNcr.locationFound || "IN-COMING"}</span>
                 </div>
                 <div className="flex justify-between">
+                  <span className="text-slate-500 font-medium">Problem Type:</span>
+                  <span className="text-slate-800 font-bold">{selectedNcr.problemType || "QUALITY"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-medium">Found By:</span>
+                  <span className="text-slate-800 font-bold">{selectedNcr.foundBy || "QC INSPECTOR"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-medium">Customer Approval?</span>
+                  <span className="text-slate-800 font-bold">{selectedNcr.customerApproval || "YES"}</span>
+                </div>
+                {selectedNcr.docsToRevise && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-medium">Docs to Revise:</span>
+                    <span className="text-slate-800 font-bold truncate max-w-[200px]" title={selectedNcr.docsToRevise}>{selectedNcr.docsToRevise}</span>
+                  </div>
+                )}
+                <div className="border-t border-red-100/60 pt-2 flex flex-col gap-1">
+                  <span className="text-slate-500 font-medium">Deskripsi Cacat / NG:</span>
+                  <p className="text-slate-800 font-bold bg-white p-2 rounded border border-slate-100/80 leading-normal">{selectedNcr.defectType}</p>
+                </div>
+                <div className="flex justify-between border-t border-red-100/60 pt-2">
                   <span className="text-slate-500 font-medium">Keputusan Disposisi:</span>
-                  <span className="text-slate-800 font-bold">{selectedNcr.disposition}</span>
+                  <span className="text-blue-600 font-black">{selectedNcr.disposition}</span>
+                </div>
+              </div>
+
+              {/* TANDA TANGAN QUALITY DEPT (PR4-FRM-08001) */}
+              <div className="border border-slate-300 rounded-lg overflow-hidden bg-white text-[11px] mt-4 shadow-sm/5 text-left">
+                <div className="bg-slate-100 px-3 py-1.5 border-b border-slate-300 font-extrabold text-slate-800 uppercase text-center tracking-wider text-[10px]">
+                  TANDA TANGAN QUALITY DEPT (PR4-FRM-08001)
+                </div>
+                <div className="grid grid-cols-3 divide-x divide-slate-300 text-center font-bold">
+                  {/* STAFF Box */}
+                  <div className="flex flex-col justify-between h-24 p-1.5">
+                    <div className="text-[9px] text-slate-400 font-black uppercase">Staff (QC Inspector)</div>
+                    <div className="font-mono italic text-blue-600 text-xs py-1 select-none font-black rotate-[-3deg] scale-110 leading-none">
+                      {selectedNcr.foundBy ? selectedNcr.foundBy.split(" ")[1] : "Hendrik"}
+                    </div>
+                    <div className="text-[8px] text-slate-500 border-t border-slate-200 pt-1">
+                      {selectedNcr.date || "28-7-2025"}
+                    </div>
+                  </div>
+
+                  {/* SPV Box */}
+                  <div className="flex flex-col justify-between h-24 p-1.5">
+                    <div className="text-[9px] text-slate-400 font-black uppercase">SPV (QC SPV)</div>
+                    <div className="font-mono italic text-emerald-600 text-xs py-1 select-none font-black rotate-[-3deg] scale-110 leading-none">
+                      Approved (SPV)
+                    </div>
+                    <div className="text-[8px] text-slate-500 border-t border-slate-200 pt-1">
+                      {selectedNcr.date || "28-7-2025"}
+                    </div>
+                  </div>
+
+                  {/* MNG Box */}
+                  <div className="flex flex-col justify-between h-24 p-1.5">
+                    <div className="text-[9px] text-slate-400 font-black uppercase">MNG (QC Manager)</div>
+                    {selectedNcr.status === "APPROVED" || selectedNcr.status === "CLOSED" ? (
+                      <div className="font-mono italic text-indigo-600 text-xs py-1 select-none font-black rotate-[-3deg] scale-110 leading-none">
+                        Approved (MNG)
+                      </div>
+                    ) : (
+                      <div className="text-slate-350 italic text-[9px] py-2 text-slate-400 font-medium leading-tight">
+                        Menunggu MNG
+                      </div>
+                    )}
+                    <div className="text-[8px] text-slate-500 border-t border-slate-200 pt-1">
+                      {selectedNcr.status === "APPROVED" || selectedNcr.status === "CLOSED" ? selectedNcr.date : "-"}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

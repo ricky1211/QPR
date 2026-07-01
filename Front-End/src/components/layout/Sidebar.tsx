@@ -34,11 +34,11 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
       <div className="flex flex-col h-full overflow-y-auto">
         
         {/* Sidebar Header / Logo */}
-        <div className="flex items-center justify-center px-6 py-5 border-b border-slate-50 shrink-0 bg-white">
+        <div className="flex items-center justify-center px-6 h-[72px] border-b border-slate-100 shrink-0 bg-white">
           <img
-            src="/logo-mtm-icon.png"
+            src="/logo-mtm.png"
             alt="MTM Logo"
-            className="h-14 w-auto object-contain"
+            className="h-10 w-auto object-contain"
           />
         </div>
 
@@ -55,13 +55,13 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
                 <button
                   key={menu.id}
                   onClick={() => setActiveTab(menu.id)}
-                  className={`flex items-center w-full gap-3 px-3 py-2.5 text-left rounded-md transition-all duration-150 ${
+                  className={`group flex items-center w-full gap-3 px-3 py-2.5 text-left rounded-md transition-all duration-150 ${
                     isActive
                       ? "bg-blue-600 text-white shadow-lg shadow-blue-600/10"
-                      : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+                      : "text-slate-500 hover:text-white hover:bg-blue-600 hover:shadow-lg hover:shadow-blue-600/10"
                   }`}
                 >
-                  <IconComp size={18} className={isActive ? "text-white" : menu.color} />
+                  <IconComp size={18} className={isActive ? "text-white" : `${menu.color} group-hover:text-white transition-colors`} />
                   <span className="text-sm font-bold truncate">{menu.name}</span>
                 </button>
               );
@@ -82,13 +82,13 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
                 <button
                   key={menu.id}
                   onClick={() => setActiveTab(menu.id)}
-                  className={`flex items-center w-full gap-3 px-3 py-2 text-left rounded-md transition-all duration-150 ${
+                  className={`group flex items-center w-full gap-3 px-3 py-2 text-left rounded-md transition-all duration-150 ${
                     isActive
                       ? "bg-blue-600 text-white shadow-lg shadow-blue-600/10"
-                      : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+                      : "text-slate-500 hover:text-white hover:bg-blue-600 hover:shadow-lg hover:shadow-blue-600/10"
                   }`}
                 >
-                  <IconComp size={16} className={isActive ? "text-white" : "text-slate-400"} />
+                  <IconComp size={16} className={isActive ? "text-white" : "text-slate-400 group-hover:text-white transition-colors"} />
                   <span className="text-sm font-bold truncate">{menu.name}</span>
                 </button>
               );

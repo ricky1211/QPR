@@ -2,6 +2,7 @@
 export const mockSuppliers = [
   { id: 1, name: "PT JAYADI", email: "jayadi@gmail.com", code: "SUP001", phone: "08123456789", address: "Jl. Industri No. 12, Cikarang" },
   { id: 2, name: "PT IKAN BAKAR", email: "bakar@gmail.com", code: "SUP002", phone: "021-9876543", address: "Kawasan Jababeka Blok A" },
+  { id: 3, name: "SHIJIAZHUANG RUICHENG TRADE CO., LTD", email: "ruicheng@trade.com", code: "SUP003", phone: "+86-311-8588241", address: "Shijiazhuang, Hebei, China" }
 ];
 
 export const mockParts = [
@@ -13,6 +14,16 @@ export const mockParts = [
     supplierName: "PT JAYADI",
     allowanceRatio: 0.5, // 0.5%
     status: "WAITING QPR CREATION", // All NCRs closed, waiting QPR
+    hasNcrActive: false
+  },
+  {
+    id: 6,
+    partNumber: "CR-001",
+    partName: "CONE RACE ALL TYPE",
+    supplierId: 3,
+    supplierName: "SHIJIAZHUANG RUICHENG TRADE CO., LTD",
+    allowanceRatio: 1.0, // 1.0%
+    status: "WAITING QPR CREATION",
     hasNcrActive: false
   },
   {
