@@ -14,6 +14,9 @@ export default function DeptHeadView({
 
   const [selectedNcr, setSelectedNcr] = useState(null);
   const [selectedQpr, setSelectedQpr] = useState(null);
+  const [reviewComment, setReviewComment] = useState("");
+
+  const isMngApproved = selectedNcr && (selectedNcr.requiredRole === "Closed" || selectedNcr.status === "APPROVED");
 
   return (
     <div className="space-y-6">
@@ -49,7 +52,7 @@ export default function DeptHeadView({
                     </div>
                     <p className="text-[10px] text-slate-400">Supplier: {ncr.supplierName} • NG Defect: {ncr.reject} pcs</p>
                     <div className="flex gap-2 pt-1.5 border-t border-slate-100/50">
-                      <button onClick={() => setSelectedNcr(ncr)} className="flex-1 px-3 py-1.5 border border-slate-200 hover:bg-slate-100 rounded-lg text-[10px] font-bold text-slate-600 transition-all">Detail</button>
+                      <button onClick={() => { setSelectedNcr(ncr); setReviewComment(""); }} className="flex-1 px-3 py-1.5 border border-slate-200 hover:bg-slate-100 rounded-lg text-[10px] font-bold text-slate-600 transition-all">Detail</button>
                       <button onClick={() => handleApproveNcrAction(ncr.id, ncr.ncrNumber)} className="flex-1 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-[10px] font-bold shadow-sm transition-all">Approve</button>
                     </div>
                   </div>
@@ -182,53 +185,85 @@ export default function DeptHeadView({
                 </div>
                 <div className="grid grid-cols-3 divide-x divide-slate-300 text-center font-bold">
                   {/* STAFF Box */}
-                  <div className="flex flex-col justify-between h-24 p-1.5">
-                    <div className="text-[9px] text-slate-400 font-black uppercase">Staff (QC Inspector)</div>
-                    <div className="font-mono italic text-blue-600 text-xs py-1 select-none font-black rotate-[-3deg] scale-110 leading-none">
-                      {selectedNcr.foundBy ? selectedNcr.foundBy.split(" ")[1] : "Hendrik"}
+                  <div className="flex flex-col justify-between h-20 p-1">
+                    <div className="text-[8px] text-slate-400 font-black uppercase">Staff (QC Inspector)</div>
+                    <div className="flex flex-col items-center">
+                      <span className="text-slate-800 text-xs font-bold leading-none select-none">
+                        {selectedNcr.foundBy ? selectedNcr.foundBy.split(" ")[1] : "Hendrik"}
+                      </span>
+                      {selectedNcr.staffReview && (
+                        <span className="text-[8px] text-slate-505 font-normal mt-0.5 italic block max-w-[80px] truncate" title={selectedNcr.staffReview}>
+                          "{selectedNcr.staffReview}"
+                        </span>
+                      )}
                     </div>
-                    <div className="text-[8px] text-slate-500 border-t border-slate-200 pt-1">
+                    <div className="text-[8px] text-slate-500 border-t border-slate-200 pt-0.5">
                       {selectedNcr.date || "28-7-2025"}
                     </div>
                   </div>
 
                   {/* SPV Box */}
-                  <div className="flex flex-col justify-between h-24 p-1.5">
-                    <div className="text-[9px] text-slate-400 font-black uppercase">SPV (QC SPV)</div>
-                    <div className="font-mono italic text-emerald-600 text-xs py-1 select-none font-black rotate-[-3deg] scale-110 leading-none">
-                      Approved (SPV)
+                  <div className="flex flex-col justify-between h-20 p-1">
+                    <div className="text-[8px] text-slate-400 font-black uppercase">SPV (QC SPV)</div>
+                    <div className="flex flex-col items-center">
+                      <span className="text-slate-800 text-xs font-bold leading-none select-none">Approved (SPV)</span>
+                      {selectedNcr.spvReview && (
+                        <span className="text-[8px] text-slate-505 font-normal mt-0.5 italic block max-w-[80px] truncate" title={selectedNcr.spvReview}>
+                          "{selectedNcr.spvReview}"
+                        </span>
+                      )}
                     </div>
-                    <div className="text-[8px] text-slate-500 border-t border-slate-200 pt-1">
+                    <div className="text-[8px] text-slate-500 border-t border-slate-200 pt-0.5">
                       {selectedNcr.date || "28-7-2025"}
                     </div>
                   </div>
 
                   {/* MNG Box */}
-                  <div className="flex flex-col justify-between h-24 p-1.5">
-                    <div className="text-[9px] text-slate-400 font-black uppercase">MNG (QC Manager)</div>
-                    {selectedNcr.status === "APPROVED" || selectedNcr.status === "CLOSED" ? (
-                      <div className="font-mono italic text-indigo-600 text-xs py-1 select-none font-black rotate-[-3deg] scale-110 leading-none">
-                        Approved (MNG)
+                  <div className="flex flex-col justify-between h-20 p-1">
+                    <div className="text-[8px] text-slate-400 font-black uppercase">MNG (QC Manager)</div>
+                    {isMngApproved ? (
+                      <div className="flex flex-col items-center">
+                        <span className="text-slate-800 text-xs font-bold leading-none select-none">Approved (MNG)</span>
+                        {selectedNcr.mngReview && (
+                          <span className="text-[8px] text-slate-550 font-normal mt-0.5 italic block max-w-[80px] truncate" title={selectedNcr.mngReview}>
+                            "{selectedNcr.mngReview}"
+                          </span>
+                        )}
                       </div>
                     ) : (
-                      <div className="text-slate-350 italic text-[9px] py-2 text-slate-400 font-medium leading-tight">
+                      <div className="text-slate-400 italic text-[8px] py-0.5 font-medium leading-tight">
                         Menunggu MNG
                       </div>
                     )}
-                    <div className="text-[8px] text-slate-500 border-t border-slate-200 pt-1">
-                      {selectedNcr.status === "APPROVED" || selectedNcr.status === "CLOSED" ? selectedNcr.date : "-"}
+                    <div className="text-[8px] text-slate-500 border-t border-slate-200 pt-0.5">
+                      {isMngApproved ? selectedNcr.date : "-"}
                     </div>
                   </div>
                 </div>
               </div>
+
+              {/* Catatan / Review Input */}
+              <div className="space-y-1.5 text-left border-t border-slate-150 pt-3">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Review / Catatan MNG (QC Manager) <span className="text-slate-400 font-normal">(Opsional)</span>
+                </label>
+                <textarea
+                  value={reviewComment}
+                  onChange={(e) => setReviewComment(e.target.value)}
+                  placeholder="Tulis catatan review MNG di sini..."
+                  className="w-full text-xs p-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none h-14 bg-slate-50/20"
+                />
+              </div>
+
             </div>
 
             <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex justify-end gap-2">
-              <button onClick={() => setSelectedNcr(null)} className="px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-md text-xs font-bold transition-colors">Batal</button>
+              <button onClick={() => setSelectedNcr(null)} className="px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-55 rounded-md text-xs font-bold transition-colors">Batal</button>
               <button
                 onClick={() => {
-                  handleApproveNcrAction(selectedNcr.id, selectedNcr.ncrNumber);
+                  handleApproveNcrAction(selectedNcr.id, selectedNcr.ncrNumber, reviewComment);
                   setSelectedNcr(null);
+                  setReviewComment("");
                 }}
                 className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-md font-bold text-xs shadow-md shadow-amber-500/10 transition-colors cursor-pointer"
               >

@@ -27,18 +27,17 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
 
   return (
     <aside
-      className={`fixed inset-y-0 left-0 z-20 flex flex-col justify-between w-64 bg-white border-r border-slate-100 transition-transform duration-300 transform md:translate-x-0 ${
-        sidebarOpen ? "translate-x-0" : "-translate-x-full"
-      }`}
+      className={`fixed inset-y-0 left-0 z-20 flex flex-col justify-between w-64 bg-white border-r border-slate-100 transition-transform duration-300 transform md:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
     >
       <div className="flex flex-col h-full overflow-y-auto">
-        
+
         {/* Sidebar Header / Logo */}
-        <div className="flex items-center justify-center px-6 h-[72px] border-b border-slate-100 shrink-0 bg-white">
+        <div className="flex items-center justify-center px-2 h-[72px] shrink-0 bg-white">
           <img
             src="/logo-mtm.png"
             alt="MTM Logo"
-            className="h-10 w-auto object-contain"
+            className="h-[80px] w-auto object-contain"
           />
         </div>
 
@@ -55,11 +54,10 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
                 <button
                   key={menu.id}
                   onClick={() => setActiveTab(menu.id)}
-                  className={`group flex items-center w-full gap-3 px-3 py-2.5 text-left rounded-md transition-all duration-150 ${
-                    isActive
+                  className={`group flex items-center w-full gap-3 px-3 py-2.5 text-left rounded-md transition-all duration-150 ${isActive
                       ? "bg-blue-600 text-white shadow-lg shadow-blue-600/10"
                       : "text-slate-500 hover:text-white hover:bg-blue-600 hover:shadow-lg hover:shadow-blue-600/10"
-                  }`}
+                    }`}
                 >
                   <IconComp size={18} className={isActive ? "text-white" : `${menu.color} group-hover:text-white transition-colors`} />
                   <span className="text-sm font-bold truncate">{menu.name}</span>
@@ -82,11 +80,10 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
                 <button
                   key={menu.id}
                   onClick={() => setActiveTab(menu.id)}
-                  className={`group flex items-center w-full gap-3 px-3 py-2 text-left rounded-md transition-all duration-150 ${
-                    isActive
+                  className={`group flex items-center w-full gap-3 px-3 py-2 text-left rounded-md transition-all duration-150 ${isActive
                       ? "bg-blue-600 text-white shadow-lg shadow-blue-600/10"
                       : "text-slate-500 hover:text-white hover:bg-blue-600 hover:shadow-lg hover:shadow-blue-600/10"
-                  }`}
+                    }`}
                 >
                   <IconComp size={16} className={isActive ? "text-white" : "text-slate-400 group-hover:text-white transition-colors"} />
                   <span className="text-sm font-bold truncate">{menu.name}</span>
@@ -97,13 +94,7 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
         </div>
       </div>
 
-      {/* Sidebar Footer */}
-      <div className="p-4 border-t border-slate-50 shrink-0">
-        <div className="flex items-center gap-2.5 p-2 bg-slate-50 rounded-md border border-slate-100">
-          <div className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse shrink-0"></div>
-          <span className="text-xs font-bold text-slate-600">Simulasi Sistem Aktif</span>
-        </div>
-      </div>
+
     </aside>
   );
 }

@@ -106,7 +106,7 @@ export default function Home() {
   };
 
   // Perform NCR Approval Action
-  const handleApproveNcrAction = (id, ncrNum) => {
+  const handleApproveNcrAction = (id, ncrNum, reviewComment = "") => {
     let alertMsg = "";
     let notifMsg = "";
     
@@ -116,15 +116,15 @@ export default function Home() {
           if (n.requiredRole === "Foreman") {
             alertMsg = `Sukses: NCR ${ncrNum} disetujui oleh Foreman dan diteruskan ke Section Head!`;
             notifMsg = `NCR ${ncrNum} disetujui oleh Foreman dan diteruskan ke Section Head.`;
-            return { ...n, requiredRole: "Section Head" };
+            return { ...n, requiredRole: "Section Head", staffReview: reviewComment || n.staffReview };
           } else if (n.requiredRole === "Section Head") {
             alertMsg = `Sukses: NCR ${ncrNum} disetujui oleh Section Head dan diteruskan ke Dept Head!`;
             notifMsg = `NCR ${ncrNum} disetujui oleh Section Head dan diteruskan ke Dept Head.`;
-            return { ...n, requiredRole: "Dept Head" };
+            return { ...n, requiredRole: "Dept Head", spvReview: reviewComment || n.spvReview };
           } else if (n.requiredRole === "Dept Head") {
             alertMsg = `Sukses: NCR ${ncrNum} disetujui sepenuhnya oleh Dept Head!`;
             notifMsg = `NCR ${ncrNum} telah disetujui sepenuhnya oleh Dept Head.`;
-            return null;
+            return { ...n, requiredRole: "Closed", status: "APPROVED", mngReview: reviewComment || n.mngReview };
           }
         }
         return n;
@@ -139,7 +139,7 @@ export default function Home() {
       };
       setNotifications(prevNotifs => [newNotif, ...prevNotifs]);
       if (alertMsg) alert(alertMsg);
-
+ 
       return updated;
     });
   };

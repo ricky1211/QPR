@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
-import { CheckCircle2, AlertTriangle, X, FileSignature, ChevronDown, Calendar, Edit2, Check } from "lucide-react";
+import React, { useState, useRef } from "react";
+import { CheckCircle2, AlertTriangle, X, FileSignature, ChevronDown, Calendar, Eye } from "lucide-react";
 
 export default function OperatorView({
   pendingNcrs,
@@ -16,52 +16,78 @@ export default function OperatorView({
     { id: 3, name: "SHIJIAZHUANG RUICHENG TRADE CO., LTD", code: "SPL-SRC" }
   ];
 
-  const parts = [
+  const [parts, setParts] = useState([
     { id: 1, partNumber: "MB-001", partName: "Motherboard X1", supplierId: 1 },
     { id: 2, partNumber: "GL-001", partName: "Gelas Kaca", supplierId: 1 },
     { id: 3, partNumber: "HD-002", partName: "Harddisk 1TB", supplierId: 2 },
     { id: 4, partNumber: "CP-003", partName: "CPU Fan Cooler", supplierId: 2 },
     { id: 5, partNumber: "CR-001", partName: "CONE RACE ALL TYPE", supplierId: 3 }
-  ];
+  ]);
 
   // Step 1: Pre-selection States (Date - global for batch)
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
   
-  // Step 2: Form States (Supplier, Part, Qty, and NG)
+  // Step 2: Form States (Supplier, Part inputRows)
   const [supplierId, setSupplierId] = useState<number | "">("");
-  const [partId, setPartId] = useState<number | string>("");
-  const [qtyNG, setQtyNG] = useState("");
-  const [ngTypes, setNgTypes] = useState("");
+  const [inputRows, setInputRows] = useState<Array<{ id: number; partId: string | number; qtyNG: string; ngTypes: string; isManualNg?: boolean }>>([
+    { id: Date.now(), partId: "", qtyNG: "", ngTypes: "", isManualNg: false }
+  ]);
 
   // Expanded fields from manual NCR form for Speed & Digitalization
-  const [locationFound, setLocationFound] = useState<string[]>(["IN-COMING"]);
-  const [problemType, setProblemType] = useState<string[]>(["QUALITY"]);
+  const [locationFound, setLocationFound] = useState<string[]>([]);
+  const [problemType, setProblemType] = useState<string[]>([]);
   const [foundBy, setFoundBy] = useState("MR. HENDRIK (QC INC.)");
   const [description, setDescription] = useState("");
-  const [disposition, setDisposition] = useState<string[]>(["RETURN TO VENDOR"]);
-  const [customerApproval, setCustomerApproval] = useState("YES");
-  const [docsToRevise, setDocsToRevise] = useState<string[]>(["CONTROL PLAN", "CHECK SHEET"]);
+  const [disposition, setDisposition] = useState<string[]>([]);
+  const [customerApproval, setCustomerApproval] = useState("");
+  const [docsToRevise, setDocsToRevise] = useState<string[]>([]);
 
-  // Step 3: Batch Items List State
+  // Local state for NCR history sent during this session
   const [items, setItems] = useState<any[]>([]);
+
+  // Filter parts based on selected supplier, and exclude parts already sent to approval in this session
+  const filteredParts = supplierId
+    ? parts
+        .filter((p) => p.supplierId === supplierId)
+        .filter((p) => !items.some((item) => item.partNumber === p.partNumber))
+    : [];
+
+  const getFilteredPartsForRow = (currentRowId: number) => {
+    return filteredParts.filter(
+      (p) => !inputRows.some((row) => row.id !== currentRowId && String(row.partId) === String(p.id))
+    );
+  };
 
   // UI state
   const [qtyError, setQtyError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successNcrNumber, setSuccessNcrNumber] = useState<string | null>(null);
+  const [selectedReviewNcr, setSelectedReviewNcr] = useState<any | null>(null);
 
-  // Row editing row ID state
-  const [editingRowId, setEditingRowId] = useState<number | null>(null);
-
-  // Filter parts based on selected supplier
-  const filteredParts = supplierId
-    ? parts.filter((p) => p.supplierId === supplierId && (editingRowId !== null || !items.some((item) => item.partId === p.id)))
-    : [];
+  const isStaffApproved = selectedReviewNcr && (selectedReviewNcr.requiredRole === "Section Head" || selectedReviewNcr.requiredRole === "Dept Head" || selectedReviewNcr.requiredRole === "Closed" || selectedReviewNcr.status === "APPROVED");
+  const isSpvApproved = selectedReviewNcr && (selectedReviewNcr.requiredRole === "Dept Head" || selectedReviewNcr.requiredRole === "Closed" || selectedReviewNcr.status === "APPROVED");
+  const isMngApproved = selectedReviewNcr && (selectedReviewNcr.requiredRole === "Closed" || selectedReviewNcr.status === "APPROVED");
 
   const selectedSupplier = suppliers.find(s => s.id === supplierId);
-  const selectedPart = parts.find(p => p.id === parseInt(String(partId)));
 
-  const isSubmitEnabled = items.length > 0 && !isSubmitting;
+  const addNewRow = () => {
+    setInputRows([
+      ...inputRows,
+      { id: Date.now() + Math.random(), partId: "", qtyNG: "", ngTypes: "", isManualNg: false }
+    ]);
+  };
+
+  const removeRow = (id: number) => {
+    if (inputRows.length > 1) {
+      setInputRows(inputRows.filter((r) => r.id !== id));
+    }
+  };
+
+  const updateRowField = (id: number, field: string, value: any) => {
+    setInputRows((prev) =>
+      prev.map((row) => (row.id === id ? { ...row, [field]: value } : row))
+    );
+  };
 
   // Refs for Date picker trigger
   const dateInputRef = useRef(null);
@@ -104,243 +130,141 @@ export default function OperatorView({
     }
   };
 
-  // Add or Update Item in batch list
-  const handleAddItem = () => {
-    if (!supplierId || !partId || !qtyNG || !ngTypes) return;
+  // Directly send data to NCR Approval (Picu Alur NCR)
+  const handleDirectSend = () => {
+    if (!supplierId) return;
     
-    const qty = parseInt(qtyNG) || 0;
-    if (qty <= 0) {
-      setQtyError("Qty NG harus lebih besar dari 0");
+    // Filter out rows that are not fully filled
+    const activeRows = inputRows.filter(row => row.partId && row.qtyNG && row.ngTypes);
+    if (activeRows.length === 0) {
+      setQtyError("Harap isi setidaknya satu baris part dengan lengkap!");
       return;
     }
 
-    const currentSupplier = suppliers.find((s) => s.id === parseInt(String(supplierId)));
-    const currentPart = parts.find((p) => p.id === parseInt(String(partId)));
-    if (!currentSupplier || !currentPart) return;
-
-    if (editingRowId !== null) {
-      // Update existing item in batch
-      setItems((prev) =>
-        prev.map((item) =>
-          item.id === editingRowId
-            ? {
-                ...item,
-                supplierId: parseInt(String(supplierId)),
-                supplierName: currentSupplier.name,
-                partId: parseInt(String(partId)),
-                partNumber: currentPart.partNumber,
-                partName: currentPart.partName,
-                qty: qty,
-                reject: ngTypes.trim().toUpperCase(),
-                locationFound: locationFound,
-                problemType: problemType,
-                foundBy: foundBy,
-                description: description,
-                disposition: disposition,
-                customerApproval: customerApproval,
-                docsToRevise: docsToRevise
-              }
-            : item
-        )
-      );
-      setEditingRowId(null);
-    } else {
-      // Add new item to batch
-      const newItem = {
-        id: Date.now(),
-        supplierId: parseInt(String(supplierId)),
-        supplierName: currentSupplier.name,
-        partId: parseInt(String(partId)),
-        partNumber: currentPart.partNumber,
-        partName: currentPart.partName,
-        qty: qty,
-        reject: ngTypes.trim().toUpperCase(),
-        locationFound: locationFound,
-        problemType: problemType,
-        foundBy: foundBy,
-        description: description,
-        disposition: disposition,
-        customerApproval: customerApproval,
-        docsToRevise: docsToRevise
-      };
-      setItems((prev) => [...prev, newItem]);
+    if (locationFound.length === 0) {
+      setQtyError("Harap pilih setidaknya satu Location Found!");
+      return;
+    }
+    if (problemType.length === 0) {
+      setQtyError("Harap pilih setidaknya satu Problem Type!");
+      return;
+    }
+    if (disposition.length === 0) {
+      setQtyError("Harap pilih Keputusan Disposisi!");
+      return;
+    }
+    if (!customerApproval) {
+      setQtyError("Harap tentukan apakah Customer Approval diperlukan!");
+      return;
     }
 
-    // Reset inputs to default values
-    setSupplierId("");
-    setPartId("");
-    setQtyNG("");
-    setNgTypes("");
-    setLocationFound(["IN-COMING"]);
-    setProblemType(["QUALITY"]);
-    setFoundBy("MR. HENDRIK (QC INC.)");
-    setDescription("");
-    setDisposition(["RETURN TO VENDOR"]);
-    setCustomerApproval("YES");
-    setDocsToRevise(["CONTROL PLAN", "CHECK SHEET"]);
-    setQtyError(null);
-  };
-
-  // Remove Item from batch list
-  const handleRemoveItem = (id) => {
-    if (editingRowId === id) {
-      handleCancelEdit();
-    }
-    setItems((prev) => prev.filter((item) => item.id !== id));
-  };
-
-  // Load item into form fields for editing
-  const handleStartEdit = (item) => {
-    setEditingRowId(item.id);
-    setSupplierId(item.supplierId);
-    setPartId(item.partId);
-    setQtyNG(String(item.qty));
-    setNgTypes(String(item.reject));
-    setLocationFound(Array.isArray(item.locationFound) ? item.locationFound : [item.locationFound]);
-    setProblemType(Array.isArray(item.problemType) ? item.problemType : [item.problemType]);
-    setFoundBy(item.foundBy);
-    setDescription(item.description);
-    setDisposition(Array.isArray(item.disposition) ? item.disposition : [item.disposition]);
-    setCustomerApproval(item.customerApproval);
-    setDocsToRevise(item.docsToRevise);
-    setQtyError(null);
-  };
-
-  // Cancel edit mode and clear form
-  const handleCancelEdit = () => {
-    setEditingRowId(null);
-    setSupplierId("");
-    setPartId("");
-    setQtyNG("");
-    setNgTypes("");
-    setLocationFound(["IN-COMING"]);
-    setProblemType(["QUALITY"]);
-    setFoundBy("MR. HENDRIK (QC INC.)");
-    setDescription("");
-    setDisposition(["RETURN TO VENDOR"]);
-    setCustomerApproval("YES");
-    setDocsToRevise(["CONTROL PLAN", "CHECK SHEET"]);
-    setQtyError(null);
-  };
-
-  // Form submit handler
-  const handleFormSubmit = (e) => {
-    e.preventDefault();
-
-    let submissionItems = [...items];
-    if (submissionItems.length === 0) {
-      if (supplierId && partId && qtyNG && ngTypes) {
-        const qty = parseInt(qtyNG) || 0;
-        if (qty > 0) {
-          const currentSupplier = suppliers.find((s) => s.id === parseInt(String(supplierId)));
-          const currentPart = parts.find((p) => p.id === parseInt(String(partId)));
-          if (currentSupplier && currentPart) {
-            submissionItems.push({
-              id: Date.now(),
-              supplierId: parseInt(String(supplierId)),
-              supplierName: currentSupplier.name,
-              partId: parseInt(String(partId)),
-              partNumber: currentPart.partNumber,
-              partName: currentPart.partName,
-              qty: qty,
-              reject: ngTypes.trim().toUpperCase(),
-              locationFound: locationFound,
-              problemType: problemType,
-              foundBy: foundBy,
-              description: description,
-              disposition: disposition,
-              customerApproval: customerApproval,
-              docsToRevise: docsToRevise
-            });
-          }
-        }
+    // Validate quantities for all active rows
+    for (const row of activeRows) {
+      const qty = parseInt(row.qtyNG) || 0;
+      if (qty <= 0) {
+        setQtyError(`Qty NG untuk part ${parts.find(p => p.id === parseInt(String(row.partId)))?.partName || ""} harus lebih besar dari 0`);
+        return;
       }
     }
 
-    if (!selectedDate || submissionItems.length === 0) return;
+    const currentSupplier = suppliers.find((s) => s.id === parseInt(String(supplierId)));
+    if (!currentSupplier) return;
 
     setIsSubmitting(true);
-    
-    // Simulate API request delay
-    setTimeout(() => {
-      const newNcrs = [];
-      const newNotifs = [];
-      const ncrNumbers = [];
+    setQtyError(null);
 
-      submissionItems.forEach((item, index) => {
-        const ncrNum = `NCR/2026/06/SIM-${Math.floor(100 + Math.random() * 900)}`;
-        ncrNumbers.push(ncrNum);
+    // Simulate API submission
+    setTimeout(() => {
+      const newNcrs: any[] = [];
+      const newNotifs: any[] = [];
+
+      activeRows.forEach((row, index) => {
+        const currentPart = parts.find((p) => p.id === parseInt(String(row.partId)));
+        if (!currentPart) return;
+
+        const ncrNum = `NCR/2026/06/SIM-${Math.floor(100 + Math.random() * 900) + index}`;
+        const qty = parseInt(row.qtyNG) || 0;
 
         const newNcr = {
           id: Date.now() + index,
           ncrNumber: ncrNum,
           date: selectedDate,
-          partNumber: item.partNumber,
-          partName: item.partName,
-          supplierName: item.supplierName,
-          qty: item.qty, // this is Qty NG
-          reject: item.reject, // this is NG Types
-          locationFound: Array.isArray(item.locationFound) ? item.locationFound.join(", ") : item.locationFound,
-          problemType: Array.isArray(item.problemType) ? item.problemType.join(", ") : item.problemType,
-          foundBy: item.foundBy,
-          defectType: item.description || "Quality defect found",
-          disposition: Array.isArray(item.disposition) ? item.disposition.join(", ") : item.disposition,
-          customerApproval: item.customerApproval,
-          docsToRevise: item.docsToRevise.join(", "),
+          partNumber: currentPart.partNumber,
+          partName: currentPart.partName,
+          supplierName: currentSupplier.name,
+          qty: qty, // Qty NG
+          reject: row.ngTypes.trim().toUpperCase(), // NG Types
+          locationFound: Array.isArray(locationFound) ? locationFound.join(", ") : locationFound,
+          problemType: Array.isArray(problemType) ? problemType.join(", ") : problemType,
+          foundBy: foundBy,
+          defectType: description || "Quality defect found",
+          disposition: Array.isArray(disposition) ? disposition.join(", ") : disposition,
+          customerApproval: customerApproval,
+          docsToRevise: docsToRevise.join(", "),
           status: "WAITING_APPROVAL",
           requiredRole: "Foreman"
         };
+
         newNcrs.push(newNcr);
 
-        const newNotif = {
-          id: Date.now() + index + 100,
-          message: `NCR Baru ${ncrNum} berhasil dibuat secara manual oleh Operator untuk ${item.partName} (${item.supplierName}).`,
+        // Generate notifications
+        newNotifs.push({
+          id: Date.now() + 100 + index,
+          message: `NCR Baru ${ncrNum} berhasil dibuat secara manual oleh Operator untuk ${currentPart.partName} (${currentSupplier.name}).`,
           time: "Baru saja",
           type: "success",
           unread: true
-        };
-        newNotifs.push(newNotif);
+        });
 
-        const ccNotif = {
-          id: Date.now() + index + 200,
-          message: `[CC PPIC/Purchase] Dokumen NCR Baru ${ncrNum} untuk supplier ${item.supplierName} (Part: ${item.partName}) telah otomatis diteruskan ke bagian PPIC & Purchasing PT MTM.`,
+        newNotifs.push({
+          id: Date.now() + 200 + index,
+          message: `[CC PPIC/Purchase] Dokumen NCR Baru ${ncrNum} untuk supplier ${currentSupplier.name} (Part: ${currentPart.partName}) telah otomatis diteruskan ke bagian PPIC & Purchasing PT MTM.`,
           time: "Baru saja",
           type: "info",
           unread: true
-        };
-        newNotifs.push(ccNotif);
+        });
       });
 
+      // 1. Send directly to pending Ncrs (Approval)
       setPendingNcrs((prev) => [...newNcrs, ...prev]);
+
+      // 2. Generate notifications
       setNotifications((prev) => [...newNotifs, ...prev]);
 
-      // Reset form, items & steps
-      setSupplierId("");
-      setPartId("");
-      setQtyNG("");
-      setNgTypes("");
-      setLocationFound(["IN-COMING"]);
-      setProblemType(["QUALITY"]);
+      // 3. Add to items history for review
+      setItems((prev) => [
+        ...newNcrs.map(ncr => ({
+          ...ncr,
+          locationFound: locationFound,
+          problemType: problemType,
+          disposition: disposition,
+          docsToRevise: docsToRevise
+        })),
+        ...prev
+      ]);
+
+      // Reset input rows, keep date & supplier
+      setInputRows([{ id: Date.now(), partId: "", qtyNG: "", ngTypes: "", isManualNg: false }]);
+      setLocationFound([]);
+      setProblemType([]);
       setFoundBy("MR. HENDRIK (QC INC.)");
       setDescription("");
-      setDisposition(["RETURN TO VENDOR"]);
-      setCustomerApproval("YES");
-      setDocsToRevise(["CONTROL PLAN", "CHECK SHEET"]);
-      setItems([]);
-      setEditingRowId(null);
-      setSelectedDate(new Date().toISOString().split("T")[0]);
+      setDisposition([]);
+      setCustomerApproval("");
+      setDocsToRevise([]);
+      setQtyError(null);
 
-      // Show success alert
+      // Show success alert toast
       setIsSubmitting(false);
-      setSuccessNcrNumber(ncrNumbers.join(", "));
-    }, 1500);
+      setSuccessNcrNumber(newNcrs[0]?.ncrNumber || "BATCH-SUCCESS");
+    }, 800);
   };
 
-  const isStepComplete = !!selectedDate;
+  const isStepComplete = !!selectedDate && !!supplierId;
 
-  // Render Date selector at the top
+  // Render Date selector and Supplier selector at the top
   const renderSelectionCards = () => (
-    <div className="grid grid-cols-1 gap-6 w-full">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
       {/* Date Picker Selector */}
       <div className="relative w-full">
         <button
@@ -366,6 +290,38 @@ export default function OperatorView({
           className="absolute opacity-0 pointer-events-none w-0 h-0"
         />
       </div>
+
+      {/* Supplier Card Selector */}
+      <div className="relative w-full">
+        <div className="w-full bg-white border border-slate-100 rounded-xl p-5 shadow-sm flex justify-between items-center transition-all hover:border-slate-200 hover:bg-slate-50/50 cursor-pointer">
+          <div className="overflow-hidden flex-1">
+            <span className="text-sm font-extrabold text-slate-800 block truncate">
+              {selectedSupplier ? `${selectedSupplier.name} (${selectedSupplier.code})` : "Pilih Supplier..."}
+            </span>
+            <span className="text-[10px] font-bold text-slate-400 block mt-1 uppercase tracking-wider">
+              Supplier / Vendor
+            </span>
+          </div>
+          <ChevronDown size={18} className="text-slate-400 shrink-0 ml-2" />
+
+          {/* Invisible select covering the entire card to trigger dropdown */}
+          <select
+            value={supplierId}
+            onChange={(e) => {
+              setSupplierId(e.target.value ? parseInt(e.target.value) : "");
+              setInputRows([{ id: Date.now(), partId: "", qtyNG: "", ngTypes: "", isManualNg: false }]);
+            }}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+          >
+            <option value="">Pilih Supplier...</option>
+            {suppliers.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name} ({s.code})
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
     </div>
   );
 
@@ -375,12 +331,12 @@ export default function OperatorView({
       {/* Success Notification Alert */}
       {successNcrNumber && (
         <div className="p-4 bg-emerald-50 border border-emerald-150 rounded-lg shadow-sm flex items-start justify-between gap-3 animate-blink">
-          <div className="flex items-start gap-3">
+          <div className="flex items-start gap-3 text-left">
             <CheckCircle2 className="text-emerald-600 shrink-0 mt-0.5" size={20} />
             <div>
-              <p className="text-sm font-bold text-emerald-800">Dokumen NCR Berhasil Diterbitkan!</p>
+              <p className="text-sm font-bold text-emerald-800">Laporan NCR Langsung Dikirim ke Approval!</p>
               <p className="text-xs text-emerald-600 mt-1">
-                Surat penolakan kualitas <strong className="font-bold">{successNcrNumber}</strong> telah dicatat oleh sistem dan diteruskan ke <strong>Foreman</strong> untuk persetujuan.
+                Laporan penolakan kualitas <strong className="font-bold">{successNcrNumber}</strong> telah berhasil diterbitkan dan masuk ke daftar approval <strong>STAFF / SPV</strong>.
               </p>
             </div>
           </div>
@@ -395,22 +351,22 @@ export default function OperatorView({
         <h4 className="text-lg font-black text-slate-800">Mulai Pembuatan Laporan NCR</h4>
       </div>
 
-      {/* Selectors Block (Date Picker) */}
+      {/* Selectors Block (Date & Supplier Picker) */}
       {renderSelectionCards()}
 
-      {/* Step 2 Form Details: Rendered when date is filled */}
+      {/* Step 2 Form Details: Rendered when date & supplier are selected */}
       {isStepComplete && (
-        <form onSubmit={handleFormSubmit} className="space-y-6 animate-slide-up">
+        <div className="space-y-6 animate-slide-up">
           <div className="bg-white border border-slate-100 rounded-xl p-6 shadow-sm space-y-5">
             <div className="border-b border-slate-100 pb-3 flex justify-between items-center bg-slate-50/10">
               <div className="flex items-center gap-2">
                 <FileSignature size={18} className="text-blue-500" />
                 <h4 className="text-sm font-black text-slate-800">
-                  {editingRowId !== null ? "Edit Data Temuan & Disposisi Part" : "Rincian Laporan Defect (NCR)"}
+                  Rincian Laporan Defect (NCR)
                 </h4>
               </div>
               <span className="px-2 py-0.5 bg-blue-50 text-blue-700 text-[9px] font-black rounded uppercase">
-                {editingRowId !== null ? "Edit Mode" : "Form Wajib"}
+                Form Wajib
               </span>
             </div>
 
@@ -421,105 +377,159 @@ export default function OperatorView({
                   <span className="text-slate-400 block font-bold">Tanggal Defect:</span>
                   <span className="text-slate-800 font-bold mt-0.5 block">{formatDateFriendly(selectedDate)}</span>
                 </div>
+                <div>
+                  <span className="text-slate-400 block font-bold">Supplier Terpilih:</span>
+                  <span className="text-blue-600 font-black mt-0.5 block">{selectedSupplier?.name}</span>
+                </div>
               </div>
             </div>
 
-            {/* Form Fields: Supplier & Part Selection */}
-            <div className="space-y-4 p-4 bg-slate-50/50 border border-slate-100 rounded-xl">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1 text-left">
-                {editingRowId !== null ? "Ubah Part & Supplier" : "Pilih Supplier & Part / Barang"}
-              </span>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Supplier select */}
-                <div className="space-y-1.5 text-left">
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Supplier / Vendor <span className="text-red-500">*</span></label>
-                  <select
-                    value={supplierId}
-                    onChange={(e) => {
-                      setSupplierId(e.target.value ? parseInt(e.target.value) : "");
-                      setPartId(""); // Reset part when supplier changes
-                    }}
-                    className="w-full px-4 py-2.5 text-xs border border-slate-200 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white font-bold text-slate-800 cursor-pointer"
-                  >
-                    <option value="">-- Pilih Supplier --</option>
-                    {suppliers.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name} ({s.code})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Part select */}
-                <div className="space-y-1.5 text-left">
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Part / Barang <span className="text-red-500">*</span></label>
-                  <select
-                    value={partId}
-                    onChange={(e) => setPartId(e.target.value)}
-                    disabled={!supplierId}
-                    className="w-full px-4 py-2.5 text-xs border border-slate-200 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white font-bold text-slate-800 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed cursor-pointer"
-                  >
-                    <option value="">{supplierId ? "-- Pilih Part / Barang --" : "-- Pilih Supplier Dahulu --"}</option>
-                    {filteredParts.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        [{p.partNumber}] {p.partName}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+            {/* Form Fields: Part Selection, Qty, and NG Types in a bordered table structure matching Excel/sketch */}
+            <div className="space-y-4 p-4 bg-slate-50/50 border border-slate-100 rounded-xl text-left">
+              <div className="flex justify-between items-center mb-1">
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
+                  Input Detail Defect
+                </span>
+                
+                {/* Fitur Part: Add Row button on top-right of the card */}
+                <button
+                  type="button"
+                  onClick={addNewRow}
+                  disabled={!supplierId}
+                  className={`px-2.5 py-1 border rounded-md text-[11px] font-bold transition-all flex items-center hover:scale-102 active:scale-98 shadow-sm/5 ${
+                    !supplierId
+                      ? "bg-slate-150 text-slate-400 border-slate-200 cursor-not-allowed"
+                      : "bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100 cursor-pointer"
+                  }`}
+                >
+                  + Tambah Part
+                </button>
               </div>
 
-              {/* Qty NG vs NG Types */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left">
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Qty NG <span className="text-red-500">*</span></label>
-                  <input
-                    type="number"
-                    min="1"
-                    placeholder="Contoh: 75000"
-                    value={qtyNG}
-                    onChange={(e) => setQtyNG(e.target.value)}
-                    className="w-full px-4 py-2 text-xs border border-slate-200 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-slate-400/50 bg-white text-slate-800 font-bold"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">NG Types <span className="text-red-500">*</span></label>
-                  <input
-                    type="text"
-                    placeholder="Contoh: NG DENT, UNDERFILL"
-                    value={ngTypes}
-                    onChange={(e) => setNgTypes(e.target.value)}
-                    className="w-full px-4 py-2 text-xs border border-slate-200 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-slate-400/50 bg-white text-slate-800 font-bold uppercase"
-                  />
-                  
-                  {/* Defect Quick Tags helper for NG Types */}
-                  <div className="flex flex-wrap gap-1.5 mt-1.5">
-                    {["NG Dent", "Underfill", "Over Machining", "Dent & Underfill", "No Power"].map((tag) => (
-                      <button
-                        key={tag}
-                        type="button"
-                        onClick={() => {
-                          const formattedTag = tag.toUpperCase();
-                          const newText = ngTypes ? `${ngTypes}, ${formattedTag}` : formattedTag;
-                          setNgTypes(newText);
-                        }}
-                        className="px-2.5 py-1 bg-slate-100 hover:bg-slate-205 text-slate-750 rounded text-[10px] font-bold cursor-pointer transition-all active:scale-95 border border-slate-200"
-                      >
-                        + {tag}
-                      </button>
-                    ))}
-                    {ngTypes && (
-                      <button
-                        type="button"
-                        onClick={() => setNgTypes("")}
-                        className="px-2 py-0.5 text-[9px] font-bold text-red-500 hover:underline cursor-pointer"
-                      >
-                        Clear
-                      </button>
-                    )}
-                  </div>
-                </div>
+              {/* Table Input Row */}
+              <div className="border border-slate-400 rounded-lg overflow-hidden shadow-sm bg-white">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-100 border-b border-slate-400 text-slate-900 font-extrabold text-center">
+                      <th className="px-3 py-2.5 border-r border-slate-400 w-5/12 text-center uppercase tracking-wider">
+                        Pilih Part
+                      </th>
+                      <th className="px-3 py-2.5 border-r border-slate-400 w-2/12 text-center uppercase tracking-wider">
+                        Qty NG
+                      </th>
+                      <th className={`px-3 py-2.5 text-center uppercase tracking-wider ${
+                        inputRows.length > 1 ? "border-r border-slate-400 w-4/12" : "w-5/12"
+                      }`}>
+                        NG Type
+                      </th>
+                      {inputRows.length > 1 && (
+                        <th className="px-3 py-2.5 w-1/12 text-center uppercase tracking-wider">
+                          Hapus
+                        </th>
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {inputRows.map((row) => {
+                      const rowFilteredParts = getFilteredPartsForRow(row.id);
+                      return (
+                        <tr key={row.id} className="border-t border-slate-400">
+                          {/* 1. Pilih Part Select Box */}
+                          <td className="p-0 border-r border-slate-400">
+                            <select
+                              value={row.partId}
+                              onChange={(e) => updateRowField(row.id, "partId", e.target.value)}
+                              disabled={!supplierId}
+                              className="w-full px-3 py-2.5 text-xs bg-transparent font-bold text-slate-800 focus:outline-none focus:ring-0 focus:ring-offset-0 disabled:text-slate-400 cursor-pointer border-0"
+                            >
+                              <option value="">-- Pilih Part / Barang --</option>
+                              {rowFilteredParts.map((p) => (
+                                <option key={p.id} value={p.id}>
+                                  [{p.partNumber}] {p.partName}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+
+                          {/* 2. Qty NG Input */}
+                          <td className="p-0 border-r border-slate-400">
+                            <input
+                              type="number"
+                              min="1"
+                              placeholder="75000"
+                              value={row.qtyNG}
+                              onChange={(e) => updateRowField(row.id, "qtyNG", e.target.value)}
+                              className="w-full px-3 py-2.5 text-xs bg-transparent text-center focus:outline-none focus:ring-0 focus:ring-offset-0 placeholder-slate-400/55 text-slate-800 font-bold border-0"
+                            />
+                          </td>
+
+                          {/* 3. NG Type Select or Input */}
+                          <td className={`p-0 ${inputRows.length > 1 ? "border-r border-slate-400" : ""}`}>
+                            {row.isManualNg ? (
+                              <div className="relative w-full flex items-center pr-10">
+                                <input
+                                  type="text"
+                                  placeholder="KETIK JENIS NG MANUAL..."
+                                  value={row.ngTypes}
+                                  onChange={(e) => updateRowField(row.id, "ngTypes", e.target.value)}
+                                  className="w-full px-3 py-2.5 text-xs bg-transparent font-bold text-slate-800 focus:outline-none focus:ring-0 focus:ring-offset-0 border-0 uppercase"
+                                  autoFocus
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    updateRowField(row.id, "isManualNg", false);
+                                    updateRowField(row.id, "ngTypes", "");
+                                  }}
+                                  className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-black text-blue-600 hover:text-blue-800 transition-colors uppercase cursor-pointer"
+                                  title="Kembali ke Pilihan Dropdown"
+                                >
+                                  List
+                                </button>
+                              </div>
+                            ) : (
+                              <select
+                                value={row.ngTypes}
+                                onChange={(e) => {
+                                  if (e.target.value === "MANUAL_INPUT") {
+                                    updateRowField(row.id, "isManualNg", true);
+                                    updateRowField(row.id, "ngTypes", "");
+                                  } else {
+                                    updateRowField(row.id, "ngTypes", e.target.value);
+                                  }
+                                }}
+                                disabled={!row.partId}
+                                className="w-full px-3 py-2.5 text-xs bg-transparent font-bold text-slate-800 focus:outline-none focus:ring-0 focus:ring-offset-0 disabled:text-slate-400 cursor-pointer border-0"
+                              >
+                                <option value="">PILIH JENIS NG...</option>
+                                <option value="MANUAL_INPUT" className="text-blue-600 font-extrabold bg-blue-50">+ Ketik Manual...</option>
+                                <option value="NG DENT">NG DENT</option>
+                                <option value="UNDERFILL">UNDERFILL</option>
+                                <option value="OVER MACHINING">OVER MACHINING</option>
+                                <option value="DENT & UNDERFILL">DENT & UNDERFILL</option>
+                                <option value="NO POWER">NO POWER</option>
+                              </select>
+                            )}
+                          </td>
+
+                          {/* 4. Action/Delete Button */}
+                          {inputRows.length > 1 && (
+                            <td className="p-0 text-center">
+                              <button
+                                type="button"
+                                onClick={() => removeRow(row.id)}
+                                className="w-full py-2.5 text-red-500 hover:text-red-700 font-extrabold text-sm transition-colors flex items-center justify-center cursor-pointer"
+                                title="Hapus baris part ini"
+                              >
+                                <X size={14} className="stroke-[3]" />
+                              </button>
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
 
               {qtyError && (
@@ -570,16 +580,12 @@ export default function OperatorView({
                     {["QUALITY", "QUANTITY"].map((prob) => {
                       const isChecked = problemType.includes(prob);
                       return (
-                        <label key={prob} className="flex items-center gap-2 px-2 py-1 hover:bg-slate-50 rounded cursor-pointer text-[10px] font-bold text-slate-705 border border-slate-100">
+                        <label key={prob} className="flex items-center gap-2 px-2 py-1 hover:bg-slate-55 rounded cursor-pointer text-[10px] font-bold text-slate-705 border border-slate-100">
                           <input
                             type="checkbox"
                             checked={isChecked}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setProblemType([...problemType, prob]);
-                              } else {
-                                setProblemType(problemType.filter((p) => p !== prob));
-                              }
+                            onChange={() => {
+                              setProblemType([prob]);
                             }}
                             className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
                           />
@@ -623,7 +629,7 @@ export default function OperatorView({
                         const newText = description ? `${description}, ${tag}` : tag;
                         setDescription(newText);
                       }}
-                      className="px-2.5 py-1 bg-slate-100 hover:bg-slate-205 text-slate-750 rounded text-[10px] font-bold cursor-pointer transition-all active:scale-95 border border-slate-200"
+                      className="px-2.5 py-1 bg-slate-100 hover:bg-slate-205 text-slate-755 rounded text-[10px] font-bold cursor-pointer transition-all active:scale-95 border border-slate-200"
                     >
                       + {tag}
                     </button>
@@ -640,7 +646,7 @@ export default function OperatorView({
                 </div>
 
                 <textarea
-                  placeholder="Ketik detail temuan defect di sini atau gunakan tag di atas..."
+                  placeholder="Ketik detail temuan defect di sini or gunakan tag di atas..."
                   rows={2}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
@@ -659,12 +665,8 @@ export default function OperatorView({
                         <input
                           type="checkbox"
                           checked={isChecked}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setDisposition([...disposition, disp]);
-                            } else {
-                              setDisposition(disposition.filter((d) => d !== disp));
-                            }
+                          onChange={() => {
+                            setDisposition([disp]);
                           }}
                           className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
                         />
@@ -707,12 +709,8 @@ export default function OperatorView({
                         <input
                           type="checkbox"
                           checked={isChecked}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setDocsToRevise([...docsToRevise, doc]);
-                            } else {
-                              setDocsToRevise(docsToRevise.filter(d => d !== doc));
-                            }
+                          onChange={() => {
+                            setDocsToRevise([doc]);
                           }}
                           className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
                         />
@@ -724,113 +722,89 @@ export default function OperatorView({
               </div>
             </div>
 
-            {/* Tambah / Update Action buttons */}
+            {/* Batch Submit Button */}
             <div className="flex justify-end gap-3 pt-2">
-              {editingRowId !== null ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={handleCancelEdit}
-                    className="px-5 py-2.5 rounded-md font-bold text-xs bg-slate-100 hover:bg-slate-202 text-slate-700 transition-all border border-slate-250 cursor-pointer"
-                  >
-                    Batal Edit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleAddItem}
-                    disabled={!supplierId || !partId || !qtyNG || !ngTypes || !!qtyError}
-                    className="px-5 py-2.5 rounded-md font-bold text-xs bg-emerald-600 hover:bg-emerald-750 text-white shadow-md shadow-emerald-500/10 transition-all cursor-pointer"
-                  >
-                    Simpan Perubahan Part
-                  </button>
-                </>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleAddItem}
-                  disabled={!supplierId || !partId || !qtyNG || !ngTypes || !!qtyError}
-                  className={`px-5 py-2.5 rounded-md font-bold text-xs shadow-md transition-all ${
-                    !supplierId || !partId || !qtyNG || !ngTypes || !!qtyError
-                      ? "bg-slate-200 text-slate-400 cursor-not-allowed shadow-none"
-                      : "bg-blue-600 hover:bg-blue-755 text-white shadow-blue-500/10 cursor-pointer animate-all"
-                  }`}
-                >
-                  Tambah Data Part ke Batch
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={handleDirectSend}
+                disabled={isSubmitting || !supplierId || inputRows.filter(r => r.partId && r.qtyNG && r.ngTypes).length === 0}
+                className={`px-6 py-3 rounded-md font-bold text-xs shadow-md transition-all ${
+                  isSubmitting || !supplierId || inputRows.filter(r => r.partId && r.qtyNG && r.ngTypes).length === 0
+                    ? "bg-slate-200 text-slate-400 cursor-not-allowed shadow-none"
+                    : "bg-blue-600 hover:bg-blue-750 text-white shadow-blue-500/10 cursor-pointer active:scale-95"
+                }`}
+              >
+                {isSubmitting ? "Mengirim Laporan..." : "Kirim Laporan NCR ke Approval"}
+              </button>
             </div>
-
-            {/* Table of Added Defect Items */}
             <div className="space-y-2 pt-4 border-t border-slate-100">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block text-left">
-                Daftar Item Defect & Rincian dalam Batch ({items.length})
-              </span>
+              <div className="flex justify-between items-center">
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block text-left">
+                  Review Laporan NCR yang Telah Dikirim ke Approval ({items.length})
+                </span>
+                <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 text-[9px] font-extrabold rounded uppercase">
+                  Sent History
+                </span>
+              </div>
               
               {items.length === 0 ? (
                 <div className="p-8 border border-dashed border-slate-200 rounded-xl text-center text-slate-400 text-xs font-medium bg-slate-50/20">
-                  Belum ada item yang ditambahkan ke daftar. Silakan isi rincian di atas lalu klik "Tambah Data Part ke Batch".
+                  Belum ada laporan NCR yang dikirim dalam sesi ini. Isi rincian di atas lalu klik "Kirim Laporan".
                 </div>
               ) : (
                 <div className="border border-slate-400 rounded-xl overflow-hidden shadow-sm bg-white">
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs border-collapse">
                       <thead>
-                        <tr className="bg-slate-200 border-b border-slate-600 text-slate-900 font-extrabold">
-                          <th className="px-3 py-2 pl-5 w-1/2">Part / Barang & Temuan</th>
-                          <th className="px-3 py-2 text-center w-1/5">Qty NG</th>
-                          <th className="px-3 py-2 text-center w-1/4">NG Types</th>
-                          <th className="px-3 py-2 pr-5 text-center w-1/6">Aksi</th>
+                        <tr className="bg-slate-100 border-b border-slate-400 text-slate-900 font-extrabold text-center">
+                          <th className="px-3 py-2.5 border-r border-slate-400 w-5/12 text-center uppercase tracking-wider">
+                            Pilih Part
+                          </th>
+                          <th className="px-3 py-2.5 border-r border-slate-400 w-2/12 text-center uppercase tracking-wider">
+                            Qty NG
+                          </th>
+                          <th className="px-3 py-2.5 border-r border-slate-400 w-3/12 text-center uppercase tracking-wider">
+                            NG Type
+                          </th>
+                          <th className="px-3 py-2.5 w-2/12 text-center uppercase tracking-wider">
+                            Status & Review
+                          </th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-300 font-semibold text-slate-700">
+                      <tbody className="divide-y divide-slate-350 font-semibold text-slate-700">
                         {items.map((item) => {
-                          const isBeingEdited = editingRowId === item.id;
                           return (
-                            <tr key={item.id} className={`transition-colors ${isBeingEdited ? "bg-blue-50/40" : "hover:bg-slate-50"}`}>
-                              <td className="px-3 py-3 pl-5 text-left">
-                                <span className="font-bold text-slate-900 block">[{item.partNumber}] {item.partName}</span>
-                                <span className="text-blue-600 text-[10px] font-black uppercase tracking-wider block mt-1">Supplier: {item.supplierName}</span>
-                                
-                                {/* Summarized findings details inside the row */}
-                                <div className="mt-2.5 space-y-1 text-[10px] text-slate-500 bg-slate-50 p-2 rounded-lg border border-slate-100 shadow-sm/5">
-                                  <div>
-                                    <span className="font-extrabold text-slate-600">Location:</span> <span className="bg-slate-200 text-slate-700 px-1 rounded text-[9px] font-bold">{Array.isArray(item.locationFound) ? item.locationFound.join(", ") : item.locationFound}</span> • <span className="font-extrabold text-slate-600">Prob:</span> <span className="bg-slate-200 text-slate-700 px-1 rounded text-[9px] font-bold">{Array.isArray(item.problemType) ? item.problemType.join(", ") : item.problemType}</span>
-                                  </div>
-                                  <div>
-                                    <span className="font-extrabold text-slate-600">Reporter:</span> {item.foundBy}
-                                  </div>
-                                  <div className="text-slate-700 font-bold bg-white px-1.5 py-0.5 rounded border border-slate-150 mt-1 italic">
-                                    "{item.description || "Tidak ada deskripsi spesifik."}"
-                                  </div>
-                                  <div>
-                                    <span className="font-extrabold text-slate-600">Disposition:</span> <span className="text-blue-600 font-black">{Array.isArray(item.disposition) ? item.disposition.join(", ") : item.disposition}</span> (Appr Required: {item.customerApproval})
-                                  </div>
-                                  {item.docsToRevise.length > 0 && (
-                                    <div>
-                                      <span className="font-extrabold text-slate-600">Docs to Revise:</span> {item.docsToRevise.join(", ")}
-                                    </div>
-                                  )}
-                                </div>
+                            <tr key={item.id} className="transition-colors hover:bg-slate-50 text-center">
+                              {/* 1. Pilih Part */}
+                              <td className="px-3 py-3 border-r border-slate-350 text-left">
+                                <span className="font-bold text-slate-900 block">{item.ncrNumber} - [{item.partNumber}] {item.partName}</span>
+                                <span className="text-blue-600 text-[10px] font-black uppercase tracking-wider block mt-0.5">Supplier: {item.supplierName}</span>
                               </td>
-                              <td className="px-3 py-3 text-center font-mono text-slate-900 font-bold">{item.qty} pcs</td>
-                              <td className="px-3 py-3 text-center font-mono text-red-600 font-bold uppercase">{item.reject}</td>
-                              <td className="px-3 py-3 pr-5 text-center">
-                                <div className="flex justify-center gap-2">
+
+                              {/* 2. Qty NG */}
+                              <td className="px-3 py-3 border-r border-slate-350 text-center font-mono text-slate-900 font-bold">
+                                {item.qty} pcs
+                              </td>
+
+                              {/* 3. NG Type */}
+                              <td className="px-3 py-3 border-r border-slate-350 text-center font-mono text-red-600 font-bold uppercase">
+                                {item.reject}
+                              </td>
+
+                              {/* 4. Status & Review Button */}
+                              <td className="px-3 py-3 text-center">
+                                <div className="flex flex-col items-center gap-1.5 justify-center">
+                                  <span className="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-250 text-[9px] font-extrabold rounded uppercase tracking-wider block">
+                                    Waiting SPV
+                                  </span>
                                   <button
                                     type="button"
-                                    onClick={() => handleStartEdit(item)}
-                                    className={`w-7 h-7 rounded-full flex items-center justify-center transition-all border shadow-sm hover:scale-105 cursor-pointer ${isBeingEdited ? "bg-blue-600 border-blue-700 text-white" : "bg-blue-50 border-blue-200/50 text-blue-500 hover:bg-blue-100 hover:text-blue-700"}`}
-                                    title="Edit rincian data part ini"
+                                    onClick={() => setSelectedReviewNcr(item)}
+                                    className="px-2.5 py-1 rounded bg-blue-50 border border-blue-200/50 hover:bg-blue-100 text-blue-600 font-bold text-[10px] flex items-center gap-1 shadow-sm transition-all cursor-pointer hover:scale-105"
+                                    title="Review detail laporan terkirim"
                                   >
-                                    <Edit2 size={13} strokeWidth={2.5} />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRemoveItem(item.id)}
-                                    className="w-7 h-7 rounded-full bg-red-50 hover:bg-red-100 text-red-500 hover:text-red-700 flex items-center justify-center transition-all border border-red-200/50 shadow-sm hover:scale-105 cursor-pointer"
-                                    title="Hapus dari daftar"
-                                  >
-                                    <X size={14} strokeWidth={2.5} />
+                                    <Eye size={12} strokeWidth={2.5} />
+                                    Review
                                   </button>
                                 </div>
                               </td>
@@ -844,24 +818,162 @@ export default function OperatorView({
               )}
             </div>
 
-            {/* Form Actions (Submit NCR Batch) */}
-            <div className="pt-4 border-t border-slate-100 flex justify-end">
-              <button
-                type="submit"
-                disabled={!isSubmitEnabled}
-                className={`w-full px-6 py-3 rounded-md font-bold text-sm shadow-md transition-all ${
-                  !isSubmitEnabled
-                    ? "bg-slate-200 text-slate-400 cursor-not-allowed shadow-none"
-                    : "bg-blue-600 hover:bg-blue-755 text-white shadow-blue-500/10 cursor-pointer"
-                }`}
-              >
-                {isSubmitting ? "Menerbitkan NCR..." : "Terbitkan & Picu Alur NCR"}
+          </div>
+        </div>
+      )}
+
+      {/* Review NCR Details Modal */}
+      {selectedReviewNcr && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-[2px] z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl w-full max-w-md shadow-2xl overflow-hidden border border-slate-100 flex flex-col">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <div>
+                <span className="text-[10px] font-bold text-blue-600 tracking-widest uppercase">Review Laporan NCR (Terkirim)</span>
+                <h4 className="text-base font-bold text-slate-900 mt-0.5">{selectedReviewNcr.ncrNumber}</h4>
+              </div>
+              <button onClick={() => setSelectedReviewNcr(null)} className="p-2 hover:bg-slate-100 rounded-md text-slate-400 hover:text-slate-700 transition-colors">
+                <X size={18} />
               </button>
             </div>
+            
+            <div className="p-6 space-y-4 text-left max-h-[65vh] overflow-y-auto">
+              <div className="p-4 bg-slate-50 border border-slate-100 rounded-lg">
+                <span className="text-[10px] font-bold text-slate-400 block">Detail Part & Supplier</span>
+                <span className="text-sm font-bold text-slate-800 block mt-1">{selectedReviewNcr.partName}</span>
+                <span className="text-xs text-slate-400 block mt-0.5">{selectedReviewNcr.partNumber} • {selectedReviewNcr.supplierName}</span>
+              </div>
 
+              <div className="grid grid-cols-2 gap-3 text-center text-xs">
+                <div className="p-3 bg-slate-50 rounded-md border border-slate-100/50">
+                  <span className="text-slate-400 block font-bold">Qty NG:</span>
+                  <strong className="text-slate-800 font-extrabold">{selectedReviewNcr.qty} pcs</strong>
+                </div>
+                <div className="p-3 bg-slate-50 rounded-md border border-slate-100/50">
+                  <span className="text-slate-400 block font-bold">NG Types:</span>
+                  <strong className="text-red-600 font-extrabold uppercase">{selectedReviewNcr.reject}</strong>
+                </div>
+              </div>
+
+              <div className="p-3 bg-blue-50/20 border border-slate-100 rounded-md space-y-2.5 text-xs text-left">
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-medium">Location Found:</span>
+                  <span className="text-slate-800 font-bold">{Array.isArray(selectedReviewNcr.locationFound) ? selectedReviewNcr.locationFound.join(", ") : selectedReviewNcr.locationFound}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-medium">Problem Type:</span>
+                  <span className="text-slate-800 font-bold">{Array.isArray(selectedReviewNcr.problemType) ? selectedReviewNcr.problemType.join(", ") : selectedReviewNcr.problemType}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-medium">Found By:</span>
+                  <span className="text-slate-800 font-bold">{selectedReviewNcr.foundBy}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-medium">Customer Approval?</span>
+                  <span className="text-slate-800 font-bold">{selectedReviewNcr.customerApproval}</span>
+                </div>
+                {selectedReviewNcr.docsToRevise && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-medium">Docs to Revise:</span>
+                    <span className="text-slate-800 font-bold truncate max-w-[200px]" title={Array.isArray(selectedReviewNcr.docsToRevise) ? selectedReviewNcr.docsToRevise.join(", ") : selectedReviewNcr.docsToRevise}>{Array.isArray(selectedReviewNcr.docsToRevise) ? selectedReviewNcr.docsToRevise.join(", ") : selectedReviewNcr.docsToRevise}</span>
+                  </div>
+                )}
+                <div className="border-t border-slate-100 pt-2 flex flex-col gap-1">
+                  <span className="text-slate-500 font-medium">Deskripsi Cacat / NG:</span>
+                  <p className="text-slate-800 font-bold bg-white p-2 rounded border border-slate-100/80 leading-normal italic">"{selectedReviewNcr.defectType || selectedReviewNcr.description}"</p>
+                </div>
+                <div className="flex justify-between border-t border-slate-100 pt-2">
+                  <span className="text-slate-500 font-medium">Keputusan Disposisi:</span>
+                  <span className="text-blue-600 font-black">{Array.isArray(selectedReviewNcr.disposition) ? selectedReviewNcr.disposition.join(", ") : selectedReviewNcr.disposition}</span>
+                </div>
+              </div>
+
+              {/* Quality Department Signature Block (PR4-FRM-08001) */}
+              <div className="border border-slate-300 rounded-lg overflow-hidden bg-white text-[11px] mt-4 shadow-sm/5 text-left">
+                <div className="bg-slate-100 px-3 py-1.5 border-b border-slate-300 font-extrabold text-slate-800 uppercase text-center tracking-wider text-[10px]">
+                  TANDA TANGAN QUALITY DEPT (PR4-FRM-08001)
+                </div>
+                <div className="grid grid-cols-3 divide-x divide-slate-300 text-center font-bold">
+                  {/* STAFF Box */}
+                  <div className="flex flex-col justify-between h-20 p-1">
+                    <div className="text-[8px] text-slate-400 font-black uppercase">Staff (QC Inspector)</div>
+                    {isStaffApproved ? (
+                      <div className="flex flex-col items-center">
+                        <span className="text-slate-800 text-xs font-bold leading-none select-none">
+                          {selectedReviewNcr.foundBy ? selectedReviewNcr.foundBy.split(" ")[1] : "Hendrik"}
+                        </span>
+                        {selectedReviewNcr.staffReview && (
+                          <span className="text-[8px] text-slate-505 font-normal mt-0.5 italic block max-w-[80px] truncate" title={selectedReviewNcr.staffReview}>
+                            "{selectedReviewNcr.staffReview}"
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-slate-455 italic text-[8px] py-0.5 font-medium leading-tight">
+                        Menunggu Staff
+                      </div>
+                    )}
+                    <div className="text-[8px] text-slate-500 border-t border-slate-200 pt-0.5">
+                      {selectedReviewNcr.date || "28-7-2025"}
+                    </div>
+                  </div>
+
+                  {/* SPV Box */}
+                  <div className="flex flex-col justify-between h-20 p-1">
+                    <div className="text-[8px] text-slate-400 font-black uppercase">SPV (QC SPV)</div>
+                    {isSpvApproved ? (
+                      <div className="flex flex-col items-center">
+                        <span className="text-slate-800 text-xs font-bold leading-none select-none">Approved (SPV)</span>
+                        {selectedReviewNcr.spvReview && (
+                          <span className="text-[8px] text-slate-505 font-normal mt-0.5 italic block max-w-[80px] truncate" title={selectedReviewNcr.spvReview}>
+                            "{selectedReviewNcr.spvReview}"
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-slate-400 italic text-[8px] py-0.5 font-medium leading-tight">
+                        Menunggu SPV
+                      </div>
+                    )}
+                    <div className="text-[8px] text-slate-500 border-t border-slate-200 pt-0.5">
+                      {isSpvApproved ? selectedReviewNcr.date : "-"}
+                    </div>
+                  </div>
+
+                  {/* MNG Box */}
+                  <div className="flex flex-col justify-between h-20 p-1">
+                    <div className="text-[8px] text-slate-400 font-black uppercase">MNG (QC Manager)</div>
+                    {isMngApproved ? (
+                      <div className="flex flex-col items-center">
+                        <span className="text-slate-800 text-xs font-bold leading-none select-none">Approved (MNG)</span>
+                        {selectedReviewNcr.mngReview && (
+                          <span className="text-[8px] text-slate-550 font-normal mt-0.5 italic block max-w-[80px] truncate" title={selectedReviewNcr.mngReview}>
+                            "{selectedReviewNcr.mngReview}"
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-slate-400 italic text-[8px] py-0.5 font-medium leading-tight">
+                        Menunggu MNG
+                      </div>
+                    )}
+                    <div className="text-[8px] text-slate-500 border-t border-slate-200 pt-0.5">
+                      {isMngApproved ? selectedReviewNcr.date : "-"}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex justify-end">
+              <button
+                onClick={() => setSelectedReviewNcr(null)}
+                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-bold transition-colors cursor-pointer"
+              >
+                Tutup Review
+              </button>
+            </div>
           </div>
-
-        </form>
+        </div>
       )}
 
     </div>

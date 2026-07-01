@@ -109,10 +109,11 @@ export default function Topbar({
         </div>
 
         {/* Safety First Badge */}
-        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 border border-green-200/50 rounded-md text-[10px] font-bold tracking-wider uppercase">
-          <span className="flex items-center justify-center w-4 h-4 bg-green-600 rounded-md text-white text-[9px]">✔</span>
-          SAFETY FIRST
-        </div>
+        <img
+          src="/safety-first.jpg"
+          alt="Safety First Logo"
+          className="h-[48px] w-auto object-contain rounded-md"
+        />
 
       </div>
     </header>
