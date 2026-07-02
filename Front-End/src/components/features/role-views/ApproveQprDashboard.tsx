@@ -46,8 +46,10 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
         />
       ) : (
         <DeptHeadView
-          pendingNcrs={[]} // Don't show NCRs in QPR dashboard
+          pendingNcrs={[]}
           pendingQprs={pendingQprs}
+          showNcr={false}
+          showQpr={true}
           handleApproveNcrAction={() => {}}
           handleApproveQprAction={handleApproveQprAction}
         />

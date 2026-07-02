@@ -16,19 +16,28 @@ let AppController = class AppController {
     constructor(appService) {
         this.appService = appService;
     }
+    getWelcome() {
+        return this.appService.getWelcome();
+    }
     getStatus() {
         return this.appService.getStatus();
     }
 };
 exports.AppController = AppController;
 __decorate([
-    (0, common_1.Get)('status'),
+    (0, common_1.Get)(),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Object)
+], AppController.prototype, "getWelcome", null);
+__decorate([
+    (0, common_1.Get)('api/status'),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", Object)
 ], AppController.prototype, "getStatus", null);
 exports.AppController = AppController = __decorate([
-    (0, common_1.Controller)('api'),
+    (0, common_1.Controller)(),
     __metadata("design:paramtypes", [app_service_1.AppService])
 ], AppController);
 //# sourceMappingURL=app.controller.js.map

@@ -1,0 +1,105 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Part {
+  id          String       @id @default(cuid())
+  partNumber  String       @unique
+  partDesc    String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  vendorParts VendorPart[]
+  ncrs        Ncr[]
+}
+
+model Vendor {
+  id          String       @id @default(cuid())
+  vendorCode  String       @unique
+  vendorName  String?      @unique
+  createdAt   DateTime?    @default(now())
+  updatedAt   DateTime?    @updatedAt
+  vendorParts VendorPart[]
+  ncrs        Ncr[]
+}
+
+model VendorPart {
+  id        String   @id @default(cuid())
+  vendorId  String
+  vendor    Vendor   @relation(fields: [vendorId], references: [id])
+  partId    String
+  part      Part     @relation(fields: [partId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([vendorId, partId]) // Memastikan kombinasi part-vendor unik
+}
+
+model Ncr {
+  id                         String               @id @default(cuid())
+  code                       String               @unique
+  date                       DateTime             @default(now())
+  partId                     String
+  part                       Part                 @relation(fields: [partId], references: [id])
+  vendorId                   String
+  vendor                     Vendor               @relation(fields: [vendorId], references: [id])
+  location                   Location?
+  problemType                ProblemType?
+  description                String?
+  disposition                Disposition?
+  isRequiredCustomerApproval Boolean?
+  details                    Json?
+  
+  // Relasi 1-to-1 ke Progres Approval (Checksum tanda tangan digital)
+  ncrApprovalProgress        NcrApprovalProgress?
+
+  // Relasi Many-to-Many ke User (Inspektur bisa lebih dari satu)
+  inspectors                 User[]               @relation("NcrInspectors")
+}
+
+model NcrApprovalProgress {
+  id                          String    @id @default(cuid())
+  ncrId                       String    @unique // Diperlukan unik untuk relasi 1-to-1
+  ncr                         Ncr       @relation(fields: [ncrId], references: [id])
+  checksumApprovalSectionHead Bytes?
+  checksumApprovalDeptHead    Bytes?
+  createdAt                   DateTime? @default(now())
+  updatedAt                   DateTime? @default(now())
+}
+
+model User {
+  id            String   @id @default(cuid())
+  name          String
+  npk           Int      @unique
+  
+  // Relasi Terbalik Many-to-Many ke Ncr
+  inspectedNcrs Ncr[]    @relation("NcrInspectors")
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+enum Location {
+  INCOMING
+  OUTGOING
+  IN_PROCESS
+  CUSTOMER
+}
+
+enum ProblemType {
+  QUALITY
+  QUANTITY
+}
+
+enum Disposition {
+  RETURN_TO_VENDOR
+  REWORK
+  SCRAP
+  ACCEPT_AS_IS
+  REPAIR
+  REGRADE
+}

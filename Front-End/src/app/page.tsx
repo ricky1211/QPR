@@ -81,7 +81,39 @@ export default function Home() {
       setErrorPartName(`${part.partName} (${part.partNumber})`);
       setShowAllowanceError(true);
     } else {
-      alert(`Sukses: Menginisialisasi pembuatan dokumen QPR untuk ${part.partName} (${part.partNumber}) dengan toleransi NG Allowance ${part.allowanceRatio}%!`);
+      // 1. Generate new QPR draft
+      const newQprId = Date.now();
+      const newQprNum = `QPR/2026/06/${part.partNumber.replace("-", "")}`;
+      const newQpr = {
+        id: newQprId,
+        qprNumber: newQprNum,
+        date: new Date().toISOString().split("T")[0],
+        supplierName: part.supplierName,
+        period: "Juni 2026",
+        totalItems: 1000,
+        rejectItems: 30,
+        allowanceRatio: `${part.allowanceRatio}%`,
+        claimAmount: `Rp ${(30 * 250000).toLocaleString("id-ID")}`,
+        status: "WAITING_APPROVAL",
+        requiredRole: "PPIC Staff" // Goes to PPIC Staff first for validation
+      };
+
+      setPendingQprs(prev => [newQpr, ...prev]);
+
+      // 2. Update part status
+      setParts(prev => prev.map(p => p.id === part.id ? { ...p, status: "QPR CREATED" } : p));
+
+      // 3. Add to notifications
+      const newNotif = {
+        id: Date.now(),
+        message: `Draf QPR ${newQprNum} berhasil dibuat untuk ${part.supplierName} dan dikirim ke PPIC Staff untuk validasi.`,
+        time: "Baru saja",
+        type: "info",
+        unread: true
+      };
+      setNotifications(prev => [newNotif, ...prev]);
+
+      alert(`Sukses: Draf klaim QPR ${newQprNum} berhasil dibuat untuk ${part.supplierName} dan dikirim ke PPIC Staff untuk Validasi!`);
     }
   };
 

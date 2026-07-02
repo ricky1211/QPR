@@ -196,7 +196,7 @@ export default function PurchasingView() {
                       <td className="px-3 py-1.5 text-center">
                         <button
                           onClick={() => setSelectedClaim(claim)}
-                          className="p-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-full border border-blue-200/50 transition-all cursor-pointer flex items-center justify-center mx-auto hover:scale-105 shadow-sm"
+                          className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full transition-all cursor-pointer flex items-center justify-center mx-auto hover:scale-105 shadow-sm"
                           title="Lihat Detail"
                         >
                           <Eye size={16} />

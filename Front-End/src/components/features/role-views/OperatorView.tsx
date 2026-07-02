@@ -25,7 +25,7 @@ export default function OperatorView({
   ]);
 
   // Step 1: Pre-selection States (Date - global for batch)
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
+  const [selectedDate, setSelectedDate] = useState("");
   
   // Step 2: Form States (Supplier, Part inputRows)
   const [supplierId, setSupplierId] = useState<number | "">("");
@@ -64,6 +64,8 @@ export default function OperatorView({
   const [successNcrNumber, setSuccessNcrNumber] = useState<string | null>(null);
   const [selectedReviewNcr, setSelectedReviewNcr] = useState<any | null>(null);
 
+
+
   const isStaffApproved = selectedReviewNcr && (selectedReviewNcr.requiredRole === "Section Head" || selectedReviewNcr.requiredRole === "Dept Head" || selectedReviewNcr.requiredRole === "Closed" || selectedReviewNcr.status === "APPROVED");
   const isSpvApproved = selectedReviewNcr && (selectedReviewNcr.requiredRole === "Dept Head" || selectedReviewNcr.requiredRole === "Closed" || selectedReviewNcr.status === "APPROVED");
   const isMngApproved = selectedReviewNcr && (selectedReviewNcr.requiredRole === "Closed" || selectedReviewNcr.status === "APPROVED");
@@ -94,7 +96,7 @@ export default function OperatorView({
 
   // Format Date to friendly Indonesian string including Day Name
   const formatDateFriendly = (dateStr) => {
-    if (!dateStr) return "Pilih Tanggal";
+    if (!dateStr) return "PILIH TANGGAL";
     const days = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
     const months = [
       "Januari", "Februari", "Maret", "April", "Mei", "Juni",
@@ -296,7 +298,7 @@ export default function OperatorView({
         <div className="w-full bg-white border border-slate-100 rounded-xl p-5 shadow-sm flex justify-between items-center transition-all hover:border-slate-200 hover:bg-slate-50/50 cursor-pointer">
           <div className="overflow-hidden flex-1">
             <span className="text-sm font-extrabold text-slate-800 block truncate">
-              {selectedSupplier ? `${selectedSupplier.name} (${selectedSupplier.code})` : "Pilih Supplier..."}
+              {selectedSupplier ? `${selectedSupplier.name} (${selectedSupplier.code})` : "PILIH SUPPLIER"}
             </span>
             <span className="text-[10px] font-bold text-slate-400 block mt-1 uppercase tracking-wider">
               Supplier / Vendor
@@ -313,7 +315,7 @@ export default function OperatorView({
             }}
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
           >
-            <option value="">Pilih Supplier...</option>
+            <option value="">PILIH SUPPLIER</option>
             {suppliers.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name} ({s.code})
@@ -370,19 +372,7 @@ export default function OperatorView({
               </span>
             </div>
 
-            {/* Selected Summary Info */}
-            <div className="p-4 bg-slate-50 border border-slate-100 rounded-lg flex justify-between items-center text-xs font-semibold">
-              <div className="grid grid-cols-2 gap-4 flex-1 text-left">
-                <div>
-                  <span className="text-slate-400 block font-bold">Tanggal Defect:</span>
-                  <span className="text-slate-800 font-bold mt-0.5 block">{formatDateFriendly(selectedDate)}</span>
-                </div>
-                <div>
-                  <span className="text-slate-400 block font-bold">Supplier Terpilih:</span>
-                  <span className="text-blue-600 font-black mt-0.5 block">{selectedSupplier?.name}</span>
-                </div>
-              </div>
-            </div>
+
 
             {/* Form Fields: Part Selection, Qty, and NG Types in a bordered table structure matching Excel/sketch */}
             <div className="space-y-4 p-4 bg-slate-50/50 border border-slate-100 rounded-xl text-left">
@@ -396,10 +386,10 @@ export default function OperatorView({
                   type="button"
                   onClick={addNewRow}
                   disabled={!supplierId}
-                  className={`px-2.5 py-1 border rounded-md text-[11px] font-bold transition-all flex items-center hover:scale-102 active:scale-98 shadow-sm/5 ${
+                  className={`px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-all flex items-center hover:scale-102 active:scale-98 shadow-sm/5 ${
                     !supplierId
-                      ? "bg-slate-150 text-slate-400 border-slate-200 cursor-not-allowed"
-                      : "bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100 cursor-pointer"
+                      ? "bg-slate-150 text-slate-400 border border-slate-200 cursor-not-allowed"
+                      : "bg-blue-600 hover:bg-blue-700 text-white cursor-pointer"
                   }`}
                 >
                   + Tambah Part
@@ -442,7 +432,7 @@ export default function OperatorView({
                               disabled={!supplierId}
                               className="w-full px-3 py-2.5 text-xs bg-transparent font-bold text-slate-800 focus:outline-none focus:ring-0 focus:ring-offset-0 disabled:text-slate-400 cursor-pointer border-0"
                             >
-                              <option value="">-- Pilih Part / Barang --</option>
+                              <option value="">-- PILIH PART / BARANG --</option>
                               {rowFilteredParts.map((p) => (
                                 <option key={p.id} value={p.id}>
                                   [{p.partNumber}] {p.partName}
@@ -501,7 +491,7 @@ export default function OperatorView({
                                 disabled={!row.partId}
                                 className="w-full px-3 py-2.5 text-xs bg-transparent font-bold text-slate-800 focus:outline-none focus:ring-0 focus:ring-offset-0 disabled:text-slate-400 cursor-pointer border-0"
                               >
-                                <option value="">PILIH JENIS NG...</option>
+                                <option value="">PILIH JENIS NG</option>
                                 <option value="MANUAL_INPUT" className="text-blue-600 font-extrabold bg-blue-50">+ Ketik Manual...</option>
                                 <option value="NG DENT">NG DENT</option>
                                 <option value="UNDERFILL">UNDERFILL</option>
@@ -546,54 +536,53 @@ export default function OperatorView({
                 Rincian Informasi Temuan & Disposisi Part
               </span>
 
-              {/* Checkboxes Group 1: Location Found & Problem Type */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Location Found <span className="text-red-500">*</span></label>
-                  <div className="grid grid-cols-2 gap-2 bg-white border border-slate-200 p-2.5 rounded-lg">
-                    {["IN-COMING", "OUT-GOING", "IN-PROSES", "CUSTOMER"].map((loc) => {
-                      const isChecked = locationFound.includes(loc);
-                      return (
-                        <label key={loc} className="flex items-center gap-2 px-2 py-1 hover:bg-slate-50 rounded cursor-pointer text-[10px] font-bold text-slate-705 border border-slate-100">
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setLocationFound([...locationFound, loc]);
-                              } else {
-                                setLocationFound(locationFound.filter((l) => l !== loc));
-                              }
-                            }}
-                            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
-                          />
-                          {loc}
-                        </label>
-                      );
-                    })}
-                  </div>
+              {/* Location Found */}
+              <div className="space-y-1.5 text-left bg-white border border-slate-205 p-3 rounded-lg">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Location Found <span className="text-red-500">*</span></label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-50 border border-slate-200/50 p-2 rounded-lg">
+                  {["IN-COMING", "OUT-GOING", "IN-PROSES", "CUSTOMER"].map((loc) => {
+                    const isChecked = locationFound.includes(loc);
+                    return (
+                      <label key={loc} className="flex items-center gap-2 px-2.5 py-1.5 hover:bg-white rounded cursor-pointer text-[10px] font-bold text-slate-705 border border-slate-100 bg-white">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setLocationFound([...locationFound, loc]);
+                            } else {
+                              setLocationFound(locationFound.filter((l) => l !== loc));
+                            }
+                          }}
+                          className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
+                        />
+                        {loc}
+                      </label>
+                    );
+                  })}
                 </div>
+              </div>
 
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Problem Type <span className="text-red-500">*</span></label>
-                  <div className="grid grid-cols-2 gap-2 bg-white border border-slate-200 p-2.5 rounded-lg">
-                    {["QUALITY", "QUANTITY"].map((prob) => {
-                      const isChecked = problemType.includes(prob);
-                      return (
-                        <label key={prob} className="flex items-center gap-2 px-2 py-1 hover:bg-slate-55 rounded cursor-pointer text-[10px] font-bold text-slate-705 border border-slate-100">
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={() => {
-                              setProblemType([prob]);
-                            }}
-                            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
-                          />
-                          {prob}
-                        </label>
-                      );
-                    })}
-                  </div>
+              {/* Problem Type */}
+              <div className="space-y-1.5 text-left bg-white border border-slate-205 p-3 rounded-lg">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Problem Type <span className="text-red-500">*</span></label>
+                <div className="grid grid-cols-2 gap-2 bg-slate-50 border border-slate-200/50 p-2 rounded-lg">
+                  {["QUALITY", "QUANTITY"].map((prob) => {
+                    const isChecked = problemType.includes(prob);
+                    return (
+                      <label key={prob} className="flex items-center gap-2 px-2.5 py-1.5 hover:bg-white rounded cursor-pointer text-[10px] font-bold text-slate-705 border border-slate-100 bg-white">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => {
+                            setProblemType([prob]);
+                          }}
+                          className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
+                        />
+                        {prob}
+                      </label>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -638,7 +627,7 @@ export default function OperatorView({
                     <button
                       type="button"
                       onClick={() => setDescription("")}
-                      className="px-2 py-0.5 text-[9px] font-bold text-red-500 hover:underline cursor-pointer"
+                      className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-[10px] font-bold cursor-pointer transition-all active:scale-95 shadow-sm"
                     >
                       Clear
                     </button>
@@ -655,13 +644,13 @@ export default function OperatorView({
               </div>
 
               {/* Disposition Checkboxes */}
-              <div className="space-y-1.5 text-left">
+              <div className="space-y-1.5 text-left bg-white border border-slate-205 p-3 rounded-lg">
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Keputusan Disposisi <span className="text-red-500">*</span></label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 bg-white border border-slate-200 p-2.5 rounded-lg">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 bg-slate-50 border border-slate-200/50 p-2 rounded-lg">
                   {["RETURN TO VENDOR", "REWORK", "SCRAP", "ACCEPT AS IS", "REPAIR", "REGRADE"].map((disp) => {
                     const isChecked = disposition.includes(disp);
                     return (
-                      <label key={disp} className="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-55 rounded cursor-pointer text-[10px] font-bold text-slate-705 border border-slate-100">
+                      <label key={disp} className="flex items-center gap-2 px-2 py-1.5 hover:bg-white rounded cursor-pointer text-[10px] font-bold text-slate-705 border border-slate-100 bg-white">
                         <input
                           type="checkbox"
                           checked={isChecked}
@@ -678,13 +667,13 @@ export default function OperatorView({
               </div>
 
               {/* Customer Approval Required Checkboxes (Yes/No with single-select behavior) */}
-              <div className="space-y-1.5 text-left">
+              <div className="space-y-1.5 text-left bg-white border border-slate-205 p-3 rounded-lg">
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Customer Approval Required? <span className="text-red-500">*</span></label>
-                <div className="grid grid-cols-2 gap-2 bg-white border border-slate-200 p-2.5 rounded-lg max-w-xs">
+                <div className="grid grid-cols-2 gap-2 bg-slate-50 border border-slate-200/50 p-2 rounded-lg max-w-xs">
                   {["YES", "NO"].map((choice) => {
                     const isChecked = customerApproval === choice;
                     return (
-                      <label key={choice} className="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-55 rounded cursor-pointer text-[10px] font-bold text-slate-705 border border-slate-100">
+                      <label key={choice} className="flex items-center gap-2 px-2 py-1.5 hover:bg-white rounded cursor-pointer text-[10px] font-bold text-slate-705 border border-slate-100 bg-white">
                         <input
                           type="checkbox"
                           checked={isChecked}
@@ -699,18 +688,22 @@ export default function OperatorView({
               </div>
 
               {/* Documents to Revise Checklist */}
-              <div className="space-y-1.5 text-left">
+              <div className="space-y-1.5 text-left bg-white border border-slate-205 p-3 rounded-lg">
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Other Documents to Revise</label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-white border border-slate-200 p-2.5 rounded-lg">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-50 border border-slate-200/50 p-2 rounded-lg">
                   {["CONTROL PLAN", "CHECK SHEET", "Q POINT", "MPS"].map((doc) => {
                     const isChecked = docsToRevise.includes(doc);
                     return (
-                      <label key={doc} className="flex items-center gap-2 px-2 py-1 hover:bg-slate-55 rounded cursor-pointer text-[10px] font-bold text-slate-707 border border-slate-100">
+                      <label key={doc} className="flex items-center gap-2 px-2 py-1 hover:bg-white rounded cursor-pointer text-[10px] font-bold text-slate-707 border border-slate-100 bg-white">
                         <input
                           type="checkbox"
                           checked={isChecked}
-                          onChange={() => {
-                            setDocsToRevise([doc]);
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setDocsToRevise([...docsToRevise, doc]);
+                            } else {
+                              setDocsToRevise(docsToRevise.filter((d) => d !== doc));
+                            }
                           }}
                           className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
                         />
@@ -800,7 +793,7 @@ export default function OperatorView({
                                   <button
                                     type="button"
                                     onClick={() => setSelectedReviewNcr(item)}
-                                    className="px-2.5 py-1 rounded bg-blue-50 border border-blue-200/50 hover:bg-blue-100 text-blue-600 font-bold text-[10px] flex items-center gap-1 shadow-sm transition-all cursor-pointer hover:scale-105"
+                                    className="px-2.5 py-1.5 rounded bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] flex items-center gap-1 shadow-sm transition-all cursor-pointer hover:scale-105"
                                     title="Review detail laporan terkirim"
                                   >
                                     <Eye size={12} strokeWidth={2.5} />
@@ -825,139 +818,218 @@ export default function OperatorView({
       {/* Review NCR Details Modal */}
       {selectedReviewNcr && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-[2px] z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl w-full max-w-md shadow-2xl overflow-hidden border border-slate-100 flex flex-col">
+          <div className="bg-white rounded-xl w-full max-w-4xl shadow-2xl overflow-hidden border border-slate-100 flex flex-col">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
               <div>
                 <span className="text-[10px] font-bold text-blue-600 tracking-widest uppercase">Review Laporan NCR (Terkirim)</span>
                 <h4 className="text-base font-bold text-slate-900 mt-0.5">{selectedReviewNcr.ncrNumber}</h4>
               </div>
-              <button onClick={() => setSelectedReviewNcr(null)} className="p-2 hover:bg-slate-100 rounded-md text-slate-400 hover:text-slate-700 transition-colors">
+              <button onClick={() => setSelectedReviewNcr(null)} className="p-2 hover:bg-slate-100 rounded-md text-slate-400 hover:text-slate-700 transition-colors cursor-pointer">
                 <X size={18} />
               </button>
             </div>
             
-            <div className="p-6 space-y-4 text-left max-h-[65vh] overflow-y-auto">
-              <div className="p-4 bg-slate-50 border border-slate-100 rounded-lg">
-                <span className="text-[10px] font-bold text-slate-400 block">Detail Part & Supplier</span>
-                <span className="text-sm font-bold text-slate-800 block mt-1">{selectedReviewNcr.partName}</span>
-                <span className="text-xs text-slate-400 block mt-0.5">{selectedReviewNcr.partNumber} • {selectedReviewNcr.supplierName}</span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 text-center text-xs">
-                <div className="p-3 bg-slate-50 rounded-md border border-slate-100/50">
-                  <span className="text-slate-400 block font-bold">Qty NG:</span>
-                  <strong className="text-slate-800 font-extrabold">{selectedReviewNcr.qty} pcs</strong>
-                </div>
-                <div className="p-3 bg-slate-50 rounded-md border border-slate-100/50">
-                  <span className="text-slate-400 block font-bold">NG Types:</span>
-                  <strong className="text-red-600 font-extrabold uppercase">{selectedReviewNcr.reject}</strong>
-                </div>
-              </div>
-
-              <div className="p-3 bg-blue-50/20 border border-slate-100 rounded-md space-y-2.5 text-xs text-left">
-                <div className="flex justify-between">
-                  <span className="text-slate-500 font-medium">Location Found:</span>
-                  <span className="text-slate-800 font-bold">{Array.isArray(selectedReviewNcr.locationFound) ? selectedReviewNcr.locationFound.join(", ") : selectedReviewNcr.locationFound}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 font-medium">Problem Type:</span>
-                  <span className="text-slate-800 font-bold">{Array.isArray(selectedReviewNcr.problemType) ? selectedReviewNcr.problemType.join(", ") : selectedReviewNcr.problemType}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 font-medium">Found By:</span>
-                  <span className="text-slate-800 font-bold">{selectedReviewNcr.foundBy}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 font-medium">Customer Approval?</span>
-                  <span className="text-slate-800 font-bold">{selectedReviewNcr.customerApproval}</span>
-                </div>
-                {selectedReviewNcr.docsToRevise && (
-                  <div className="flex justify-between">
-                    <span className="text-slate-500 font-medium">Docs to Revise:</span>
-                    <span className="text-slate-800 font-bold truncate max-w-[200px]" title={Array.isArray(selectedReviewNcr.docsToRevise) ? selectedReviewNcr.docsToRevise.join(", ") : selectedReviewNcr.docsToRevise}>{Array.isArray(selectedReviewNcr.docsToRevise) ? selectedReviewNcr.docsToRevise.join(", ") : selectedReviewNcr.docsToRevise}</span>
+            <div className="p-6 space-y-4 text-left max-h-[70vh] overflow-y-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                {/* Left Column: Defect details */}
+                <div className="space-y-4">
+                  <div className="p-4 bg-slate-50 border border-slate-100 rounded-lg">
+                    <span className="text-[10px] font-bold text-slate-400 block">Detail Part & Supplier</span>
+                    <span className="text-sm font-bold text-slate-800 block mt-1">{selectedReviewNcr.partName}</span>
+                    <span className="text-xs text-slate-400 block mt-0.5">{selectedReviewNcr.partNumber} • {selectedReviewNcr.supplierName}</span>
                   </div>
-                )}
-                <div className="border-t border-slate-100 pt-2 flex flex-col gap-1">
-                  <span className="text-slate-500 font-medium">Deskripsi Cacat / NG:</span>
-                  <p className="text-slate-800 font-bold bg-white p-2 rounded border border-slate-100/80 leading-normal italic">"{selectedReviewNcr.defectType || selectedReviewNcr.description}"</p>
-                </div>
-                <div className="flex justify-between border-t border-slate-100 pt-2">
-                  <span className="text-slate-500 font-medium">Keputusan Disposisi:</span>
-                  <span className="text-blue-600 font-black">{Array.isArray(selectedReviewNcr.disposition) ? selectedReviewNcr.disposition.join(", ") : selectedReviewNcr.disposition}</span>
-                </div>
-              </div>
 
-              {/* Quality Department Signature Block (PR4-FRM-08001) */}
-              <div className="border border-slate-300 rounded-lg overflow-hidden bg-white text-[11px] mt-4 shadow-sm/5 text-left">
-                <div className="bg-slate-100 px-3 py-1.5 border-b border-slate-300 font-extrabold text-slate-800 uppercase text-center tracking-wider text-[10px]">
-                  TANDA TANGAN QUALITY DEPT (PR4-FRM-08001)
+                  <div className="grid grid-cols-2 gap-3 text-center text-xs">
+                    <div className="p-3 bg-slate-50 rounded-md border border-slate-100/50">
+                      <span className="text-slate-400 block font-bold">Qty NG:</span>
+                      <strong className="text-slate-800 font-extrabold">{selectedReviewNcr.qty} pcs</strong>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-md border border-slate-100/50">
+                      <span className="text-slate-400 block font-bold">NG Types:</span>
+                      <strong className="text-red-600 font-extrabold uppercase">{selectedReviewNcr.reject}</strong>
+                    </div>
+                  </div>
+
+                  <div className="p-3.5 bg-blue-50/20 border border-slate-100 rounded-lg text-[11px] space-y-3 text-left">
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
+                      <div>
+                        <span className="text-slate-455 font-bold text-[9px] uppercase tracking-wider block">Location Found</span>
+                        <strong className="text-slate-800 font-bold block mt-0.5">
+                          {Array.isArray(selectedReviewNcr.locationFound) ? selectedReviewNcr.locationFound.join(", ") : selectedReviewNcr.locationFound || "IN-COMING"}
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-455 font-bold text-[9px] uppercase tracking-wider block">Customer Approval</span>
+                        <strong className="text-slate-800 font-bold block mt-0.5">{selectedReviewNcr.customerApproval || "YES"}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-455 font-bold text-[9px] uppercase tracking-wider block">Problem Type</span>
+                        <strong className="text-slate-800 font-bold block mt-0.5">
+                          {Array.isArray(selectedReviewNcr.problemType) ? selectedReviewNcr.problemType.join(", ") : selectedReviewNcr.problemType || "QUALITY"}
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-455 font-bold text-[9px] uppercase tracking-wider block">Docs to Revise</span>
+                        <strong className="text-slate-800 font-bold block mt-0.5 truncate" title={Array.isArray(selectedReviewNcr.docsToRevise) ? selectedReviewNcr.docsToRevise.join(", ") : selectedReviewNcr.docsToRevise}>
+                          {Array.isArray(selectedReviewNcr.docsToRevise) ? selectedReviewNcr.docsToRevise.join(", ") : selectedReviewNcr.docsToRevise || "-"}
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-455 font-bold text-[9px] uppercase tracking-wider block">Found By</span>
+                        <strong className="text-slate-800 font-bold block mt-0.5 truncate" title={selectedReviewNcr.foundBy}>{selectedReviewNcr.foundBy || "QC INSPECTOR"}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-455 font-bold text-[9px] uppercase tracking-wider block">Keputusan Disposisi</span>
+                        <strong className="text-blue-600 font-black block mt-0.5 uppercase">
+                          {Array.isArray(selectedReviewNcr.disposition) ? selectedReviewNcr.disposition.join(", ") : selectedReviewNcr.disposition || "REPAIR"}
+                        </strong>
+                      </div>
+                    </div>
+
+                    <div className="border-t border-slate-100 pt-2.5">
+                      <span className="text-slate-455 font-bold text-[9px] uppercase tracking-wider block">Deskripsi Cacat / NG</span>
+                      <p className="text-slate-800 font-bold bg-white p-2 rounded border border-slate-100/80 leading-normal mt-1 text-[11px] italic">
+                        "{selectedReviewNcr.defectType || selectedReviewNcr.description}"
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                <div className="grid grid-cols-3 divide-x divide-slate-300 text-center font-bold">
-                  {/* STAFF Box */}
-                  <div className="flex flex-col justify-between h-20 p-1">
-                    <div className="text-[8px] text-slate-400 font-black uppercase">Staff (QC Inspector)</div>
-                    {isStaffApproved ? (
-                      <div className="flex flex-col items-center">
-                        <span className="text-slate-800 text-xs font-bold leading-none select-none">
-                          {selectedReviewNcr.foundBy ? selectedReviewNcr.foundBy.split(" ")[1] : "Hendrik"}
-                        </span>
-                        {selectedReviewNcr.staffReview && (
-                          <span className="text-[8px] text-slate-505 font-normal mt-0.5 italic block max-w-[80px] truncate" title={selectedReviewNcr.staffReview}>
+
+                {/* Right Column: Signatures & Reviews */}
+                <div className="space-y-4">
+                  {/* Quality Department Signature Block (PR4-FRM-08001) */}
+                  <div className="border border-slate-300 rounded-lg overflow-hidden bg-white text-[11px] shadow-sm/5 text-left">
+                    <div className="bg-slate-100 px-3 py-1.5 border-b border-slate-300 font-extrabold text-slate-800 uppercase text-center tracking-wider text-[10px]">
+                      TANDA TANGAN QUALITY DEPT (PR4-FRM-08001)
+                    </div>
+                    <div className="grid grid-cols-3 divide-x divide-slate-300 text-center font-bold">
+                      {/* STAFF Box */}
+                      <div className="flex flex-col justify-between h-20 p-1">
+                        <div className="text-[8px] text-slate-400 font-black uppercase">Staff (QC Inspector)</div>
+                        {isStaffApproved ? (
+                          <div className="flex flex-col items-center">
+                            <span className="text-slate-800 text-xs font-bold leading-none select-none">
+                              {selectedReviewNcr.foundBy ? selectedReviewNcr.foundBy.split(" ")[1] : "Hendrik"}
+                            </span>
+                            {selectedReviewNcr.staffReview && (
+                              <span className="text-[8px] text-slate-505 font-normal mt-0.5 italic block max-w-[80px] truncate" title={selectedReviewNcr.staffReview}>
+                                "{selectedReviewNcr.staffReview}"
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="text-slate-455 italic text-[8px] py-0.5 font-medium leading-tight">
+                            Menunggu Staff
+                          </div>
+                        )}
+                        <div className="text-[8px] text-slate-500 border-t border-slate-200 pt-0.5">
+                          {selectedReviewNcr.date || "28-7-2025"}
+                        </div>
+                      </div>
+
+                      {/* SPV Box */}
+                      <div className="flex flex-col justify-between h-20 p-1">
+                        <div className="text-[8px] text-slate-400 font-black uppercase">SPV (QC SPV)</div>
+                        {isSpvApproved ? (
+                          <div className="flex flex-col items-center">
+                            <span className="text-slate-800 text-xs font-bold leading-none select-none">Approved (SPV)</span>
+                            {selectedReviewNcr.spvReview && (
+                              <span className="text-[8px] text-slate-505 font-normal mt-0.5 italic block max-w-[80px] truncate" title={selectedReviewNcr.spvReview}>
+                                "{selectedReviewNcr.spvReview}"
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="text-slate-400 italic text-[8px] py-0.5 font-medium leading-tight">
+                            Menunggu SPV
+                          </div>
+                        )}
+                        <div className="text-[8px] text-slate-500 border-t border-slate-200 pt-0.5">
+                          {isSpvApproved ? selectedReviewNcr.date : "-"}
+                        </div>
+                      </div>
+
+                      {/* MNG Box */}
+                      <div className="flex flex-col justify-between h-20 p-1">
+                        <div className="text-[8px] text-slate-400 font-black uppercase">MNG (QC Manager)</div>
+                        {isMngApproved ? (
+                          <div className="flex flex-col items-center">
+                            <span className="text-slate-800 text-xs font-bold leading-none select-none">Approved (MNG)</span>
+                            {selectedReviewNcr.mngReview && (
+                              <span className="text-[8px] text-slate-550 font-normal mt-0.5 italic block max-w-[80px] truncate" title={selectedReviewNcr.mngReview}>
+                                "{selectedReviewNcr.mngReview}"
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="text-slate-400 italic text-[8px] py-0.5 font-medium leading-tight">
+                            Menunggu MNG
+                          </div>
+                        )}
+                        <div className="text-[8px] text-slate-500 border-t border-slate-200 pt-0.5">
+                          {isMngApproved ? selectedReviewNcr.date : "-"}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Detailed Reviews Section */}
+                  <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-[11px] text-left space-y-2.5">
+                    <span className="text-[9px] font-black text-slate-455 uppercase tracking-widest block">
+                      Detail Catatan Review Approval
+                    </span>
+                    <div className="space-y-2 divide-y divide-slate-100">
+                      {/* Staff Review */}
+                      <div className="pt-2 first:pt-0">
+                        <div className="flex justify-between items-center">
+                          <span className="font-bold text-slate-700">Staff (QC Inspector)</span>
+                          <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase ${
+                            isStaffApproved ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
+                          }`}>
+                            {isStaffApproved ? "APPROVED" : "PENDING"}
+                          </span>
+                        </div>
+                        {isStaffApproved && selectedReviewNcr.staffReview && (
+                          <p className="text-slate-600 mt-1 italic leading-normal font-semibold">
                             "{selectedReviewNcr.staffReview}"
-                          </span>
+                          </p>
                         )}
                       </div>
-                    ) : (
-                      <div className="text-slate-455 italic text-[8px] py-0.5 font-medium leading-tight">
-                        Menunggu Staff
-                      </div>
-                    )}
-                    <div className="text-[8px] text-slate-500 border-t border-slate-200 pt-0.5">
-                      {selectedReviewNcr.date || "28-7-2025"}
-                    </div>
-                  </div>
 
-                  {/* SPV Box */}
-                  <div className="flex flex-col justify-between h-20 p-1">
-                    <div className="text-[8px] text-slate-400 font-black uppercase">SPV (QC SPV)</div>
-                    {isSpvApproved ? (
-                      <div className="flex flex-col items-center">
-                        <span className="text-slate-800 text-xs font-bold leading-none select-none">Approved (SPV)</span>
-                        {selectedReviewNcr.spvReview && (
-                          <span className="text-[8px] text-slate-505 font-normal mt-0.5 italic block max-w-[80px] truncate" title={selectedReviewNcr.spvReview}>
+                      {/* SPV Review */}
+                      <div className="pt-2 first:pt-0">
+                        <div className="flex justify-between items-center">
+                          <span className="font-bold text-slate-700">SPV (QC SPV)</span>
+                          <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase ${
+                            isSpvApproved ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
+                          }`}>
+                            {isSpvApproved ? "APPROVED" : "PENDING"}
+                          </span>
+                        </div>
+                        {isSpvApproved && selectedReviewNcr.spvReview && (
+                          <p className="text-slate-600 mt-1 italic leading-normal font-semibold">
                             "{selectedReviewNcr.spvReview}"
-                          </span>
+                          </p>
                         )}
                       </div>
-                    ) : (
-                      <div className="text-slate-400 italic text-[8px] py-0.5 font-medium leading-tight">
-                        Menunggu SPV
-                      </div>
-                    )}
-                    <div className="text-[8px] text-slate-500 border-t border-slate-200 pt-0.5">
-                      {isSpvApproved ? selectedReviewNcr.date : "-"}
-                    </div>
-                  </div>
 
-                  {/* MNG Box */}
-                  <div className="flex flex-col justify-between h-20 p-1">
-                    <div className="text-[8px] text-slate-400 font-black uppercase">MNG (QC Manager)</div>
-                    {isMngApproved ? (
-                      <div className="flex flex-col items-center">
-                        <span className="text-slate-800 text-xs font-bold leading-none select-none">Approved (MNG)</span>
-                        {selectedReviewNcr.mngReview && (
-                          <span className="text-[8px] text-slate-550 font-normal mt-0.5 italic block max-w-[80px] truncate" title={selectedReviewNcr.mngReview}>
-                            "{selectedReviewNcr.mngReview}"
+                      {/* MNG Review */}
+                      <div className="pt-2 first:pt-0">
+                        <div className="flex justify-between items-center">
+                          <span className="font-bold text-slate-700">MNG (QC Manager)</span>
+                          <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase ${
+                            isMngApproved ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
+                          }`}>
+                            {isMngApproved ? "APPROVED" : "PENDING"}
                           </span>
+                        </div>
+                        {isMngApproved && selectedReviewNcr.mngReview && (
+                          <p className="text-slate-600 mt-1 italic leading-normal font-semibold">
+                            "{selectedReviewNcr.mngReview}"
+                          </p>
                         )}
                       </div>
-                    ) : (
-                      <div className="text-slate-400 italic text-[8px] py-0.5 font-medium leading-tight">
-                        Menunggu MNG
-                      </div>
-                    )}
-                    <div className="text-[8px] text-slate-500 border-t border-slate-200 pt-0.5">
-                      {isMngApproved ? selectedReviewNcr.date : "-"}
                     </div>
                   </div>
                 </div>
@@ -975,6 +1047,7 @@ export default function OperatorView({
           </div>
         </div>
       )}
+
 
     </div>
   );

@@ -68,7 +68,7 @@ export default function SectionHeadView({ pendingNcrs, handleApproveNcrAction, r
       {/* Detail overlay */}
       {selectedNcr && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-[2px] z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl w-full max-w-md shadow-2xl overflow-hidden border border-slate-100 flex flex-col">
+          <div className="bg-white rounded-xl w-full max-w-4xl shadow-2xl overflow-hidden border border-slate-100 flex flex-col">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
               <div>
                 <span className="text-[10px] font-bold text-amber-600 tracking-widest uppercase">Lembar Analisis Defect</span>
@@ -79,146 +79,214 @@ export default function SectionHeadView({ pendingNcrs, handleApproveNcrAction, r
               </button>
             </div>
             
-            <div className="p-6 space-y-4">
-              <div className="p-4 bg-slate-50 border border-slate-100 rounded-lg">
-                <span className="text-[10px] font-bold text-slate-400 block">Detail Part & Supplier</span>
-                <span className="text-sm font-bold text-slate-800 block mt-1">{selectedNcr.partName}</span>
-                <span className="text-xs text-slate-400 block mt-0.5">{selectedNcr.partNumber} • {selectedNcr.supplierName}</span>
-              </div>
- 
-              <div className="grid grid-cols-2 gap-3 text-center text-xs">
-                <div className="p-3 bg-slate-50 rounded-md border border-slate-100/50">
-                  <span className="text-slate-400 block font-bold">Qty NG:</span>
-                  <strong className="text-slate-800 font-extrabold">{selectedNcr.qty} pcs</strong>
-                </div>
-                <div className="p-3 bg-slate-50 rounded-md border border-slate-100/50">
-                  <span className="text-slate-400 block font-bold">NG Types:</span>
-                  <strong className="text-red-600 font-extrabold uppercase">{selectedNcr.reject}</strong>
-                </div>
-              </div>
-
-              <div className="p-3 bg-red-50/30 border border-red-100/50 rounded-md space-y-2.5 text-xs text-left">
-                <div className="flex justify-between">
-                  <span className="text-slate-500 font-medium">Location Found:</span>
-                  <span className="text-slate-800 font-bold">{selectedNcr.locationFound || "IN-COMING"}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 font-medium">Problem Type:</span>
-                  <span className="text-slate-800 font-bold">{selectedNcr.problemType || "QUALITY"}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 font-medium">Found By:</span>
-                  <span className="text-slate-800 font-bold">{selectedNcr.foundBy || "QC INSPECTOR"}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 font-medium">Customer Approval?</span>
-                  <span className="text-slate-800 font-bold">{selectedNcr.customerApproval || "YES"}</span>
-                </div>
-                {selectedNcr.docsToRevise && (
-                  <div className="flex justify-between">
-                    <span className="text-slate-500 font-medium">Docs to Revise:</span>
-                    <span className="text-slate-800 font-bold truncate max-w-[200px]" title={selectedNcr.docsToRevise}>{selectedNcr.docsToRevise}</span>
+            <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                {/* Left Column: Defect details */}
+                <div className="space-y-4">
+                  <div className="p-4 bg-slate-50 border border-slate-100 rounded-lg">
+                    <span className="text-[10px] font-bold text-slate-400 block">Detail Part & Supplier</span>
+                    <span className="text-sm font-bold text-slate-800 block mt-1">{selectedNcr.partName}</span>
+                    <span className="text-xs text-slate-400 block mt-0.5">{selectedNcr.partNumber} • {selectedNcr.supplierName}</span>
                   </div>
-                )}
-                <div className="border-t border-red-100/60 pt-2 flex flex-col gap-1">
-                  <span className="text-slate-500 font-medium">Deskripsi Cacat / NG:</span>
-                  <p className="text-slate-800 font-bold bg-white p-2 rounded border border-slate-100/80 leading-normal">{selectedNcr.defectType}</p>
-                </div>
-                <div className="flex justify-between border-t border-red-100/60 pt-2">
-                  <span className="text-slate-500 font-medium">Keputusan Disposisi:</span>
-                  <span className="text-blue-600 font-black">{selectedNcr.disposition}</span>
-                </div>
-              </div>
+     
+                  <div className="grid grid-cols-2 gap-3 text-center text-xs">
+                    <div className="p-3 bg-slate-50 rounded-md border border-slate-100/50">
+                      <span className="text-slate-400 block font-bold">Qty NG:</span>
+                      <strong className="text-slate-800 font-extrabold">{selectedNcr.qty} pcs</strong>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-md border border-slate-100/50">
+                      <span className="text-slate-400 block font-bold">NG Types:</span>
+                      <strong className="text-red-600 font-extrabold uppercase">{selectedNcr.reject}</strong>
+                    </div>
+                  </div>
 
-              {/* TANDA TANGAN QUALITY DEPT (PR4-FRM-08001) */}
-              <div className="border border-slate-300 rounded-lg overflow-hidden bg-white text-[11px] mt-4 shadow-sm/5 text-left">
-                <div className="bg-slate-100 px-3 py-1.5 border-b border-slate-300 font-extrabold text-slate-800 uppercase text-center tracking-wider text-[10px]">
-                  TANDA TANGAN QUALITY DEPT (PR4-FRM-08001)
+                  <div className="p-3.5 bg-red-50/30 border border-red-100/50 rounded-lg text-[11px] space-y-3 text-left">
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
+                      <div>
+                        <span className="text-slate-450 font-bold text-[9px] uppercase tracking-wider block">Location Found</span>
+                        <strong className="text-slate-800 font-bold block mt-0.5">{selectedNcr.locationFound || "IN-COMING"}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-450 font-bold text-[9px] uppercase tracking-wider block">Customer Approval</span>
+                        <strong className="text-slate-800 font-bold block mt-0.5">{selectedNcr.customerApproval || "YES"}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-450 font-bold text-[9px] uppercase tracking-wider block">Problem Type</span>
+                        <strong className="text-slate-800 font-bold block mt-0.5">{selectedNcr.problemType || "QUALITY"}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-450 font-bold text-[9px] uppercase tracking-wider block">Docs to Revise</span>
+                        <strong className="text-slate-800 font-bold block mt-0.5 truncate" title={selectedNcr.docsToRevise}>{selectedNcr.docsToRevise || "-"}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-450 font-bold text-[9px] uppercase tracking-wider block">Found By</span>
+                        <strong className="text-slate-800 font-bold block mt-0.5 truncate" title={selectedNcr.foundBy}>{selectedNcr.foundBy || "QC INSPECTOR"}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-450 font-bold text-[9px] uppercase tracking-wider block">Keputusan Disposisi</span>
+                        <strong className="text-blue-600 font-black block mt-0.5 uppercase">{selectedNcr.disposition || "REPAIR"}</strong>
+                      </div>
+                    </div>
+
+                    <div className="border-t border-red-100/60 pt-2.5">
+                      <span className="text-slate-450 font-bold text-[9px] uppercase tracking-wider block">Deskripsi Cacat / NG</span>
+                      <p className="text-slate-800 font-bold bg-white p-2 rounded border border-slate-100 leading-normal mt-1 text-[11px]">{selectedNcr.defectType || selectedNcr.defectType}</p>
+                    </div>
+                  </div>
                 </div>
-                <div className="grid grid-cols-3 divide-x divide-slate-300 text-center font-bold">
-                  {/* STAFF Box */}
-                  <div className="flex flex-col justify-between h-20 p-1">
-                    <div className="text-[8px] text-slate-400 font-black uppercase">Staff (QC Inspector)</div>
-                    {isStaffApproved ? (
-                      <div className="flex flex-col items-center">
-                        <span className="text-slate-800 text-xs font-bold leading-none select-none">
-                          {selectedNcr.foundBy ? selectedNcr.foundBy.split(" ")[1] : "Hendrik"}
-                        </span>
-                        {selectedNcr.staffReview && (
-                          <span className="text-[8px] text-slate-505 font-normal mt-0.5 italic block max-w-[80px] truncate" title={selectedNcr.staffReview}>
+
+                {/* Right Column: Signatures, Reviews, and Actions */}
+                <div className="space-y-4">
+                  {/* TANDA TANGAN QUALITY DEPT (PR4-FRM-08001) */}
+                  <div className="border border-slate-300 rounded-lg overflow-hidden bg-white text-[11px] shadow-sm/5 text-left">
+                    <div className="bg-slate-100 px-3 py-1.5 border-b border-slate-300 font-extrabold text-slate-800 uppercase text-center tracking-wider text-[10px]">
+                      TANDA TANGAN QUALITY DEPT (PR4-FRM-08001)
+                    </div>
+                    <div className="grid grid-cols-3 divide-x divide-slate-300 text-center font-bold">
+                      {/* STAFF Box */}
+                      <div className="flex flex-col justify-between h-20 p-1">
+                        <div className="text-[8px] text-slate-400 font-black uppercase">Staff (QC Inspector)</div>
+                        {isStaffApproved ? (
+                          <div className="flex flex-col items-center">
+                            <span className="text-slate-800 text-xs font-bold leading-none select-none">
+                              {selectedNcr.foundBy ? selectedNcr.foundBy.split(" ")[1] : "Hendrik"}
+                            </span>
+                            {selectedNcr.staffReview && (
+                              <span className="text-[8px] text-slate-505 font-normal mt-0.5 italic block max-w-[80px] truncate" title={selectedNcr.staffReview}>
+                                "{selectedNcr.staffReview}"
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="text-slate-455 italic text-[8px] py-0.5 font-medium leading-tight">
+                            Menunggu Staff
+                          </div>
+                        )}
+                        <div className="text-[8px] text-slate-500 border-t border-slate-200 pt-0.5">
+                          {selectedNcr.date || "28-7-2025"}
+                        </div>
+                      </div>
+
+                      {/* SPV Box */}
+                      <div className="flex flex-col justify-between h-20 p-1">
+                        <div className="text-[8px] text-slate-400 font-black uppercase">SPV (QC SPV)</div>
+                        {isSpvApproved ? (
+                          <div className="flex flex-col items-center">
+                            <span className="text-slate-800 text-xs font-bold leading-none select-none">Approved (SPV)</span>
+                            {selectedNcr.spvReview && (
+                              <span className="text-[8px] text-slate-505 font-normal mt-0.5 italic block max-w-[80px] truncate" title={selectedNcr.spvReview}>
+                                "{selectedNcr.spvReview}"
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="text-slate-400 italic text-[8px] py-0.5 font-medium leading-tight">
+                            Menunggu SPV
+                          </div>
+                        )}
+                        <div className="text-[8px] text-slate-500 border-t border-slate-200 pt-0.5">
+                          {isSpvApproved ? selectedNcr.date : "-"}
+                        </div>
+                      </div>
+
+                      {/* MNG Box */}
+                      <div className="flex flex-col justify-between h-20 p-1">
+                        <div className="text-[8px] text-slate-400 font-black uppercase">MNG (QC Manager)</div>
+                        {isMngApproved ? (
+                          <div className="flex flex-col items-center">
+                            <span className="text-slate-800 text-xs font-bold leading-none select-none">Approved (MNG)</span>
+                            {selectedNcr.mngReview && (
+                              <span className="text-[8px] text-slate-550 font-normal mt-0.5 italic block max-w-[80px] truncate" title={selectedNcr.mngReview}>
+                                "{selectedNcr.mngReview}"
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="text-slate-400 italic text-[8px] py-0.5 font-medium leading-tight">
+                            Menunggu MNG
+                          </div>
+                        )}
+                        <div className="text-[8px] text-slate-500 border-t border-slate-200 pt-0.5">
+                          {isMngApproved ? selectedNcr.date : "-"}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Detailed Reviews Section */}
+                  <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-[11px] text-left space-y-2.5">
+                    <span className="text-[9px] font-black text-slate-450 uppercase tracking-widest block">
+                      Detail Catatan Review Approval
+                    </span>
+                    <div className="space-y-2 divide-y divide-slate-100">
+                      {/* Staff Review */}
+                      <div className="pt-2 first:pt-0">
+                        <div className="flex justify-between items-center">
+                          <span className="font-bold text-slate-700">Staff (QC Inspector)</span>
+                          <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase ${
+                            isStaffApproved ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
+                          }`}>
+                            {isStaffApproved ? "APPROVED" : "PENDING"}
+                          </span>
+                        </div>
+                        {isStaffApproved && selectedNcr.staffReview && (
+                          <p className="text-slate-600 mt-1 italic leading-normal font-semibold">
                             "{selectedNcr.staffReview}"
-                          </span>
+                          </p>
                         )}
                       </div>
-                    ) : (
-                      <div className="text-slate-450 italic text-[8px] py-0.5 font-medium leading-tight">
-                        Menunggu Staff
-                      </div>
-                    )}
-                    <div className="text-[8px] text-slate-500 border-t border-slate-200 pt-0.5">
-                      {selectedNcr.date || "28-7-2025"}
-                    </div>
-                  </div>
 
-                  {/* SPV Box */}
-                  <div className="flex flex-col justify-between h-20 p-1">
-                    <div className="text-[8px] text-slate-400 font-black uppercase">SPV (QC SPV)</div>
-                    {isSpvApproved ? (
-                      <div className="flex flex-col items-center">
-                        <span className="text-slate-800 text-xs font-bold leading-none select-none">Approved (SPV)</span>
-                        {selectedNcr.spvReview && (
-                          <span className="text-[8px] text-slate-505 font-normal mt-0.5 italic block max-w-[80px] truncate" title={selectedNcr.spvReview}>
+                      {/* SPV Review */}
+                      <div className="pt-2 first:pt-0">
+                        <div className="flex justify-between items-center">
+                          <span className="font-bold text-slate-700">SPV (QC SPV)</span>
+                          <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase ${
+                            isSpvApproved ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
+                          }`}>
+                            {isSpvApproved ? "APPROVED" : "PENDING"}
+                          </span>
+                        </div>
+                        {isSpvApproved && selectedNcr.spvReview && (
+                          <p className="text-slate-600 mt-1 italic leading-normal font-semibold">
                             "{selectedNcr.spvReview}"
-                          </span>
+                          </p>
                         )}
                       </div>
-                    ) : (
-                      <div className="text-slate-400 italic text-[8px] py-0.5 font-medium leading-tight">
-                        Menunggu SPV
+
+                      {/* MNG Review */}
+                      <div className="pt-2 first:pt-0">
+                        <div className="flex justify-between items-center">
+                          <span className="font-bold text-slate-700">MNG (QC Manager)</span>
+                          <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase ${
+                            isMngApproved ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
+                          }`}>
+                            {isMngApproved ? "APPROVED" : "PENDING"}
+                          </span>
+                        </div>
+                        {isMngApproved && selectedNcr.mngReview && (
+                          <p className="text-slate-600 mt-1 italic leading-normal font-semibold">
+                            "{selectedNcr.mngReview}"
+                          </p>
+                        )}
                       </div>
-                    )}
-                    <div className="text-[8px] text-slate-500 border-t border-slate-200 pt-0.5">
-                      {isSpvApproved ? selectedNcr.date : "-"}
                     </div>
                   </div>
 
-                  {/* MNG Box */}
-                  <div className="flex flex-col justify-between h-20 p-1">
-                    <div className="text-[8px] text-slate-400 font-black uppercase">MNG (QC Manager)</div>
-                    {isMngApproved ? (
-                      <div className="flex flex-col items-center">
-                        <span className="text-slate-800 text-xs font-bold leading-none select-none">Approved (MNG)</span>
-                        {selectedNcr.mngReview && (
-                          <span className="text-[8px] text-slate-550 font-normal mt-0.5 italic block max-w-[80px] truncate" title={selectedNcr.mngReview}>
-                            "{selectedNcr.mngReview}"
-                          </span>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="text-slate-400 italic text-[8px] py-0.5 font-medium leading-tight">
-                        Menunggu MNG
-                      </div>
-                    )}
-                    <div className="text-[8px] text-slate-500 border-t border-slate-200 pt-0.5">
-                      {isMngApproved ? selectedNcr.date : "-"}
-                    </div>
+                  {/* Catatan / Review Input */}
+                  <div className="space-y-1.5 text-left border-t border-slate-150 pt-3">
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                      Review / Catatan {role === "Foreman" ? "Staff" : "SPV"} <span className="text-slate-400 font-normal">(Opsional)</span>
+                    </label>
+                    <textarea
+                      value={reviewComment}
+                      onChange={(e) => setReviewComment(e.target.value)}
+                      placeholder={`Tulis catatan review ${role === "Foreman" ? "Staff" : "SPV"} di sini...`}
+                      className="w-full text-xs p-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none h-14 bg-slate-50/20"
+                    />
                   </div>
                 </div>
               </div>
-
-              {/* Catatan / Review Input */}
-              <div className="space-y-1.5 text-left border-t border-slate-150 pt-3">
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  Review / Catatan {role === "Foreman" ? "Staff" : "SPV"} <span className="text-slate-400 font-normal">(Opsional)</span>
-                </label>
-                <textarea
-                  value={reviewComment}
-                  onChange={(e) => setReviewComment(e.target.value)}
-                  placeholder={`Tulis catatan review ${role === "Foreman" ? "Staff" : "SPV"} di sini...`}
-                  className="w-full text-xs p-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none h-14 bg-slate-50/20"
-                />
-              </div>
-
             </div>
 
             <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex justify-end gap-2">

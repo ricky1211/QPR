@@ -64,7 +64,9 @@ export default function ApproveNcrDashboard({ pendingNcrs, handleApproveNcrActio
       {levelTab === "dept-head" && (
         <DeptHeadView
           pendingNcrs={pendingNcrs}
-          pendingQprs={[]} // Don't show QPRs in NCR dashboard
+          pendingQprs={[]}
+          showNcr={true}
+          showQpr={false}
           handleApproveNcrAction={handleApproveNcrAction}
           handleApproveQprAction={() => {}}
         />

@@ -101,7 +101,7 @@ export default function PartsDirectory({
 
                         <button
                           onClick={() => handleCreateQpr(p)}
-                          className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold rounded-lg transition-colors inline-flex items-center gap-1"
+                          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition-colors inline-flex items-center gap-1 cursor-pointer"
                           title="Buat Dokumen QPR"
                         >
                           <span>Buat QPR</span>

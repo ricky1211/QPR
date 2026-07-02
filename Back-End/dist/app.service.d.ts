@@ -3,4 +3,5 @@ export declare class AppService {
         status: string;
         service: string;
     };
+    getWelcome(): any;
 }

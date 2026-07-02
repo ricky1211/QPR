@@ -15,6 +15,20 @@ let AppService = class AppService {
             service: 'PT Menara Terus Makmur QPR Back-End Service (NestJS)',
         };
     }
+    getWelcome() {
+        return {
+            message: 'Welcome to MTM QPR Portal API',
+            status: 'UP',
+            service: 'PT Menara Terus Makmur QPR Back-End Service (NestJS)',
+            endpoints: {
+                status: '/api/status',
+                users: '/users',
+                parts: '/parts',
+                vendors: '/vendors',
+                ncrs: '/ncrs'
+            }
+        };
+    }
 };
 exports.AppService = AppService;
 exports.AppService = AppService = __decorate([
