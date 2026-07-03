@@ -55,6 +55,7 @@ export default function CalendarView({
 
             let cellBg = "bg-white";
             let statusIndicator = null;
+            let dateColor = "text-slate-400";
             const hasRecords = dayDeliveries.length > 0;
 
             if (hasRecords) {
@@ -64,18 +65,22 @@ export default function CalendarView({
 
               if (totalNg > 0) {
                 if (hasActiveNcr || hasApprovedNcr) {
-                  cellBg = "bg-rose-50/50 hover:bg-rose-50 transition-colors";
-                  statusIndicator = <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-rose-500 animate-pulse-ring"></span>;
+                  cellBg = "bg-rose-500 hover:bg-rose-600 text-white transition-colors shadow-[inset_0_0_0_1px_rgba(244,63,94,0.1)]";
+                  dateColor = "text-white";
+                  statusIndicator = <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-white animate-pulse"></span>;
                 } else {
-                  cellBg = "bg-amber-50/50 hover:bg-amber-50 transition-colors";
-                  statusIndicator = <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-amber-400"></span>;
+                  cellBg = "bg-amber-100 hover:bg-amber-200 text-slate-800 transition-colors";
+                  dateColor = "text-amber-900";
+                  statusIndicator = <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-amber-500"></span>;
                 }
               } else {
-                cellBg = "bg-emerald-50/30 hover:bg-emerald-50/50 transition-colors";
-                statusIndicator = <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-emerald-500"></span>;
+                cellBg = "bg-emerald-600 hover:bg-emerald-700 text-white transition-colors";
+                dateColor = "text-white";
+                statusIndicator = <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-white"></span>;
               }
             } else {
               cellBg = "bg-white hover:bg-slate-50/50 transition-colors";
+              dateColor = "text-slate-400";
             }
 
             return (
@@ -85,18 +90,18 @@ export default function CalendarView({
                 className={`relative p-3 min-h-[115px] flex flex-col justify-between ${cellBg} ${hasRecords ? "cursor-pointer" : ""}`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-400">{day}</span>
+                  <span className={`text-base font-extrabold ${dateColor}`}>{day}</span>
                   {statusIndicator}
                 </div>
 
                 {hasRecords && (
                   <div className="space-y-1 mt-3">
                     {dayDeliveries.map((delivery) => (
-                      <div key={delivery.id} className="text-[9px] leading-tight p-1 bg-white/70 rounded-lg border border-slate-100 truncate shadow-sm">
-                        <span className="font-bold text-slate-800">{delivery.partNumber}</span>
-                        <div className="flex justify-between text-slate-500 font-medium">
+                      <div key={delivery.id} className="text-[9px] leading-tight p-1 bg-white rounded-lg border border-slate-100 truncate shadow-sm text-slate-800">
+                        <span className="font-bold text-slate-900">{delivery.partNumber}</span>
+                        <div className="flex justify-between text-slate-550 font-medium">
                           <span>T: {delivery.qty}</span>
-                          {delivery.reject > 0 && <span className="text-red-500 font-bold">NG: {delivery.reject}</span>}
+                          {delivery.reject > 0 && <span className="text-red-600 font-bold">NG: {delivery.reject}</span>}
                         </div>
                       </div>
                     ))}

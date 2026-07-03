@@ -643,47 +643,189 @@ export default function OperatorView({
                 />
               </div>
 
-              {/* Disposition Checkboxes */}
+              {/* Keputusan Disposisi & Customer Approval (Excel style layout) */}
               <div className="space-y-1.5 text-left bg-white border border-slate-205 p-3 rounded-lg">
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Keputusan Disposisi <span className="text-red-500">*</span></label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 bg-slate-50 border border-slate-200/50 p-2 rounded-lg">
-                  {["RETURN TO VENDOR", "REWORK", "SCRAP", "ACCEPT AS IS", "REPAIR", "REGRADE"].map((disp) => {
-                    const isChecked = disposition.includes(disp);
-                    return (
-                      <label key={disp} className="flex items-center gap-2 px-2 py-1.5 hover:bg-white rounded cursor-pointer text-[10px] font-bold text-slate-705 border border-slate-100 bg-white">
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => {
-                            setDisposition([disp]);
-                          }}
-                          className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
-                        />
-                        {disp}
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                  Keputusan Disposisi & Customer Approval Required <span className="text-red-500">*</span>
+                </label>
+                <div className="border border-slate-400 rounded-lg overflow-hidden shadow-sm bg-white">
+                  <table className="w-full text-center text-[10px] font-bold border-collapse">
+                    <thead>
+                      <tr className="bg-slate-100 border-b border-slate-400 text-slate-900 font-extrabold">
+                        <th colSpan={5} className="py-2.5 text-center uppercase tracking-wider text-xs border-b border-slate-400">
+                          KEPUTUSAN DISPOSISI
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {/* Row 1: Labels */}
+                      <tr className="bg-slate-50 text-slate-805 font-bold border-b border-slate-300">
+                        <td className="px-2 py-2 border-r border-slate-400 w-[22%] uppercase">RETURN TO VENDOR</td>
+                        <td className="px-2 py-2 border-r border-slate-400 w-[22%] uppercase">REWORK</td>
+                        <td className="px-2 py-2 border-r border-slate-400 w-[22%] uppercase">SCRAP</td>
+                        <td colSpan={2} className="px-2 py-2 w-[34%] uppercase bg-slate-100/50">CUSTOMER APPROVAL</td>
+                      </tr>
 
-              {/* Customer Approval Required Checkboxes (Yes/No with single-select behavior) */}
-              <div className="space-y-1.5 text-left bg-white border border-slate-205 p-3 rounded-lg">
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Customer Approval Required? <span className="text-red-500">*</span></label>
-                <div className="grid grid-cols-2 gap-2 bg-slate-50 border border-slate-200/50 p-2 rounded-lg max-w-xs">
-                  {["YES", "NO"].map((choice) => {
-                    const isChecked = customerApproval === choice;
-                    return (
-                      <label key={choice} className="flex items-center gap-2 px-2 py-1.5 hover:bg-white rounded cursor-pointer text-[10px] font-bold text-slate-705 border border-slate-100 bg-white">
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => setCustomerApproval(choice)}
-                          className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
-                        />
-                        {choice}
-                      </label>
-                    );
-                  })}
+                      {/* Row 2: Checkboxes for top row, Labels for Customer Approval */}
+                      <tr className="border-b border-slate-400 text-center font-bold">
+                        <td 
+                          onClick={() => setDisposition(disposition.includes("RETURN TO VENDOR") ? [] : ["RETURN TO VENDOR"])}
+                          className={`border-r border-slate-400 text-center cursor-pointer h-11 transition-all ${
+                            disposition.includes("RETURN TO VENDOR") ? "bg-blue-50" : "hover:bg-slate-50/50"
+                          }`}
+                        >
+                          <div className="flex items-center justify-center h-full">
+                            <input
+                              type="checkbox"
+                              checked={disposition.includes("RETURN TO VENDOR")}
+                              readOnly
+                              className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer pointer-events-none"
+                            />
+                          </div>
+                        </td>
+                        <td 
+                          onClick={() => setDisposition(disposition.includes("REWORK") ? [] : ["REWORK"])}
+                          className={`border-r border-slate-400 text-center cursor-pointer h-11 transition-all ${
+                            disposition.includes("REWORK") ? "bg-blue-50" : "hover:bg-slate-50/50"
+                          }`}
+                        >
+                          <div className="flex items-center justify-center h-full">
+                            <input
+                              type="checkbox"
+                              checked={disposition.includes("REWORK")}
+                              readOnly
+                              className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer pointer-events-none"
+                            />
+                          </div>
+                        </td>
+                        <td 
+                          onClick={() => setDisposition(disposition.includes("SCRAP") ? [] : ["SCRAP"])}
+                          className={`border-r border-slate-400 text-center cursor-pointer h-11 transition-all ${
+                            disposition.includes("SCRAP") ? "bg-blue-50" : "hover:bg-slate-50/50"
+                          }`}
+                        >
+                          <div className="flex items-center justify-center h-full">
+                            <input
+                              type="checkbox"
+                              checked={disposition.includes("SCRAP")}
+                              readOnly
+                              className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer pointer-events-none"
+                            />
+                          </div>
+                        </td>
+                        <td className={`px-2 py-2 border-r border-slate-400 w-[17%] uppercase text-center font-bold flex-1 h-11 align-middle transition-all duration-200 ${
+                          customerApproval === "YES"
+                            ? "bg-emerald-100 text-emerald-900 border-b border-emerald-300"
+                            : "bg-slate-50 text-slate-805 border-b border-slate-300"
+                        }`}>
+                          <div className="flex items-center justify-center h-full">YES</div>
+                        </td>
+                        <td className={`px-2 py-2 w-[17%] uppercase text-center font-bold flex-1 h-11 align-middle transition-all duration-200 ${
+                          customerApproval === "NO"
+                            ? "bg-red-100 text-red-900 border-b border-red-300"
+                            : "bg-slate-50 text-slate-805 border-b border-slate-300"
+                        }`}>
+                          <div className="flex items-center justify-center h-full">NO</div>
+                        </td>
+                      </tr>
+
+                      {/* Row 3: Labels for bottom row, Checkboxes for Customer Approval */}
+                      <tr className="bg-slate-50 text-slate-805 font-bold border-b border-slate-400 text-center">
+                        <td className="px-2 py-2 border-r border-slate-400 uppercase">ACCEPT AS IS</td>
+                        <td className="px-2 py-2 border-r border-slate-400 uppercase">REPAIR</td>
+                        <td className="px-2 py-2 border-r border-slate-400 uppercase">REGRADE</td>
+                        <td 
+                          rowSpan={2}
+                          onClick={() => setCustomerApproval(customerApproval === "YES" ? "" : "YES")}
+                          className={`border-r border-slate-400 text-center cursor-pointer transition-all duration-200 ${
+                            customerApproval === "YES" ? "bg-emerald-500 text-white" : "hover:bg-slate-50/50"
+                          }`}
+                        >
+                          <div className="flex items-center justify-center h-full">
+                            <input
+                              type="checkbox"
+                              checked={customerApproval === "YES"}
+                              readOnly
+                              className={`rounded w-4 h-4 cursor-pointer pointer-events-none transition-all ${
+                                customerApproval === "YES"
+                                  ? "text-emerald-600 bg-white border-transparent"
+                                  : "text-emerald-600 border-slate-300 focus:ring-emerald-500"
+                              }`}
+                            />
+                          </div>
+                        </td>
+                        <td 
+                          rowSpan={2}
+                          onClick={() => setCustomerApproval(customerApproval === "NO" ? "" : "NO")}
+                          className={`text-center cursor-pointer transition-all duration-200 ${
+                            customerApproval === "NO" ? "bg-red-500 text-white" : "hover:bg-slate-50/50"
+                          }`}
+                        >
+                          <div className="flex items-center justify-center h-full">
+                            <input
+                              type="checkbox"
+                              checked={customerApproval === "NO"}
+                              readOnly
+                              className={`rounded w-4 h-4 cursor-pointer pointer-events-none transition-all ${
+                                customerApproval === "NO"
+                                  ? "text-red-600 bg-white border-transparent"
+                                  : "text-red-600 border-slate-300 focus:ring-red-500"
+                              }`}
+                            />
+                          </div>
+                        </td>
+                      </tr>
+
+                      {/* Row 4: Checkboxes for bottom row */}
+                      <tr className="h-11 text-center">
+                        <td 
+                          onClick={() => setDisposition(disposition.includes("ACCEPT AS IS") ? [] : ["ACCEPT AS IS"])}
+                          className={`border-r border-slate-400 text-center cursor-pointer transition-all ${
+                            disposition.includes("ACCEPT AS IS") ? "bg-blue-50" : "hover:bg-slate-50/50"
+                          }`}
+                        >
+                          <div className="flex items-center justify-center h-full">
+                            <input
+                              type="checkbox"
+                              checked={disposition.includes("ACCEPT AS IS")}
+                              readOnly
+                              className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer pointer-events-none"
+                            />
+                          </div>
+                        </td>
+                        <td 
+                          onClick={() => setDisposition(disposition.includes("REPAIR") ? [] : ["REPAIR"])}
+                          className={`border-r border-slate-400 text-center cursor-pointer transition-all ${
+                            disposition.includes("REPAIR") ? "bg-blue-50" : "hover:bg-slate-50/50"
+                          }`}
+                        >
+                          <div className="flex items-center justify-center h-full">
+                            <input
+                              type="checkbox"
+                              checked={disposition.includes("REPAIR")}
+                              readOnly
+                              className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer pointer-events-none"
+                            />
+                          </div>
+                        </td>
+                        <td 
+                          onClick={() => setDisposition(disposition.includes("REGRADE") ? [] : ["REGRADE"])}
+                          className={`border-r border-slate-400 text-center cursor-pointer transition-all ${
+                            disposition.includes("REGRADE") ? "bg-blue-50" : "hover:bg-slate-50/50"
+                          }`}
+                        >
+                          <div className="flex items-center justify-center h-full">
+                            <input
+                              type="checkbox"
+                              checked={disposition.includes("REGRADE")}
+                              readOnly
+                              className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer pointer-events-none"
+                            />
+                          </div>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
               </div>
 
@@ -860,10 +1002,6 @@ export default function OperatorView({
                         </strong>
                       </div>
                       <div>
-                        <span className="text-slate-455 font-bold text-[9px] uppercase tracking-wider block">Customer Approval</span>
-                        <strong className="text-slate-800 font-bold block mt-0.5">{selectedReviewNcr.customerApproval || "YES"}</strong>
-                      </div>
-                      <div>
                         <span className="text-slate-455 font-bold text-[9px] uppercase tracking-wider block">Problem Type</span>
                         <strong className="text-slate-800 font-bold block mt-0.5">
                           {Array.isArray(selectedReviewNcr.problemType) ? selectedReviewNcr.problemType.join(", ") : selectedReviewNcr.problemType || "QUALITY"}
@@ -879,12 +1017,6 @@ export default function OperatorView({
                         <span className="text-slate-455 font-bold text-[9px] uppercase tracking-wider block">Found By</span>
                         <strong className="text-slate-800 font-bold block mt-0.5 truncate" title={selectedReviewNcr.foundBy}>{selectedReviewNcr.foundBy || "QC INSPECTOR"}</strong>
                       </div>
-                      <div>
-                        <span className="text-slate-455 font-bold text-[9px] uppercase tracking-wider block">Keputusan Disposisi</span>
-                        <strong className="text-blue-600 font-black block mt-0.5 uppercase">
-                          {Array.isArray(selectedReviewNcr.disposition) ? selectedReviewNcr.disposition.join(", ") : selectedReviewNcr.disposition || "REPAIR"}
-                        </strong>
-                      </div>
                     </div>
 
                     <div className="border-t border-slate-100 pt-2.5">
@@ -893,6 +1025,83 @@ export default function OperatorView({
                         "{selectedReviewNcr.defectType || selectedReviewNcr.description}"
                       </p>
                     </div>
+                  </div>
+
+                  {/* Excel-style Read-only Keputusan Disposisi Table */}
+                  <div className="border border-slate-300 rounded-lg overflow-hidden text-center text-[9px] font-bold bg-white shadow-sm">
+                    <table className="w-full border-collapse">
+                      <thead>
+                        <tr className="bg-slate-100 border-b border-slate-300 text-slate-800 font-extrabold text-[10px]">
+                          <th colSpan={5} className="py-1.5 text-center uppercase tracking-wider">
+                            KEPUTUSAN DISPOSISI
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="bg-slate-50 text-slate-700 border-b border-slate-200">
+                          <td className="border-r border-slate-300 py-1 w-[22%]">RETURN TO VENDOR</td>
+                          <td className="border-r border-slate-300 py-1 w-[22%]">REWORK</td>
+                          <td className="border-r border-slate-300 py-1 w-[22%]">SCRAP</td>
+                          <td className="border-r border-slate-300 py-1 w-[17%] bg-slate-100/30 text-center font-bold">YES</td>
+                          <td className="py-1 w-[17%] bg-slate-100/30 text-center font-bold">NO</td>
+                        </tr>
+                        <tr className="border-b border-slate-200 h-8">
+                          <td className={`border-r border-slate-300 transition-colors ${
+                            (Array.isArray(selectedReviewNcr.disposition) ? selectedReviewNcr.disposition.join(", ") : selectedReviewNcr.disposition) === "RETURN TO VENDOR" ? "bg-blue-100 text-blue-700" : ""
+                          }`}>
+                            {(Array.isArray(selectedReviewNcr.disposition) ? selectedReviewNcr.disposition.join(", ") : selectedReviewNcr.disposition) === "RETURN TO VENDOR" ? "✓" : ""}
+                          </td>
+                          <td className={`border-r border-slate-300 transition-colors ${
+                            (Array.isArray(selectedReviewNcr.disposition) ? selectedReviewNcr.disposition.join(", ") : selectedReviewNcr.disposition) === "REWORK" ? "bg-blue-100 text-blue-700" : ""
+                          }`}>
+                            {(Array.isArray(selectedReviewNcr.disposition) ? selectedReviewNcr.disposition.join(", ") : selectedReviewNcr.disposition) === "REWORK" ? "✓" : ""}
+                          </td>
+                          <td className={`border-r border-slate-300 transition-colors ${
+                            (Array.isArray(selectedReviewNcr.disposition) ? selectedReviewNcr.disposition.join(", ") : selectedReviewNcr.disposition) === "SCRAP" ? "bg-blue-100 text-blue-700" : ""
+                          }`}>
+                            {(Array.isArray(selectedReviewNcr.disposition) ? selectedReviewNcr.disposition.join(", ") : selectedReviewNcr.disposition) === "SCRAP" ? "✓" : ""}
+                          </td>
+                          <td 
+                            rowSpan={2}
+                            className={`border-r border-slate-300 transition-colors ${
+                              selectedReviewNcr.customerApproval === "YES" ? "bg-emerald-100 text-emerald-800" : ""
+                            }`}
+                          >
+                            {selectedReviewNcr.customerApproval === "YES" ? "✓" : ""}
+                          </td>
+                          <td 
+                            rowSpan={2}
+                            className={`transition-colors ${
+                              selectedReviewNcr.customerApproval === "NO" ? "bg-red-100 text-red-800" : ""
+                            }`}
+                          >
+                            {selectedReviewNcr.customerApproval === "NO" ? "✓" : ""}
+                          </td>
+                        </tr>
+                        <tr className="bg-slate-50 text-slate-700 border-b border-slate-200">
+                          <td className="border-r border-slate-300 py-1">ACCEPT AS IS</td>
+                          <td className="border-r border-slate-300 py-1">REPAIR</td>
+                          <td className="border-r border-slate-300 py-1">REGRADE</td>
+                        </tr>
+                        <tr className="h-8">
+                          <td className={`border-r border-slate-300 transition-colors ${
+                            (Array.isArray(selectedReviewNcr.disposition) ? selectedReviewNcr.disposition.join(", ") : selectedReviewNcr.disposition) === "ACCEPT AS IS" ? "bg-blue-100 text-blue-700" : ""
+                          }`}>
+                            {(Array.isArray(selectedReviewNcr.disposition) ? selectedReviewNcr.disposition.join(", ") : selectedReviewNcr.disposition) === "ACCEPT AS IS" ? "✓" : ""}
+                          </td>
+                          <td className={`border-r border-slate-300 transition-colors ${
+                            (Array.isArray(selectedReviewNcr.disposition) ? selectedReviewNcr.disposition.join(", ") : selectedReviewNcr.disposition) === "REPAIR" ? "bg-blue-100 text-blue-700" : ""
+                          }`}>
+                            {(Array.isArray(selectedReviewNcr.disposition) ? selectedReviewNcr.disposition.join(", ") : selectedReviewNcr.disposition) === "REPAIR" ? "✓" : ""}
+                          </td>
+                          <td className={`border-r border-slate-300 transition-colors ${
+                            (Array.isArray(selectedReviewNcr.disposition) ? selectedReviewNcr.disposition.join(", ") : selectedReviewNcr.disposition) === "REGRADE" ? "bg-blue-100 text-blue-700" : ""
+                          }`}>
+                            {(Array.isArray(selectedReviewNcr.disposition) ? selectedReviewNcr.disposition.join(", ") : selectedReviewNcr.disposition) === "REGRADE" ? "✓" : ""}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
                 </div>
 

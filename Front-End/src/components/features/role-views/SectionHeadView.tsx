@@ -108,10 +108,6 @@ export default function SectionHeadView({ pendingNcrs, handleApproveNcrAction, r
                         <strong className="text-slate-800 font-bold block mt-0.5">{selectedNcr.locationFound || "IN-COMING"}</strong>
                       </div>
                       <div>
-                        <span className="text-slate-450 font-bold text-[9px] uppercase tracking-wider block">Customer Approval</span>
-                        <strong className="text-slate-800 font-bold block mt-0.5">{selectedNcr.customerApproval || "YES"}</strong>
-                      </div>
-                      <div>
                         <span className="text-slate-450 font-bold text-[9px] uppercase tracking-wider block">Problem Type</span>
                         <strong className="text-slate-800 font-bold block mt-0.5">{selectedNcr.problemType || "QUALITY"}</strong>
                       </div>
@@ -123,16 +119,89 @@ export default function SectionHeadView({ pendingNcrs, handleApproveNcrAction, r
                         <span className="text-slate-450 font-bold text-[9px] uppercase tracking-wider block">Found By</span>
                         <strong className="text-slate-800 font-bold block mt-0.5 truncate" title={selectedNcr.foundBy}>{selectedNcr.foundBy || "QC INSPECTOR"}</strong>
                       </div>
-                      <div>
-                        <span className="text-slate-450 font-bold text-[9px] uppercase tracking-wider block">Keputusan Disposisi</span>
-                        <strong className="text-blue-600 font-black block mt-0.5 uppercase">{selectedNcr.disposition || "REPAIR"}</strong>
-                      </div>
                     </div>
 
                     <div className="border-t border-red-100/60 pt-2.5">
-                      <span className="text-slate-450 font-bold text-[9px] uppercase tracking-wider block">Deskripsi Cacat / NG</span>
+                      <span className="text-slate-455 font-bold text-[9px] uppercase tracking-wider block">Deskripsi Cacat / NG</span>
                       <p className="text-slate-800 font-bold bg-white p-2 rounded border border-slate-100 leading-normal mt-1 text-[11px]">{selectedNcr.defectType || selectedNcr.defectType}</p>
                     </div>
+                  </div>
+
+                  {/* Excel-style Read-only Keputusan Disposisi Table */}
+                  <div className="border border-slate-300 rounded-lg overflow-hidden text-center text-[9px] font-bold bg-white shadow-sm">
+                    <table className="w-full border-collapse">
+                      <thead>
+                        <tr className="bg-slate-100 border-b border-slate-300 text-slate-800 font-extrabold text-[10px]">
+                          <th colSpan={5} className="py-1.5 text-center uppercase tracking-wider">
+                            KEPUTUSAN DISPOSISI
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="bg-slate-50 text-slate-700 border-b border-slate-200">
+                          <td className="border-r border-slate-300 py-1 w-[22%]">RETURN TO VENDOR</td>
+                          <td className="border-r border-slate-300 py-1 w-[22%]">REWORK</td>
+                          <td className="border-r border-slate-300 py-1 w-[22%]">SCRAP</td>
+                          <td className="border-r border-slate-300 py-1 w-[17%] bg-slate-100/30 text-center font-bold">YES</td>
+                          <td className="py-1 w-[17%] bg-slate-100/30 text-center font-bold">NO</td>
+                        </tr>
+                        <tr className="border-b border-slate-200 h-8">
+                          <td className={`border-r border-slate-300 transition-colors ${
+                            (Array.isArray(selectedNcr.disposition) ? selectedNcr.disposition.join(", ") : selectedNcr.disposition) === "RETURN TO VENDOR" ? "bg-blue-100 text-blue-700" : ""
+                          }`}>
+                            {(Array.isArray(selectedNcr.disposition) ? selectedNcr.disposition.join(", ") : selectedNcr.disposition) === "RETURN TO VENDOR" ? "✓" : ""}
+                          </td>
+                          <td className={`border-r border-slate-300 transition-colors ${
+                            (Array.isArray(selectedNcr.disposition) ? selectedNcr.disposition.join(", ") : selectedNcr.disposition) === "REWORK" ? "bg-blue-100 text-blue-700" : ""
+                          }`}>
+                            {(Array.isArray(selectedNcr.disposition) ? selectedNcr.disposition.join(", ") : selectedNcr.disposition) === "REWORK" ? "✓" : ""}
+                          </td>
+                          <td className={`border-r border-slate-300 transition-colors ${
+                            (Array.isArray(selectedNcr.disposition) ? selectedNcr.disposition.join(", ") : selectedNcr.disposition) === "SCRAP" ? "bg-blue-100 text-blue-700" : ""
+                          }`}>
+                            {(Array.isArray(selectedNcr.disposition) ? selectedNcr.disposition.join(", ") : selectedNcr.disposition) === "SCRAP" ? "✓" : ""}
+                          </td>
+                          <td 
+                            rowSpan={2}
+                            className={`border-r border-slate-300 transition-colors ${
+                              selectedNcr.customerApproval === "YES" ? "bg-emerald-100 text-emerald-800" : ""
+                            }`}
+                          >
+                            {selectedNcr.customerApproval === "YES" ? "✓" : ""}
+                          </td>
+                          <td 
+                            rowSpan={2}
+                            className={`transition-colors ${
+                              selectedNcr.customerApproval === "NO" ? "bg-red-100 text-red-800" : ""
+                            }`}
+                          >
+                            {selectedNcr.customerApproval === "NO" ? "✓" : ""}
+                          </td>
+                        </tr>
+                        <tr className="bg-slate-50 text-slate-700 border-b border-slate-200">
+                          <td className="border-r border-slate-300 py-1">ACCEPT AS IS</td>
+                          <td className="border-r border-slate-300 py-1">REPAIR</td>
+                          <td className="border-r border-slate-300 py-1">REGRADE</td>
+                        </tr>
+                        <tr className="h-8">
+                          <td className={`border-r border-slate-300 transition-colors ${
+                            (Array.isArray(selectedNcr.disposition) ? selectedNcr.disposition.join(", ") : selectedNcr.disposition) === "ACCEPT AS IS" ? "bg-blue-100 text-blue-700" : ""
+                          }`}>
+                            {(Array.isArray(selectedNcr.disposition) ? selectedNcr.disposition.join(", ") : selectedNcr.disposition) === "ACCEPT AS IS" ? "✓" : ""}
+                          </td>
+                          <td className={`border-r border-slate-300 transition-colors ${
+                            (Array.isArray(selectedNcr.disposition) ? selectedNcr.disposition.join(", ") : selectedNcr.disposition) === "REPAIR" ? "bg-blue-100 text-blue-700" : ""
+                          }`}>
+                            {(Array.isArray(selectedNcr.disposition) ? selectedNcr.disposition.join(", ") : selectedNcr.disposition) === "REPAIR" ? "✓" : ""}
+                          </td>
+                          <td className={`border-r border-slate-300 transition-colors ${
+                            (Array.isArray(selectedNcr.disposition) ? selectedNcr.disposition.join(", ") : selectedNcr.disposition) === "REGRADE" ? "bg-blue-100 text-blue-700" : ""
+                          }`}>
+                            {(Array.isArray(selectedNcr.disposition) ? selectedNcr.disposition.join(", ") : selectedNcr.disposition) === "REGRADE" ? "✓" : ""}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
                 </div>
 
