@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { Briefcase, FileCheck, CheckCircle2, X } from "lucide-react";
+import { Briefcase, FileCheck, CheckCircle2, X, FileText } from "lucide-react";
+import QprPrintPreview from "./QprPrintPreview";
 
 export default function DeptHeadView({
   pendingNcrs,
@@ -16,6 +17,7 @@ export default function DeptHeadView({
 
   const [selectedNcr, setSelectedNcr] = useState(null);
   const [selectedQpr, setSelectedQpr] = useState(null);
+  const [previewQpr, setPreviewQpr] = useState(null);
   const [reviewComment, setReviewComment] = useState("");
 
   const isMngApproved = selectedNcr && (selectedNcr.requiredRole === "Closed" || selectedNcr.status === "APPROVED");
@@ -108,7 +110,14 @@ export default function DeptHeadView({
                         </div>
                       </div>
                       <div className="flex justify-end gap-2 pt-2">
-                        <button onClick={() => setSelectedQpr(qpr)} className="px-5 py-2 border border-slate-200 hover:bg-slate-100 rounded-lg text-[11px] font-bold text-slate-600 transition-all">Detail</button>
+                        <button
+                          onClick={() => setPreviewQpr(qpr)}
+                          className="flex items-center gap-1.5 px-4 py-2 border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-[11px] font-bold transition-all cursor-pointer"
+                        >
+                          <FileText size={12} />
+                          Preview
+                        </button>
+                        <button onClick={() => setSelectedQpr(qpr)} className="px-5 py-2 border border-slate-200 hover:bg-slate-100 rounded-lg text-[11px] font-bold text-slate-600 transition-all cursor-pointer">Detail</button>
                         <button onClick={() => handleApproveQprAction(qpr.id, qpr.qprNumber)} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[11px] font-bold shadow-md shadow-indigo-500/10 transition-all cursor-pointer">Setujui</button>
                       </div>
                     </div>
@@ -449,20 +458,37 @@ export default function DeptHeadView({
               </div>
             </div>
 
-            <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex justify-end gap-2">
-              <button onClick={() => setSelectedQpr(null)} className="px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-md text-xs font-bold transition-colors">Batal</button>
+            <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex justify-between items-center gap-2">
               <button
-                onClick={() => {
-                  handleApproveQprAction(selectedQpr.id, selectedQpr.qprNumber);
-                  setSelectedQpr(null);
-                }}
-                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-750 text-white rounded-md font-bold text-xs shadow-md shadow-indigo-500/10 transition-colors"
+                onClick={() => setPreviewQpr(selectedQpr)}
+                className="flex items-center gap-1.5 px-4 py-2 border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-md text-xs font-bold transition-colors cursor-pointer"
               >
-                Approve QPR
+                <FileText size={13} />
+                Preview Form QPR
               </button>
+              <div className="flex gap-2">
+                <button onClick={() => setSelectedQpr(null)} className="px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-md text-xs font-bold transition-colors cursor-pointer">Batal</button>
+                <button
+                  onClick={() => {
+                    handleApproveQprAction(selectedQpr.id, selectedQpr.qprNumber);
+                    setSelectedQpr(null);
+                  }}
+                  className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md font-bold text-xs shadow-md shadow-indigo-500/10 transition-colors cursor-pointer"
+                >
+                  Approve QPR
+                </button>
+              </div>
             </div>
           </div>
         </div>
+      )}
+
+      {/* QPR Print Preview */}
+      {previewQpr && (
+        <QprPrintPreview
+          qpr={previewQpr}
+          onClose={() => setPreviewQpr(null)}
+        />
       )}
 
     </div>

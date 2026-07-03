@@ -106,3 +106,66 @@ table tr:hover {
 [class*="border-slate-"] {
   border-color: #475569 !important; /* slate-600 */
 }
+/* ============================================
+   TABLET / PAD FRIENDLY IMPROVEMENTS
+   ============================================ */
+
+/* Prevent text size adjustment on orientation change */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* Remove tap highlight on touch devices */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Minimum touch target size (Apple HIG: 44px) */
+button, [role="button"], a, select, input[type="checkbox"], input[type="radio"] {
+  min-height: 36px;
+}
+
+/* Smooth momentum scrolling on iOS/iPadOS */
+.overflow-y-auto, .overflow-x-auto, main {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Responsive table wrapper — prevents horizontal overflow on tablets */
+.overflow-x-auto {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+/* Table on small screens — min column widths so content is readable */
+@media (max-width: 1024px) {
+  table {
+    min-width: 520px;
+  }
+}
+
+/* Card/modal padding adjustment for tablet */
+@media (max-width: 1024px) and (min-width: 640px) {
+  .max-w-5xl {
+    max-width: 100%;
+  }
+}
+
+/* Ensure modals are safe for tablets */
+@media (max-width: 1024px) {
+  .fixed.inset-0 > div {
+    max-height: 95vh;
+    overflow-y: auto;
+  }
+}
+
+/* Safe area insets for iPad with Smart Keyboard or notch */
+@supports (padding: env(safe-area-inset-bottom)) {
+  body {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+  main {
+    padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+  }
+}

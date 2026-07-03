@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { RefreshCw, Bell, ShieldAlert, CheckCircle2, FileText, X } from "lucide-react";
+import { RefreshCw, Bell, ShieldAlert, CheckCircle2, FileText, Menu } from "lucide-react";
 
 export default function Topbar({
   sidebarOpen,
@@ -12,62 +12,62 @@ export default function Topbar({
   handleClearNotifications
 }) {
   return (
-    <header className="sticky top-0 z-10 flex items-center justify-between px-6 h-[72px] bg-white/80 backdrop-blur-md border-b border-slate-100">
+    <header className="sticky top-0 z-10 flex items-center justify-between px-4 sm:px-6 h-[64px] sm:h-[72px] bg-white/90 backdrop-blur-md border-b border-slate-200">
       
-      {/* Sidebar Toggle & Title */}
-      <div className="flex items-center gap-4">
+      {/* Hamburger + Title */}
+      <div className="flex items-center gap-3">
+        {/* Hamburger — visible on all screens smaller than xl (1280px) — covers tablets */}
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-md transition-colors md:hidden"
+          className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors xl:hidden touch-manipulation cursor-pointer"
+          aria-label="Toggle sidebar"
         >
-          <svg viewBox="0 0 24 24" className="w-6 h-6 stroke-current fill-none stroke-2">
-            <line x1="4" y1="6" x2="20" y2="6" />
-            <line x1="4" y1="12" x2="20" y2="12" />
-            <line x1="4" y1="18" x2="20" y2="18" />
-          </svg>
+          <Menu size={22} />
         </button>
+
         <div>
-          <h2 className="text-sm sm:text-base font-black text-slate-900 tracking-wider uppercase">
-            Quality Problem Report System
+          <h2 className="text-xs sm:text-sm font-black text-slate-900 tracking-wider uppercase leading-tight">
+            Quality Problem Report
           </h2>
+          <p className="text-[9px] sm:text-[10px] text-slate-400 font-semibold hidden sm:block">
+            PT Menara Terus Makmur
+          </p>
         </div>
       </div>
 
-
-
       {/* Right Action Controls */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5 sm:gap-2">
         
         {/* Refresh Button */}
         <button
           onClick={() => alert("Menyegarkan data dari server...")}
-          className="p-2.5 text-slate-500 hover:text-slate-900 hover:bg-slate-50 rounded-md border border-slate-100 shadow-sm transition-all duration-150"
+          className="p-2 sm:p-2.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-md border border-slate-200 transition-all touch-manipulation cursor-pointer"
           title="Refresh Data"
         >
-          <RefreshCw size={16} />
+          <RefreshCw size={15} />
         </button>
 
         {/* Notification Bell Panel */}
         <div className="relative">
           <button
             onClick={() => setShowNotifications(!showNotifications)}
-            className="p-2.5 text-slate-500 hover:text-slate-900 hover:bg-slate-50 rounded-md border border-slate-100 shadow-sm transition-all duration-150 relative"
+            className="p-2 sm:p-2.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-md border border-slate-200 transition-all touch-manipulation cursor-pointer relative"
             title="Notifikasi"
           >
-            <Bell size={16} />
+            <Bell size={15} />
             {notifications.some(n => n.unread) && (
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-white"></span>
+              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full border border-white" />
             )}
           </button>
 
-          {/* Notification Popover Dropdown */}
+          {/* Notification Popover — responsive width */}
           {showNotifications && (
-            <div className="absolute right-0 mt-3 w-80 bg-white border border-slate-200 shadow-2xl rounded-lg p-4 z-30">
+            <div className="absolute right-0 mt-3 w-72 sm:w-80 bg-white border border-slate-200 shadow-2xl rounded-lg p-4 z-30">
               <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
                 <span className="text-xs font-bold text-slate-950">Notifikasi Masuk</span>
                 <button
                   onClick={handleClearNotifications}
-                  className="text-[10px] font-bold text-blue-600 hover:text-blue-800 transition-colors"
+                  className="text-[10px] font-bold text-blue-600 hover:text-blue-800 transition-colors touch-manipulation cursor-pointer"
                 >
                   Tandai sudah dibaca
                 </button>
@@ -99,7 +99,7 @@ export default function Topbar({
               <div className="border-t border-slate-100 pt-2 mt-3 text-center">
                 <button
                   onClick={() => setShowNotifications(false)}
-                  className="text-xs font-bold text-slate-500 hover:text-slate-800"
+                  className="text-xs font-bold text-slate-500 hover:text-slate-800 touch-manipulation cursor-pointer"
                 >
                   Tutup
                 </button>
@@ -112,9 +112,8 @@ export default function Topbar({
         <img
           src="/safety-first.jpg"
           alt="Safety First Logo"
-          className="h-[48px] w-auto object-contain rounded-md"
+          className="h-[40px] sm:h-[48px] w-auto object-contain rounded-md hidden sm:block"
         />
-
       </div>
     </header>
   );

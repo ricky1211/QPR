@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { FileSpreadsheet, Eye, MessageSquare, AlertCircle, X, Calendar, User, Info, RefreshCw } from "lucide-react";
+import { FileSpreadsheet, Eye, MessageSquare, AlertCircle, X, Calendar, User, Info, RefreshCw, FileText } from "lucide-react";
+import QprPrintPreview from "./QprPrintPreview";
 
 export default function PurchasingView() {
   const [purchasingClaims, setPurchasingClaims] = useState([
@@ -47,6 +48,7 @@ export default function PurchasingView() {
 
   // Modal details state
   const [selectedClaim, setSelectedClaim] = useState(null);
+  const [previewQpr, setPreviewQpr] = useState(null);
 
   // Get unique vendors from claims
   const uniqueVendors = Array.from(new Set(purchasingClaims.map(c => c.supplierName)));
@@ -159,7 +161,7 @@ export default function PurchasingView() {
                 <th className="px-3 py-2 w-12 text-center">No</th>
                 <th className="px-3 py-2">Nama Subcont</th>
                 <th className="px-3 py-2 text-center w-36">Status</th>
-                <th className="px-3 py-2 text-center w-20">Detail</th>
+                <th className="px-3 py-2 text-center w-28">Aksi</th>
               </tr>
             </thead>
 
@@ -194,13 +196,32 @@ export default function PurchasingView() {
                         </span>
                       </td>
                       <td className="px-3 py-1.5 text-center">
-                        <button
-                          onClick={() => setSelectedClaim(claim)}
-                          className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full transition-all cursor-pointer flex items-center justify-center mx-auto hover:scale-105 shadow-sm"
-                          title="Lihat Detail"
-                        >
-                          <Eye size={16} />
-                        </button>
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            onClick={() => setPreviewQpr({
+                              qprNumber: claim.qprNumber,
+                              supplierName: claim.supplierName,
+                              period: claim.period,
+                              date: claim.date,
+                              totalItems: 300,
+                              rejectItems: 12,
+                              allowanceRatio: "0.5%",
+                              claimAmount: claim.amount,
+                              status: claim.status,
+                            })}
+                            className="p-2 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 rounded-full transition-all cursor-pointer flex items-center justify-center hover:scale-105 shadow-sm"
+                            title="Preview QPR"
+                          >
+                            <FileText size={14} />
+                          </button>
+                          <button
+                            onClick={() => setSelectedClaim(claim)}
+                            className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full transition-all cursor-pointer flex items-center justify-center hover:scale-105 shadow-sm"
+                            title="Lihat Detail"
+                          >
+                            <Eye size={14} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -278,6 +299,14 @@ export default function PurchasingView() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* QPR Print Preview Modal */}
+      {previewQpr && (
+        <QprPrintPreview
+          qpr={previewQpr}
+          onClose={() => setPreviewQpr(null)}
+        />
       )}
 
     </div>
