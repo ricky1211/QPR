@@ -328,7 +328,7 @@ export default function OperatorView({
   );
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="max-w-7xl mx-auto space-y-6">
       
       {/* Success Notification Alert */}
       {successNcrNumber && (
@@ -357,302 +357,204 @@ export default function OperatorView({
       {renderSelectionCards()}
 
       {/* Step 2 Form Details: Rendered when date & supplier are selected */}
+      {/* Step 2 Form Details: Rendered when date & supplier are selected */}
       {isStepComplete && (
         <div className="space-y-6 animate-slide-up">
-          <div className="bg-white border border-slate-100 rounded-xl p-6 shadow-sm space-y-5">
-            <div className="border-b border-slate-100 pb-3 flex justify-between items-center bg-slate-50/10">
-              <div className="flex items-center gap-2">
-                <FileSignature size={18} className="text-blue-500" />
-                <h4 className="text-sm font-black text-slate-800">
-                  Rincian Laporan Defect (NCR)
-                </h4>
-              </div>
-              <span className="px-2 py-0.5 bg-blue-50 text-blue-700 text-[9px] font-black rounded uppercase">
-                Form Wajib
-              </span>
-            </div>
-
-
-
-            {/* Form Fields: Part Selection, Qty, and NG Types in a bordered table structure matching Excel/sketch */}
-            <div className="space-y-4 p-4 bg-slate-50/50 border border-slate-100 rounded-xl text-left">
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
-                  Input Detail Defect
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-start">
+            
+            {/* Left Column: Card 1 & Card 3 */}
+            <div className="lg:col-span-3 space-y-6">
+              {/* Card 1: Rincian Laporan Defect (NCR) */}
+            <div className="bg-white border border-slate-100 rounded-xl p-4 shadow-sm space-y-4">
+              <div className="border-b border-slate-100 pb-3 flex justify-between items-center bg-slate-50/10">
+                <div className="flex items-center gap-2">
+                  <FileSignature size={18} className="text-blue-500" />
+                  <h4 className="text-sm font-black text-slate-800">
+                    Rincian Laporan Defect (NCR)
+                  </h4>
+                </div>
+                <span className="px-2 py-0.5 bg-blue-50 text-blue-700 text-[9px] font-black rounded uppercase">
+                  Form Wajib
                 </span>
-                
-                {/* Fitur Part: Add Row button on top-right of the card */}
-                <button
-                  type="button"
-                  onClick={addNewRow}
-                  disabled={!supplierId}
-                  className={`px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-all flex items-center hover:scale-102 active:scale-98 shadow-sm/5 ${
-                    !supplierId
-                      ? "bg-slate-150 text-slate-400 border border-slate-200 cursor-not-allowed"
-                      : "bg-blue-600 hover:bg-blue-700 text-white cursor-pointer"
-                  }`}
-                >
-                  + Tambah Part
-                </button>
               </div>
 
-              {/* Table Input Row */}
-              <div className="border border-slate-400 rounded-lg overflow-hidden shadow-sm bg-white">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="bg-slate-100 border-b border-slate-400 text-slate-900 font-extrabold text-center">
-                      <th className="px-3 py-2.5 border-r border-slate-400 w-5/12 text-center uppercase tracking-wider">
-                        Pilih Part
-                      </th>
-                      <th className="px-3 py-2.5 border-r border-slate-400 w-2/12 text-center uppercase tracking-wider">
-                        Qty NG
-                      </th>
-                      <th className={`px-3 py-2.5 text-center uppercase tracking-wider ${
-                        inputRows.length > 1 ? "border-r border-slate-400 w-4/12" : "w-5/12"
-                      }`}>
-                        NG Type
-                      </th>
-                      {inputRows.length > 1 && (
-                        <th className="px-3 py-2.5 w-1/12 text-center uppercase tracking-wider">
-                          Hapus
+              {/* Form Fields: Part Selection, Qty, and NG Types in a bordered table structure matching Excel/sketch */}
+              <div className="space-y-4 p-4 bg-slate-50/50 border border-slate-100 rounded-xl text-left">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
+                    Input Detail Defect
+                  </span>
+                  
+                  {/* Fitur Part: Add Row button on top-right of the card */}
+                  <button
+                    type="button"
+                    onClick={addNewRow}
+                    disabled={!supplierId}
+                    className={`px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-all flex items-center hover:scale-102 active:scale-98 shadow-sm/5 ${
+                      !supplierId
+                        ? "bg-slate-150 text-slate-400 border border-slate-200 cursor-not-allowed"
+                        : "bg-blue-600 hover:bg-blue-700 text-white cursor-pointer"
+                    }`}
+                  >
+                    + Tambah Part
+                  </button>
+                </div>
+
+                {/* Table Input Row */}
+                <div className="border border-slate-400 rounded-lg overflow-hidden shadow-sm bg-white">
+                  <table className="w-full table-fixed text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-slate-100 border-b border-slate-400 text-slate-900 font-extrabold text-center">
+                        <th className={`px-2 py-2 border-r border-slate-400 text-center uppercase tracking-wider text-[10px] ${
+                          inputRows.length > 1 ? "w-[40%]" : "w-[48%]"
+                        }`}>
+                          Pilih Part
                         </th>
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {inputRows.map((row) => {
-                      const rowFilteredParts = getFilteredPartsForRow(row.id);
-                      return (
-                        <tr key={row.id} className="border-t border-slate-400">
-                          {/* 1. Pilih Part Select Box */}
-                          <td className="p-0 border-r border-slate-400">
-                            <select
-                              value={row.partId}
-                              onChange={(e) => updateRowField(row.id, "partId", e.target.value)}
-                              disabled={!supplierId}
-                              className="w-full px-3 py-2.5 text-xs bg-transparent font-bold text-slate-800 focus:outline-none focus:ring-0 focus:ring-offset-0 disabled:text-slate-400 cursor-pointer border-0"
-                            >
-                              <option value="">-- PILIH PART / BARANG --</option>
-                              {rowFilteredParts.map((p) => (
-                                <option key={p.id} value={p.id}>
-                                  [{p.partNumber}] {p.partName}
-                                </option>
-                              ))}
-                            </select>
-                          </td>
+                        <th className="px-2 py-2 border-r border-slate-400 w-[22%] text-center uppercase tracking-wider text-[10px]">
+                          Qty NG
+                        </th>
+                        <th className={`px-3 py-2 text-center uppercase tracking-wider ${
+                          inputRows.length > 1 ? "border-r border-slate-400 w-[28%]" : "w-[30%]"
+                        }`}>
+                          NG Type
+                        </th>
+                        {inputRows.length > 1 && (
+                          <th className="px-3 py-2 w-[10%] text-center uppercase tracking-wider text-[10px]">
+                            Hapus
+                          </th>
+                        )}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {inputRows.map((row) => {
+                        const rowFilteredParts = getFilteredPartsForRow(row.id);
+                        return (
+                          <tr key={row.id} className="border-t border-slate-400">
+                            {/* 1. Pilih Part Select Box */}
+                            <td className="p-0 border-r border-slate-400">
+                              <select
+                                value={row.partId}
+                                onChange={(e) => updateRowField(row.id, "partId", e.target.value)}
+                                disabled={!supplierId}
+                                className="w-full px-3 py-2 text-xs bg-transparent font-bold text-slate-800 focus:outline-none focus:ring-0 focus:ring-offset-0 disabled:text-slate-400 cursor-pointer border-0"
+                              >
+                                <option value="">-- PILIH PART / BARANG --</option>
+                                {rowFilteredParts.map((p) => (
+                                  <option key={p.id} value={p.id}>
+                                    [{p.partNumber}] {p.partName}
+                                  </option>
+                                ))}
+                              </select>
+                            </td>
 
-                          {/* 2. Qty NG Input */}
-                          <td className="p-0 border-r border-slate-400">
-                            <input
-                              type="number"
-                              min="1"
-                              placeholder="75000"
-                              value={row.qtyNG}
-                              onChange={(e) => updateRowField(row.id, "qtyNG", e.target.value)}
-                              className="w-full px-3 py-2.5 text-xs bg-transparent text-center focus:outline-none focus:ring-0 focus:ring-offset-0 placeholder-slate-400/55 text-slate-800 font-bold border-0"
-                            />
-                          </td>
+                            {/* 2. Qty NG Input */}
+                            <td className="p-0 border-r border-slate-400">
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                placeholder="75000"
+                                value={row.qtyNG}
+                                onChange={(e) => {
+                                  const val = e.target.value.replace(/[^0-9]/g, "");
+                                  updateRowField(row.id, "qtyNG", val);
+                                }}
+                                className="w-full px-3 py-2 text-xs bg-transparent text-center focus:outline-none focus:ring-0 focus:ring-offset-0 placeholder-slate-400/55 text-slate-800 font-bold border-0"
+                              />
+                            </td>
 
-                          {/* 3. NG Type Select or Input */}
-                          <td className={`p-0 ${inputRows.length > 1 ? "border-r border-slate-400" : ""}`}>
-                            {row.isManualNg ? (
-                              <div className="relative w-full flex items-center pr-10">
-                                <input
-                                  type="text"
-                                  placeholder="KETIK JENIS NG MANUAL..."
+                            {/* 3. NG Type Select or Input */}
+                            <td className={`p-0 ${inputRows.length > 1 ? "border-r border-slate-400" : ""}`}>
+                              {row.isManualNg ? (
+                                <div className="relative w-full flex items-center pr-10">
+                                  <input
+                                    type="text"
+                                    placeholder="KETIK JENIS NG MANUAL..."
+                                    value={row.ngTypes}
+                                    onChange={(e) => updateRowField(row.id, "ngTypes", e.target.value)}
+                                    className="w-full px-3 py-2 text-xs bg-transparent font-bold text-slate-800 focus:outline-none focus:ring-0 focus:ring-offset-0 border-0 uppercase"
+                                    autoFocus
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      updateRowField(row.id, "isManualNg", false);
+                                      updateRowField(row.id, "ngTypes", "");
+                                    }}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-black text-blue-600 hover:text-blue-800 transition-colors uppercase cursor-pointer"
+                                    title="Kembali ke Pilihan Dropdown"
+                                  >
+                                    List
+                                  </button>
+                                </div>
+                              ) : (
+                                <select
                                   value={row.ngTypes}
-                                  onChange={(e) => updateRowField(row.id, "ngTypes", e.target.value)}
-                                  className="w-full px-3 py-2.5 text-xs bg-transparent font-bold text-slate-800 focus:outline-none focus:ring-0 focus:ring-offset-0 border-0 uppercase"
-                                  autoFocus
-                                />
+                                  onChange={(e) => {
+                                    if (e.target.value === "MANUAL_INPUT") {
+                                      updateRowField(row.id, "isManualNg", true);
+                                      updateRowField(row.id, "ngTypes", "");
+                                    } else {
+                                      updateRowField(row.id, "ngTypes", e.target.value);
+                                    }
+                                  }}
+                                  disabled={!row.partId}
+                                  className="w-full px-3 py-2 text-xs bg-transparent font-bold text-slate-800 focus:outline-none focus:ring-0 focus:ring-offset-0 disabled:text-slate-400 cursor-pointer border-0"
+                                >
+                                  <option value="">PILIH JENIS NG</option>
+                                  <option value="MANUAL_INPUT" className="text-blue-600 font-extrabold bg-blue-50">+ Ketik Manual...</option>
+                                  <option value="NG DENT">NG DENT</option>
+                                  <option value="UNDERFILL">UNDERFILL</option>
+                                  <option value="OVER MACHINING">OVER MACHINING</option>
+                                  <option value="DENT & UNDERFILL">DENT & UNDERFILL</option>
+                                  <option value="NO POWER">NO POWER</option>
+                                </select>
+                              )}
+                            </td>
+
+                            {/* 4. Action/Delete Button */}
+                            {inputRows.length > 1 && (
+                              <td className="p-0 text-center">
                                 <button
                                   type="button"
-                                  onClick={() => {
-                                    updateRowField(row.id, "isManualNg", false);
-                                    updateRowField(row.id, "ngTypes", "");
-                                  }}
-                                  className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-black text-blue-600 hover:text-blue-800 transition-colors uppercase cursor-pointer"
-                                  title="Kembali ke Pilihan Dropdown"
+                                  onClick={() => removeRow(row.id)}
+                                  className="w-full py-2 text-red-500 hover:text-red-700 font-extrabold text-sm transition-colors flex items-center justify-center cursor-pointer"
+                                  title="Hapus baris part ini"
                                 >
-                                  List
+                                  <X size={14} className="stroke-[3]" />
                                 </button>
-                              </div>
-                            ) : (
-                              <select
-                                value={row.ngTypes}
-                                onChange={(e) => {
-                                  if (e.target.value === "MANUAL_INPUT") {
-                                    updateRowField(row.id, "isManualNg", true);
-                                    updateRowField(row.id, "ngTypes", "");
-                                  } else {
-                                    updateRowField(row.id, "ngTypes", e.target.value);
-                                  }
-                                }}
-                                disabled={!row.partId}
-                                className="w-full px-3 py-2.5 text-xs bg-transparent font-bold text-slate-800 focus:outline-none focus:ring-0 focus:ring-offset-0 disabled:text-slate-400 cursor-pointer border-0"
-                              >
-                                <option value="">PILIH JENIS NG</option>
-                                <option value="MANUAL_INPUT" className="text-blue-600 font-extrabold bg-blue-50">+ Ketik Manual...</option>
-                                <option value="NG DENT">NG DENT</option>
-                                <option value="UNDERFILL">UNDERFILL</option>
-                                <option value="OVER MACHINING">OVER MACHINING</option>
-                                <option value="DENT & UNDERFILL">DENT & UNDERFILL</option>
-                                <option value="NO POWER">NO POWER</option>
-                              </select>
+                              </td>
                             )}
-                          </td>
-
-                          {/* 4. Action/Delete Button */}
-                          {inputRows.length > 1 && (
-                            <td className="p-0 text-center">
-                              <button
-                                type="button"
-                                onClick={() => removeRow(row.id)}
-                                className="w-full py-2.5 text-red-500 hover:text-red-700 font-extrabold text-sm transition-colors flex items-center justify-center cursor-pointer"
-                                title="Hapus baris part ini"
-                              >
-                                <X size={14} className="stroke-[3]" />
-                              </button>
-                            </td>
-                          )}
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              {qtyError && (
-                <div className="p-3.5 bg-red-50 text-red-600 rounded-md flex items-center gap-1.5 text-xs font-bold animate-pulse-ring">
-                  <AlertTriangle size={16} />
-                  {qtyError}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
-              )}
-            </div>
 
-            {/* Rincian Tambahan Dokumen NCR (PR4-FRM-08001) */}
-            <div className="space-y-4 p-4 bg-slate-50/50 border border-slate-100 rounded-xl">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1 text-left">
-                Rincian Informasi Temuan & Disposisi Part
+                {qtyError && (
+                  <div className="p-3.5 bg-red-50 text-red-600 rounded-md flex items-center gap-1.5 text-xs font-bold animate-pulse-ring">
+                    <AlertTriangle size={16} />
+                    {qtyError}
+                  </div>
+                )}
+              </div>
+            </div>
+              {/* Card 3: Keputusan Disposisi & Customer Approval (Panjang Menyamping) */}
+            <div className="bg-white border border-slate-100 rounded-xl p-4 shadow-sm space-y-3.5">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block text-left border-b border-slate-100 pb-2">
+                Disposisi &amp; Approval
               </span>
 
-              {/* Location Found */}
-              <div className="space-y-1.5 text-left bg-white border border-slate-205 p-3 rounded-lg">
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Location Found <span className="text-red-500">*</span></label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-50 border border-slate-200/50 p-2 rounded-lg">
-                  {["IN-COMING", "OUT-GOING", "IN-PROSES", "CUSTOMER"].map((loc) => {
-                    const isChecked = locationFound.includes(loc);
-                    return (
-                      <label key={loc} className="flex items-center gap-2 px-2.5 py-1.5 hover:bg-white rounded cursor-pointer text-[10px] font-bold text-slate-705 border border-slate-100 bg-white">
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setLocationFound([...locationFound, loc]);
-                            } else {
-                              setLocationFound(locationFound.filter((l) => l !== loc));
-                            }
-                          }}
-                          className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
-                        />
-                        {loc}
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Problem Type */}
-              <div className="space-y-1.5 text-left bg-white border border-slate-205 p-3 rounded-lg">
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Problem Type <span className="text-red-500">*</span></label>
-                <div className="grid grid-cols-2 gap-2 bg-slate-50 border border-slate-200/50 p-2 rounded-lg">
-                  {["QUALITY", "QUANTITY"].map((prob) => {
-                    const isChecked = problemType.includes(prob);
-                    return (
-                      <label key={prob} className="flex items-center gap-2 px-2.5 py-1.5 hover:bg-white rounded cursor-pointer text-[10px] font-bold text-slate-705 border border-slate-100 bg-white">
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => {
-                            setProblemType([prob]);
-                          }}
-                          className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
-                        />
-                        {prob}
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Found By: Dropdown selector (scroll/pilihan mode) */}
               <div className="space-y-1.5 text-left">
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Found By <span className="text-red-500">*</span></label>
-                <select
-                  value={foundBy}
-                  onChange={(e) => setFoundBy(e.target.value)}
-                  className="w-full px-4 py-2.5 text-xs border border-slate-200 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white font-bold text-slate-800 cursor-pointer"
-                >
-                  <option value="MR. HENDRIK (QC INC.)">MR. HENDRIK (QC INC.)</option>
-                  <option value="MR. SLAMET (QC CS)">MR. SLAMET (QC CS)</option>
-                  <option value="MR. ALFIAN (QC QA)">MR. ALFIAN (QC QA)</option>
-                  <option value="LAINNYA (QC STAFF)">LAINNYA (QC STAFF)</option>
-                </select>
-              </div>
-
-              {/* Description of Problem & Quick Tags */}
-              <div className="space-y-1.5 text-left">
-                <div className="flex justify-between items-center">
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Deskripsi Masalah (NG Description)</label>
-                  <span className="text-[10px] text-slate-400">Pilih tag cepat untuk mempercepat input</span>
-                </div>
-                
-                {/* Defect Quick Tags helper */}
-                <div className="flex flex-wrap gap-1.5 mb-2">
-                  {["NG Dent", "Underfill", "Over Machining", "Dent & Underfill", "No Power"].map((tag) => (
-                    <button
-                      key={tag}
-                      type="button"
-                      onClick={() => {
-                        const newText = description ? `${description}, ${tag}` : tag;
-                        setDescription(newText);
-                      }}
-                      className="px-2.5 py-1 bg-slate-100 hover:bg-slate-205 text-slate-755 rounded text-[10px] font-bold cursor-pointer transition-all active:scale-95 border border-slate-200"
-                    >
-                      + {tag}
-                    </button>
-                  ))}
-                  {description && (
-                    <button
-                      type="button"
-                      onClick={() => setDescription("")}
-                      className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-[10px] font-bold cursor-pointer transition-all active:scale-95 shadow-sm"
-                    >
-                      Clear
-                    </button>
-                  )}
-                </div>
-
-                <textarea
-                  placeholder="Ketik detail temuan defect di sini or gunakan tag di atas..."
-                  rows={2}
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="w-full px-4 py-2 text-xs border border-slate-200 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-slate-800 font-bold"
-                />
-              </div>
-
-              {/* Keputusan Disposisi & Customer Approval (Excel style layout) */}
-              <div className="space-y-1.5 text-left bg-white border border-slate-205 p-3 rounded-lg">
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                  Keputusan Disposisi & Customer Approval Required <span className="text-red-500">*</span>
+                  Keputusan Disposisi &amp; Customer Approval Required <span className="text-red-500">*</span>
                 </label>
-                <div className="border border-slate-400 rounded-lg overflow-hidden shadow-sm bg-white">
-                  <table className="w-full text-center text-[10px] font-bold border-collapse">
+                <div className="border border-slate-400 rounded-lg shadow-sm bg-white">
+                  <table className="w-full table-fixed text-center text-xs font-bold border-collapse">
                     <thead>
                       <tr className="bg-slate-100 border-b border-slate-400 text-slate-900 font-extrabold">
-                        <th colSpan={5} className="py-2.5 text-center uppercase tracking-wider text-xs border-b border-slate-400">
+                        <th colSpan={5} className="py-2 text-center uppercase tracking-wider text-xs border-b border-slate-400">
                           KEPUTUSAN DISPOSISI
                         </th>
                       </tr>
@@ -660,17 +562,17 @@ export default function OperatorView({
                     <tbody>
                       {/* Row 1: Labels */}
                       <tr className="bg-slate-50 text-slate-805 font-bold border-b border-slate-300">
-                        <td className="px-2 py-2 border-r border-slate-400 w-[22%] uppercase">RETURN TO VENDOR</td>
-                        <td className="px-2 py-2 border-r border-slate-400 w-[22%] uppercase">REWORK</td>
-                        <td className="px-2 py-2 border-r border-slate-400 w-[22%] uppercase">SCRAP</td>
-                        <td colSpan={2} className="px-2 py-2 w-[34%] uppercase bg-slate-100/50">CUSTOMER APPROVAL</td>
+                        <td className="px-1 py-1.5 border-r border-slate-400 w-[22%] uppercase text-[9px] leading-tight">RETURN TO VENDOR</td>
+                        <td className="px-1 py-1.5 border-r border-slate-400 w-[22%] uppercase text-[9px] leading-tight">REWORK</td>
+                        <td className="px-1 py-1.5 border-r border-slate-400 w-[22%] uppercase text-[9px] leading-tight">SCRAP</td>
+                        <td colSpan={2} className="px-1 py-1.5 w-[34%] uppercase bg-slate-100/50 text-[9px] leading-tight">CUSTOMER APPROVAL</td>
                       </tr>
 
                       {/* Row 2: Checkboxes for top row, Labels for Customer Approval */}
                       <tr className="border-b border-slate-400 text-center font-bold">
                         <td 
                           onClick={() => setDisposition(disposition.includes("RETURN TO VENDOR") ? [] : ["RETURN TO VENDOR"])}
-                          className={`border-r border-slate-400 text-center cursor-pointer h-11 transition-all ${
+                          className={`border-r border-slate-400 text-center cursor-pointer h-9 transition-all ${
                             disposition.includes("RETURN TO VENDOR") ? "bg-blue-50" : "hover:bg-slate-50/50"
                           }`}
                         >
@@ -685,7 +587,7 @@ export default function OperatorView({
                         </td>
                         <td 
                           onClick={() => setDisposition(disposition.includes("REWORK") ? [] : ["REWORK"])}
-                          className={`border-r border-slate-400 text-center cursor-pointer h-11 transition-all ${
+                          className={`border-r border-slate-400 text-center cursor-pointer h-9 transition-all ${
                             disposition.includes("REWORK") ? "bg-blue-50" : "hover:bg-slate-50/50"
                           }`}
                         >
@@ -700,7 +602,7 @@ export default function OperatorView({
                         </td>
                         <td 
                           onClick={() => setDisposition(disposition.includes("SCRAP") ? [] : ["SCRAP"])}
-                          className={`border-r border-slate-400 text-center cursor-pointer h-11 transition-all ${
+                          className={`border-r border-slate-400 text-center cursor-pointer h-9 transition-all ${
                             disposition.includes("SCRAP") ? "bg-blue-50" : "hover:bg-slate-50/50"
                           }`}
                         >
@@ -713,14 +615,14 @@ export default function OperatorView({
                             />
                           </div>
                         </td>
-                        <td className={`px-2 py-2 border-r border-slate-400 w-[17%] uppercase text-center font-bold flex-1 h-11 align-middle transition-all duration-200 ${
+                        <td className={`px-1 py-1 border-r border-slate-400 w-[17%] uppercase text-center font-bold flex-1 text-[9px] leading-tight h-9 align-middle transition-all duration-200 ${
                           customerApproval === "YES"
                             ? "bg-emerald-100 text-emerald-900 border-b border-emerald-300"
                             : "bg-slate-50 text-slate-805 border-b border-slate-300"
                         }`}>
                           <div className="flex items-center justify-center h-full">YES</div>
                         </td>
-                        <td className={`px-2 py-2 w-[17%] uppercase text-center font-bold flex-1 h-11 align-middle transition-all duration-200 ${
+                        <td className={`px-1 py-1 w-[17%] uppercase text-center font-bold flex-1 text-[9px] leading-tight h-9 align-middle transition-all duration-200 ${
                           customerApproval === "NO"
                             ? "bg-red-100 text-red-900 border-b border-red-300"
                             : "bg-slate-50 text-slate-805 border-b border-slate-300"
@@ -731,9 +633,9 @@ export default function OperatorView({
 
                       {/* Row 3: Labels for bottom row, Checkboxes for Customer Approval */}
                       <tr className="bg-slate-50 text-slate-805 font-bold border-b border-slate-400 text-center">
-                        <td className="px-2 py-2 border-r border-slate-400 uppercase">ACCEPT AS IS</td>
-                        <td className="px-2 py-2 border-r border-slate-400 uppercase">REPAIR</td>
-                        <td className="px-2 py-2 border-r border-slate-400 uppercase">REGRADE</td>
+                        <td className="px-1 py-1.5 border-r border-slate-400 uppercase text-[9px] leading-tight">ACCEPT AS IS</td>
+                        <td className="px-1 py-1.5 border-r border-slate-400 uppercase text-[9px] leading-tight">REPAIR</td>
+                        <td className="px-1 py-1.5 border-r border-slate-400 uppercase text-[9px] leading-tight">REGRADE</td>
                         <td 
                           rowSpan={2}
                           onClick={() => setCustomerApproval(customerApproval === "YES" ? "" : "YES")}
@@ -777,7 +679,7 @@ export default function OperatorView({
                       </tr>
 
                       {/* Row 4: Checkboxes for bottom row */}
-                      <tr className="h-11 text-center">
+                      <tr className="h-9 text-center">
                         <td 
                           onClick={() => setDisposition(disposition.includes("ACCEPT AS IS") ? [] : ["ACCEPT AS IS"])}
                           className={`border-r border-slate-400 text-center cursor-pointer transition-all ${
@@ -828,42 +730,165 @@ export default function OperatorView({
                   </table>
                 </div>
               </div>
+            </div>
 
-              {/* Documents to Revise Checklist */}
-              <div className="space-y-1.5 text-left bg-white border border-slate-205 p-3 rounded-lg">
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Other Documents to Revise</label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-50 border border-slate-200/50 p-2 rounded-lg">
-                  {["CONTROL PLAN", "CHECK SHEET", "Q POINT", "MPS"].map((doc) => {
-                    const isChecked = docsToRevise.includes(doc);
-                    return (
-                      <label key={doc} className="flex items-center gap-2 px-2 py-1 hover:bg-white rounded cursor-pointer text-[10px] font-bold text-slate-707 border border-slate-100 bg-white">
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setDocsToRevise([...docsToRevise, doc]);
-                            } else {
-                              setDocsToRevise(docsToRevise.filter((d) => d !== doc));
-                            }
-                          }}
-                          className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
-                        />
-                        {doc}
-                      </label>
-                    );
-                  })}
-                </div>
+            {/* Other Documents to Revise Checklist */}
+            <div className="space-y-1.5 text-left bg-white border border-slate-205 p-3 rounded-lg">
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Other Documents to Revise</label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 bg-slate-50 border border-slate-200/50 p-1.5 rounded-lg">
+                {["CONTROL PLAN", "CHECK SHEET", "Q POINT", "MPS"].map((doc) => {
+                  const isChecked = docsToRevise.includes(doc);
+                  return (
+                    <label key={doc} className="flex items-center gap-1 px-1.5 py-1.5 hover:bg-white rounded cursor-pointer text-[8.5px] font-bold text-slate-700 border border-slate-100 bg-white justify-start w-full whitespace-nowrap overflow-hidden text-ellipsis">
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setDocsToRevise([...docsToRevise, doc]);
+                          } else {
+                            setDocsToRevise(docsToRevise.filter((d) => d !== doc));
+                          }
+                        }}
+                        className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3 h-3"
+                      />
+                      {doc}
+                    </label>
+                  );
+                })}
               </div>
             </div>
 
-            {/* Batch Submit Button */}
-            <div className="flex justify-end gap-3 pt-2">
+            {/* Found By */}
+            <div className="space-y-1.5 text-left">
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Found By <span className="text-red-500">*</span></label>
+              <select
+                value={foundBy}
+                onChange={(e) => setFoundBy(e.target.value)}
+                className="w-full px-4 py-2 text-xs border border-slate-200 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white font-bold text-slate-800 cursor-pointer h-[36px]"
+              >
+                <option value="MR. HENDRIK (QC INC.)">MR. HENDRIK (QC INC.)</option>
+                <option value="MR. SLAMET (QC CS)">MR. SLAMET (QC CS)</option>
+                <option value="MR. ALFIAN (QC QA)">MR. ALFIAN (QC QA)</option>
+                <option value="LAINNYA (QC STAFF)">LAINNYA (QC STAFF)</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Right Column: Card 2 */}
+            <div className="lg:col-span-2">
+              {/* Card 2: Rincian Informasi Temuan & Dokumentasi */}
+            <div className="bg-white border border-slate-100 rounded-xl p-4 shadow-sm space-y-3.5">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1 text-left border-b border-slate-100 pb-2">
+                Rincian Informasi Temuan &amp; Dokumentasi
+              </span>
+
+              {/* Location Found & Problem Type */}
+                {/* Location Found */}
+                <div className="space-y-1.5 text-left bg-white border border-slate-205 p-3 rounded-lg">
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Location Found <span className="text-red-500">*</span></label>
+                  <div className="flex flex-col gap-1.5 bg-slate-50 border border-slate-200/50 p-2 rounded-lg">
+                    {["IN-COMING", "OUT-GOING", "IN-PROSES", "CUSTOMER"].map((loc) => {
+                      const isChecked = locationFound.includes(loc);
+                      return (
+                        <label key={loc} className="flex items-center gap-2 px-3 py-2 hover:bg-white rounded cursor-pointer text-[10px] font-bold text-slate-700 border border-slate-100 bg-white justify-start w-full">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setLocationFound([...locationFound, loc]);
+                              } else {
+                                setLocationFound(locationFound.filter((l) => l !== loc));
+                              }
+                            }}
+                            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
+                          />
+                          {loc}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Problem Type */}
+                <div className="space-y-1.5 text-left bg-white border border-slate-205 p-3 rounded-lg">
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Problem Type <span className="text-red-500">*</span></label>
+                  <div className="flex flex-col gap-1.5 bg-slate-50 border border-slate-200/50 p-2 rounded-lg">
+                    {["QUALITY", "QUANTITY"].map((prob) => {
+                      const isChecked = problemType.includes(prob);
+                      return (
+                        <label key={prob} className="flex items-center gap-2 px-3 py-2 hover:bg-white rounded cursor-pointer text-[10px] font-bold text-slate-700 border border-slate-100 bg-white justify-start w-full">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => {
+                              setProblemType([prob]);
+                            }}
+                            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
+                          />
+                          {prob}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
+              {/* Found By & Other Documents to Revise */}
+                {/* Description of Problem & Quick Tags */}
+              <div className="space-y-1.5 text-left">
+                <div className="flex justify-between items-center">
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Deskripsi Masalah (NG Description)</label>
+                  <span className="text-[10px] text-slate-400">Pilih tag cepat untuk mempercepat input</span>
+                </div>
+                
+                {/* Defect Quick Tags helper */}
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {["NG Dent", "Underfill", "Over Machining", "Dent & Underfill", "No Power"].map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => {
+                        const newText = description ? `${description}, ${tag}` : tag;
+                        setDescription(newText);
+                      }}
+                      className="px-2.5 py-1 bg-slate-100 hover:bg-slate-205 text-slate-755 rounded text-[10px] font-bold cursor-pointer transition-all active:scale-95 border border-slate-200"
+                    >
+                      + {tag}
+                    </button>
+                  ))}
+                  {description && (
+                    <button
+                      type="button"
+                      onClick={() => setDescription("")}
+                      className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-[10px] font-bold cursor-pointer transition-all active:scale-95 shadow-sm"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+
+                <textarea
+                  placeholder="Ketik detail temuan defect di sini or gunakan tag di atas..."
+                  rows={2}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="w-full px-4 py-2 text-xs border border-slate-200 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-slate-800 font-bold"
+                />
+              </div>
+            </div>
+          </div>
+
+        </div>
+          
+          {/* Card 4: Action Panel (Submit button + warning, panjang di paling bawah) */}
+            <div className="bg-white border border-slate-100 rounded-xl p-4 shadow-sm space-y-3.5">
+              {/* Batch Submit Button */}
               <button
                 type="button"
                 onClick={handleDirectSend}
                 disabled={isSubmitting || !supplierId || inputRows.filter(r => r.partId && r.qtyNG && r.ngTypes).length === 0}
-                className={`px-6 py-3 rounded-md font-bold text-xs shadow-md transition-all ${
+                className={`w-full py-3.5 rounded-lg font-bold text-xs shadow-md transition-all ${
                   isSubmitting || !supplierId || inputRows.filter(r => r.partId && r.qtyNG && r.ngTypes).length === 0
                     ? "bg-slate-200 text-slate-400 cursor-not-allowed shadow-none"
                     : "bg-blue-600 hover:bg-blue-750 text-white shadow-blue-500/10 cursor-pointer active:scale-95"
@@ -871,8 +896,18 @@ export default function OperatorView({
               >
                 {isSubmitting ? "Mengirim Laporan..." : "Kirim Laporan NCR ke Approval"}
               </button>
+
+              <div className="p-3 bg-slate-50 rounded-lg flex items-start gap-2 border border-slate-150 text-left">
+                <AlertTriangle size={15} className="text-slate-450 shrink-0 mt-0.5" />
+                <p className="text-[10px] text-slate-550 leading-relaxed font-semibold">
+                  Pastikan semua field bertanda bintang (*) telah diisi sebelum mengirim ke approval Quality Manager.
+                </p>
+              </div>
             </div>
-            <div className="space-y-2 pt-4 border-t border-slate-100">
+
+          {/* Sent History Table (Full width at bottom) */}
+          <div className="bg-white border border-slate-100 rounded-xl p-6 shadow-sm space-y-4">
+            <div className="space-y-2">
               <div className="flex justify-between items-center">
                 <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block text-left">
                   Review Laporan NCR yang Telah Dikirim ke Approval ({items.length})
@@ -888,21 +923,21 @@ export default function OperatorView({
                 </div>
               ) : (
                 <div className="border border-slate-400 rounded-xl overflow-hidden shadow-sm bg-white">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs border-collapse">
+                  <div>
+                    <table className="w-full table-fixed text-left text-xs border-collapse">
                       <thead>
                         <tr className="bg-slate-100 border-b border-slate-400 text-slate-900 font-extrabold text-center">
-                          <th className="px-3 py-2.5 border-r border-slate-400 w-5/12 text-center uppercase tracking-wider">
+                          <th className="px-2 py-2 border-r border-slate-400 w-[45%] text-center uppercase tracking-wider text-[10px]">
                             Pilih Part
                           </th>
-                          <th className="px-3 py-2.5 border-r border-slate-400 w-2/12 text-center uppercase tracking-wider">
+                          <th className="px-2 py-2 border-r border-slate-400 w-[15%] text-center uppercase tracking-wider text-[10px]">
                             Qty NG
                           </th>
-                          <th className="px-3 py-2.5 border-r border-slate-400 w-3/12 text-center uppercase tracking-wider">
+                          <th className="px-2 py-2 border-r border-slate-400 w-[22%] text-center uppercase tracking-wider text-[10px]">
                             NG Type
                           </th>
-                          <th className="px-3 py-2.5 w-2/12 text-center uppercase tracking-wider">
-                            Status & Review
+                          <th className="px-2 py-2 w-[18%] text-center uppercase tracking-wider text-[10px]">
+                            Status &amp; Review
                           </th>
                         </tr>
                       </thead>
@@ -911,23 +946,23 @@ export default function OperatorView({
                           return (
                             <tr key={item.id} className="transition-colors hover:bg-slate-50 text-center">
                               {/* 1. Pilih Part */}
-                              <td className="px-3 py-3 border-r border-slate-350 text-left">
-                                <span className="font-bold text-slate-900 block">{item.ncrNumber} - [{item.partNumber}] {item.partName}</span>
+                              <td className="px-2 py-2 border-r border-slate-350 text-left leading-tight">
+                                <span className="font-bold text-slate-900 block text-[11px] leading-snug break-all">{item.ncrNumber}<br/>[{item.partNumber}] {item.partName}</span>
                                 <span className="text-blue-600 text-[10px] font-black uppercase tracking-wider block mt-0.5">Supplier: {item.supplierName}</span>
                               </td>
 
                               {/* 2. Qty NG */}
-                              <td className="px-3 py-3 border-r border-slate-350 text-center font-mono text-slate-900 font-bold">
+                              <td className="px-2 py-2 border-r border-slate-350 text-center font-mono text-slate-900 font-bold text-[10px] whitespace-nowrap">
                                 {item.qty} pcs
                               </td>
 
                               {/* 3. NG Type */}
-                              <td className="px-3 py-3 border-r border-slate-350 text-center font-mono text-red-600 font-bold uppercase">
+                              <td className="px-2 py-2 border-r border-slate-350 text-center font-mono text-red-650 font-bold uppercase text-[10px] leading-tight">
                                 {item.reject}
                               </td>
 
                               {/* 4. Status & Review Button */}
-                              <td className="px-3 py-3 text-center">
+                              <td className="px-2 py-2 text-center">
                                 <div className="flex flex-col items-center gap-1.5 justify-center">
                                   <span className="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-250 text-[9px] font-extrabold rounded uppercase tracking-wider block">
                                     Waiting SPV
@@ -952,10 +987,11 @@ export default function OperatorView({
                 </div>
               )}
             </div>
-
           </div>
+
         </div>
       )}
+
 
       {/* Review NCR Details Modal */}
       {selectedReviewNcr && (
@@ -1248,7 +1284,7 @@ export default function OperatorView({
             <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex justify-end">
               <button
                 onClick={() => setSelectedReviewNcr(null)}
-                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-bold transition-colors cursor-pointer"
+                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-bold transition-colors cursor-pointer"
               >
                 Tutup Review
               </button>

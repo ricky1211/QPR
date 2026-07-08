@@ -11,10 +11,10 @@ export default function ApproveNcrDashboard({ pendingNcrs, handleApproveNcrActio
     <div className="space-y-6">
       
       {/* Header and Toggle Level */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-5 bg-white border border-slate-100 rounded-lg shadow-sm gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-5 bg-white border border-slate-100 rounded-lg shadow-sm gap-4 text-left">
         <div>
-          <h3 className="text-sm font-bold text-slate-800">Otoritas Persetujuan NCR</h3>
-          <p className="text-xs text-slate-400 mt-1">Review laporan defect kualitas material harian dan lakukan tanda tangan digital.</p>
+          <h3 className="text-lg font-black text-slate-800 uppercase tracking-wide">NCR Approvals</h3>
+          <p className="text-xs text-slate-450 mt-1">Review and authorize Non-Conformance Reports from manufacturing floors.</p>
         </div>
         
         {/* Toggle Switcher */}

@@ -19,7 +19,7 @@ export default function Topbar({
         {/* Hamburger — visible on all screens smaller than xl (1280px) — covers tablets */}
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors xl:hidden touch-manipulation cursor-pointer"
+          className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors touch-manipulation cursor-pointer"
           aria-label="Toggle sidebar"
         >
           <Menu size={22} />

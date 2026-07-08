@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Calendar as CalendarIcon, ChevronDown, ShieldAlert } from "lucide-react";
+import { Calendar as CalendarIcon, ChevronDown, ShieldAlert, CheckCircle2, AlertTriangle } from "lucide-react";
 
 // Layout components
 import Sidebar from "@/components/layout/Sidebar";
@@ -19,6 +19,7 @@ import CalendarView from "@/components/features/calendar/CalendarView";
 import PartsDirectory from "@/components/features/parts/PartsDirectory";
 import EditAllowanceModal from "@/components/features/parts/EditAllowanceModal";
 
+
 // Mock Data
 import {
   mockParts,
@@ -31,6 +32,28 @@ import {
 export default function Home() {
   // Tabs: 'buat-ncr', 'approve-ncr', 'approve-qpr', 'confirmation-letter', 'list-qpr', 'calendar', 'parts'
   const [activeTab, setActiveTab] = useState("buat-ncr");
+
+  // State for custom alert modal
+  const [customAlert, setCustomAlert] = useState<{ isOpen: boolean; message: string }>({
+    isOpen: false,
+    message: ""
+  });
+
+  useEffect(() => {
+    const originalAlert = window.alert;
+
+    // Override global alert
+    window.alert = (msg: string) => {
+      setCustomAlert({
+        isOpen: true,
+        message: msg
+      });
+    };
+
+    return () => {
+      window.alert = originalAlert;
+    };
+  }, []);
 
   // Sidebar mobile toggle
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -143,7 +166,7 @@ export default function Home() {
     let notifMsg = "";
     
     setPendingNcrs(prev => {
-      const updated = prev.map(n => {
+      const updated = prev.map((n: any) => {
         if (n.id === id) {
           if (n.requiredRole === "Foreman") {
             alertMsg = `Sukses: NCR ${ncrNum} disetujui oleh Foreman dan diteruskan ke Section Head!`;
@@ -238,7 +261,7 @@ export default function Home() {
   const weekdays = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"];
 
   return (
-    <div className="flex min-h-screen bg-slate-50 text-slate-800 antialiased font-sans">
+    <div className="flex min-h-screen overflow-x-hidden bg-slate-50 text-slate-800 antialiased font-sans">
       
       {/* SIDEBAR PANEL */}
       <Sidebar
@@ -249,7 +272,7 @@ export default function Home() {
       />
 
       {/* MAIN LAYOUT */}
-      <div className="flex flex-col flex-1 min-h-screen xl:pl-72">
+      <div className={`flex flex-col flex-1 min-w-0 min-h-screen overflow-x-hidden transition-all duration-300 ${sidebarOpen ? "xl:pl-72" : "xl:pl-20 pl-0"}`}>
         
         {/* TOPBAR PANEL */}
         <Topbar
@@ -262,8 +285,8 @@ export default function Home() {
         />
 
         {/* CONTAINER CONTENT */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8">
-          <div className="max-w-5xl mx-auto space-y-6">
+        <main className="flex-1 p-3 sm:p-4 lg:p-5 overflow-x-hidden">
+          <div className="w-full mx-auto space-y-4">
 
             {/* Target Month picker for Calendar only */}
             {activeTab === "calendar" && (
@@ -374,6 +397,8 @@ export default function Home() {
                 handleCreateQpr={handleCreateQpr}
               />
             )}
+
+
 
             {/* DAY DETAILS CALENDAR MODAL */}
             {selectedDayDetail && (
@@ -489,6 +514,51 @@ export default function Home() {
                       className="w-full px-5 py-3 bg-red-600 hover:bg-red-750 text-white rounded-md font-bold text-xs shadow-md shadow-red-600/10 transition-colors"
                     >
                       Mengerti & Tutup
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* CUSTOM SUCCESS / ALERT MODAL POPUP */}
+            {customAlert.isOpen && (
+              <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-[3px] z-50 flex items-center justify-center p-4">
+                <div className="bg-white rounded-xl w-full max-w-sm shadow-2xl overflow-hidden border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
+                  <div className="p-6 flex flex-col items-center text-center space-y-4">
+                    {customAlert.message.toLowerCase().includes("gagal") || 
+                     customAlert.message.toLowerCase().includes("peringatan") || 
+                     customAlert.message.toLowerCase().includes("harus") ? (
+                      <div className="w-14 h-14 rounded-full bg-amber-50 text-amber-600 border border-amber-250 flex items-center justify-center shadow-inner">
+                        <AlertTriangle size={28} className="animate-bounce" />
+                      </div>
+                    ) : (
+                      <div className="w-16 h-16 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-250 flex items-center justify-center shadow-inner relative">
+                        <CheckCircle2 size={32} className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-20" />
+                        <CheckCircle2 size={32} className="relative z-10" />
+                      </div>
+                    )}
+                    
+                    <div className="space-y-1">
+                      <h4 className="text-sm font-extrabold text-slate-950 uppercase tracking-tight">
+                        {customAlert.message.toLowerCase().includes("gagal") || 
+                         customAlert.message.toLowerCase().includes("peringatan") || 
+                         customAlert.message.toLowerCase().includes("harus")
+                          ? "Pemberitahuan" 
+                          : "Approval Sukses"}
+                      </h4>
+                    </div>
+                    
+                    <p className="text-xs text-slate-600 leading-relaxed font-semibold">
+                      {customAlert.message}
+                    </p>
+                  </div>
+
+                  <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-center">
+                    <button
+                      onClick={() => setCustomAlert({ isOpen: false, message: "" })}
+                      className="w-full px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-xs shadow-md shadow-blue-600/10 transition-colors cursor-pointer"
+                    >
+                      OK / Selesai
                     </button>
                   </div>
                 </div>
