@@ -1,15 +1,48 @@
 "use client";
 
 import React, { useState } from "react";
-import { CreditCard, FileText, CheckCircle2, ChevronRight, Calculator } from "lucide-react";
+import { 
+  CreditCard, 
+  FileText, 
+  CheckCircle2, 
+  ChevronRight, 
+  Calculator,
+  Mail,
+  Send,
+  Eye,
+  AlertTriangle,
+  Clock,
+  X,
+  FileCheck,
+  Check,
+  Download
+} from "lucide-react";
+import ConfirmationLetterPrintPreview from "./ConfirmationLetterPrintPreview";
+import AopMemoPrintPreview from "./AopMemoPrintPreview";
 
-export default function AccountingView() {
+interface AccountingViewProps {
+  confirmationLetters: any[];
+  setConfirmationLetters: React.Dispatch<React.SetStateAction<any[]>>;
+  handleGenerateCL: (qpr: any, amount: string) => void;
+}
+
+export default function AccountingView({
+  confirmationLetters,
+  setConfirmationLetters,
+  handleGenerateCL
+}: AccountingViewProps) {
   const [selectedQpr, setSelectedQpr] = useState<any>(null);
   const [unitPrice, setUnitPrice] = useState("250000");
   const [taxRate, setTaxRate] = useState("11"); // % PPN
   const [isGenerated, setIsGenerated] = useState(false);
 
-  // List of QPRs ready for accounting action with Total Qty & Allowance Ratio
+  // Modals / Preview States
+  const [previewMemoCl, setPreviewMemoCl] = useState<any | null>(null);
+  const [previewReminderCl, setPreviewReminderCl] = useState<any | null>(null);
+  const [justGeneratedCl, setJustGeneratedCl] = useState<any | null>(null);
+  const [previewClDoc, setPreviewClDoc] = useState<any | null>(null);
+
+  // List of QPRs ready for accounting action
   const [accountingQueue, setAccountingQueue] = useState([
     {
       id: 10,
@@ -18,9 +51,9 @@ export default function AccountingView() {
       partName: "Motherboard X1",
       rejectCount: 50, // Qty NG
       totalQty: 10000, // Total Qty
-      allowanceRatio: 0.2, // allowance limit, e.g. 0.2%
+      allowanceRatio: 0.2, // allowance limit
       period: "Mei 2026",
-      status: "APPROVED_INTERNAL" // Ready for accounting input
+      status: "APPROVED_INTERNAL"
     }
   ]);
 
@@ -39,9 +72,7 @@ export default function AccountingView() {
     const totalQty = selectedQpr.totalQty;
     const allowanceRatio = selectedQpr.allowanceRatio; // e.g. 0.2 %
     
-    // Std Allowance = Total Qty * (allowanceRatio / 100)
     const stdAllowance = Math.round(totalQty * (allowanceRatio / 100));
-    // Billable Qty = Qty NG - Std Allowance
     const billableQty = Math.max(0, qtyNg - stdAllowance);
 
     const price = parseFloat(unitPrice) || 0;
@@ -60,13 +91,51 @@ export default function AccountingView() {
 
   const handleGeneratePdf = () => {
     setIsGenerated(true);
+    const calcResult = handleCalculateTotal();
+    
     setTimeout(() => {
-      alert("Confirmation Letter PDF dengan rincian denda potong tagihan berhasil dibuat dan dikirim ke Vendor!");
-      // Move from queue to completed
+      // 1. Generate & save the CL to global state
+      handleGenerateCL(selectedQpr, calcResult.total);
+      
+      // 2. Open Success modal showing Internal Memo & Vendor Reminder
+      const simulatedClNumber = `CL/2026/06/${selectedQpr.supplierName.replace("PT ", "").replace(/ /g, "_")}_${Math.floor(Math.random() * 900 + 100)}`;
+      setJustGeneratedCl({
+        clNumber: simulatedClNumber,
+        qprNumber: selectedQpr.qprNumber,
+        supplierName: selectedQpr.supplierName,
+        dateSent: new Date().toISOString().split("T")[0],
+        amount: `Rp ${calcResult.total}`,
+        period: selectedQpr.period,
+        status: "PENDING",
+        memoStatus: "SENT_AOP",
+        reminderSentCount: 1
+      });
+
+      // 3. Clear queue
       setAccountingQueue([]);
       setSelectedQpr(null);
       setIsGenerated(false);
-    }, 1500);
+    }, 1200);
+  };
+
+  const handleToggleApproval = (id: string) => {
+    setConfirmationLetters(prev => prev.map(cl => {
+      if (cl.id === id) {
+        const newStatus = cl.status === "APPROVED" ? "PENDING" : "APPROVED";
+        return { ...cl, status: newStatus };
+      }
+      return cl;
+    }));
+  };
+
+  const handleSendReminder = (id: string) => {
+    setConfirmationLetters(prev => prev.map(cl => {
+      if (cl.id === id) {
+        alert(`Reminder untuk ${cl.clNumber} berhasil dikirim ulang ke vendor!`);
+        return { ...cl, reminderSentCount: cl.reminderSentCount + 1 };
+      }
+      return cl;
+    }));
   };
 
   const calc = handleCalculateTotal();
@@ -80,10 +149,10 @@ export default function AccountingView() {
         <p className="text-xs text-slate-400 mt-0.5">Fase 4: Hitung nilai klaim denda menggunakan rumus resmi dan terbitkan PDF confirmation letter.</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Left: Queue List */}
-        <div className="md:col-span-1 bg-white border border-slate-100 rounded-lg shadow-sm overflow-hidden flex flex-col">
+        <div className="lg:col-span-1 bg-white border border-slate-100 rounded-lg shadow-sm overflow-hidden flex flex-col">
           <div className="p-4 border-b border-slate-100 bg-slate-50/30">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Antrean Accounting</span>
             <h4 className="text-xs font-bold text-slate-800 mt-1">Status APPROVED_INTERNAL</h4>
@@ -120,7 +189,7 @@ export default function AccountingView() {
         </div>
 
         {/* Right: Pricing Calculator panel */}
-        <div className="md:col-span-2 bg-white border border-slate-100 rounded-lg shadow-sm overflow-hidden flex flex-col">
+        <div className="lg:col-span-2 bg-white border border-slate-100 rounded-lg shadow-sm overflow-hidden flex flex-col">
           <div className="p-5 border-b border-slate-100 bg-slate-50/10 flex items-center gap-2">
             <Calculator size={18} className="text-blue-500" />
             <h4 className="text-sm font-bold text-slate-800">Konfigurasi & Kalkulator Formula Klaim</h4>
@@ -145,7 +214,7 @@ export default function AccountingView() {
                 </div>
                 <div>
                   <span className="text-[9px] text-red-500 uppercase tracking-wider block">Std Allowance Qty:</span>
-                  <span className="text-red-650 text-sm block mt-0.5" style={{ color: "#dc2626" }}>{calc.stdAllowance} pcs</span>
+                  <span className="text-red-600 text-sm block mt-0.5">{calc.stdAllowance} pcs</span>
                 </div>
               </div>
 
@@ -159,7 +228,7 @@ export default function AccountingView() {
                       type="number"
                       value={unitPrice}
                       onChange={(e) => setUnitPrice(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 text-xs border border-slate-200 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-bold"
+                      className="w-full pl-10 pr-4 py-2.5 text-xs border border-slate-200 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-850"
                     />
                   </div>
                 </div>
@@ -171,7 +240,7 @@ export default function AccountingView() {
                       type="number"
                       value={taxRate}
                       onChange={(e) => setTaxRate(e.target.value)}
-                      className="w-full px-4 py-2.5 text-xs border border-slate-200 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-bold"
+                      className="w-full px-4 py-2.5 text-xs border border-slate-200 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-850"
                     />
                     <span className="absolute right-4 top-3 text-xs font-bold text-slate-400">%</span>
                   </div>
@@ -202,7 +271,7 @@ export default function AccountingView() {
                   </div>
                   <div className="flex justify-between pt-2 border-t border-slate-200/50">
                     <span className="font-extrabold text-slate-900">Total Claim Denda Akhir</span>
-                    <span className="font-black text-sm text-red-650" style={{ color: "#dc2626" }}>Rp {calc.total}</span>
+                    <span className="font-black text-sm text-red-600">Rp {calc.total}</span>
                   </div>
                 </div>
               </div>
@@ -228,6 +297,379 @@ export default function AccountingView() {
         </div>
 
       </div>
+
+      {/* MONITORING PANEL FOR CONFIRMATION LETTERS SENT */}
+      <div className="bg-white border border-slate-300 rounded-xl shadow-sm overflow-hidden mt-6">
+        <div className="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+          <div className="text-left">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Dashboard Monitoring CL</span>
+            <h4 className="text-xs font-bold text-slate-850 mt-1">Status Pengiriman & Otorisasi Confirmation Letter Vendor</h4>
+          </div>
+          <span className="px-2.5 py-1 bg-blue-50 text-blue-700 text-[10px] font-bold rounded shadow-sm">
+            Total CL: {confirmationLetters.length} Surat
+          </span>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs text-left border-collapse">
+            <thead className="bg-slate-100 text-slate-700 font-extrabold border-b border-slate-200">
+              <tr>
+                <th className="px-4 py-3 w-12 text-center">No</th>
+                <th className="px-4 py-3">No. Confirmation Letter</th>
+                <th className="px-4 py-3">Vendor / Supplier</th>
+                <th className="px-4 py-3">Tanggal Kirim</th>
+                <th className="px-4 py-3">Total Nilai Klaim</th>
+                <th className="px-4 py-3 text-center">AOP Internal Memo</th>
+                <th className="px-4 py-3 text-center">Status Approval Vendor</th>
+                <th className="px-4 py-3 text-right">Aksi</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200">
+              {confirmationLetters.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="px-4 py-8 text-center text-slate-400 italic font-semibold">
+                    Belum ada Confirmation Letter yang dikirim.
+                  </td>
+                </tr>
+              ) : (
+                confirmationLetters.map((cl, index) => (
+                  <tr key={cl.id} className="hover:bg-slate-55 transition-colors font-semibold">
+                    <td className="px-4 py-3 text-center text-slate-400 font-mono">{index + 1}</td>
+                    <td className="px-4 py-3 font-mono font-bold text-slate-800">{cl.clNumber}</td>
+                    <td className="px-4 py-3 font-bold text-slate-700">{cl.supplierName}</td>
+                    <td className="px-4 py-3 text-slate-500">{cl.dateSent}</td>
+                    <td className="px-4 py-3 text-red-600 font-extrabold">{cl.amount}</td>
+                    <td className="px-4 py-3 text-center">
+                      {cl.memoStatus === "SENT_AOP" ? (
+                        <span className="inline-flex items-center px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded text-[10px] font-bold">
+                          Terkirim ke AOP
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 bg-slate-150 text-slate-600 rounded text-[10px] font-bold">
+                          Draft Memo
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      {cl.status === "APPROVED" ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-green-50 text-green-700 border border-green-200 rounded-full text-[10px] font-bold">
+                          <CheckCircle2 size={10} className="text-green-600" />
+                          Sudah di Approval
+                        </span>
+                      ) : (
+                        <div className="flex items-center justify-center gap-2">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-[10px] font-bold">
+                            <Clock size={10} className="text-amber-600 animate-pulse" />
+                            Belum di Approval
+                          </span>
+                          <button
+                            onClick={() => handleToggleApproval(cl.id)}
+                            className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 border border-slate-350 text-slate-700 text-[10px] rounded cursor-pointer transition-colors"
+                            title="Verifikasi persetujuan manual (Simulasi Vendor)"
+                          >
+                            Approve
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => setPreviewClDoc(cl)}
+                          className="px-2 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded text-[10px] font-bold cursor-pointer flex items-center gap-1"
+                          title="Lihat Confirmation Letter PDF"
+                        >
+                          <FileText size={10} />
+                          CL PDF
+                        </button>
+                        <button
+                          onClick={() => setPreviewMemoCl(cl)}
+                          className="px-2 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded text-[10px] font-bold cursor-pointer"
+                          title="Lihat Internal Memo ke AOP"
+                        >
+                          Memo AOP
+                        </button>
+                        <button
+                          onClick={() => setPreviewReminderCl(cl)}
+                          className="px-2 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded text-[10px] font-bold cursor-pointer"
+                          title="Lihat Reminder Surat ke Vendor"
+                        >
+                          Reminder
+                        </button>
+                        <button
+                          onClick={() => handleSendReminder(cl.id)}
+                          className="p-1.5 bg-slate-50 hover:bg-slate-150 border border-slate-200 text-slate-500 hover:text-slate-800 rounded cursor-pointer"
+                          title={`Kirim ulang email pengingat (Sent: ${cl.reminderSentCount}x)`}
+                        >
+                          <Send size={11} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* POPUP 1: GENERATION SUCCESS DIALOG (SHOWS BOTH MEMO AOP & REMINDER VENDOR) */}
+      {justGeneratedCl && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-[2px] z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl w-full max-w-4xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200">
+            
+            {/* Header */}
+            <div className="p-5 bg-gradient-to-r from-emerald-650 via-teal-600 to-emerald-700 text-white flex justify-between items-center" style={{ background: "linear-gradient(135deg, #059669 0%, #0d9488 100%)" }}>
+              <div className="text-left">
+                <span className="text-[10px] font-black uppercase bg-white/20 text-white px-2 py-0.5 rounded">Sukses Terbit</span>
+                <h4 className="text-base font-black mt-1">Confirmation Letter {justGeneratedCl.clNumber} Berhasil Dibuat</h4>
+              </div>
+              <button 
+                onClick={() => setJustGeneratedCl(null)} 
+                className="p-2 hover:bg-white/10 rounded-md text-white/80 hover:text-white cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Content: Double Column Preview */}
+            <div className="p-6 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 max-h-[65vh]">
+              
+              {/* AOP Internal Memo Preview */}
+              <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-sm flex flex-col text-left space-y-4">
+                <div className="border-b border-slate-200 pb-2 flex justify-between items-center">
+                  <span className="text-xs font-black text-indigo-750 flex items-center gap-1">
+                    <FileText size={14} />
+                    Internal Memo ke AOP
+                  </span>
+                  <span className="text-[9px] bg-indigo-50 text-indigo-700 px-1.5 rounded font-bold">Auto-Generated</span>
+                </div>
+
+                <div className="flex-1 space-y-3 font-serif text-[11px] text-slate-800 p-3 bg-slate-50/50 rounded border border-slate-100/50 leading-relaxed">
+                  <div className="text-center font-bold text-xs uppercase border-b border-slate-400 pb-2 mb-3">
+                    PT MENARA TERUS MAKMUR
+                    <span className="block text-[8px] font-normal italic font-sans text-slate-400">A Member of ASTRA Otoparts Group</span>
+                  </div>
+                  
+                  <div className="grid grid-cols-3 gap-y-1 font-sans text-[10px] mb-3">
+                    <span className="font-bold text-slate-400">KEPADA:</span>
+                    <span className="col-span-2 text-slate-850 font-bold">Finance & Accounting Div. AOP</span>
+                    
+                    <span className="font-bold text-slate-400">DARI:</span>
+                    <span className="col-span-2 text-slate-850 font-bold">Finance Department MTM</span>
+                    
+                    <span className="font-bold text-slate-400">TANGGAL:</span>
+                    <span className="col-span-2 text-slate-800">{justGeneratedCl.dateSent}</span>
+                    
+                    <span className="font-bold text-slate-400">HAL:</span>
+                    <span className="col-span-2 text-slate-850 font-bold">Pengajuan Klaim Kualitas Penalti (QPR) - {justGeneratedCl.supplierName}</span>
+                  </div>
+
+                  <p>Dengan hormat,</p>
+                  <p>
+                    Bersama memo ini kami informasikan pengajuan rencana pemotongan tagihan (Deduction) atas klaim denda kualitas QPR terhadap supplier <strong>{justGeneratedCl.supplierName}</strong> periode <strong>{justGeneratedCl.period}</strong> dengan rincian berikut:
+                  </p>
+                  
+                  <div className="bg-slate-100 p-2.5 rounded font-sans text-[11px] space-y-1 my-2 border border-slate-200">
+                    <div className="flex justify-between">
+                      <span>No. Confirmation Letter:</span>
+                      <strong className="font-mono">{justGeneratedCl.clNumber}</strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Jumlah Denda Kualitas:</span>
+                      <strong className="text-red-650">{justGeneratedCl.amount}</strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Status Pengiriman Vendor:</span>
+                      <span className="text-amber-600 font-bold">Sent (Pending Approval)</span>
+                    </div>
+                  </div>
+
+                  <p>
+                    Memo ini diajukan sebagai basis pencatatan pencadangan piutang denda (accrual claim) di tingkat AOP Group, menunggu konfirmasi persetujuan basah/digital resmi dari vendor yang bersangkutan.
+                  </p>
+                  
+                  <div className="pt-4 flex justify-between font-sans text-[10px] text-slate-400">
+                    <span>Dibuat oleh: Finance Div MTM</span>
+                    <span>Approved by: Accounting Dep. Head</span>
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => alert("Memo Internal AOP berhasil terkirim ke sistem integrasi AOP!")}
+                    className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-xs font-bold flex items-center justify-center gap-1 cursor-pointer"
+                  >
+                    <Send size={11} />
+                    Kirim ke AOP Finance
+                  </button>
+                  <button 
+                    onClick={() => setPreviewMemoCl(justGeneratedCl)}
+                    className="px-3 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-350 text-slate-700 rounded text-xs font-bold cursor-pointer flex items-center gap-1"
+                    title="Lihat Full PDF Memo AOP"
+                  >
+                    <Eye size={12} />
+                    PDF
+                  </button>
+                </div>
+              </div>
+
+              {/* Vendor Email/Reminder Preview */}
+              <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-sm flex flex-col text-left space-y-4">
+                <div className="border-b border-slate-200 pb-2 flex justify-between items-center">
+                  <span className="text-xs font-black text-amber-700 flex items-center gap-1">
+                    <Mail size={14} />
+                    Reminder Surat ke Vendor
+                  </span>
+                  <span className="text-[9px] bg-amber-50 text-amber-700 px-1.5 rounded font-bold">Email Ready</span>
+                </div>
+
+                <div className="flex-1 space-y-3 font-sans text-[11px] text-slate-800 p-3 bg-slate-50/50 rounded border border-slate-100/50 leading-relaxed">
+                  <div className="border border-slate-200 bg-white p-2 rounded text-[10px] space-y-1 font-bold text-slate-600">
+                    <div><span className="text-slate-400">To:</span> management@{justGeneratedCl.supplierName.toLowerCase().replace("pt ", "").replace(/ /g, "")}.co.id</div>
+                    <div><span className="text-slate-400">Subject:</span> [URGENT REMINDER] Lembar Confirmation Letter Kualitas {justGeneratedCl.clNumber} - MTM</div>
+                  </div>
+
+                  <p className="pt-2">Kepada Yth. Pimpinan Keuangan / Sales Manager <strong>{justGeneratedCl.supplierName}</strong>,</p>
+                  <p>
+                    Kami telah menerbitkan lembar persetujuan <strong>Confirmation Letter Penalti Kualitas (QPR)</strong> dengan nomor <strong>{justGeneratedCl.clNumber}</strong> tanggal pengiriman <strong>{justGeneratedCl.dateSent}</strong>.
+                  </p>
+                  <p>
+                    Nilai denda klaim yang disepakati adalah sebesar <strong className="text-red-650">{justGeneratedCl.amount}</strong>. Sesuai prosedur Astra Otoparts, harap segera melakukan verifikasi dan penandatanganan lembar Confirmation Letter terlampir.
+                  </p>
+                  
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-md text-amber-800 flex items-start gap-2 my-2">
+                    <AlertTriangle size={16} className="shrink-0 text-amber-600 mt-0.5" />
+                    <div>
+                      <strong>Batas Waktu Otorisasi:</strong>
+                      <p className="text-[10px] mt-0.5 leading-normal">
+                        Harap melakukan Approval dalam waktu maksimal 5 (lima) hari kerja. Apabila tidak ada tanggapan, pemotongan tagihan secara otomatis akan dijalankan pada tagihan berjalan.
+                      </p>
+                    </div>
+                  </div>
+
+                  <p>Hormat kami,</p>
+                  <strong className="block mt-1 font-black text-slate-800 text-[10px]">PT Menara Terus Makmur (Finance & Accounting Div)</strong>
+                </div>
+
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => {
+                      alert(`Email reminder untuk ${justGeneratedCl.clNumber} berhasil dikirim ke vendor!`);
+                      setJustGeneratedCl(null);
+                    }}
+                    className="flex-1 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded text-xs font-bold flex items-center justify-center gap-1 cursor-pointer"
+                  >
+                    <Send size={11} />
+                    Kirim Email & Pengingat Vendor
+                  </button>
+                  <button 
+                    onClick={() => alert("Reminder template copied to clipboard!")}
+                    className="px-3 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-350 text-slate-700 rounded text-xs font-bold cursor-pointer"
+                  >
+                    Salin Teks
+                  </button>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Footer */}
+            <div className="p-5 border-t border-slate-200 bg-slate-100 flex justify-end gap-3">
+              <button 
+                onClick={() => setJustGeneratedCl(null)} 
+                className="px-5 py-2.5 bg-slate-700 hover:bg-slate-800 text-white rounded-md font-bold text-xs shadow-md transition-colors cursor-pointer"
+              >
+                Selesai & Masuk ke Monitoring
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* POPUP 2: VIEW MEMO AOP ONLY */}
+      {previewMemoCl && (
+        <AopMemoPrintPreview
+          memo={previewMemoCl}
+          onClose={() => setPreviewMemoCl(null)}
+          onSend={() => {
+            alert("Memo berhasil disinkronisasi ke AOP!");
+            setPreviewMemoCl(null);
+          }}
+        />
+      )}
+
+      {/* POPUP 3: VIEW REMINDER SURAT VENDOR ONLY */}
+      {previewReminderCl && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-[2px] z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl w-full max-w-lg shadow-2xl overflow-hidden border border-slate-200 flex flex-col animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-5 bg-amber-600 text-white flex justify-between items-center">
+              <div className="text-left">
+                <span className="text-[10px] uppercase font-bold bg-white/20 px-2 py-0.5 rounded">Preview Reminder Vendor</span>
+                <h4 className="text-sm font-black mt-1">Reminder E-mail - {previewReminderCl.clNumber}</h4>
+              </div>
+              <button onClick={() => setPreviewReminderCl(null)} className="p-2 hover:bg-white/10 rounded-md text-white/85 cursor-pointer">
+                <X size={16} />
+              </button>
+            </div>
+            
+            <div className="p-6 bg-slate-50 text-[11px] text-slate-800 text-left space-y-3 max-h-[60vh] overflow-y-auto leading-relaxed font-sans">
+              <div className="border border-slate-200 bg-white p-2 rounded text-[10px] space-y-0.5 font-bold text-slate-500">
+                <div>To: management@{previewReminderCl.supplierName.toLowerCase().replace("pt ", "").replace(/ /g, "")}.co.id</div>
+                <div>Subject: [REMINDER] Lembar Persetujuan Confirmation Letter Kualitas {previewReminderCl.clNumber}</div>
+              </div>
+
+              <p className="pt-2">Kepada Yth. Pimpinan Keuangan / Sales Manager <strong>{previewReminderCl.supplierName}</strong>,</p>
+              <p>
+                Melalui surat ini kami mengingatkan kembali terkait penalti penyesuaian kualitas barang (QPR) dengan nomor Confirmation Letter <strong>{previewReminderCl.clNumber}</strong> yang telah dikirimkan pada tanggal <strong>{previewReminderCl.dateSent}</strong>.
+              </p>
+              <p>
+                Jumlah klaim denda akhir yang disepakati adalah sebesar <strong className="text-red-650">{previewReminderCl.amount}</strong>. Harap melakukan konfirmasi persetujuan dalam portal QPR Anda.
+              </p>
+              
+              <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-md text-amber-800 flex items-start gap-2">
+                <AlertTriangle size={15} className="shrink-0 text-amber-600 mt-0.5" />
+                <div className="text-[10px]">
+                  <strong>Batas waktu: 5 Hari Kerja.</strong>
+                  <p className="mt-0.5 leading-normal text-slate-650 font-medium">
+                    Jika dalam waktu 5 hari kerja sejak surat ini dikirimkan tidak ada konfirmasi lebih lanjut, kami mengasumsikan pihak vendor telah menyetujui rincian denda ini sepenuhnya dan akan mengeksekusi deduction pada tagihan berjalan.
+                  </p>
+                </div>
+              </div>
+
+              <p>Hormat Kami,</p>
+              <strong className="block mt-0.5 text-slate-700">PT Menara Terus Makmur (Finance & Accounting Div)</strong>
+            </div>
+
+            <div className="p-4 bg-slate-100 border-t border-slate-200 flex justify-end gap-2">
+              <button 
+                onClick={() => setPreviewReminderCl(null)} 
+                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded font-bold text-xs cursor-pointer"
+              >
+                Tutup
+              </button>
+              <button 
+                onClick={() => {
+                  handleSendReminder(previewReminderCl.id);
+                  setPreviewReminderCl(null);
+                }}
+                className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded font-bold text-xs cursor-pointer flex items-center gap-1"
+              >
+                <Send size={11} />
+                Kirim Ulang Reminder
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {previewClDoc && (
+        <ConfirmationLetterPrintPreview
+          cl={previewClDoc}
+          onClose={() => setPreviewClDoc(null)}
+        />
+      )}
 
     </div>
   );

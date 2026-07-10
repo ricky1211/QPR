@@ -2,6 +2,7 @@
 
 import React, { useState, useRef } from "react";
 import { CheckCircle2, AlertTriangle, X, FileSignature, ChevronDown, Calendar, Eye } from "lucide-react";
+import NcrPrintPreview from "./NcrPrintPreview";
 
 export default function OperatorView({
   pendingNcrs,
@@ -36,11 +37,26 @@ export default function OperatorView({
   // Expanded fields from manual NCR form for Speed & Digitalization
   const [locationFound, setLocationFound] = useState<string[]>([]);
   const [problemType, setProblemType] = useState<string[]>([]);
-  const [foundBy, setFoundBy] = useState("MR. HENDRIK (QC INC.)");
+  const [foundBy, setFoundBy] = useState<string[]>(["MR. HENDRIK (QC INC.)"]);
   const [description, setDescription] = useState("");
   const [disposition, setDisposition] = useState<string[]>([]);
   const [customerApproval, setCustomerApproval] = useState("");
   const [docsToRevise, setDocsToRevise] = useState<string[]>([]);
+  const [customDoc, setCustomDoc] = useState("");
+  const [uploadedImages, setUploadedImages] = useState<string[]>([]);
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const filesArray = Array.from(e.target.files);
+      filesArray.forEach((file) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setUploadedImages((prev) => [...prev, reader.result as string]);
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+  };
 
   // Local state for NCR history sent during this session
   const [items, setItems] = useState<any[]>([]);
@@ -63,8 +79,7 @@ export default function OperatorView({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successNcrNumber, setSuccessNcrNumber] = useState<string | null>(null);
   const [selectedReviewNcr, setSelectedReviewNcr] = useState<any | null>(null);
-
-
+  const [showConfirmSubmit, setShowConfirmSubmit] = useState(false);
 
   const isStaffApproved = selectedReviewNcr && (selectedReviewNcr.requiredRole === "Section Head" || selectedReviewNcr.requiredRole === "Dept Head" || selectedReviewNcr.requiredRole === "Closed" || selectedReviewNcr.status === "APPROVED");
   const isSpvApproved = selectedReviewNcr && (selectedReviewNcr.requiredRole === "Dept Head" || selectedReviewNcr.requiredRole === "Closed" || selectedReviewNcr.status === "APPROVED");
@@ -151,12 +166,12 @@ export default function OperatorView({
       setQtyError("Harap pilih setidaknya satu Problem Type!");
       return;
     }
-    if (disposition.length === 0) {
-      setQtyError("Harap pilih Keputusan Disposisi!");
+    if (foundBy.length === 0) {
+      setQtyError("Harap pilih setidaknya satu QC Inspector pada Found By!");
       return;
     }
-    if (!customerApproval) {
-      setQtyError("Harap tentukan apakah Customer Approval diperlukan!");
+    if (disposition.length === 0) {
+      setQtyError("Harap pilih Keputusan Disposisi!");
       return;
     }
 
@@ -169,11 +184,23 @@ export default function OperatorView({
       }
     }
 
+    // Trigger styled confirmation popup
+    setShowConfirmSubmit(true);
+  };
+
+  const executeSubmission = () => {
+    const activeRows = inputRows.filter(row => row.partId && row.qtyNG && row.ngTypes);
     const currentSupplier = suppliers.find((s) => s.id === parseInt(String(supplierId)));
     if (!currentSupplier) return;
 
     setIsSubmitting(true);
     setQtyError(null);
+
+    // Combine checkboxes and typed other documents
+    const finalDocs = [...docsToRevise];
+    if (customDoc.trim()) {
+      finalDocs.push(customDoc.trim());
+    }
 
     // Simulate API submission
     setTimeout(() => {
@@ -195,14 +222,15 @@ export default function OperatorView({
           partName: currentPart.partName,
           supplierName: currentSupplier.name,
           qty: qty, // Qty NG
-          reject: row.ngTypes.trim().toUpperCase(), // NG Types
+          reject: row.ngTypes.trim().toUpperCase(),
           locationFound: Array.isArray(locationFound) ? locationFound.join(", ") : locationFound,
           problemType: Array.isArray(problemType) ? problemType.join(", ") : problemType,
-          foundBy: foundBy,
+          foundBy: foundBy.join(", "),
           defectType: description || "Quality defect found",
           disposition: Array.isArray(disposition) ? disposition.join(", ") : disposition,
-          customerApproval: customerApproval,
-          docsToRevise: docsToRevise.join(", "),
+          customerApproval: customerApproval || "-",
+          docsToRevise: finalDocs.join(", "),
+          images: uploadedImages,
           status: "WAITING_APPROVAL",
           requiredRole: "Foreman"
         };
@@ -240,7 +268,8 @@ export default function OperatorView({
           locationFound: locationFound,
           problemType: problemType,
           disposition: disposition,
-          docsToRevise: docsToRevise
+          docsToRevise: finalDocs,
+          images: uploadedImages
         })),
         ...prev
       ]);
@@ -249,11 +278,13 @@ export default function OperatorView({
       setInputRows([{ id: Date.now(), partId: "", qtyNG: "", ngTypes: "", isManualNg: false }]);
       setLocationFound([]);
       setProblemType([]);
-      setFoundBy("MR. HENDRIK (QC INC.)");
+      setFoundBy(["MR. HENDRIK (QC INC.)"]);
       setDescription("");
       setDisposition([]);
       setCustomerApproval("");
       setDocsToRevise([]);
+      setCustomDoc("");
+      setUploadedImages([]);
       setQtyError(null);
 
       // Show success alert toast
@@ -548,7 +579,7 @@ export default function OperatorView({
 
               <div className="space-y-1.5 text-left">
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                  Keputusan Disposisi &amp; Customer Approval Required <span className="text-red-500">*</span>
+                  Keputusan Disposisi <span className="text-red-500">*</span> &amp; Customer Approval (Opsional)
                 </label>
                 <div className="border border-slate-400 rounded-lg shadow-sm bg-white">
                   <table className="w-full table-fixed text-center text-xs font-bold border-collapse">
@@ -733,7 +764,7 @@ export default function OperatorView({
             </div>
 
             {/* Other Documents to Revise Checklist */}
-            <div className="space-y-1.5 text-left bg-white border border-slate-205 p-3 rounded-lg">
+            <div className="space-y-2 text-left bg-white border border-slate-205 p-3 rounded-lg">
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Other Documents to Revise</label>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 bg-slate-50 border border-slate-200/50 p-1.5 rounded-lg">
                 {["CONTROL PLAN", "CHECK SHEET", "Q POINT", "MPS"].map((doc) => {
@@ -757,21 +788,45 @@ export default function OperatorView({
                   );
                 })}
               </div>
+              <div className="pt-1.5 border-t border-slate-105">
+                <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                  Dokumen Lainnya (Ketik Manual)
+                </span>
+                <input
+                  type="text"
+                  placeholder="Ketik dokumen revisi lainnya di sini..."
+                  value={customDoc}
+                  onChange={(e) => setCustomDoc(e.target.value)}
+                  className="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white font-bold text-slate-800"
+                />
+              </div>
             </div>
 
             {/* Found By */}
-            <div className="space-y-1.5 text-left">
+            <div className="space-y-1.5 text-left bg-white border border-slate-205 p-3 rounded-lg">
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Found By <span className="text-red-500">*</span></label>
-              <select
-                value={foundBy}
-                onChange={(e) => setFoundBy(e.target.value)}
-                className="w-full px-4 py-2 text-xs border border-slate-200 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white font-bold text-slate-800 cursor-pointer h-[36px]"
-              >
-                <option value="MR. HENDRIK (QC INC.)">MR. HENDRIK (QC INC.)</option>
-                <option value="MR. SLAMET (QC CS)">MR. SLAMET (QC CS)</option>
-                <option value="MR. ALFIAN (QC QA)">MR. ALFIAN (QC QA)</option>
-                <option value="LAINNYA (QC STAFF)">LAINNYA (QC STAFF)</option>
-              </select>
+              <div className="grid grid-cols-2 gap-1.5 bg-slate-50 border border-slate-200/50 p-1.5 rounded-lg">
+                {["MR. HENDRIK (QC INC.)", "MR. SLAMET (QC CS)", "MR. ALFIAN (QC QA)", "LAINNYA (QC STAFF)"].map((inspector) => {
+                  const isChecked = foundBy.includes(inspector);
+                  return (
+                    <label key={inspector} className="flex items-center gap-1.5 px-2 py-1.5 hover:bg-white rounded cursor-pointer text-[8.5px] font-bold text-slate-700 border border-slate-100 bg-white justify-start w-full whitespace-nowrap overflow-hidden text-ellipsis">
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setFoundBy([...foundBy, inspector]);
+                          } else {
+                            setFoundBy(foundBy.filter((f) => f !== inspector));
+                          }
+                        }}
+                        className="rounded border-slate-350 text-blue-600 focus:ring-blue-500 w-3 h-3"
+                      />
+                      {inspector}
+                    </label>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
@@ -876,6 +931,45 @@ export default function OperatorView({
                   className="w-full px-4 py-2 text-xs border border-slate-200 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-slate-800 font-bold"
                 />
               </div>
+
+              {/* Upload Foto / Bukti Defect */}
+              <div className="space-y-1.5 text-left bg-white border border-slate-205 p-3 rounded-lg">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Upload Foto / Bukti Defect
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <label className="border-2 border-dashed border-slate-200 hover:border-slate-350 rounded-lg p-4 flex flex-col items-center justify-center cursor-pointer transition-colors bg-slate-50/50">
+                    <span className="text-xs font-bold text-blue-600">Pilih Foto Defect</span>
+                    {uploadedImages.length === 0 && (
+                      <span className="text-[9px] text-slate-400 mt-0.5">Mendukung PNG, JPG up to 5MB</span>
+                    )}
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleImageUpload}
+                    />
+                  </label>
+                  {uploadedImages.length > 0 && (
+                    <div className="grid grid-cols-3 gap-2">
+                      {uploadedImages.map((src, idx) => (
+                        <div key={idx} className="relative rounded-lg overflow-hidden border border-slate-205 aspect-square bg-slate-50">
+                          <img src={src} className="w-full h-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => setUploadedImages(prev => prev.filter((_, i) => i !== idx))}
+                            className="absolute top-0.5 right-0.5 bg-red-500 hover:bg-red-700 text-white rounded-full p-0.5 cursor-pointer flex items-center justify-center w-4 h-4 shadow-sm"
+                          >
+                            <X size={10} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
             </div>
           </div>
 
@@ -993,306 +1087,53 @@ export default function OperatorView({
       )}
 
 
-      {/* Review NCR Details Modal */}
+      {/* Review NCR Details Modal (Unified PDF Layout) */}
       {selectedReviewNcr && (
+        <NcrPrintPreview
+          ncr={selectedReviewNcr}
+          onClose={() => setSelectedReviewNcr(null)}
+        />
+      )}
+
+      {showConfirmSubmit && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-[2px] z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl w-full max-w-4xl shadow-2xl overflow-hidden border border-slate-100 flex flex-col">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+          <div className="bg-white rounded-xl w-full max-w-md shadow-2xl overflow-hidden border border-slate-200 flex flex-col p-6 animate-in fade-in zoom-in-95 duration-200 text-left space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-amber-50 text-amber-600 rounded-lg">
+                <AlertTriangle size={24} />
+              </div>
               <div>
-                <span className="text-[10px] font-bold text-blue-600 tracking-widest uppercase">Review Laporan NCR (Terkirim)</span>
-                <h4 className="text-base font-bold text-slate-900 mt-0.5">{selectedReviewNcr.ncrNumber}</h4>
-              </div>
-              <button onClick={() => setSelectedReviewNcr(null)} className="p-2 hover:bg-slate-100 rounded-md text-slate-400 hover:text-slate-700 transition-colors cursor-pointer">
-                <X size={18} />
-              </button>
-            </div>
-            
-            <div className="p-6 space-y-4 text-left max-h-[70vh] overflow-y-auto">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                
-                {/* Left Column: Defect details */}
-                <div className="space-y-4">
-                  <div className="p-4 bg-slate-50 border border-slate-100 rounded-lg">
-                    <span className="text-[10px] font-bold text-slate-400 block">Detail Part & Supplier</span>
-                    <span className="text-sm font-bold text-slate-800 block mt-1">{selectedReviewNcr.partName}</span>
-                    <span className="text-xs text-slate-400 block mt-0.5">{selectedReviewNcr.partNumber} • {selectedReviewNcr.supplierName}</span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3 text-center text-xs">
-                    <div className="p-3 bg-slate-50 rounded-md border border-slate-100/50">
-                      <span className="text-slate-400 block font-bold">Qty NG:</span>
-                      <strong className="text-slate-800 font-extrabold">{selectedReviewNcr.qty} pcs</strong>
-                    </div>
-                    <div className="p-3 bg-slate-50 rounded-md border border-slate-100/50">
-                      <span className="text-slate-400 block font-bold">NG Types:</span>
-                      <strong className="text-red-600 font-extrabold uppercase">{selectedReviewNcr.reject}</strong>
-                    </div>
-                  </div>
-
-                  <div className="p-3.5 bg-blue-50/20 border border-slate-100 rounded-lg text-[11px] space-y-3 text-left">
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
-                      <div>
-                        <span className="text-slate-455 font-bold text-[9px] uppercase tracking-wider block">Location Found</span>
-                        <strong className="text-slate-800 font-bold block mt-0.5">
-                          {Array.isArray(selectedReviewNcr.locationFound) ? selectedReviewNcr.locationFound.join(", ") : selectedReviewNcr.locationFound || "IN-COMING"}
-                        </strong>
-                      </div>
-                      <div>
-                        <span className="text-slate-455 font-bold text-[9px] uppercase tracking-wider block">Problem Type</span>
-                        <strong className="text-slate-800 font-bold block mt-0.5">
-                          {Array.isArray(selectedReviewNcr.problemType) ? selectedReviewNcr.problemType.join(", ") : selectedReviewNcr.problemType || "QUALITY"}
-                        </strong>
-                      </div>
-                      <div>
-                        <span className="text-slate-455 font-bold text-[9px] uppercase tracking-wider block">Docs to Revise</span>
-                        <strong className="text-slate-800 font-bold block mt-0.5 truncate" title={Array.isArray(selectedReviewNcr.docsToRevise) ? selectedReviewNcr.docsToRevise.join(", ") : selectedReviewNcr.docsToRevise}>
-                          {Array.isArray(selectedReviewNcr.docsToRevise) ? selectedReviewNcr.docsToRevise.join(", ") : selectedReviewNcr.docsToRevise || "-"}
-                        </strong>
-                      </div>
-                      <div>
-                        <span className="text-slate-455 font-bold text-[9px] uppercase tracking-wider block">Found By</span>
-                        <strong className="text-slate-800 font-bold block mt-0.5 truncate" title={selectedReviewNcr.foundBy}>{selectedReviewNcr.foundBy || "QC INSPECTOR"}</strong>
-                      </div>
-                    </div>
-
-                    <div className="border-t border-slate-100 pt-2.5">
-                      <span className="text-slate-455 font-bold text-[9px] uppercase tracking-wider block">Deskripsi Cacat / NG</span>
-                      <p className="text-slate-800 font-bold bg-white p-2 rounded border border-slate-100/80 leading-normal mt-1 text-[11px] italic">
-                        "{selectedReviewNcr.defectType || selectedReviewNcr.description}"
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Excel-style Read-only Keputusan Disposisi Table */}
-                  <div className="border border-slate-300 rounded-lg overflow-hidden text-center text-[9px] font-bold bg-white shadow-sm">
-                    <table className="w-full border-collapse">
-                      <thead>
-                        <tr className="bg-slate-100 border-b border-slate-300 text-slate-800 font-extrabold text-[10px]">
-                          <th colSpan={5} className="py-1.5 text-center uppercase tracking-wider">
-                            KEPUTUSAN DISPOSISI
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr className="bg-slate-50 text-slate-700 border-b border-slate-200">
-                          <td className="border-r border-slate-300 py-1 w-[22%]">RETURN TO VENDOR</td>
-                          <td className="border-r border-slate-300 py-1 w-[22%]">REWORK</td>
-                          <td className="border-r border-slate-300 py-1 w-[22%]">SCRAP</td>
-                          <td className="border-r border-slate-300 py-1 w-[17%] bg-slate-100/30 text-center font-bold">YES</td>
-                          <td className="py-1 w-[17%] bg-slate-100/30 text-center font-bold">NO</td>
-                        </tr>
-                        <tr className="border-b border-slate-200 h-8">
-                          <td className={`border-r border-slate-300 transition-colors ${
-                            (Array.isArray(selectedReviewNcr.disposition) ? selectedReviewNcr.disposition.join(", ") : selectedReviewNcr.disposition) === "RETURN TO VENDOR" ? "bg-blue-100 text-blue-700" : ""
-                          }`}>
-                            {(Array.isArray(selectedReviewNcr.disposition) ? selectedReviewNcr.disposition.join(", ") : selectedReviewNcr.disposition) === "RETURN TO VENDOR" ? "✓" : ""}
-                          </td>
-                          <td className={`border-r border-slate-300 transition-colors ${
-                            (Array.isArray(selectedReviewNcr.disposition) ? selectedReviewNcr.disposition.join(", ") : selectedReviewNcr.disposition) === "REWORK" ? "bg-blue-100 text-blue-700" : ""
-                          }`}>
-                            {(Array.isArray(selectedReviewNcr.disposition) ? selectedReviewNcr.disposition.join(", ") : selectedReviewNcr.disposition) === "REWORK" ? "✓" : ""}
-                          </td>
-                          <td className={`border-r border-slate-300 transition-colors ${
-                            (Array.isArray(selectedReviewNcr.disposition) ? selectedReviewNcr.disposition.join(", ") : selectedReviewNcr.disposition) === "SCRAP" ? "bg-blue-100 text-blue-700" : ""
-                          }`}>
-                            {(Array.isArray(selectedReviewNcr.disposition) ? selectedReviewNcr.disposition.join(", ") : selectedReviewNcr.disposition) === "SCRAP" ? "✓" : ""}
-                          </td>
-                          <td 
-                            rowSpan={2}
-                            className={`border-r border-slate-300 transition-colors ${
-                              selectedReviewNcr.customerApproval === "YES" ? "bg-emerald-100 text-emerald-800" : ""
-                            }`}
-                          >
-                            {selectedReviewNcr.customerApproval === "YES" ? "✓" : ""}
-                          </td>
-                          <td 
-                            rowSpan={2}
-                            className={`transition-colors ${
-                              selectedReviewNcr.customerApproval === "NO" ? "bg-red-100 text-red-800" : ""
-                            }`}
-                          >
-                            {selectedReviewNcr.customerApproval === "NO" ? "✓" : ""}
-                          </td>
-                        </tr>
-                        <tr className="bg-slate-50 text-slate-700 border-b border-slate-200">
-                          <td className="border-r border-slate-300 py-1">ACCEPT AS IS</td>
-                          <td className="border-r border-slate-300 py-1">REPAIR</td>
-                          <td className="border-r border-slate-300 py-1">REGRADE</td>
-                        </tr>
-                        <tr className="h-8">
-                          <td className={`border-r border-slate-300 transition-colors ${
-                            (Array.isArray(selectedReviewNcr.disposition) ? selectedReviewNcr.disposition.join(", ") : selectedReviewNcr.disposition) === "ACCEPT AS IS" ? "bg-blue-100 text-blue-700" : ""
-                          }`}>
-                            {(Array.isArray(selectedReviewNcr.disposition) ? selectedReviewNcr.disposition.join(", ") : selectedReviewNcr.disposition) === "ACCEPT AS IS" ? "✓" : ""}
-                          </td>
-                          <td className={`border-r border-slate-300 transition-colors ${
-                            (Array.isArray(selectedReviewNcr.disposition) ? selectedReviewNcr.disposition.join(", ") : selectedReviewNcr.disposition) === "REPAIR" ? "bg-blue-100 text-blue-700" : ""
-                          }`}>
-                            {(Array.isArray(selectedReviewNcr.disposition) ? selectedReviewNcr.disposition.join(", ") : selectedReviewNcr.disposition) === "REPAIR" ? "✓" : ""}
-                          </td>
-                          <td className={`border-r border-slate-300 transition-colors ${
-                            (Array.isArray(selectedReviewNcr.disposition) ? selectedReviewNcr.disposition.join(", ") : selectedReviewNcr.disposition) === "REGRADE" ? "bg-blue-100 text-blue-700" : ""
-                          }`}>
-                            {(Array.isArray(selectedReviewNcr.disposition) ? selectedReviewNcr.disposition.join(", ") : selectedReviewNcr.disposition) === "REGRADE" ? "✓" : ""}
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                {/* Right Column: Signatures & Reviews */}
-                <div className="space-y-4">
-                  {/* Quality Department Signature Block (PR4-FRM-08001) */}
-                  <div className="border border-slate-300 rounded-lg overflow-hidden bg-white text-[11px] shadow-sm/5 text-left">
-                    <div className="bg-slate-100 px-3 py-1.5 border-b border-slate-300 font-extrabold text-slate-800 uppercase text-center tracking-wider text-[10px]">
-                      TANDA TANGAN QUALITY DEPT (PR4-FRM-08001)
-                    </div>
-                    <div className="grid grid-cols-3 divide-x divide-slate-300 text-center font-bold">
-                      {/* STAFF Box */}
-                      <div className="flex flex-col justify-between h-20 p-1">
-                        <div className="text-[8px] text-slate-400 font-black uppercase">Staff (QC Inspector)</div>
-                        {isStaffApproved ? (
-                          <div className="flex flex-col items-center">
-                            <span className="text-slate-800 text-xs font-bold leading-none select-none">
-                              {selectedReviewNcr.foundBy ? selectedReviewNcr.foundBy.split(" ")[1] : "Hendrik"}
-                            </span>
-                            {selectedReviewNcr.staffReview && (
-                              <span className="text-[8px] text-slate-505 font-normal mt-0.5 italic block max-w-[80px] truncate" title={selectedReviewNcr.staffReview}>
-                                "{selectedReviewNcr.staffReview}"
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="text-slate-455 italic text-[8px] py-0.5 font-medium leading-tight">
-                            Menunggu Staff
-                          </div>
-                        )}
-                        <div className="text-[8px] text-slate-500 border-t border-slate-200 pt-0.5">
-                          {selectedReviewNcr.date || "28-7-2025"}
-                        </div>
-                      </div>
-
-                      {/* SPV Box */}
-                      <div className="flex flex-col justify-between h-20 p-1">
-                        <div className="text-[8px] text-slate-400 font-black uppercase">SPV (QC SPV)</div>
-                        {isSpvApproved ? (
-                          <div className="flex flex-col items-center">
-                            <span className="text-slate-800 text-xs font-bold leading-none select-none">Approved (SPV)</span>
-                            {selectedReviewNcr.spvReview && (
-                              <span className="text-[8px] text-slate-505 font-normal mt-0.5 italic block max-w-[80px] truncate" title={selectedReviewNcr.spvReview}>
-                                "{selectedReviewNcr.spvReview}"
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="text-slate-400 italic text-[8px] py-0.5 font-medium leading-tight">
-                            Menunggu SPV
-                          </div>
-                        )}
-                        <div className="text-[8px] text-slate-500 border-t border-slate-200 pt-0.5">
-                          {isSpvApproved ? selectedReviewNcr.date : "-"}
-                        </div>
-                      </div>
-
-                      {/* MNG Box */}
-                      <div className="flex flex-col justify-between h-20 p-1">
-                        <div className="text-[8px] text-slate-400 font-black uppercase">MNG (QC Manager)</div>
-                        {isMngApproved ? (
-                          <div className="flex flex-col items-center">
-                            <span className="text-slate-800 text-xs font-bold leading-none select-none">Approved (MNG)</span>
-                            {selectedReviewNcr.mngReview && (
-                              <span className="text-[8px] text-slate-550 font-normal mt-0.5 italic block max-w-[80px] truncate" title={selectedReviewNcr.mngReview}>
-                                "{selectedReviewNcr.mngReview}"
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="text-slate-400 italic text-[8px] py-0.5 font-medium leading-tight">
-                            Menunggu MNG
-                          </div>
-                        )}
-                        <div className="text-[8px] text-slate-500 border-t border-slate-200 pt-0.5">
-                          {isMngApproved ? selectedReviewNcr.date : "-"}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Detailed Reviews Section */}
-                  <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-[11px] text-left space-y-2.5">
-                    <span className="text-[9px] font-black text-slate-455 uppercase tracking-widest block">
-                      Detail Catatan Review Approval
-                    </span>
-                    <div className="space-y-2 divide-y divide-slate-100">
-                      {/* Staff Review */}
-                      <div className="pt-2 first:pt-0">
-                        <div className="flex justify-between items-center">
-                          <span className="font-bold text-slate-700">Staff (QC Inspector)</span>
-                          <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase ${
-                            isStaffApproved ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
-                          }`}>
-                            {isStaffApproved ? "APPROVED" : "PENDING"}
-                          </span>
-                        </div>
-                        {isStaffApproved && selectedReviewNcr.staffReview && (
-                          <p className="text-slate-600 mt-1 italic leading-normal font-semibold">
-                            "{selectedReviewNcr.staffReview}"
-                          </p>
-                        )}
-                      </div>
-
-                      {/* SPV Review */}
-                      <div className="pt-2 first:pt-0">
-                        <div className="flex justify-between items-center">
-                          <span className="font-bold text-slate-700">SPV (QC SPV)</span>
-                          <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase ${
-                            isSpvApproved ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
-                          }`}>
-                            {isSpvApproved ? "APPROVED" : "PENDING"}
-                          </span>
-                        </div>
-                        {isSpvApproved && selectedReviewNcr.spvReview && (
-                          <p className="text-slate-600 mt-1 italic leading-normal font-semibold">
-                            "{selectedReviewNcr.spvReview}"
-                          </p>
-                        )}
-                      </div>
-
-                      {/* MNG Review */}
-                      <div className="pt-2 first:pt-0">
-                        <div className="flex justify-between items-center">
-                          <span className="font-bold text-slate-700">MNG (QC Manager)</span>
-                          <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase ${
-                            isMngApproved ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
-                          }`}>
-                            {isMngApproved ? "APPROVED" : "PENDING"}
-                          </span>
-                        </div>
-                        {isMngApproved && selectedReviewNcr.mngReview && (
-                          <p className="text-slate-600 mt-1 italic leading-normal font-semibold">
-                            "{selectedReviewNcr.mngReview}"
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <h4 className="text-sm font-black text-slate-800 font-sans">Konfirmasi Kirim Laporan</h4>
+                <p className="text-[10px] text-slate-400 font-semibold mt-0.5 uppercase tracking-wider">Verifikasi Data Masukan</p>
               </div>
             </div>
-            
-            <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex justify-end">
+
+            <p className="text-xs text-slate-650 font-semibold leading-relaxed">
+              Apakah Anda yakin semua data yang Anda input sudah sesuai dan siap dikirim ke approval Quality Manager?
+            </p>
+
+            <div className="flex justify-end gap-2 pt-2">
               <button
-                onClick={() => setSelectedReviewNcr(null)}
-                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-bold transition-colors cursor-pointer"
+                type="button"
+                onClick={() => setShowConfirmSubmit(false)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-xs cursor-pointer border border-slate-250 transition-all active:scale-95"
               >
-                Tutup Review
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowConfirmSubmit(false);
+                  executeSubmission();
+                }}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-755 text-white font-bold rounded-lg text-xs cursor-pointer shadow-md shadow-blue-500/10 hover:scale-105 active:scale-95 transition-all"
+              >
+                Ya, Sudah Sesuai
               </button>
             </div>
           </div>
         </div>
       )}
-
 
     </div>
   );

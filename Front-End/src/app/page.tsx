@@ -13,6 +13,7 @@ import ApproveNcrDashboard from "@/components/features/role-views/ApproveNcrDash
 import ApproveQprDashboard from "@/components/features/role-views/ApproveQprDashboard";
 import AccountingView from "@/components/features/role-views/AccountingView";
 import ListQprDashboard from "@/components/features/role-views/ListQprDashboard";
+import Dashboard from "@/components/features/dashboard/Dashboard";
 
 // Global tracking views & modals
 import CalendarView from "@/components/features/calendar/CalendarView";
@@ -30,8 +31,8 @@ import {
 } from "@/utils/mockData";
 
 export default function Home() {
-  // Tabs: 'buat-ncr', 'approve-ncr', 'approve-qpr', 'confirmation-letter', 'list-qpr', 'calendar', 'parts'
-  const [activeTab, setActiveTab] = useState("buat-ncr");
+  // Tabs: 'dashboard', 'buat-ncr', 'approve-ncr', 'approve-qpr', 'confirmation-letter', 'list-qpr', 'calendar', 'parts'
+  const [activeTab, setActiveTab] = useState("dashboard");
 
   // State for custom alert modal
   const [customAlert, setCustomAlert] = useState<{ isOpen: boolean; message: string }>({
@@ -70,6 +71,59 @@ export default function Home() {
   // Dynamic lists for simulation
   const [pendingNcrs, setPendingNcrs] = useState(mockPendingNcrs);
   const [pendingQprs, setPendingQprs] = useState(mockPendingQprs);
+  const [confirmationLetters, setConfirmationLetters] = useState([
+    {
+      id: "cl-1",
+      clNumber: "CL/2026/06/001",
+      qprNumber: "QPR/2026/04/JAYADI",
+      supplierName: "PT JAYADI",
+      dateSent: "2026-06-10",
+      amount: "Rp 18.200.000",
+      status: "APPROVED", // Sudah di Approval
+      memoStatus: "SENT_AOP", // Terkirim ke AOP
+      reminderSentCount: 1
+    },
+    {
+      id: "cl-2",
+      clNumber: "CL/2026/06/002",
+      qprNumber: "QPR/2026/05/IKAN_BAKAR",
+      supplierName: "PT IKAN BAKAR",
+      dateSent: "2026-06-18",
+      amount: "Rp 24.000.000",
+      status: "PENDING", // Belum di Approval
+      memoStatus: "SENT_AOP",
+      reminderSentCount: 2
+    },
+    {
+      id: "cl-3",
+      clNumber: "CL/2026/06/003",
+      qprNumber: "QPR/2026/05/JAYADI",
+      supplierName: "PT JAYADI",
+      dateSent: "2026-06-25",
+      amount: "Rp 12.500.000",
+      status: "PENDING", // Belum di Approval
+      memoStatus: "DRAFT_MEMO",
+      reminderSentCount: 1
+    }
+  ]);
+
+  const handleGenerateCL = (qpr: any, amount: string) => {
+    const newClId = `cl-${Date.now()}`;
+    const cleanAmount = amount.startsWith("Rp") ? amount : `Rp ${amount}`;
+    const newCl = {
+      id: newClId,
+      clNumber: `CL/2026/06/${qpr.supplierName.replace("PT ", "").replace(/ /g, "_")}_${Math.floor(Math.random() * 900 + 100)}`,
+      qprNumber: qpr.qprNumber,
+      supplierName: qpr.supplierName,
+      dateSent: new Date().toISOString().split("T")[0],
+      amount: cleanAmount,
+      status: "PENDING",
+      memoStatus: "SENT_AOP",
+      reminderSentCount: 1
+    };
+    setConfirmationLetters(prev => [newCl, ...prev]);
+  };
+
   const [parts, setParts] = useState(mockParts);
   const [searchQuery, setSearchQuery] = useState("");
   const [editingPart, setEditingPart] = useState(null);
@@ -344,12 +398,24 @@ export default function Home() {
             )}
 
             {/* ROUTING CORRESPONDING JOBDESK VIEW */}
+            {activeTab === "dashboard" && (
+              <Dashboard
+                pendingNcrs={pendingNcrs}
+                pendingQprs={pendingQprs}
+                parts={parts}
+                setActiveTab={setActiveTab}
+                confirmationLetters={confirmationLetters}
+                setConfirmationLetters={setConfirmationLetters}
+              />
+            )}
+
             {activeTab === "buat-ncr" && (
               <OperatorView
                 pendingNcrs={pendingNcrs}
                 setPendingNcrs={setPendingNcrs}
                 notifications={notifications}
                 setNotifications={setNotifications}
+                parts={parts}
               />
             )}
 
@@ -368,7 +434,11 @@ export default function Home() {
             )}
 
             {activeTab === "confirmation-letter" && (
-              <AccountingView />
+              <AccountingView 
+                confirmationLetters={confirmationLetters}
+                setConfirmationLetters={setConfirmationLetters}
+                handleGenerateCL={handleGenerateCL}
+              />
             )}
 
             {activeTab === "list-qpr" && (

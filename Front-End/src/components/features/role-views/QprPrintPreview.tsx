@@ -123,9 +123,9 @@ export default function QprPrintPreview({ qpr, onClose }: QprPreviewProps) {
         </div>
 
         {/* Title */}
-        <div className="text-center" style={{ backgroundColor: "#fde047", borderBottom: "1px solid #000", padding: "6px 0" }}>
+        <div className="text-center" style={{ backgroundColor: "#000", color: "#fff", borderBottom: "1px solid #000", padding: "6px 0" }}>
           <div className="font-black tracking-wide uppercase" style={{ fontSize: "18px" }}>QUALITY PROBLEM REPORT</div>
-          <div className="font-bold tracking-wider" style={{ fontSize: "9px" }}>( PR4-FRM-08101 )</div>
+          <div className="font-bold tracking-wider text-slate-350" style={{ fontSize: "9px" }}>( PR4-FRM-08101 )</div>
         </div>
 
         {/* Supplier Info + Status Section */}

@@ -2,6 +2,7 @@
 
 import React from "react";
 import {
+  LayoutDashboard,
   PlusCircle,
   CheckSquare,
   FileCheck2,
@@ -17,11 +18,12 @@ import {
 
 export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSidebarOpen }) {
   const dashboardMenus = [
-    { id: "buat-ncr", name: "Buat NCR", icon: PlusCircle, color: "text-blue-500" },
+    { id: "dashboard", name: "Dashboard Utama", icon: LayoutDashboard, color: "text-blue-500" },
+    { id: "buat-ncr", name: "Buat NCR", icon: PlusCircle, color: "text-blue-600" },
     { id: "approve-ncr", name: "Approval NCR", icon: CheckSquare, color: "text-amber-500" },
     { id: "approve-qpr", name: "Approval QPR", icon: FileCheck2, color: "text-indigo-500" },
     { id: "confirmation-letter", name: "Buat Confirmation Letter", icon: FileText, color: "text-rose-500" },
-    { id: "list-qpr", name: "List QPR", icon: ListTodo, color: "text-emerald-500" }
+    { id: "list-qpr", name: "List NCR & QPR", icon: ListTodo, color: "text-emerald-500" }
   ];
 
   const globalMenus = [
