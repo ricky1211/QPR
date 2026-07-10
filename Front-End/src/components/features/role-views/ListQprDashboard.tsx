@@ -22,8 +22,123 @@ import {
 import NcrPrintPreview from "./NcrPrintPreview";
 import QprPrintPreview from "./QprPrintPreview";
 
-// Mock data of approved documents (NCR and QPR) per day and per vendor for one month (June 2026)
-const mockApprovedDocuments = [
+// Helper to map requiredRole â†’ human-readable stage label
+const stageLabel = (type: string, requiredRole?: string, status?: string): string => {
+  if (status === "APPROVED") return "Disetujui";
+  if (type === "NCR") {
+    if (requiredRole === "Foreman") return "Menunggu QC Staff";
+    if (requiredRole === "Section Head") return "Menunggu SPV QA";
+    if (requiredRole === "Dept Head") return "Menunggu MNG QA";
+    return "Disetujui";
+  }
+  // QPR
+  if (requiredRole === "Quality Dept") return "Menunggu Quality Dept";
+  if (requiredRole === "Dept Head") return "Menunggu Dept Head";
+  if (requiredRole === "Purchasing") return "Menunggu Purchasing";
+  if (requiredRole === "Accounting") return "Menunggu Accounting";
+  return "Disetujui";
+};
+
+// All NCR + QPR documents (approved + in-progress)
+const allDocuments = [
+  // --- IN-PROGRESS NCRs ---
+  {
+    id: "ncr-pending-1",
+    type: "NCR",
+    docNumber: "NCR/2026/06/031",
+    date: "2026-07-10",
+    vendorName: "PT JAYADI",
+    partNumber: "MB-001",
+    partName: "Motherboard X1",
+    period: "-",
+    qty: 180,
+    reject: 4,
+    allowanceRatio: "0.5%",
+    claimAmount: "-",
+    defectType: "Dent / Scratch",
+    disposition: "RETURN TO VENDOR",
+    status: "WAITING_APPROVAL",
+    requiredRole: "Section Head",
+    approvedBy: []
+  },
+  {
+    id: "ncr-pending-2",
+    type: "NCR",
+    docNumber: "NCR/2026/06/032",
+    date: "2026-07-09",
+    vendorName: "PT IKAN BAKAR",
+    partNumber: "HD-002",
+    partName: "Harddisk 1TB",
+    period: "-",
+    qty: 240,
+    reject: 8,
+    allowanceRatio: "0.8%",
+    claimAmount: "-",
+    defectType: "Bad Sector / Noise",
+    disposition: "REWORK",
+    status: "WAITING_APPROVAL",
+    requiredRole: "Dept Head",
+    approvedBy: ["QC Staff"]
+  },
+  // --- IN-PROGRESS QPRs ---
+  {
+    id: "qpr-pending-1",
+    type: "QPR",
+    docNumber: "QPR/2026/05/JAYADI",
+    date: "2026-07-10",
+    vendorName: "PT JAYADI",
+    partNumber: "MB-001",
+    partName: "Motherboard X1",
+    period: "Mei 2026",
+    qty: 500,
+    reject: 15,
+    allowanceRatio: "0.5%",
+    claimAmount: "Rp 12.500.000",
+    defectType: "-",
+    disposition: "-",
+    status: "WAITING_APPROVAL",
+    requiredRole: "Quality Dept",
+    approvedBy: []
+  },
+  {
+    id: "qpr-pending-2",
+    type: "QPR",
+    docNumber: "QPR/2026/05/IKAN_BAKAR",
+    date: "2026-07-09",
+    vendorName: "PT IKAN BAKAR",
+    partNumber: "HD-002",
+    partName: "Harddisk 1TB",
+    period: "Mei 2026",
+    qty: 800,
+    reject: 25,
+    allowanceRatio: "0.8%",
+    claimAmount: "Rp 24.000.000",
+    defectType: "-",
+    disposition: "-",
+    status: "WAITING_APPROVAL",
+    requiredRole: "Dept Head",
+    approvedBy: ["Quality Dept"]
+  },
+  {
+    id: "qpr-pending-3",
+    type: "QPR",
+    docNumber: "QPR/2026/05/RUICHENG",
+    date: "2026-07-08",
+    vendorName: "SHIJIAZHUANG RUICHENG TRADE CO., LTD",
+    partNumber: "CR-001",
+    partName: "CONE RACE ALL TYPE",
+    period: "Mei 2026",
+    qty: 1200,
+    reject: 40,
+    allowanceRatio: "0.6%",
+    claimAmount: "Rp 32.000.000",
+    defectType: "-",
+    disposition: "-",
+    status: "WAITING_APPROVAL",
+    requiredRole: "Purchasing",
+    approvedBy: ["Quality Dept", "Dept Head"]
+  },
+  // --- APPROVED documents (June 2026) ---
   {
     id: "qpr-30",
     type: "QPR",
@@ -40,7 +155,8 @@ const mockApprovedDocuments = [
     defectType: "-",
     disposition: "-",
     status: "APPROVED",
-    approvedBy: ["PPIC Staff", "Dept Head"]
+    requiredRole: "Closed",
+    approvedBy: ["Quality Dept", "Dept Head", "Purchasing", "Accounting"]
   },
   {
     id: "ncr-29",
@@ -58,7 +174,8 @@ const mockApprovedDocuments = [
     defectType: "Coating Peel",
     disposition: "ACCEPT AS IS",
     status: "APPROVED",
-    approvedBy: ["Inspector QA", "Section Head", "QA Dept Head"]
+    requiredRole: "Closed",
+    approvedBy: ["QC Staff", "SPV QA", "MNG QA"]
   },
   {
     id: "qpr-28",
@@ -76,7 +193,8 @@ const mockApprovedDocuments = [
     defectType: "-",
     disposition: "-",
     status: "APPROVED",
-    approvedBy: ["PPIC Staff", "Dept Head"]
+    requiredRole: "Closed",
+    approvedBy: ["Quality Dept", "Dept Head", "Purchasing", "Accounting"]
   },
   {
     id: "ncr-27",
@@ -94,7 +212,8 @@ const mockApprovedDocuments = [
     defectType: "Firmware Error",
     disposition: "REWORK",
     status: "APPROVED",
-    approvedBy: ["Inspector QA", "Section Head", "QA Dept Head"]
+    requiredRole: "Closed",
+    approvedBy: ["QC Staff", "SPV QA", "MNG QA"]
   },
   {
     id: "qpr-26",
@@ -112,7 +231,8 @@ const mockApprovedDocuments = [
     defectType: "-",
     disposition: "-",
     status: "APPROVED",
-    approvedBy: ["PPIC Staff", "Dept Head"]
+    requiredRole: "Closed",
+    approvedBy: ["Quality Dept", "Dept Head", "Purchasing", "Accounting"]
   },
   {
     id: "ncr-25",
@@ -130,7 +250,8 @@ const mockApprovedDocuments = [
     defectType: "LED Broken",
     disposition: "REWORK",
     status: "APPROVED",
-    approvedBy: ["Inspector QA", "Section Head", "QA Dept Head"]
+    requiredRole: "Closed",
+    approvedBy: ["QC Staff", "SPV QA", "MNG QA"]
   },
   {
     id: "qpr-24",
@@ -148,7 +269,8 @@ const mockApprovedDocuments = [
     defectType: "-",
     disposition: "-",
     status: "APPROVED",
-    approvedBy: ["PPIC Staff", "Dept Head"]
+    requiredRole: "Closed",
+    approvedBy: ["Quality Dept", "Dept Head", "Purchasing", "Accounting"]
   },
   {
     id: "ncr-23",
@@ -166,7 +288,8 @@ const mockApprovedDocuments = [
     defectType: "Thread Damage",
     disposition: "RETURN TO VENDOR",
     status: "APPROVED",
-    approvedBy: ["Inspector QA", "Section Head", "QA Dept Head"]
+    requiredRole: "Closed",
+    approvedBy: ["QC Staff", "SPV QA", "MNG QA"]
   },
   {
     id: "qpr-22",
@@ -184,7 +307,8 @@ const mockApprovedDocuments = [
     defectType: "-",
     disposition: "-",
     status: "APPROVED",
-    approvedBy: ["PPIC Staff", "Dept Head"]
+    requiredRole: "Closed",
+    approvedBy: ["Quality Dept", "Dept Head", "Purchasing", "Accounting"]
   },
   {
     id: "ncr-21",
@@ -202,7 +326,8 @@ const mockApprovedDocuments = [
     defectType: "Connector Damaged",
     disposition: "REWORK",
     status: "APPROVED",
-    approvedBy: ["Inspector QA", "Section Head", "QA Dept Head"]
+    requiredRole: "Closed",
+    approvedBy: ["QC Staff", "SPV QA", "MNG QA"]
   },
   {
     id: "qpr-20",
@@ -220,7 +345,8 @@ const mockApprovedDocuments = [
     defectType: "-",
     disposition: "-",
     status: "APPROVED",
-    approvedBy: ["PPIC Staff", "Dept Head"]
+    requiredRole: "Closed",
+    approvedBy: ["Quality Dept", "Dept Head", "Purchasing", "Accounting"]
   },
   {
     id: "ncr-19",
@@ -238,7 +364,8 @@ const mockApprovedDocuments = [
     defectType: "Scratch",
     disposition: "ACCEPT AS IS",
     status: "APPROVED",
-    approvedBy: ["Inspector QA", "Section Head", "QA Dept Head"]
+    requiredRole: "Closed",
+    approvedBy: ["QC Staff", "SPV QA", "MNG QA"]
   },
   {
     id: "qpr-18",
@@ -256,7 +383,8 @@ const mockApprovedDocuments = [
     defectType: "-",
     disposition: "-",
     status: "APPROVED",
-    approvedBy: ["PPIC Staff", "Dept Head"]
+    requiredRole: "Closed",
+    approvedBy: ["Quality Dept", "Dept Head", "Purchasing", "Accounting"]
   },
   {
     id: "ncr-17",
@@ -274,7 +402,8 @@ const mockApprovedDocuments = [
     defectType: "Crack",
     disposition: "SCRAP",
     status: "APPROVED",
-    approvedBy: ["Inspector QA", "Section Head", "QA Dept Head"]
+    requiredRole: "Closed",
+    approvedBy: ["QC Staff", "SPV QA", "MNG QA"]
   },
   {
     id: "qpr-16",
@@ -292,7 +421,8 @@ const mockApprovedDocuments = [
     defectType: "-",
     disposition: "-",
     status: "APPROVED",
-    approvedBy: ["PPIC Staff", "Dept Head"]
+    requiredRole: "Closed",
+    approvedBy: ["Quality Dept", "Dept Head", "Purchasing", "Accounting"]
   },
   {
     id: "ncr-15",
@@ -310,241 +440,8 @@ const mockApprovedDocuments = [
     defectType: "No Power",
     disposition: "RETURN TO VENDOR",
     status: "APPROVED",
-    approvedBy: ["Inspector QA", "Section Head", "QA Dept Head"]
-  },
-  {
-    id: "qpr-14",
-    type: "QPR",
-    docNumber: "QPR/2026/06/014",
-    date: "2026-06-14",
-    vendorName: "PT IKAN BAKAR",
-    partNumber: "HD-002",
-    partName: "Harddisk 1TB",
-    period: "Juni 2026",
-    qty: 380,
-    reject: 7,
-    allowanceRatio: "0.8%",
-    claimAmount: "Rp 14.500.000",
-    defectType: "-",
-    disposition: "-",
-    status: "APPROVED",
-    approvedBy: ["PPIC Staff", "Dept Head"]
-  },
-  {
-    id: "ncr-13",
-    type: "NCR",
-    docNumber: "NCR/2026/06/013",
-    date: "2026-06-13",
-    vendorName: "PT JAYADI",
-    partNumber: "MB-001",
-    partName: "Motherboard X1",
-    period: "-",
-    qty: 180,
-    reject: 3,
-    allowanceRatio: "0.5%",
-    claimAmount: "-",
-    defectType: "Solder Bridge",
-    disposition: "REWORK",
-    status: "APPROVED",
-    approvedBy: ["Inspector QA", "Section Head", "QA Dept Head"]
-  },
-  {
-    id: "qpr-12",
-    type: "QPR",
-    docNumber: "QPR/2026/06/012",
-    date: "2026-06-12",
-    vendorName: "SHIJIAZHUANG RUICHENG TRADE CO., LTD",
-    partNumber: "CR-001",
-    partName: "CONE RACE ALL TYPE",
-    period: "Juni 2026",
-    qty: 950,
-    reject: 18,
-    allowanceRatio: "1.0%",
-    claimAmount: "Rp 27.000.000",
-    defectType: "-",
-    disposition: "-",
-    status: "APPROVED",
-    approvedBy: ["PPIC Staff", "Dept Head"]
-  },
-  {
-    id: "ncr-11",
-    type: "NCR",
-    docNumber: "NCR/2026/06/011",
-    date: "2026-06-11",
-    vendorName: "SHIJIAZHUANG RUICHENG TRADE CO., LTD",
-    partNumber: "CR-001",
-    partName: "CONE RACE ALL TYPE",
-    period: "-",
-    qty: 800,
-    reject: 12,
-    allowanceRatio: "1.0%",
-    claimAmount: "-",
-    defectType: "Rust",
-    disposition: "REWORK",
-    status: "APPROVED",
-    approvedBy: ["Inspector QA", "Section Head", "QA Dept Head"]
-  },
-  {
-    id: "qpr-10",
-    type: "QPR",
-    docNumber: "QPR/2026/06/010",
-    date: "2026-06-10",
-    vendorName: "PT JAYADI",
-    partNumber: "KB-004",
-    partName: "Keyboard Mechanical",
-    period: "Juni 2026",
-    qty: 600,
-    reject: 14,
-    allowanceRatio: "0.5%",
-    claimAmount: "Rp 21.000.000",
-    defectType: "-",
-    disposition: "-",
-    status: "APPROVED",
-    approvedBy: ["PPIC Staff", "Dept Head"]
-  },
-  {
-    id: "ncr-9",
-    type: "NCR",
-    docNumber: "NCR/2026/06/009",
-    date: "2026-06-09",
-    vendorName: "PT JAYADI",
-    partNumber: "KB-004",
-    partName: "Keyboard Mechanical",
-    period: "-",
-    qty: 250,
-    reject: 7,
-    allowanceRatio: "0.5%",
-    claimAmount: "-",
-    defectType: "Key Stick",
-    disposition: "RETURN TO VENDOR",
-    status: "APPROVED",
-    approvedBy: ["Inspector QA", "Section Head", "QA Dept Head"]
-  },
-  {
-    id: "qpr-08",
-    type: "QPR",
-    docNumber: "QPR/2026/06/008",
-    date: "2026-06-08",
-    vendorName: "PT IKAN BAKAR",
-    partNumber: "HD-002",
-    partName: "Harddisk 1TB",
-    period: "Juni 2026",
-    qty: 450,
-    reject: 9,
-    allowanceRatio: "0.8%",
-    claimAmount: "Rp 18.000.000",
-    defectType: "-",
-    disposition: "-",
-    status: "APPROVED",
-    approvedBy: ["PPIC Staff", "Dept Head"]
-  },
-  {
-    id: "ncr-07",
-    type: "NCR",
-    docNumber: "NCR/2026/06/007",
-    date: "2026-06-07",
-    vendorName: "PT IKAN BAKAR",
-    partNumber: "HD-002",
-    partName: "Harddisk 1TB",
-    period: "-",
-    qty: 150,
-    reject: 5,
-    allowanceRatio: "0.8%",
-    claimAmount: "-",
-    defectType: "Bad Sector",
-    disposition: "REWORK",
-    status: "APPROVED",
-    approvedBy: ["Inspector QA", "Section Head", "QA Dept Head"]
-  },
-  {
-    id: "qpr-06",
-    type: "QPR",
-    docNumber: "QPR/2026/06/006",
-    date: "2026-06-06",
-    vendorName: "SHIJIAZHUANG RUICHENG TRADE CO., LTD",
-    partNumber: "CR-001",
-    partName: "CONE RACE ALL TYPE",
-    period: "Juni 2026",
-    qty: 1200,
-    reject: 20,
-    allowanceRatio: "1.0%",
-    claimAmount: "Rp 30.000.000",
-    defectType: "-",
-    disposition: "-",
-    status: "APPROVED",
-    approvedBy: ["PPIC Staff", "Dept Head"]
-  },
-  {
-    id: "ncr-05",
-    type: "NCR",
-    docNumber: "NCR/2026/06/005",
-    date: "2026-06-05",
-    vendorName: "PT JAYADI",
-    partNumber: "GL-001",
-    partName: "Gelas Kaca",
-    period: "-",
-    qty: 300,
-    reject: 6,
-    allowanceRatio: "0.5%",
-    claimAmount: "-",
-    defectType: "Minor Bubble",
-    disposition: "ACCEPT AS IS",
-    status: "APPROVED",
-    approvedBy: ["Inspector QA", "Section Head", "QA Dept Head"]
-  },
-  {
-    id: "qpr-04",
-    type: "QPR",
-    docNumber: "QPR/2026/06/004",
-    date: "2026-06-04",
-    vendorName: "PT JAYADI",
-    partNumber: "MB-001",
-    partName: "Motherboard X1",
-    period: "Juni 2026",
-    qty: 400,
-    reject: 8,
-    allowanceRatio: "0.5%",
-    claimAmount: "Rp 12.000.000",
-    defectType: "-",
-    disposition: "-",
-    status: "APPROVED",
-    approvedBy: ["PPIC Staff", "Dept Head"]
-  },
-  {
-    id: "ncr-03",
-    type: "NCR",
-    docNumber: "NCR/2026/06/003",
-    date: "2026-06-03",
-    vendorName: "SHIJIAZHUANG RUICHENG TRADE CO., LTD",
-    partNumber: "CR-001",
-    partName: "CONE RACE ALL TYPE",
-    period: "-",
-    qty: 1000,
-    reject: 15,
-    allowanceRatio: "1.0%",
-    claimAmount: "-",
-    defectType: "Dimension Out",
-    disposition: "REWORK",
-    status: "APPROVED",
-    approvedBy: ["Inspector QA", "Section Head", "QA Dept Head"]
-  },
-  {
-    id: "qpr-02",
-    type: "QPR",
-    docNumber: "QPR/2026/06/002",
-    date: "2026-06-02",
-    vendorName: "PT IKAN BAKAR",
-    partNumber: "HD-002",
-    partName: "Harddisk 1TB",
-    period: "Juni 2026",
-    qty: 500,
-    reject: 12,
-    allowanceRatio: "0.8%",
-    claimAmount: "Rp 15.000.000",
-    defectType: "-",
-    disposition: "-",
-    status: "APPROVED",
-    approvedBy: ["PPIC Staff", "Dept Head"]
+    requiredRole: "Closed",
+    approvedBy: ["QC Staff", "SPV QA", "MNG QA"]
   },
   {
     id: "ncr-01",
@@ -562,25 +459,27 @@ const mockApprovedDocuments = [
     defectType: "Dent / Scratch",
     disposition: "RETURN TO VENDOR",
     status: "APPROVED",
-    approvedBy: ["Inspector QA", "Section Head", "QA Dept Head"]
+    requiredRole: "Closed",
+    approvedBy: ["QC Staff", "SPV QA", "MNG QA"]
   }
 ];
 
 export default function ListQprDashboard() {
   // Filter states
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterType, setFilterType] = useState("");
+  const [activeTab, setActiveTab] = useState("ncr"); // 'ncr' or 'qpr'
   const [filterVendor, setFilterVendor] = useState("");
   const [filterDate, setFilterDate] = useState("");
+  const [filterStatus, setFilterStatus] = useState(""); // '' | 'APPROVED' | 'WAITING_APPROVAL'
 
   // Details modal state
   const [selectedDoc, setSelectedDoc] = useState<any | null>(null);
 
   // Unique vendors for the dropdown
-  const vendors = Array.from(new Set(mockApprovedDocuments.map(doc => doc.vendorName)));
+  const vendors = Array.from(new Set(allDocuments.map(doc => doc.vendorName)));
 
   // Filtering Logic
-  const filteredData = mockApprovedDocuments.filter(doc => {
+  const filteredData = allDocuments.filter(doc => {
     const matchesSearch = searchQuery
       ? doc.docNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
         doc.partName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -588,30 +487,38 @@ export default function ListQprDashboard() {
         doc.vendorName.toLowerCase().includes(searchQuery.toLowerCase())
       : true;
 
-    const matchesType = filterType ? doc.type === filterType : true;
+    const matchesType = doc.type.toLowerCase() === activeTab.toLowerCase();
     const matchesVendor = filterVendor ? doc.vendorName === filterVendor : true;
     const matchesDate = filterDate ? doc.date === filterDate : true;
+    const matchesStatus = filterStatus ? doc.status === filterStatus : true;
 
-    return matchesSearch && matchesType && matchesVendor && matchesDate;
+    return matchesSearch && matchesType && matchesVendor && matchesDate && matchesStatus;
   });
 
   const handleResetFilters = () => {
     setSearchQuery("");
-    setFilterType("");
     setFilterVendor("");
     setFilterDate("");
+    setFilterStatus("");
   };
 
-  // KPI Calculations
-  const totalCount = filteredData.length;
-  const ncrCount = filteredData.filter(d => d.type === "NCR").length;
-  const qprCount = filteredData.filter(d => d.type === "QPR").length;
-  const totalClaimAmountVal = filteredData
-    .filter(d => d.type === "QPR")
-    .reduce((sum, item) => {
-      const val = parseInt(item.claimAmount.replace(/[^0-9]/g, ""), 10) || 0;
-      return sum + val;
-    }, 0);
+  // KPI Calculations (all docs, ignoring type-tab, respecting search/vendor/date)
+  const baseFiltered = allDocuments.filter(doc => {
+    const matchesSearch = searchQuery
+      ? doc.docNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        doc.partName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        doc.partNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        doc.vendorName.toLowerCase().includes(searchQuery.toLowerCase())
+      : true;
+    const matchesVendor = filterVendor ? doc.vendorName === filterVendor : true;
+    const matchesDate = filterDate ? doc.date === filterDate : true;
+    return matchesSearch && matchesVendor && matchesDate;
+  });
+
+  const totalCount = baseFiltered.length;
+  const ncrCount = baseFiltered.filter(d => d.type === "NCR").length;
+  const qprCount = baseFiltered.filter(d => d.type === "QPR").length;
+  const pendingCount = baseFiltered.filter(d => d.status === "WAITING_APPROVAL").length;
 
   // Format date helper (e.g. 2026-06-01 to 01 Juni 2026)
   const formatDateIndo = (dateStr: string) => {
@@ -636,22 +543,22 @@ export default function ListQprDashboard() {
         <div className="text-left">
           <div className="flex items-center gap-2">
             <span className="p-1.5 bg-white/10 text-white rounded-lg"><FileCheck size={18} /></span>
-            <h3 className="text-base font-black uppercase tracking-wider">Arsip NCR & QPR Disetujui (Approved)</h3>
+            <h3 className="text-base font-black uppercase tracking-wider">Arsip Laporan NCR &amp; Klaim QPR</h3>
           </div>
           <p className="text-xs text-indigo-200 mt-1 font-semibold">
-            Daftar dokumen NCR dan QPR yang telah diterbitkan, diselesaikan, dan disetujui sepenuhnya oleh pihak berwenang.
+            Daftar seluruh dokumen NCR dan QPR yang telah dibuat — termasuk yang sedang proses approval maupun yang sudah disetujui.
           </p>
         </div>
         <button
           onClick={handleResetFilters}
-          disabled={!searchQuery && !filterType && !filterVendor && !filterDate}
+          disabled={!searchQuery && !filterVendor && !filterDate && !filterStatus}
           className={`px-4 py-2 text-xs font-bold rounded-lg border transition-all flex items-center gap-1.5 shadow-sm shrink-0 cursor-pointer ${
-            !searchQuery && !filterType && !filterVendor && !filterDate
+            !searchQuery && !filterVendor && !filterDate && !filterStatus
               ? "bg-white/5 border-white/10 text-white/40 cursor-not-allowed"
               : "bg-white text-indigo-800 border-white hover:bg-indigo-50 active:scale-95"
           }`}
         >
-          <RefreshCw size={12} className={searchQuery || filterType || filterVendor || filterDate ? "animate-spin-slow" : ""} />
+          <RefreshCw size={12} className={searchQuery || filterVendor || filterDate || filterStatus ? "animate-spin-slow" : ""} />
           Reset Filter
         </button>
       </div>
@@ -672,10 +579,10 @@ export default function ListQprDashboard() {
           </div>
         </div>
 
-        {/* Total Approved NCR */}
+        {/* Total NCR */}
         <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex items-center justify-between group hover:shadow-md transition-all">
           <div className="space-y-1 text-left">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">NCR Disetujui</span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Laporan NCR</span>
             <h4 className="text-2xl font-black text-slate-800">{ncrCount}</h4>
             <span className="text-[10px] font-semibold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full inline-block">
               Kualitas / Kuantitas
@@ -686,13 +593,13 @@ export default function ListQprDashboard() {
           </div>
         </div>
 
-        {/* Total Approved QPR */}
+        {/* Total QPR */}
         <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex items-center justify-between group hover:shadow-md transition-all">
           <div className="space-y-1 text-left">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">QPR Disetujui</span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Klaim QPR</span>
             <h4 className="text-2xl font-black text-slate-800">{qprCount}</h4>
             <span className="text-[10px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full inline-block">
-              Fase 4 Selesai
+              Semua Status
             </span>
           </div>
           <div className="w-10 h-10 bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white rounded-xl flex items-center justify-center transition-all duration-300">
@@ -700,17 +607,17 @@ export default function ListQprDashboard() {
           </div>
         </div>
 
-        {/* Total Claim Amount */}
+        {/* Proses Approval */}
         <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex items-center justify-between group hover:shadow-md transition-all">
           <div className="space-y-1 text-left">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Denda Klaim</span>
-            <h4 className="text-lg font-black text-emerald-600">Rp {totalClaimAmountVal.toLocaleString("id-ID")}</h4>
-            <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full inline-block">
-              Terakumulasi Terbayar
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Proses Approval</span>
+            <h4 className="text-2xl font-black text-amber-600">{pendingCount}</h4>
+            <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full inline-block">
+              Menunggu Tanda Tangan
             </span>
           </div>
-          <div className="w-10 h-10 bg-emerald-50 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white rounded-xl flex items-center justify-center transition-all duration-300">
-            <TrendingUp size={18} />
+          <div className="w-10 h-10 bg-amber-50 text-amber-600 group-hover:bg-amber-600 group-hover:text-white rounded-xl flex items-center justify-center transition-all duration-300">
+            <Clock size={18} />
           </div>
         </div>
       </div>
@@ -720,7 +627,7 @@ export default function ListQprDashboard() {
         <span className="text-xs font-bold text-slate-400 uppercase tracking-widest block text-left">
           Filter Arsip Dokumen
         </span>
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 items-end">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
           
           {/* Search filter */}
           <div className="space-y-1.5 text-left">
@@ -739,22 +646,6 @@ export default function ListQprDashboard() {
                 className="w-full pl-8 pr-3 py-2 text-xs border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-800 font-semibold bg-slate-50 placeholder-slate-400"
               />
             </div>
-          </div>
-
-          {/* Type filter */}
-          <div className="space-y-1.5 text-left">
-            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-              Tipe Dokumen
-            </label>
-            <select
-              value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}
-              className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-800 font-semibold bg-slate-50"
-            >
-              <option value="">Semua Tipe</option>
-              <option value="NCR">NCR (Non-Conformance Report)</option>
-              <option value="QPR">QPR (Quality Problem Report)</option>
-            </select>
           </div>
 
           {/* Vendor filter */}
@@ -783,20 +674,66 @@ export default function ListQprDashboard() {
               type="date"
               value={filterDate}
               onChange={(e) => setFilterDate(e.target.value)}
-              min="2026-06-01"
-              max="2026-06-30"
               className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-800 font-semibold bg-slate-50"
             />
+          </div>
+
+          {/* Status Filter */}
+          <div className="space-y-1.5 text-left">
+            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+              Status
+            </label>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-800 font-semibold bg-slate-50"
+            >
+              <option value="">Semua Status</option>
+              <option value="WAITING_APPROVAL">Proses Approval</option>
+              <option value="APPROVED">Disetujui</option>
+            </select>
           </div>
 
         </div>
       </div>
 
+      {/* Tab Selector */}
+      <div className="flex border-b border-slate-200">
+        <button
+          onClick={() => {
+            setActiveTab("ncr");
+            setSelectedDoc(null);
+          }}
+          className={`flex-1 sm:flex-initial px-6 py-3 font-bold text-xs border-b-2 transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            activeTab === "ncr"
+              ? "border-blue-600 text-blue-650 bg-white"
+              : "border-transparent text-slate-500 hover:text-slate-900 bg-slate-50/50"
+          }`}
+        >
+          <AlertCircle size={14} className="text-orange-500" />
+          ARSIP LAPORAN NCR
+        </button>
+        <button
+          onClick={() => {
+            setActiveTab("qpr");
+            setSelectedDoc(null);
+          }}
+          className={`flex-1 sm:flex-initial px-6 py-3 font-bold text-xs border-b-2 transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            activeTab === "qpr"
+              ? "border-blue-600 text-blue-650 bg-white"
+              : "border-transparent text-slate-500 hover:text-slate-900 bg-slate-50/50"
+          }`}
+        >
+          <FileText size={14} className="text-blue-500" />
+          ARSIP KLAIM QPR
+        </button>
+      </div>
+
       {/* Main Table List */}
-      <div className="bg-white border border-slate-300 rounded-xl shadow-sm overflow-hidden">
+      <div className="bg-white border border-slate-350 rounded-xl shadow-sm overflow-hidden">
         <div className="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
-          <h4 className="text-xs font-bold text-slate-800 text-left">
-            Daftar Arsip Dokumen NCR & QPR Terverifikasi
+          <h4 className="text-xs font-bold text-slate-800 text-left uppercase tracking-wide">
+            {activeTab === "ncr" ? "Daftar Semua Laporan NCR" : "Daftar Semua Klaim QPR"}
           </h4>
           <span className="px-2.5 py-1 bg-indigo-50 text-indigo-700 text-[10px] font-bold rounded shadow-sm">
             Ditemukan: {filteredData.length} Dokumen
@@ -809,10 +746,17 @@ export default function ListQprDashboard() {
               <tr>
                 <th className="px-4 py-3 w-12 text-center">No</th>
                 <th className="px-4 py-3 w-28 text-center">Tanggal</th>
-                <th className="px-4 py-3 w-24 text-center">Tipe</th>
                 <th className="px-4 py-3">No. Dokumen</th>
                 <th className="px-4 py-3">Nama Vendor / Subcont</th>
-                <th className="px-4 py-3">Part Item / Rincian</th>
+                <th className="px-4 py-3">Part Item</th>
+                {activeTab === "ncr" ? (
+                  <th className="px-4 py-3">Detail Defect</th>
+                ) : (
+                  <>
+                    <th className="px-4 py-3 text-right">Allowance Ratio</th>
+                    <th className="px-4 py-3 text-right">Nilai Klaim</th>
+                  </>
+                )}
                 <th className="px-4 py-3 text-center w-28">Status</th>
                 <th className="px-4 py-3 text-center w-24">Aksi</th>
               </tr>
@@ -821,46 +765,45 @@ export default function ListQprDashboard() {
             <tbody className="divide-y divide-slate-200">
               {filteredData.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-5 py-12 text-center text-slate-400 font-bold italic">
-                    Tidak ditemukan data yang cocok dengan kriteria filter.
+                  <td colSpan={activeTab === "ncr" ? 8 : 9} className="px-5 py-12 text-center text-slate-400 font-bold italic">
+                    Tidak ditemukan data arsip {activeTab.toUpperCase()} yang cocok dengan kriteria filter.
                   </td>
                 </tr>
               ) : (
                 filteredData.map((doc, idx) => {
-                  const isNcr = doc.type === "NCR";
-                  const typeBadge = isNcr
-                    ? "bg-orange-50 text-orange-700 border border-orange-200/80"
-                    : "bg-blue-50 text-blue-700 border border-blue-200/80";
-
                   return (
                     <tr key={doc.id} className="hover:bg-slate-50/75 transition-colors font-semibold">
                       <td className="px-4 py-3 text-center text-slate-400 font-mono font-bold">{idx + 1}</td>
-                      <td className="px-4 py-3 text-center text-slate-650">{formatDateIndo(doc.date)}</td>
-                      <td className="px-4 py-3 text-center">
-                        <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-black ${typeBadge}`}>
-                          {doc.type}
-                        </span>
-                      </td>
+                      <td className="px-4 py-3 text-center text-slate-600">{formatDateIndo(doc.date)}</td>
                       <td className="px-4 py-3 font-mono font-bold text-slate-800">{doc.docNumber}</td>
                       <td className="px-4 py-3 font-bold text-slate-700">{doc.vendorName}</td>
-                      <td className="px-4 py-3 text-slate-600">
-                        {isNcr ? (
-                          <div className="flex flex-col text-left">
-                            <span>{doc.partName}</span>
-                            <span className="text-[10px] text-slate-400 font-normal">Reject: {doc.reject} pcs ({doc.defectType})</span>
-                          </div>
-                        ) : (
-                          <div className="flex flex-col text-left">
-                            <span className="font-bold text-emerald-600">{doc.claimAmount}</span>
-                            <span className="text-[10px] text-slate-400 font-normal">Periode: {doc.period}</span>
-                          </div>
-                        )}
-                      </td>
+                      <td className="px-4 py-3 text-slate-600">{doc.partName} <span className="text-[10px] text-slate-400 font-normal block mt-0.5 font-mono">({doc.partNumber})</span></td>
+                      {activeTab === "ncr" ? (
+                        <td className="px-4 py-3 text-slate-650">
+                          <span className="font-bold">Reject: {doc.reject} pcs</span> / Total: {doc.qty} pcs
+                          <span className="text-[10px] text-slate-450 font-semibold block mt-0.5 italic">NG: {doc.defectType}</span>
+                        </td>
+                      ) : (
+                        <>
+                          <td className="px-4 py-3 text-right font-bold text-slate-600">{doc.allowanceRatio}</td>
+                          <td className="px-4 py-3 text-right font-black text-emerald-650">
+                            {doc.claimAmount}
+                            <span className="text-[9px] text-slate-450 block font-normal mt-0.5">NG: {doc.reject} pcs / {doc.qty} pcs</span>
+                          </td>
+                        </>
+                      )}
                       <td className="px-4 py-3 text-center">
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-green-50 text-green-700 border border-green-200 rounded-full text-[10px] font-bold">
-                          <CheckCircle2 size={10} className="text-green-600" />
-                          Disetujui
-                        </span>
+                        {doc.status === "APPROVED" ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-green-50 text-green-700 border border-green-200 rounded-full text-[10px] font-bold">
+                            <CheckCircle2 size={10} className="text-green-600" />
+                            Disetujui
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-[10px] font-bold whitespace-nowrap">
+                            <Clock size={10} className="text-amber-500" />
+                            {stageLabel(doc.type, doc.requiredRole, doc.status)}
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-center">
                         <button

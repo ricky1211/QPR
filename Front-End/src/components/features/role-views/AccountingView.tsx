@@ -18,7 +18,6 @@ import {
   Download
 } from "lucide-react";
 import ConfirmationLetterPrintPreview from "./ConfirmationLetterPrintPreview";
-import AopMemoPrintPreview from "./AopMemoPrintPreview";
 
 interface AccountingViewProps {
   confirmationLetters: any[];
@@ -376,32 +375,11 @@ export default function AccountingView({
                       <div className="flex items-center justify-end gap-1.5">
                         <button
                           onClick={() => setPreviewClDoc(cl)}
-                          className="px-2 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded text-[10px] font-bold cursor-pointer flex items-center gap-1"
+                          className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-md text-[10px] font-bold cursor-pointer flex items-center justify-center gap-1 mx-auto"
                           title="Lihat Confirmation Letter PDF"
                         >
-                          <FileText size={10} />
-                          CL PDF
-                        </button>
-                        <button
-                          onClick={() => setPreviewMemoCl(cl)}
-                          className="px-2 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded text-[10px] font-bold cursor-pointer"
-                          title="Lihat Internal Memo ke AOP"
-                        >
-                          Memo AOP
-                        </button>
-                        <button
-                          onClick={() => setPreviewReminderCl(cl)}
-                          className="px-2 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded text-[10px] font-bold cursor-pointer"
-                          title="Lihat Reminder Surat ke Vendor"
-                        >
-                          Reminder
-                        </button>
-                        <button
-                          onClick={() => handleSendReminder(cl.id)}
-                          className="p-1.5 bg-slate-50 hover:bg-slate-150 border border-slate-200 text-slate-500 hover:text-slate-800 rounded cursor-pointer"
-                          title={`Kirim ulang email pengingat (Sent: ${cl.reminderSentCount}x)`}
-                        >
-                          <Send size={11} />
+                          <FileText size={12} />
+                          Lihat CL PDF
                         </button>
                       </div>
                     </td>
@@ -588,81 +566,7 @@ export default function AccountingView({
         </div>
       )}
 
-      {/* POPUP 2: VIEW MEMO AOP ONLY */}
-      {previewMemoCl && (
-        <AopMemoPrintPreview
-          memo={previewMemoCl}
-          onClose={() => setPreviewMemoCl(null)}
-          onSend={() => {
-            alert("Memo berhasil disinkronisasi ke AOP!");
-            setPreviewMemoCl(null);
-          }}
-        />
-      )}
 
-      {/* POPUP 3: VIEW REMINDER SURAT VENDOR ONLY */}
-      {previewReminderCl && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-[2px] z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl w-full max-w-lg shadow-2xl overflow-hidden border border-slate-200 flex flex-col animate-in fade-in zoom-in-95 duration-200">
-            <div className="p-5 bg-amber-600 text-white flex justify-between items-center">
-              <div className="text-left">
-                <span className="text-[10px] uppercase font-bold bg-white/20 px-2 py-0.5 rounded">Preview Reminder Vendor</span>
-                <h4 className="text-sm font-black mt-1">Reminder E-mail - {previewReminderCl.clNumber}</h4>
-              </div>
-              <button onClick={() => setPreviewReminderCl(null)} className="p-2 hover:bg-white/10 rounded-md text-white/85 cursor-pointer">
-                <X size={16} />
-              </button>
-            </div>
-            
-            <div className="p-6 bg-slate-50 text-[11px] text-slate-800 text-left space-y-3 max-h-[60vh] overflow-y-auto leading-relaxed font-sans">
-              <div className="border border-slate-200 bg-white p-2 rounded text-[10px] space-y-0.5 font-bold text-slate-500">
-                <div>To: management@{previewReminderCl.supplierName.toLowerCase().replace("pt ", "").replace(/ /g, "")}.co.id</div>
-                <div>Subject: [REMINDER] Lembar Persetujuan Confirmation Letter Kualitas {previewReminderCl.clNumber}</div>
-              </div>
-
-              <p className="pt-2">Kepada Yth. Pimpinan Keuangan / Sales Manager <strong>{previewReminderCl.supplierName}</strong>,</p>
-              <p>
-                Melalui surat ini kami mengingatkan kembali terkait penalti penyesuaian kualitas barang (QPR) dengan nomor Confirmation Letter <strong>{previewReminderCl.clNumber}</strong> yang telah dikirimkan pada tanggal <strong>{previewReminderCl.dateSent}</strong>.
-              </p>
-              <p>
-                Jumlah klaim denda akhir yang disepakati adalah sebesar <strong className="text-red-650">{previewReminderCl.amount}</strong>. Harap melakukan konfirmasi persetujuan dalam portal QPR Anda.
-              </p>
-              
-              <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-md text-amber-800 flex items-start gap-2">
-                <AlertTriangle size={15} className="shrink-0 text-amber-600 mt-0.5" />
-                <div className="text-[10px]">
-                  <strong>Batas waktu: 5 Hari Kerja.</strong>
-                  <p className="mt-0.5 leading-normal text-slate-650 font-medium">
-                    Jika dalam waktu 5 hari kerja sejak surat ini dikirimkan tidak ada konfirmasi lebih lanjut, kami mengasumsikan pihak vendor telah menyetujui rincian denda ini sepenuhnya dan akan mengeksekusi deduction pada tagihan berjalan.
-                  </p>
-                </div>
-              </div>
-
-              <p>Hormat Kami,</p>
-              <strong className="block mt-0.5 text-slate-700">PT Menara Terus Makmur (Finance & Accounting Div)</strong>
-            </div>
-
-            <div className="p-4 bg-slate-100 border-t border-slate-200 flex justify-end gap-2">
-              <button 
-                onClick={() => setPreviewReminderCl(null)} 
-                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded font-bold text-xs cursor-pointer"
-              >
-                Tutup
-              </button>
-              <button 
-                onClick={() => {
-                  handleSendReminder(previewReminderCl.id);
-                  setPreviewReminderCl(null);
-                }}
-                className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded font-bold text-xs cursor-pointer flex items-center gap-1"
-              >
-                <Send size={11} />
-                Kirim Ulang Reminder
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {previewClDoc && (
         <ConfirmationLetterPrintPreview

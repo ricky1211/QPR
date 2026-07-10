@@ -14,6 +14,7 @@ import ApproveQprDashboard from "@/components/features/role-views/ApproveQprDash
 import AccountingView from "@/components/features/role-views/AccountingView";
 import ListQprDashboard from "@/components/features/role-views/ListQprDashboard";
 import Dashboard from "@/components/features/dashboard/Dashboard";
+import IMemoView from "@/components/features/role-views/IMemoView";
 
 // Global tracking views & modals
 import CalendarView from "@/components/features/calendar/CalendarView";
@@ -446,6 +447,13 @@ export default function Home() {
                 confirmationLetters={confirmationLetters}
                 setConfirmationLetters={setConfirmationLetters}
                 handleGenerateCL={handleGenerateCL}
+              />
+            )}
+
+            {activeTab === "i-memo" && (
+              <IMemoView
+                confirmationLetters={confirmationLetters}
+                setConfirmationLetters={setConfirmationLetters}
               />
             )}
 

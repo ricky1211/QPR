@@ -13,7 +13,8 @@ import {
   X,
   Menu,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Mail
 } from "lucide-react";
 
 export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSidebarOpen }) {
@@ -23,6 +24,7 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
     { id: "approve-ncr", name: "Approval NCR", icon: CheckSquare, color: "text-amber-500" },
     { id: "approve-qpr", name: "Approval QPR", icon: FileCheck2, color: "text-indigo-500" },
     { id: "confirmation-letter", name: "Buat Confirmation Letter", icon: FileText, color: "text-rose-500" },
+    { id: "i-memo", name: "i-Memo & Reminder", icon: Mail, color: "text-teal-500" },
     { id: "list-qpr", name: "List NCR & QPR", icon: ListTodo, color: "text-emerald-500" }
   ];
 
