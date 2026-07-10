@@ -255,7 +255,7 @@ export const mockPendingQprs = [
     allowanceRatio: "0.5%",
     claimAmount: "Rp 12.500.000",
     status: "WAITING_APPROVAL",
-    requiredRole: "Dept Head"
+    requiredRole: "Quality Dept"
   },
   {
     id: 2,
@@ -268,6 +268,32 @@ export const mockPendingQprs = [
     allowanceRatio: "0.8%",
     claimAmount: "Rp 24.000.000",
     status: "WAITING_APPROVAL",
-    requiredRole: "PPIC Staff"
+    requiredRole: "Dept Head"
+  },
+  {
+    id: 3,
+    qprNumber: "QPR/2026/05/RUA_BIASA",
+    date: "2026-06-12",
+    supplierName: "SHIJIAZHUANG RUICHENG TRADE CO., LTD",
+    period: "Mei 2026",
+    totalItems: 1200,
+    rejectItems: 40,
+    allowanceRatio: "0.6%",
+    claimAmount: "Rp 32.000.000",
+    status: "WAITING_APPROVAL",
+    requiredRole: "Purchasing"
+  },
+  {
+    id: 4,
+    qprNumber: "QPR/2026/05/MAKMUR_JAYA",
+    date: "2026-06-15",
+    supplierName: "PT MENARA TERUS MAKMUR",
+    period: "Mei 2026",
+    totalItems: 2000,
+    rejectItems: 50,
+    allowanceRatio: "0.4%",
+    claimAmount: "Rp 45.000.000",
+    status: "WAITING_APPROVAL",
+    requiredRole: "Accounting"
   }
 ];

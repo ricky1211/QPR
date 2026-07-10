@@ -22,10 +22,11 @@ interface NcrPreviewProps {
     locationFound?: string;
     problemType?: string;
   };
-  onClose: () => void;
+  onClose?: () => void;
+  inline?: boolean;
 }
 
-export default function NcrPrintPreview({ ncr, onClose }: NcrPreviewProps) {
+export default function NcrPrintPreview({ ncr, onClose, inline = false }: NcrPreviewProps) {
   const handlePrint = () => {
     window.print();
   };
@@ -49,32 +50,17 @@ export default function NcrPrintPreview({ ncr, onClose }: NcrPreviewProps) {
   const isRepair = dispType.includes("REPAIR");
   const isRegrade = dispType.includes("REGRADE");
 
-  return (
-    <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-start justify-center p-4 overflow-y-auto">
-      {/* Action Bar */}
-      <div className="fixed top-4 right-4 flex gap-2 z-50 print:hidden">
-        <button
-          onClick={handlePrint}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-lg transition-colors cursor-pointer"
-        >
-          <Printer size={14} />
-          Cetak / Print
-        </button>
-        <button
-          onClick={onClose}
-          className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-bold shadow-lg border border-slate-200 transition-colors cursor-pointer"
-        >
-          <X size={14} />
-          Tutup
-        </button>
-      </div>
+  // Signature status flags
+  const isPreparedSigned = ncr.requiredRole !== "Foreman" || ncr.status === "APPROVED";
+  const isCheckedSigned = ncr.requiredRole === "Dept Head" || ncr.requiredRole === "Closed" || ncr.status === "APPROVED";
+  const isApprovedSigned = ncr.requiredRole === "Closed" || ncr.status === "APPROVED";
 
-      {/* NCR PDF Document Layout */}
-      <div
-        id="ncr-print-area"
-        className="bg-white shadow-2xl w-full max-w-3xl my-16 text-slate-900 border border-black"
-        style={{ fontFamily: "Arial, sans-serif", fontSize: "10px" }}
-      >
+  const documentContent = (
+    <div
+      id="ncr-print-area"
+      className={`bg-white text-slate-900 border border-black mx-auto ${inline ? "w-full shadow-sm" : "shadow-2xl w-full max-w-3xl my-16"}`}
+      style={{ fontFamily: "Arial, sans-serif", fontSize: "10px" }}
+    >
         {/* Header Grid */}
         <div className="grid grid-cols-4 border-b border-black">
           {/* Logo & Company Name */}
@@ -316,18 +302,36 @@ export default function NcrPrintPreview({ ncr, onClose }: NcrPreviewProps) {
             <div className="grid grid-cols-3 divide-x divide-black flex-1 text-center font-medium">
               <div className="flex flex-col justify-between p-1.5 min-h-[70px]">
                 <span className="text-[7px] text-slate-400 uppercase">PREPARED</span>
-                <span className="font-mono text-[7px] text-green-700 font-bold block my-1">Digital Signed</span>
-                <span className="border-t border-slate-200 pt-0.5 text-slate-600">Heru Staff QA</span>
+                {isPreparedSigned ? (
+                  <>
+                    <span className="font-mono text-[7px] text-green-700 font-bold block my-1">Digital Signed</span>
+                    <span className="border-t border-slate-200 pt-0.5 text-slate-650">{ncr.foundBy ? ncr.foundBy.split(" ")[0] : "Inspector QC"}</span>
+                  </>
+                ) : (
+                  <span className="text-slate-300 italic text-[7.5px] block my-auto">(Pending)</span>
+                )}
               </div>
               <div className="flex flex-col justify-between p-1.5 min-h-[70px]">
                 <span className="text-[7px] text-slate-400 uppercase">CHECKED</span>
-                <span className="font-mono text-[7px] text-green-700 font-bold block my-1">Digital Signed</span>
-                <span className="border-t border-slate-200 pt-0.5 text-slate-600">Arif SPV QA</span>
+                {isCheckedSigned ? (
+                  <>
+                    <span className="font-mono text-[7px] text-green-700 font-bold block my-1">Digital Signed</span>
+                    <span className="border-t border-slate-200 pt-0.5 text-slate-650">Arif SPV QA</span>
+                  </>
+                ) : (
+                  <span className="text-slate-300 italic text-[7.5px] block my-auto">(Pending)</span>
+                )}
               </div>
               <div className="flex flex-col justify-between p-1.5 min-h-[70px]">
                 <span className="text-[7px] text-slate-400 uppercase">APPROVED</span>
-                <span className="font-mono text-[7px] text-green-700 font-bold block my-1">Digital Signed</span>
-                <span className="border-t border-slate-200 pt-0.5 text-slate-600">Putu MGR QA</span>
+                {isApprovedSigned ? (
+                  <>
+                    <span className="font-mono text-[7px] text-green-700 font-bold block my-1">Digital Signed</span>
+                    <span className="border-t border-slate-200 pt-0.5 text-slate-650">Putu MGR QA</span>
+                  </>
+                ) : (
+                  <span className="text-slate-300 italic text-[7.5px] block my-auto">(Pending)</span>
+                )}
               </div>
             </div>
           </div>
@@ -423,7 +427,45 @@ export default function NcrPrintPreview({ ncr, onClose }: NcrPreviewProps) {
           </div>
         </div>
       </div>
+  );
 
+  if (inline) {
+    return (
+      <>
+        {documentContent}
+        <style>{`
+          @media print {
+            body * { visibility: hidden; }
+            #ncr-print-area, #ncr-print-area * { visibility: visible; }
+            #ncr-print-area { position: fixed; left: 0; top: 0; width: 100%; margin: 0; box-shadow: none; }
+          }
+        `}</style>
+      </>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-start justify-center p-4 overflow-y-auto">
+      {/* Action Bar */}
+      <div className="fixed top-4 right-4 flex gap-2 z-50 print:hidden">
+        <button
+          onClick={handlePrint}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-lg transition-colors cursor-pointer"
+        >
+          <Printer size={14} />
+          Cetak / Print
+        </button>
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-bold shadow-lg border border-slate-200 transition-colors cursor-pointer"
+          >
+            <X size={14} />
+            Tutup
+          </button>
+        )}
+      </div>
+      {documentContent}
       <style>{`
         @media print {
           body * { visibility: hidden; }

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Shield, FileCheck, CheckCircle2, X, Search, Filter, ChevronLeft, ChevronRight, AlertTriangle, Clock } from "lucide-react";
+import NcrPrintPreview from "./NcrPrintPreview";
 
 export default function SectionHeadView({ pendingNcrs, handleApproveNcrAction, role = "Section Head" }) {
   const sectionHeadNcrs = pendingNcrs.filter((n) => n.requiredRole === role);
@@ -380,8 +381,7 @@ export default function SectionHeadView({ pendingNcrs, handleApproveNcrAction, r
  
       {/* Detail overlay */}
       {selectedNcr && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-[2px] z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl w-full max-w-4xl shadow-2xl overflow-hidden border border-slate-100 flex flex-col">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-[2px] z-50 flex items-center justify-center p-4">          <div className="bg-white rounded-xl w-full max-w-[1200px] shadow-2xl overflow-hidden border border-slate-100 flex flex-col">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
               <div>
                 <span className="text-[10px] font-bold text-amber-600 tracking-widest uppercase">Lembar Analisis Defect</span>
@@ -393,143 +393,12 @@ export default function SectionHeadView({ pendingNcrs, handleApproveNcrAction, r
             </div>
             
             <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 
-                {/* Left Column: Defect details */}
-                <div className="space-y-4">
-                  <div className="p-4 bg-slate-50 border border-slate-100 rounded-lg">
-                    <span className="text-[10px] font-bold text-slate-400 block">Detail Part & Supplier</span>
-                    <span className="text-sm font-bold text-slate-800 block mt-1">{selectedNcr.partName}</span>
-                    <span className="text-xs text-slate-400 block mt-0.5">{selectedNcr.partNumber} • {selectedNcr.supplierName}</span>
-                  </div>
-                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
-                    <div className="p-2.5 bg-slate-50 rounded-md border border-slate-100/50">
-                      <span className="text-slate-400 block font-bold">Total Qty:</span>
-                      <strong className="text-slate-800 font-extrabold">{selectedNcr.totalQty || selectedNcr.qty || "—"} pcs</strong>
-                    </div>
-                    <div className="p-2.5 bg-slate-50 rounded-md border border-slate-100/50">
-                      <span className="text-slate-400 block font-bold">Qty NG:</span>
-                      <strong className="text-slate-800 font-extrabold">{selectedNcr.qty} pcs</strong>
-                    </div>
-                    <div className="p-2.5 bg-slate-50 rounded-md border border-slate-100/50">
-                      <span className="text-slate-400 block font-bold">Rasio NG:</span>
-                      <strong className="text-red-600 font-extrabold">{selectedNcr.actualNgRatio || "—"}%</strong>
-                    </div>
-                    <div className="p-2.5 bg-slate-50 rounded-md border border-slate-100/50">
-                      <span className="text-slate-400 block font-bold">Limit Allowance:</span>
-                      <strong className="text-blue-600 font-extrabold">{selectedNcr.allowanceRatio || "0"}%</strong>
-                    </div>
-                  </div>
-
-                  <div className="p-3.5 bg-red-50/30 border border-red-100/50 rounded-lg text-[11px] space-y-3 text-left">
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
-                      <div>
-                        <span className="text-slate-450 font-bold text-[9px] uppercase tracking-wider block">Location Found</span>
-                        <strong className="text-slate-800 font-bold block mt-0.5">{selectedNcr.locationFound || "IN-COMING"}</strong>
-                      </div>
-                      <div>
-                        <span className="text-slate-450 font-bold text-[9px] uppercase tracking-wider block">Problem Type</span>
-                        <strong className="text-slate-800 font-bold block mt-0.5">{selectedNcr.problemType || "QUALITY"}</strong>
-                      </div>
-                      <div>
-                        <span className="text-slate-450 font-bold text-[9px] uppercase tracking-wider block">Log Sortir (MP / Jam)</span>
-                        <strong className="text-slate-800 font-bold block mt-0.5">{selectedNcr.manPower || 1} MP / {selectedNcr.workingHours || 1} Jam</strong>
-                      </div>
-                      <div>
-                        <span className="text-slate-450 font-bold text-[9px] uppercase tracking-wider block">Log Konsumabel</span>
-                        <strong className="text-slate-800 font-bold block mt-0.5 truncate">{selectedNcr.consumables || "None"}</strong>
-                      </div>
-                      <div>
-                        <span className="text-slate-450 font-bold text-[9px] uppercase tracking-wider block">Docs to Revise</span>
-                        <strong className="text-slate-800 font-bold block mt-0.5 truncate" title={selectedNcr.docsToRevise}>{selectedNcr.docsToRevise || "-"}</strong>
-                      </div>
-                      <div>
-                        <span className="text-slate-450 font-bold text-[9px] uppercase tracking-wider block">Found By</span>
-                        <strong className="text-slate-800 font-bold block mt-0.5 truncate" title={selectedNcr.foundBy}>{selectedNcr.foundBy || "QC INSPECTOR"}</strong>
-                      </div>
-                    </div>
-
-                    <div className="border-t border-red-100/60 pt-2.5">
-                      <span className="text-slate-455 font-bold text-[9px] uppercase tracking-wider block">Deskripsi Cacat / NG</span>
-                      <p className="text-slate-800 font-bold bg-white p-2 rounded border border-slate-100 leading-normal mt-1 text-[11px]">{selectedNcr.defectType || selectedNcr.description || "Quality defect found"}</p>
-                    </div>
-                  </div>
-
-                  {/* Excel-style Read-only Keputusan Disposisi Table */}
-                  <div className="border border-slate-300 rounded-lg overflow-hidden text-center text-[9px] font-bold bg-white shadow-sm">
-                    <table className="w-full border-collapse">
-                      <thead>
-                        <tr className="bg-slate-100 border-b border-slate-300 text-slate-800 font-extrabold text-[10px]">
-                          <th colSpan={5} className="py-1.5 text-center uppercase tracking-wider">
-                            KEPUTUSAN DISPOSISI
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr className="bg-slate-50 text-slate-700 border-b border-slate-200">
-                          <td className="border-r border-slate-300 py-1 w-[22%]">RETURN TO VENDOR</td>
-                          <td className="border-r border-slate-300 py-1 w-[22%]">REWORK</td>
-                          <td className="border-r border-slate-300 py-1 w-[22%]">SCRAP</td>
-                          <td className="border-r border-slate-300 py-1 w-[17%] bg-slate-100/30 text-center font-bold">YES</td>
-                          <td className="py-1 w-[17%] bg-slate-100/30 text-center font-bold">NO</td>
-                        </tr>
-                        <tr className="border-b border-slate-200 h-8">
-                          <td className={`border-r border-slate-300 transition-colors ${
-                            (Array.isArray(selectedNcr.disposition) ? selectedNcr.disposition.join(", ") : selectedNcr.disposition) === "RETURN TO VENDOR" ? "bg-blue-100 text-blue-700" : ""
-                          }`}>
-                            {(Array.isArray(selectedNcr.disposition) ? selectedNcr.disposition.join(", ") : selectedNcr.disposition) === "RETURN TO VENDOR" ? "✓" : ""}
-                          </td>
-                          <td className={`border-r border-slate-300 transition-colors ${
-                            (Array.isArray(selectedNcr.disposition) ? selectedNcr.disposition.join(", ") : selectedNcr.disposition) === "REWORK" ? "bg-blue-100 text-blue-700" : ""
-                          }`}>
-                            {(Array.isArray(selectedNcr.disposition) ? selectedNcr.disposition.join(", ") : selectedNcr.disposition) === "REWORK" ? "✓" : ""}
-                          </td>
-                          <td className={`border-r border-slate-300 transition-colors ${
-                            (Array.isArray(selectedNcr.disposition) ? selectedNcr.disposition.join(", ") : selectedNcr.disposition) === "SCRAP" ? "bg-blue-100 text-blue-700" : ""
-                          }`}>
-                            {(Array.isArray(selectedNcr.disposition) ? selectedNcr.disposition.join(", ") : selectedNcr.disposition) === "SCRAP" ? "✓" : ""}
-                          </td>
-                          <td 
-                            rowSpan={2}
-                            className={`border-r border-slate-300 transition-colors ${
-                              selectedNcr.customerApproval === "YES" ? "bg-emerald-100 text-emerald-800" : ""
-                            }`}
-                          >
-                            {selectedNcr.customerApproval === "YES" ? "✓" : ""}
-                          </td>
-                          <td 
-                            rowSpan={2}
-                            className={`transition-colors ${
-                              selectedNcr.customerApproval === "NO" ? "bg-red-100 text-red-800" : ""
-                            }`}
-                          >
-                            {selectedNcr.customerApproval === "NO" ? "✓" : ""}
-                          </td>
-                        </tr>
-                        <tr className="bg-slate-50 text-slate-700 border-b border-slate-200">
-                          <td className="border-r border-slate-300 py-1">ACCEPT AS IS</td>
-                          <td className="border-r border-slate-300 py-1">REPAIR</td>
-                          <td className="border-r border-slate-300 py-1">REGRADE</td>
-                        </tr>
-                        <tr className="h-8">
-                          <td className={`border-r border-slate-300 transition-colors ${
-                            (Array.isArray(selectedNcr.disposition) ? selectedNcr.disposition.join(", ") : selectedNcr.disposition) === "ACCEPT AS IS" ? "bg-blue-100 text-blue-700" : ""
-                          }`}>
-                            {(Array.isArray(selectedNcr.disposition) ? selectedNcr.disposition.join(", ") : selectedNcr.disposition) === "ACCEPT AS IS" ? "✓" : ""}
-                          </td>
-                          <td className={`border-r border-slate-300 transition-colors ${
-                            (Array.isArray(selectedNcr.disposition) ? selectedNcr.disposition.join(", ") : selectedNcr.disposition) === "REPAIR" ? "bg-blue-100 text-blue-700" : ""
-                          }`}>
-                            {(Array.isArray(selectedNcr.disposition) ? selectedNcr.disposition.join(", ") : selectedNcr.disposition) === "REPAIR" ? "✓" : ""}
-                          </td>
-                          <td className={`border-r border-slate-300 transition-colors ${
-                            (Array.isArray(selectedNcr.disposition) ? selectedNcr.disposition.join(", ") : selectedNcr.disposition) === "REGRADE" ? "bg-blue-100 text-blue-700" : ""
-                          }`}>
-                            {(Array.isArray(selectedNcr.disposition) ? selectedNcr.disposition.join(", ") : selectedNcr.disposition) === "REGRADE" ? "✓" : ""}
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
+                {/* Left Column: Official A4 Document Sheet */}
+                <div className="lg:col-span-2 border border-slate-200 rounded-lg overflow-hidden bg-slate-100 p-4 max-h-[65vh] overflow-y-auto shadow-inner flex items-start justify-center">
+                  <div className="w-full max-w-2xl bg-white shadow-md rounded border border-slate-300">
+                    <NcrPrintPreview ncr={selectedNcr} inline={true} />
                   </div>
                 </div>
 

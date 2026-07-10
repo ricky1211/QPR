@@ -20,7 +20,7 @@ import {
 import QprPrintPreview from "./QprPrintPreview";
 
 export default function ApproveQprDashboard({ pendingQprs, handleApproveQprAction }) {
-  const [levelTab, setLevelTab] = useState("ppic"); // 'ppic' or 'dept-head'
+  const [levelTab, setLevelTab] = useState("quality-dept"); // 'quality-dept', 'dept-head', 'purchasing', 'accounting'
   const [activeFilterTab, setActiveFilterTab] = useState("all-pending"); // 'all-pending', 'needs-verification', 'returned'
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -36,7 +36,16 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
   const [previewQpr, setPreviewQpr] = useState<any>(null);
 
   // Filter pending QPRs by role
-  const roleName = levelTab === "ppic" ? "PPIC Staff" : "Dept Head";
+  const getRoleName = (tab: string) => {
+    switch (tab) {
+      case "quality-dept": return "Quality Dept";
+      case "dept-head": return "Dept Head";
+      case "purchasing": return "Purchasing";
+      case "accounting": return "Accounting";
+      default: return "Quality Dept";
+    }
+  };
+  const roleName = getRoleName(levelTab);
   const rolePendingQprs = pendingQprs.filter((q) => q.requiredRole === roleName);
 
   // Filter based on search query & advanced filters
@@ -141,29 +150,26 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
         
         <div className="flex items-center gap-3 shrink-0">
           {/* Toggle Switcher */}
-          <div className="flex bg-slate-100 p-1 rounded-md">
-            <button
-              onClick={() => {
-                setLevelTab("ppic");
-                setCurrentPage(1);
-              }}
-              className={`px-4 py-1.5 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
-                levelTab === "ppic" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-900"
-              }`}
-            >
-              PPIC Staff
-            </button>
-            <button
-              onClick={() => {
-                setLevelTab("dept-head");
-                setCurrentPage(1);
-              }}
-              className={`px-4 py-1.5 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
-                levelTab === "dept-head" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-900"
-              }`}
-            >
-              Dept Head
-            </button>
+          <div className="flex bg-slate-100 p-1 rounded-md overflow-x-auto max-w-[400px] sm:max-w-none">
+            {[
+              { id: "quality-dept", label: "QTY DEPT" },
+              { id: "dept-head", label: "DEPT HEAD" },
+              { id: "purchasing", label: "PURCHASING" },
+              { id: "accounting", label: "ACCOUNTING" }
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => {
+                  setLevelTab(tab.id);
+                  setCurrentPage(1);
+                }}
+                className={`px-3 py-1.5 text-[10px] font-bold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+                  levelTab === tab.id ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-900"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
 
           {/* Action buttons matching screenshot */}
@@ -580,16 +586,14 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
           </div>
         </div>
 
-      </div>
-
-      {/* Unified QPR Details Modal (Copied exactly from PPIC / Dept Head modals for functionality) */}
+      </div>      {/* Unified QPR Details Modal */}
       {selectedQpr && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-[2px] z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl w-full max-w-md shadow-2xl overflow-hidden border border-slate-100 flex flex-col">
+          <div className="bg-white rounded-xl w-full max-w-[1200px] shadow-2xl overflow-hidden border border-slate-100 flex flex-col">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
               <div>
                 <span className="text-[10px] font-bold text-indigo-600 tracking-widest uppercase">
-                  {levelTab === "ppic" ? "Validasi Hitungan Denda (PPIC)" : "Validasi Hitungan Denda QPR"}
+                  LEMBAR OTORISASI PERSETUJUAN QPR
                 </span>
                 <h4 className="text-base font-bold text-slate-900 mt-0.5">{selectedQpr.qprNumber}</h4>
               </div>
@@ -601,44 +605,66 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
               </button>
             </div>
             
-            <div className="p-6 space-y-4">
-              <div className="p-4 bg-slate-50 border border-slate-100 rounded-lg">
-                <span className="text-[10px] font-bold text-slate-400 block">Supplier</span>
-                <span className="text-sm font-bold text-slate-800 block mt-1">{selectedQpr.supplierName}</span>
-                <span className="text-xs text-slate-400 block mt-0.5">Periode Transaksi: {selectedQpr.period}</span>
-              </div>
+            <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                {/* Left Column: Official A4 QPR Document Sheet */}
+                <div className="lg:col-span-2 border border-slate-200 rounded-lg overflow-hidden bg-slate-100 p-4 max-h-[60vh] overflow-y-auto shadow-inner flex items-start justify-center">
+                  <div className="w-full max-w-2xl bg-white shadow-md rounded border border-slate-300">
+                    <QprPrintPreview qpr={selectedQpr} inline={true} />
+                  </div>
+                </div>
 
-              <div className="grid grid-cols-2 gap-3 text-center text-xs">
-                {levelTab === "ppic" ? (
-                  <>
-                    <div className="p-3 bg-slate-50 rounded-md border border-slate-100/50">
-                      <span className="text-slate-400 block">Total Kirim:</span>
-                      <strong className="text-slate-800 font-bold">{selectedQpr.totalItems} pcs</strong>
-                    </div>
-                    <div className="p-3 bg-slate-50 rounded-md border border-slate-100/50">
-                      <span className="text-slate-400 block">Total Reject:</span>
-                      <strong className="text-red-600 font-bold">{selectedQpr.rejectItems} pcs</strong>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="p-3 bg-slate-50 rounded-md border border-slate-100/50">
-                      <span className="text-slate-400 block">Total Reject:</span>
-                      <strong className="text-slate-800 font-bold">{selectedQpr.rejectItems} pcs / {selectedQpr.totalItems} pcs</strong>
-                    </div>
-                    <div className="p-3 bg-slate-50 rounded-md border border-slate-100/50">
-                      <span className="text-slate-400 block">Allowance Toleransi:</span>
-                      <strong className="text-slate-800 font-bold">{selectedQpr.allowanceRatio}</strong>
-                    </div>
-                  </>
-                )}
-              </div>
+                {/* Right Column: QPR Authorization Review & Actions */}
+                <div className="space-y-4 text-left">
+                  <div className="p-4 bg-slate-50 border border-slate-150 rounded-lg">
+                    <span className="text-[10px] font-bold text-slate-400 block uppercase">Supplier / Vendor</span>
+                    <span className="text-sm font-bold text-slate-800 block mt-1">{selectedQpr.supplierName}</span>
+                    <span className="text-xs text-slate-450 block mt-0.5">Periode Transaksi: {selectedQpr.period}</span>
+                  </div>
 
-              <div className="p-4 bg-red-50 border border-red-150 rounded-lg text-center">
-                <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest block">
-                  {levelTab === "ppic" ? "Total Nilai Denda" : "Total Klaim Denda"}
-                </span>
-                <span className="text-2xl font-black text-red-600 block mt-1">{selectedQpr.claimAmount}</span>
+                  <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 text-[11px] space-y-2.5">
+                    <span className="text-[9px] font-black text-slate-455 uppercase tracking-widest block">
+                      Rantai Otorisasi QPR (Signatures)
+                    </span>
+                    <div className="space-y-3 divide-y divide-slate-150">
+                      <div className="flex justify-between items-center pt-2.5 first:pt-0">
+                        <span className="font-bold text-slate-700">1. Quality Dept</span>
+                        <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-emerald-50 text-emerald-700">Signed (Heru S.)</span>
+                      </div>
+                      <div className="flex justify-between items-center pt-2.5">
+                        <span className="font-bold text-slate-700">2. Dept Head</span>
+                        <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase ${
+                          levelTab !== "quality-dept" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
+                        }`}>
+                          {levelTab !== "quality-dept" ? "Signed (Putu R.S.)" : "PENDING"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center pt-2.5">
+                        <span className="font-bold text-slate-700">3. Purchasing</span>
+                        <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase ${
+                          levelTab === "purchasing" || levelTab === "accounting" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
+                        }`}>
+                          {levelTab === "purchasing" || levelTab === "accounting" ? "Signed" : "PENDING"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center pt-2.5">
+                        <span className="font-bold text-slate-700">4. Accounting</span>
+                        <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase ${
+                          levelTab === "accounting" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
+                        }`}>
+                          {levelTab === "accounting" ? "Signed" : "PENDING"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-3.5 bg-blue-50/30 border border-blue-100/50 rounded-lg text-[10px] text-slate-550 leading-relaxed">
+                    <strong className="text-blue-700 block mb-1">Informasi Otorisasi:</strong>
+                    Persetujuan Anda akan membubuhkan tanda tangan digital pada lembar dokumen QPR ini secara otomatis untuk diteruskan ke tahap selanjutnya.
+                  </div>
+                </div>
+
               </div>
             </div>
 
@@ -663,12 +689,16 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
                     setSelectedQpr(null);
                   }}
                   className={`px-5 py-2.5 text-white rounded-md font-bold text-xs shadow-md transition-colors cursor-pointer ${
-                    levelTab === "ppic"
-                      ? "bg-teal-600 hover:bg-teal-700 shadow-teal-600/10"
-                      : "bg-indigo-600 hover:bg-indigo-700 shadow-indigo-500/10"
+                    levelTab === "quality-dept" ? "bg-teal-600 hover:bg-teal-700 shadow-teal-600/10" :
+                    levelTab === "dept-head" ? "bg-indigo-650 hover:bg-indigo-700 shadow-indigo-500/10" :
+                    levelTab === "purchasing" ? "bg-amber-600 hover:bg-amber-700 shadow-amber-600/10" :
+                    "bg-rose-600 hover:bg-rose-700 shadow-rose-650/10"
                   }`}
                 >
-                  {levelTab === "ppic" ? "Validasi & Approve" : "Approve QPR"}
+                  {levelTab === "quality-dept" ? "Validasi & Approve" :
+                   levelTab === "dept-head" ? "Approve QPR (Dept Head)" :
+                   levelTab === "purchasing" ? "Approve QPR (Purchasing)" :
+                   "Approve QPR (Accounting)"}
                 </button>
               </div>
             </div>

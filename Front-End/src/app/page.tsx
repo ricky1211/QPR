@@ -172,7 +172,7 @@ export default function Home() {
         allowanceRatio: `${part.allowanceRatio}%`,
         claimAmount: `Rp ${(30 * 250000).toLocaleString("id-ID")}`,
         status: "WAITING_APPROVAL",
-        requiredRole: "PPIC Staff" // Goes to PPIC Staff first for validation
+        requiredRole: "Quality Dept" // Goes to Quality Dept first
       };
 
       setPendingQprs(prev => [newQpr, ...prev]);
@@ -183,14 +183,14 @@ export default function Home() {
       // 3. Add to notifications
       const newNotif = {
         id: Date.now(),
-        message: `Draf QPR ${newQprNum} berhasil dibuat untuk ${part.supplierName} dan dikirim ke PPIC Staff untuk validasi.`,
+        message: `Draf QPR ${newQprNum} berhasil dibuat untuk ${part.supplierName} dan dikirim ke Quality Dept untuk validasi.`,
         time: "Baru saja",
         type: "info",
         unread: true
       };
       setNotifications(prev => [newNotif, ...prev]);
 
-      alert(`Sukses: Draf klaim QPR ${newQprNum} berhasil dibuat untuk ${part.supplierName} dan dikirim ke PPIC Staff untuk Validasi!`);
+      alert(`Sukses: Draf klaim QPR ${newQprNum} berhasil dibuat untuk ${part.supplierName} dan dikirim ke Quality Dept untuk Validasi!`);
     }
   };
 
@@ -261,13 +261,21 @@ export default function Home() {
     setPendingQprs(prev => {
       const updated = prev.map(q => {
         if (q.id === id) {
-          if (q.requiredRole === "PPIC Staff") {
-            alertMsg = `Sukses: Otoritas claim QPR ${qprNum} disetujui oleh PPIC Staff dan diteruskan ke Dept Head!`;
-            notifMsg = `Klaim QPR ${qprNum} disetujui oleh PPIC Staff dan diteruskan ke Dept Head.`;
+          if (q.requiredRole === "Quality Dept") {
+            alertMsg = `Sukses: Klaim QPR ${qprNum} disetujui oleh Quality Dept dan diteruskan ke Dept Head!`;
+            notifMsg = `Klaim QPR ${qprNum} disetujui oleh Quality Dept dan diteruskan ke Dept Head.`;
             return { ...q, requiredRole: "Dept Head" };
           } else if (q.requiredRole === "Dept Head") {
-            alertMsg = `Sukses: Klaim QPR ${qprNum} disetujui sepenuhnya oleh Dept Head dan diteruskan ke Keuangan!`;
-            notifMsg = `Klaim QPR ${qprNum} telah disetujui sepenuhnya oleh Dept Head dan diteruskan ke Keuangan (Finance).`;
+            alertMsg = `Sukses: Klaim QPR ${qprNum} disetujui oleh Dept Head dan diteruskan ke Purchasing!`;
+            notifMsg = `Klaim QPR ${qprNum} disetujui oleh Dept Head dan diteruskan ke Purchasing.`;
+            return { ...q, requiredRole: "Purchasing" };
+          } else if (q.requiredRole === "Purchasing") {
+            alertMsg = `Sukses: Klaim QPR ${qprNum} disetujui oleh Purchasing dan diteruskan ke Accounting!`;
+            notifMsg = `Klaim QPR ${qprNum} disetujui oleh Purchasing dan diteruskan ke Accounting.`;
+            return { ...q, requiredRole: "Accounting" };
+          } else if (q.requiredRole === "Accounting") {
+            alertMsg = `Sukses: Klaim QPR ${qprNum} disetujui sepenuhnya oleh Accounting dan masuk ke tahap akhir!`;
+            notifMsg = `Klaim QPR ${qprNum} telah disetujui sepenuhnya oleh Accounting.`;
             return null;
           }
         }

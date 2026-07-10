@@ -15,7 +15,8 @@ interface QprPreviewProps {
     claimAmount: string;
     status?: string;
   };
-  onClose: () => void;
+  onClose?: () => void;
+  inline?: boolean;
 }
 
 const PART_ITEMS = [
@@ -63,7 +64,7 @@ function CheckItem({ label, checked }: { label: string; checked: boolean }) {
   );
 }
 
-export default function QprPrintPreview({ qpr, onClose }: QprPreviewProps) {
+export default function QprPrintPreview({ qpr, onClose, inline = false }: QprPreviewProps) {
   const handlePrint = () => {
     window.print();
   };
@@ -75,32 +76,18 @@ export default function QprPrintPreview({ qpr, onClose }: QprPreviewProps) {
     year: "numeric",
   });
 
-  return (
-    <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-start justify-center p-4 overflow-y-auto">
-      {/* Action Bar */}
-      <div className="fixed top-4 right-4 flex gap-2 z-50 print:hidden">
-        <button
-          onClick={handlePrint}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-lg transition-colors cursor-pointer"
-        >
-          <Printer size={14} />
-          Cetak / Print
-        </button>
-        <button
-          onClick={onClose}
-          className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-bold shadow-lg border border-slate-200 transition-colors cursor-pointer"
-        >
-          <X size={14} />
-          Tutup
-        </button>
-      </div>
+  // QPR Signature states based on workflow role
+  const isQualityDeptSigned = qpr.requiredRole !== "Quality Dept" || qpr.status === "APPROVED";
+  const isDeptHeadSigned = qpr.requiredRole === "Purchasing" || qpr.requiredRole === "Accounting" || qpr.requiredRole === "Closed" || qpr.status === "APPROVED";
+  const isPurchasingSigned = qpr.requiredRole === "Accounting" || qpr.requiredRole === "Closed" || qpr.status === "APPROVED";
+  const isAccountingSigned = qpr.requiredRole === "Closed" || qpr.status === "APPROVED";
 
-      {/* QPR Document */}
-      <div
-        id="qpr-print-area"
-        className="bg-white shadow-2xl w-full max-w-3xl my-16"
-        style={{ fontFamily: "Arial, sans-serif", fontSize: "10px", border: "1px solid #000" }}
-      >
+  const documentContent = (
+    <div
+      id="qpr-print-area"
+      className={`bg-white mx-auto ${inline ? "w-full shadow-sm" : "shadow-2xl w-full max-w-3xl my-16"}`}
+      style={{ fontFamily: "Arial, sans-serif", fontSize: "10px", border: "1px solid #000" }}
+    >
         {/* Company Header */}
         <div className="flex items-center" style={{ borderBottom: "1px solid #000", padding: "6px 10px" }}>
           <div style={{ width: "160px", minWidth: "160px", marginRight: "12px" }}>
@@ -366,25 +353,70 @@ export default function QprPrintPreview({ qpr, onClose }: QprPreviewProps) {
               {qpr.date || formattedDate}
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr" }}>
-              {["Prepared", "Checked", "Approved", "Acknowledge", "Acknowledge"].map((sig, i) => (
-                <div key={i} style={{ borderRight: i < 4 ? "1px solid #000" : "none", textAlign: "center" }}>
-                  <div style={{ borderBottom: "1px solid #000", padding: "2px 4px", fontWeight: "bold", fontSize: "7px", background: "#f8fafc" }}>{sig}</div>
-                  <div style={{ minHeight: "50px" }} />
+              {[
+                { type: "Prepared", name: "Heru S.", isSigned: isQualityDeptSigned, role: "Quality Dept" },
+                { type: "Checked", name: "Putu R.S.", isSigned: isDeptHeadSigned, role: "Dept Head" },
+                { type: "Approved", name: "Arif T.W.", isSigned: isDeptHeadSigned, role: "QC SPV" },
+                { type: "Acknowledge", name: "Purchasing", isSigned: isPurchasingSigned, role: "Purchasing" },
+                { type: "Acknowledge", name: "Accounting", isSigned: isAccountingSigned, role: "Accounting" }
+              ].map((sig, i) => (
+                <div key={i} style={{ borderRight: i < 4 ? "1px solid #000" : "none", textAlign: "center", display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: "80px" }}>
+                  <div style={{ borderBottom: "1px solid #000", padding: "2px 4px", fontWeight: "bold", fontSize: "7px", background: "#f8fafc" }}>{sig.type}</div>
+                  <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", minHeight: "45px", padding: "2px" }}>
+                    {sig.isSigned ? (
+                      <span style={{ fontSize: "6.5px", color: "#16a34a", fontWeight: "bold", fontFamily: "monospace" }}>Signed</span>
+                    ) : (
+                      <span style={{ fontSize: "6.5px", color: "#cbd5e1", fontStyle: "italic" }}>(Pending)</span>
+                    )}
+                  </div>
                   <div style={{ borderTop: "1px solid #000", padding: "2px 4px", fontSize: "7px", color: "#64748b", textAlign: "center", lineHeight: "1.3" }}>
-                    {i === 0 && "Heru S."}
-                    {i === 1 && "Arif T.W."}
-                    {i === 2 && "Putu R.S."}
-                    {i === 3 && "Purchasing"}
-                    {i === 4 && "Accounting"}
+                    {sig.name}
                   </div>
                 </div>
               ))}
             </div>
           </div>
         </div>
-
       </div>
+  );
 
+  if (inline) {
+    return (
+      <>
+        {documentContent}
+        <style>{`
+          @media print {
+            body * { visibility: hidden; }
+            #qpr-print-area, #qpr-print-area * { visibility: visible; }
+            #qpr-print-area { position: fixed; left: 0; top: 0; width: 100%; margin: 0; box-shadow: none; }
+          }
+        `}</style>
+      </>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-start justify-center p-4 overflow-y-auto">
+      {/* Action Bar */}
+      <div className="fixed top-4 right-4 flex gap-2 z-50 print:hidden">
+        <button
+          onClick={handlePrint}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-lg transition-colors cursor-pointer"
+        >
+          <Printer size={14} />
+          Cetak / Print
+        </button>
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-bold shadow-lg border border-slate-200 transition-colors cursor-pointer"
+          >
+            <X size={14} />
+            Tutup
+          </button>
+        )}
+      </div>
+      {documentContent}
       <style>{`
         @media print {
           body * { visibility: hidden; }
