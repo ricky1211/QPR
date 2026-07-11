@@ -20,7 +20,7 @@ import {
 import QprPrintPreview from "./QprPrintPreview";
 
 export default function ApproveQprDashboard({ pendingQprs, handleApproveQprAction }) {
-  const [levelTab, setLevelTab] = useState("quality-dept"); // 'quality-dept', 'dept-head', 'purchasing', 'accounting'
+  const [levelTab, setLevelTab] = useState("section-head"); // 'section-head', 'dept-head', 'div-head', 'purchasing'
   const [activeFilterTab, setActiveFilterTab] = useState("all-pending"); // 'all-pending', 'needs-verification', 'returned'
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -38,11 +38,11 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
   // Filter pending QPRs by role
   const getRoleName = (tab: string) => {
     switch (tab) {
-      case "quality-dept": return "Quality Dept";
+      case "section-head": return "Section Head";
       case "dept-head": return "Dept Head";
+      case "div-head": return "Div Head";
       case "purchasing": return "Purchasing";
-      case "accounting": return "Accounting";
-      default: return "Quality Dept";
+      default: return "Section Head";
     }
   };
   const roleName = getRoleName(levelTab);
@@ -151,11 +151,11 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
         <div className="flex items-center gap-3 shrink-0">
           {/* Toggle Switcher */}
           <div className="flex bg-slate-100 p-1 rounded-md overflow-x-auto max-w-[400px] sm:max-w-none">
-            {[
-              { id: "quality-dept", label: "QTY DEPT" },
+             {[
+              { id: "section-head", label: "SEC HEAD" },
               { id: "dept-head", label: "DEPT HEAD" },
-              { id: "purchasing", label: "PURCHASING" },
-              { id: "accounting", label: "ACCOUNTING" }
+              { id: "div-head", label: "DIV HEAD" },
+              { id: "purchasing", label: "PURCHASING (ACK)" }
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -629,31 +629,31 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
                     </span>
                     <div className="space-y-3 divide-y divide-slate-150">
                       <div className="flex justify-between items-center pt-2.5 first:pt-0">
-                        <span className="font-bold text-slate-700">1. Quality Dept</span>
+                        <span className="font-bold text-slate-700">1. Section Head</span>
                         <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-emerald-50 text-emerald-700">Signed (Heru S.)</span>
                       </div>
                       <div className="flex justify-between items-center pt-2.5">
                         <span className="font-bold text-slate-700">2. Dept Head</span>
                         <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase ${
-                          levelTab !== "quality-dept" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
+                          levelTab !== "section-head" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
                         }`}>
-                          {levelTab !== "quality-dept" ? "Signed (Putu R.S.)" : "PENDING"}
+                          {levelTab !== "section-head" ? "Signed (Putu R.S.)" : "PENDING"}
                         </span>
                       </div>
                       <div className="flex justify-between items-center pt-2.5">
-                        <span className="font-bold text-slate-700">3. Purchasing</span>
+                        <span className="font-bold text-slate-700">3. Div Head</span>
                         <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase ${
-                          levelTab === "purchasing" || levelTab === "accounting" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
+                          levelTab !== "section-head" && levelTab !== "dept-head" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
                         }`}>
-                          {levelTab === "purchasing" || levelTab === "accounting" ? "Signed" : "PENDING"}
+                          {levelTab !== "section-head" && levelTab !== "dept-head" ? "Signed (Arif T.W.)" : "PENDING"}
                         </span>
                       </div>
                       <div className="flex justify-between items-center pt-2.5">
-                        <span className="font-bold text-slate-700">4. Accounting</span>
+                        <span className="font-bold text-slate-700">4. Purchasing (Ack)</span>
                         <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase ${
-                          levelTab === "accounting" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
+                          selectedQpr.status === "APPROVED" || selectedQpr.requiredRole === "Closed" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
                         }`}>
-                          {levelTab === "accounting" ? "Signed" : "PENDING"}
+                          {selectedQpr.status === "APPROVED" || selectedQpr.requiredRole === "Closed" ? "Acknowledged" : "PENDING"}
                         </span>
                       </div>
                     </div>
@@ -689,16 +689,16 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
                     setSelectedQpr(null);
                   }}
                   className={`px-5 py-2.5 text-white rounded-md font-bold text-xs shadow-md transition-colors cursor-pointer ${
-                    levelTab === "quality-dept" ? "bg-teal-600 hover:bg-teal-700 shadow-teal-600/10" :
+                    levelTab === "section-head" ? "bg-teal-600 hover:bg-teal-700 shadow-teal-600/10" :
                     levelTab === "dept-head" ? "bg-indigo-650 hover:bg-indigo-700 shadow-indigo-500/10" :
-                    levelTab === "purchasing" ? "bg-amber-600 hover:bg-amber-700 shadow-amber-600/10" :
-                    "bg-rose-600 hover:bg-rose-700 shadow-rose-650/10"
+                    levelTab === "div-head" ? "bg-amber-600 hover:bg-amber-700 shadow-amber-600/10" :
+                    "bg-blue-600 hover:bg-blue-700 shadow-blue-500/10"
                   }`}
                 >
-                  {levelTab === "quality-dept" ? "Validasi & Approve" :
+                  {levelTab === "section-head" ? "Approve QPR (Section Head)" :
                    levelTab === "dept-head" ? "Approve QPR (Dept Head)" :
-                   levelTab === "purchasing" ? "Approve QPR (Purchasing)" :
-                   "Approve QPR (Accounting)"}
+                   levelTab === "div-head" ? "Approve QPR (Div Head)" :
+                   "Acknowledge QPR (Purchasing)"}
                 </button>
               </div>
             </div>

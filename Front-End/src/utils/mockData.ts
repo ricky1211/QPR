@@ -255,7 +255,7 @@ export const mockPendingQprs = [
     allowanceRatio: "0.5%",
     claimAmount: "Rp 12.500.000",
     status: "WAITING_APPROVAL",
-    requiredRole: "Quality Dept"
+    requiredRole: "Section Head"
   },
   {
     id: 2,
@@ -294,6 +294,6 @@ export const mockPendingQprs = [
     allowanceRatio: "0.4%",
     claimAmount: "Rp 45.000.000",
     status: "WAITING_APPROVAL",
-    requiredRole: "Accounting"
+    requiredRole: "Div Head"
   }
 ];

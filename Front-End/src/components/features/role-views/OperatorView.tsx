@@ -4,12 +4,21 @@ import React, { useState, useRef } from "react";
 import { CheckCircle2, AlertTriangle, X, FileSignature, ChevronDown, Calendar, Eye } from "lucide-react";
 import NcrPrintPreview from "./NcrPrintPreview";
 
+interface OperatorViewProps {
+  pendingNcrs: any[];
+  setPendingNcrs: React.Dispatch<React.SetStateAction<any[]>>;
+  notifications: any[];
+  setNotifications: React.Dispatch<React.SetStateAction<any[]>>;
+  parts?: any[];
+}
+
 export default function OperatorView({
   pendingNcrs,
   setPendingNcrs,
   notifications,
-  setNotifications
-}) {
+  setNotifications,
+  parts: propParts
+}: OperatorViewProps) {
   // References for Form Dropdowns
   const suppliers = [
     { id: 1, name: "PT JAYADI", code: "SPL-JAY" },
@@ -17,7 +26,7 @@ export default function OperatorView({
     { id: 3, name: "SHIJIAZHUANG RUICHENG TRADE CO., LTD", code: "SPL-SRC" }
   ];
 
-  const [parts, setParts] = useState([
+  const [parts, setParts] = useState(propParts || [
     { id: 1, partNumber: "MB-001", partName: "Motherboard X1", supplierId: 1 },
     { id: 2, partNumber: "GL-001", partName: "Gelas Kaca", supplierId: 1 },
     { id: 3, partNumber: "HD-002", partName: "Harddisk 1TB", supplierId: 2 },

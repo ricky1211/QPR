@@ -32,9 +32,10 @@ const stageLabel = (type: string, requiredRole?: string, status?: string): strin
     return "Disetujui";
   }
   // QPR
-  if (requiredRole === "Quality Dept") return "Menunggu Quality Dept";
+  if (requiredRole === "Section Head") return "Menunggu Section Head";
   if (requiredRole === "Dept Head") return "Menunggu Dept Head";
-  if (requiredRole === "Purchasing") return "Menunggu Purchasing";
+  if (requiredRole === "Div Head") return "Menunggu Div Head";
+  if (requiredRole === "Purchasing") return "Acknowledge Purchasing";
   if (requiredRole === "Accounting") return "Menunggu Accounting";
   return "Disetujui";
 };
@@ -97,7 +98,7 @@ const allDocuments = [
     defectType: "-",
     disposition: "-",
     status: "WAITING_APPROVAL",
-    requiredRole: "Quality Dept",
+    requiredRole: "Section Head",
     approvedBy: []
   },
   {
@@ -117,7 +118,7 @@ const allDocuments = [
     disposition: "-",
     status: "WAITING_APPROVAL",
     requiredRole: "Dept Head",
-    approvedBy: ["Quality Dept"]
+    approvedBy: ["Section Head"]
   },
   {
     id: "qpr-pending-3",
@@ -136,7 +137,7 @@ const allDocuments = [
     disposition: "-",
     status: "WAITING_APPROVAL",
     requiredRole: "Purchasing",
-    approvedBy: ["Quality Dept", "Dept Head"]
+    approvedBy: ["Section Head", "Dept Head"]
   },
   // --- APPROVED documents (June 2026) ---
   {
@@ -794,15 +795,39 @@ export default function ListQprDashboard() {
                       )}
                       <td className="px-4 py-3 text-center">
                         {doc.status === "APPROVED" ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-green-50 text-green-700 border border-green-200 rounded-full text-[10px] font-bold">
-                            <CheckCircle2 size={10} className="text-green-600" />
-                            Disetujui
-                          </span>
+                          <div className="flex flex-col items-center gap-1">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-green-50 text-green-700 border border-green-200 rounded-full text-[10px] font-bold">
+                              <CheckCircle2 size={10} className="text-green-600" />
+                              Disetujui
+                            </span>
+                            <div className="flex flex-wrap justify-center gap-1 mt-1">
+                              {(doc.approvedBy || []).map((role: string, i: number) => (
+                                <span key={i} className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded text-[8.5px] font-bold">
+                                  <CheckCircle2 size={7} className="text-emerald-500" />
+                                  {role}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
                         ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-[10px] font-bold whitespace-nowrap">
-                            <Clock size={10} className="text-amber-500" />
-                            {stageLabel(doc.type, doc.requiredRole, doc.status)}
-                          </span>
+                          <div className="flex flex-col items-center gap-1.5">
+                            {/* Already approved roles */}
+                            {(doc.approvedBy || []).length > 0 && (
+                              <div className="flex flex-wrap justify-center gap-1">
+                                {(doc.approvedBy || []).map((role: string, i: number) => (
+                                  <span key={i} className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded text-[8.5px] font-bold">
+                                    <CheckCircle2 size={7} className="text-emerald-500" />
+                                    {role}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                            {/* Current pending role */}
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-[9px] font-bold whitespace-nowrap">
+                              <Clock size={9} className="text-amber-500 shrink-0" />
+                              {stageLabel(doc.type, doc.requiredRole, doc.status)}
+                            </span>
+                          </div>
                         )}
                       </td>
                       <td className="px-4 py-3 text-center">

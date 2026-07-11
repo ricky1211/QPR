@@ -23,12 +23,14 @@ interface AccountingViewProps {
   confirmationLetters: any[];
   setConfirmationLetters: React.Dispatch<React.SetStateAction<any[]>>;
   handleGenerateCL: (qpr: any, amount: string) => void;
+  pendingQprs?: any[];
 }
 
 export default function AccountingView({
   confirmationLetters,
   setConfirmationLetters,
-  handleGenerateCL
+  handleGenerateCL,
+  pendingQprs
 }: AccountingViewProps) {
   const [selectedQpr, setSelectedQpr] = useState<any>(null);
   const [unitPrice, setUnitPrice] = useState("250000");
@@ -41,20 +43,48 @@ export default function AccountingView({
   const [justGeneratedCl, setJustGeneratedCl] = useState<any | null>(null);
   const [previewClDoc, setPreviewClDoc] = useState<any | null>(null);
 
-  // List of QPRs ready for accounting action
-  const [accountingQueue, setAccountingQueue] = useState([
-    {
-      id: 10,
-      qprNumber: "QPR/2026/05/JAYADI",
-      supplierName: "PT JAYADI",
-      partName: "Motherboard X1",
-      rejectCount: 50, // Qty NG
-      totalQty: 10000, // Total Qty
-      allowanceRatio: 0.2, // allowance limit
-      period: "Mei 2026",
-      status: "APPROVED_INTERNAL"
+  const handleUpdateManualQpr = (field: string, value: any) => {
+    setSelectedQpr((prev: any) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        [field]: value
+      };
+    });
+  };
+
+  // List of QPRs ready for accounting action, dynamically compiled from pendingQprs
+  const accountingQueue = React.useMemo(() => {
+    const qprs = pendingQprs ? pendingQprs.filter((q: any) => (q.status === "APPROVED_INTERNAL" || q.requiredRole === "Purchasing") && q.status !== "CLOSED" && q.requiredRole !== "Closed") : [];
+    
+    const list = qprs.map((q: any) => ({
+      id: q.id,
+      qprNumber: q.qprNumber,
+      supplierName: q.supplierName,
+      partName: q.partName || "Part Material NG",
+      rejectCount: q.rejectItems || 30,
+      totalQty: q.totalItems || 1000,
+      allowanceRatio: parseFloat(q.allowanceRatio?.replace("%", "") || "0.5"),
+      period: q.period,
+      status: q.status
+    }));
+
+    if (list.length === 0 && !confirmationLetters.some(cl => cl.qprNumber === "QPR/2026/05/JAYADI")) {
+      list.push({
+        id: 10,
+        qprNumber: "QPR/2026/05/JAYADI",
+        supplierName: "PT JAYADI",
+        partName: "Motherboard X1",
+        rejectCount: 50, // Qty NG
+        totalQty: 10000, // Total Qty
+        allowanceRatio: 0.2, // allowance limit
+        period: "Mei 2026",
+        status: "APPROVED_INTERNAL"
+      });
     }
-  ]);
+
+    return list;
+  }, [pendingQprs, confirmationLetters]);
 
   const handleCalculateTotal = () => {
     if (!selectedQpr) {
@@ -110,8 +140,7 @@ export default function AccountingView({
         reminderSentCount: 1
       });
 
-      // 3. Clear queue
-      setAccountingQueue([]);
+      // 3. Clear selected state
       setSelectedQpr(null);
       setIsGenerated(false);
     }, 1200);
@@ -154,10 +183,29 @@ export default function AccountingView({
         <div className="lg:col-span-1 bg-white border border-slate-100 rounded-lg shadow-sm overflow-hidden flex flex-col">
           <div className="p-4 border-b border-slate-100 bg-slate-50/30">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Antrean Accounting</span>
-            <h4 className="text-xs font-bold text-slate-800 mt-1">Status APPROVED_INTERNAL</h4>
+            <h4 className="text-xs font-bold text-slate-800 mt-1">QPR Disetujui Div Head</h4>
           </div>
 
           <div className="p-4 space-y-2.5 flex-1">
+            {/* Manual CL Creation Button */}
+            <button
+              onClick={() => setSelectedQpr({
+                id: `manual-${Date.now()}`,
+                qprNumber: `QPR/2026/06/MANUAL-${Math.floor(Math.random() * 900 + 100)}`,
+                supplierName: "PT JAYADI",
+                partName: "Custom Part Material",
+                rejectCount: 30,
+                totalQty: 10000,
+                allowanceRatio: 0.5,
+                period: "Juni 2026",
+                status: "APPROVED_INTERNAL",
+                isManual: true
+              })}
+              className="w-full py-2.5 px-3 bg-gradient-to-r from-indigo-600 to-blue-650 hover:from-indigo-750 hover:to-blue-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 mb-2"
+            >
+              <span>➕ Buat CL Manual</span>
+            </button>
+
             {accountingQueue.length === 0 ? (
               <div className="text-center py-8 space-y-2">
                 <CheckCircle2 size={28} className="text-green-500 mx-auto" />
@@ -165,24 +213,26 @@ export default function AccountingView({
                 <p className="text-[9px] text-slate-400">Semua draf klaim finansial QPR telah diproses & diselesaikan.</p>
               </div>
             ) : (
-              accountingQueue.map((qpr) => (
-                <button
-                  key={qpr.id}
-                  onClick={() => setSelectedQpr(qpr)}
-                  className={`w-full text-left p-3.5 rounded-md border transition-all flex justify-between items-center ${
-                    selectedQpr && selectedQpr.id === qpr.id
-                      ? "bg-blue-50/50 border-blue-200"
-                      : "bg-slate-50 border-slate-100 hover:bg-slate-150 cursor-pointer"
-                  }`}
-                >
-                  <div className="overflow-hidden">
-                    <span className="font-mono text-[9px] font-bold text-slate-800 block">{qpr.qprNumber}</span>
-                    <strong className="text-xs font-bold text-slate-900 block mt-1">{qpr.supplierName}</strong>
-                    <span className="text-[10px] text-slate-400">{qpr.partName} • {qpr.rejectCount} pcs NG / {qpr.totalQty} Total</span>
-                  </div>
-                  <ChevronRight size={14} className="text-slate-400 shrink-0" />
-                </button>
-              ))
+              <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                {accountingQueue.map((qpr) => (
+                  <button
+                    key={qpr.id}
+                    onClick={() => setSelectedQpr(qpr)}
+                    className={`w-full text-left p-3.5 rounded-md border transition-all flex justify-between items-center ${
+                      selectedQpr && selectedQpr.id === qpr.id
+                        ? "bg-blue-50/50 border-blue-200"
+                        : "bg-slate-50 border-slate-100 hover:bg-slate-150 cursor-pointer"
+                    }`}
+                  >
+                    <div className="overflow-hidden">
+                      <span className="font-mono text-[9px] font-bold text-slate-800 block">{qpr.qprNumber}</span>
+                      <strong className="text-xs font-bold text-slate-900 block mt-1">{qpr.supplierName}</strong>
+                      <span className="text-[10px] text-slate-400">{qpr.partName} • {qpr.rejectCount} pcs NG / {qpr.totalQty} Total</span>
+                    </div>
+                    <ChevronRight size={14} className="text-slate-400 shrink-0" />
+                  </button>
+                ))}
+              </div>
             )}
           </div>
         </div>
@@ -197,25 +247,122 @@ export default function AccountingView({
           {selectedQpr ? (
             <div className="p-6 space-y-6 flex-1">
               
-              {/* Param details grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 p-4 border border-slate-200/50 rounded-lg text-xs font-bold">
-                <div>
-                  <span className="text-[9px] text-slate-400 uppercase tracking-wider block">Total Qty:</span>
-                  <span className="text-slate-800 text-sm block mt-0.5">{selectedQpr.totalQty.toLocaleString("id-ID")} pcs</span>
+              {/* Manual Document Input Form */}
+              {selectedQpr.isManual ? (
+                <div className="bg-indigo-50/20 p-4 border border-indigo-150/60 rounded-xl space-y-4 text-xs">
+                  <div className="flex items-center gap-1.5 border-b border-indigo-100/50 pb-2 mb-1">
+                    <span className="p-1 bg-indigo-600 text-white rounded-md"><FileText size={10} /></span>
+                    <strong className="text-indigo-900 font-extrabold uppercase tracking-wide">Form Dokumen Manual</strong>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div className="space-y-1">
+                      <label className="block font-bold text-slate-700">Nomor QPR</label>
+                      <input
+                        type="text"
+                        value={selectedQpr.qprNumber}
+                        onChange={(e) => handleUpdateManualQpr("qprNumber", e.target.value)}
+                        className="w-full px-3 py-1.5 border border-slate-200 bg-white rounded-lg font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        placeholder="QPR/2026/06/CUSTOM"
+                      />
+                    </div>
+                    
+                    <div className="space-y-1">
+                      <label className="block font-bold text-slate-700">Nama Supplier / Vendor</label>
+                      <select
+                        value={selectedQpr.supplierName}
+                        onChange={(e) => handleUpdateManualQpr("supplierName", e.target.value)}
+                        className="w-full px-3 py-1.5 border border-slate-200 bg-white rounded-lg font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      >
+                        <option value="PT JAYADI">PT JAYADI</option>
+                        <option value="PT IKAN BAKAR">PT IKAN BAKAR</option>
+                        <option value="SHIJIAZHUANG RUICHENG TRADE CO., LTD">SHIJIAZHUANG RUICHENG TRADE CO., LTD</option>
+                        <option value="PT MENARA TERUS MAKMUR">PT MENARA TERUS MAKMUR</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="block font-bold text-slate-700">Nama Part</label>
+                      <input
+                        type="text"
+                        value={selectedQpr.partName}
+                        onChange={(e) => handleUpdateManualQpr("partName", e.target.value)}
+                        className="w-full px-3 py-1.5 border border-slate-200 bg-white rounded-lg font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        placeholder="Motherboard X1"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="block font-bold text-slate-700">Periode Evaluasi</label>
+                      <select
+                        value={selectedQpr.period}
+                        onChange={(e) => handleUpdateManualQpr("period", e.target.value)}
+                        className="w-full px-3 py-1.5 border border-slate-200 bg-white rounded-lg font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      >
+                        <option value="Januari 2026">Januari 2026</option>
+                        <option value="Februari 2026">Februari 2026</option>
+                        <option value="Maret 2026">Maret 2026</option>
+                        <option value="April 2026">April 2026</option>
+                        <option value="Mei 2026">Mei 2026</option>
+                        <option value="Juni 2026">Juni 2026</option>
+                        <option value="Juli 2026">Juli 2026</option>
+                        <option value="Agustus 2026">Agustus 2026</option>
+                      </select>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-3 gap-3 border-t border-indigo-100/30 pt-3">
+                    <div className="space-y-1">
+                      <label className="block font-bold text-slate-700">Total Qty Kirim</label>
+                      <input
+                        type="number"
+                        value={selectedQpr.totalQty}
+                        onChange={(e) => handleUpdateManualQpr("totalQty", parseInt(e.target.value) || 0)}
+                        className="w-full px-3 py-1.5 border border-slate-200 bg-white rounded-lg font-mono font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="block font-bold text-slate-700">Kuantitas NG</label>
+                      <input
+                        type="number"
+                        value={selectedQpr.rejectCount}
+                        onChange={(e) => handleUpdateManualQpr("rejectCount", parseInt(e.target.value) || 0)}
+                        className="w-full px-3 py-1.5 border border-slate-200 bg-white rounded-lg font-mono font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="block font-bold text-slate-700">Allowance limit (%)</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={selectedQpr.allowanceRatio}
+                        onChange={(e) => handleUpdateManualQpr("allowanceRatio", parseFloat(e.target.value) || 0)}
+                        className="w-full px-3 py-1.5 border border-slate-200 bg-white rounded-lg font-mono font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-[9px] text-slate-400 uppercase tracking-wider block">Qty NG:</span>
-                  <span className="text-slate-800 text-sm block mt-0.5">{selectedQpr.rejectCount} pcs</span>
+              ) : (
+                /* Queued Param details grid (Read-Only) */
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 p-4 border border-slate-200/50 rounded-lg text-xs font-bold">
+                  <div>
+                    <span className="text-[9px] text-slate-400 uppercase tracking-wider block">Total Qty:</span>
+                    <span className="text-slate-800 text-sm block mt-0.5">{selectedQpr.totalQty.toLocaleString("id-ID")} pcs</span>
+                  </div>
+                  <div>
+                    <span className="text-[9px] text-slate-400 uppercase tracking-wider block">Qty NG:</span>
+                    <span className="text-slate-800 text-sm block mt-0.5">{selectedQpr.rejectCount} pcs</span>
+                  </div>
+                  <div>
+                    <span className="text-[9px] text-slate-400 uppercase tracking-wider block">Std Allowance Limit:</span>
+                    <span className="text-blue-600 text-sm block mt-0.5">{selectedQpr.allowanceRatio}%</span>
+                  </div>
+                  <div>
+                    <span className="text-[9px] text-red-500 uppercase tracking-wider block">Std Allowance Qty:</span>
+                    <span className="text-red-600 text-sm block mt-0.5">{calc.stdAllowance} pcs</span>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-[9px] text-slate-400 uppercase tracking-wider block">Std Allowance Limit:</span>
-                  <span className="text-blue-600 text-sm block mt-0.5">{selectedQpr.allowanceRatio}%</span>
-                </div>
-                <div>
-                  <span className="text-[9px] text-red-500 uppercase tracking-wider block">Std Allowance Qty:</span>
-                  <span className="text-red-600 text-sm block mt-0.5">{calc.stdAllowance} pcs</span>
-                </div>
-              </div>
+              )}
 
               {/* Form Input */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

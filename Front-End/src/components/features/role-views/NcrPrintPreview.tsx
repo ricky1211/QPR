@@ -16,11 +16,13 @@ interface NcrPreviewProps {
     defectType?: string;
     disposition?: string;
     status?: string;
+    requiredRole?: string;
     images?: string[];
     foundBy?: string;
     docsToRevise?: string | string[];
     locationFound?: string;
     problemType?: string;
+    [key: string]: any;
   };
   onClose?: () => void;
   inline?: boolean;

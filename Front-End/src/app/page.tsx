@@ -15,6 +15,7 @@ import AccountingView from "@/components/features/role-views/AccountingView";
 import ListQprDashboard from "@/components/features/role-views/ListQprDashboard";
 import Dashboard from "@/components/features/dashboard/Dashboard";
 import IMemoView from "@/components/features/role-views/IMemoView";
+import BuatQprView from "@/components/features/role-views/BuatQprView";
 
 // Global tracking views & modals
 import CalendarView from "@/components/features/calendar/CalendarView";
@@ -123,6 +124,7 @@ export default function Home() {
       reminderSentCount: 1
     };
     setConfirmationLetters(prev => [newCl, ...prev]);
+    setPendingQprs(prev => prev.map(q => q.qprNumber === qpr.qprNumber ? { ...q, status: "CLOSED", requiredRole: "Closed" } : q));
   };
 
   const [parts, setParts] = useState(mockParts);
@@ -173,7 +175,7 @@ export default function Home() {
         allowanceRatio: `${part.allowanceRatio}%`,
         claimAmount: `Rp ${(30 * 250000).toLocaleString("id-ID")}`,
         status: "WAITING_APPROVAL",
-        requiredRole: "Quality Dept" // Goes to Quality Dept first
+        requiredRole: "Section Head" // Goes to Section Head first
       };
 
       setPendingQprs(prev => [newQpr, ...prev]);
@@ -262,22 +264,22 @@ export default function Home() {
     setPendingQprs(prev => {
       const updated = prev.map(q => {
         if (q.id === id) {
-          if (q.requiredRole === "Quality Dept") {
-            alertMsg = `Sukses: Klaim QPR ${qprNum} disetujui oleh Quality Dept dan diteruskan ke Dept Head!`;
-            notifMsg = `Klaim QPR ${qprNum} disetujui oleh Quality Dept dan diteruskan ke Dept Head.`;
+          if (q.requiredRole === "Section Head") {
+            alertMsg = `Sukses: Klaim QPR ${qprNum} disetujui oleh Section Head dan diteruskan ke Dept Head!`;
+            notifMsg = `Klaim QPR ${qprNum} disetujui oleh Section Head dan diteruskan ke Dept Head.`;
             return { ...q, requiredRole: "Dept Head" };
           } else if (q.requiredRole === "Dept Head") {
-            alertMsg = `Sukses: Klaim QPR ${qprNum} disetujui oleh Dept Head dan diteruskan ke Purchasing!`;
-            notifMsg = `Klaim QPR ${qprNum} disetujui oleh Dept Head dan diteruskan ke Purchasing.`;
-            return { ...q, requiredRole: "Purchasing" };
+            alertMsg = `Sukses: Klaim QPR ${qprNum} disetujui oleh Dept Head dan diteruskan ke Div Head!`;
+            notifMsg = `Klaim QPR ${qprNum} disetujui oleh Dept Head dan diteruskan ke Div Head.`;
+            return { ...q, requiredRole: "Div Head" };
+          } else if (q.requiredRole === "Div Head") {
+            alertMsg = `Sukses: Klaim QPR ${qprNum} disetujui oleh Div Head, diposting ke Accounting untuk penerbitan Confirmation Letter & Acknowledge Purchasing!`;
+            notifMsg = `Klaim QPR ${qprNum} disetujui oleh Div Head dan diposting ke Vendor/Accounting.`;
+            return { ...q, requiredRole: "Purchasing", status: "APPROVED_INTERNAL" };
           } else if (q.requiredRole === "Purchasing") {
-            alertMsg = `Sukses: Klaim QPR ${qprNum} disetujui oleh Purchasing dan diteruskan ke Accounting!`;
-            notifMsg = `Klaim QPR ${qprNum} disetujui oleh Purchasing dan diteruskan ke Accounting.`;
-            return { ...q, requiredRole: "Accounting" };
-          } else if (q.requiredRole === "Accounting") {
-            alertMsg = `Sukses: Klaim QPR ${qprNum} disetujui sepenuhnya oleh Accounting dan masuk ke tahap akhir!`;
-            notifMsg = `Klaim QPR ${qprNum} telah disetujui sepenuhnya oleh Accounting.`;
-            return null;
+            alertMsg = `Sukses: Klaim QPR ${qprNum} di-acknowledge oleh Purchasing!`;
+            notifMsg = `Klaim QPR ${qprNum} di-acknowledge oleh Purchasing.`;
+            return { ...q, requiredRole: "Closed", status: "APPROVED" };
           }
         }
         return q;
@@ -442,11 +444,19 @@ export default function Home() {
               />
             )}
 
+            {activeTab === "buat-qpr" && (
+              <BuatQprView
+                pendingQprs={pendingQprs}
+                setPendingQprs={setPendingQprs}
+              />
+            )}
+
             {activeTab === "confirmation-letter" && (
               <AccountingView 
                 confirmationLetters={confirmationLetters}
                 setConfirmationLetters={setConfirmationLetters}
                 handleGenerateCL={handleGenerateCL}
+                pendingQprs={pendingQprs}
               />
             )}
 

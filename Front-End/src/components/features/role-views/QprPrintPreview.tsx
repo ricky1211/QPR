@@ -14,6 +14,7 @@ interface QprPreviewProps {
     allowanceRatio: string;
     claimAmount: string;
     status?: string;
+    [key: string]: any;
   };
   onClose?: () => void;
   inline?: boolean;
@@ -77,10 +78,11 @@ export default function QprPrintPreview({ qpr, onClose, inline = false }: QprPre
   });
 
   // QPR Signature states based on workflow role
-  const isQualityDeptSigned = qpr.requiredRole !== "Quality Dept" || qpr.status === "APPROVED";
-  const isDeptHeadSigned = qpr.requiredRole === "Purchasing" || qpr.requiredRole === "Accounting" || qpr.requiredRole === "Closed" || qpr.status === "APPROVED";
-  const isPurchasingSigned = qpr.requiredRole === "Accounting" || qpr.requiredRole === "Closed" || qpr.status === "APPROVED";
-  const isAccountingSigned = qpr.requiredRole === "Closed" || qpr.status === "APPROVED";
+  const isSectionHeadSigned = qpr.requiredRole !== "Section Head" || qpr.status === "APPROVED";
+  const isDeptHeadSigned = (qpr.requiredRole !== "Section Head" && qpr.requiredRole !== "Dept Head") || qpr.status === "APPROVED";
+  const isDivHeadSigned = (qpr.requiredRole !== "Section Head" && qpr.requiredRole !== "Dept Head" && qpr.requiredRole !== "Div Head") || qpr.status === "APPROVED";
+  const isPurchasingSigned = qpr.requiredRole === "Closed" || qpr.status === "APPROVED" || qpr.status === "CLOSED";
+  const isAccountingSigned = qpr.requiredRole === "Closed" || qpr.status === "APPROVED" || qpr.status === "CLOSED";
 
   const documentContent = (
     <div
@@ -354,9 +356,9 @@ export default function QprPrintPreview({ qpr, onClose, inline = false }: QprPre
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr" }}>
               {[
-                { type: "Prepared", name: "Heru S.", isSigned: isQualityDeptSigned, role: "Quality Dept" },
+                { type: "Prepared", name: "Heru S.", isSigned: isSectionHeadSigned, role: "Section Head" },
                 { type: "Checked", name: "Putu R.S.", isSigned: isDeptHeadSigned, role: "Dept Head" },
-                { type: "Approved", name: "Arif T.W.", isSigned: isDeptHeadSigned, role: "QC SPV" },
+                { type: "Approved", name: "Arif T.W.", isSigned: isDivHeadSigned, role: "Div Head" },
                 { type: "Acknowledge", name: "Purchasing", isSigned: isPurchasingSigned, role: "Purchasing" },
                 { type: "Acknowledge", name: "Accounting", isSigned: isAccountingSigned, role: "Accounting" }
               ].map((sig, i) => (

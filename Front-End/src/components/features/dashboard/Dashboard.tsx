@@ -2,22 +2,21 @@
 
 import React, { useState } from "react";
 import {
-  FileText,
-  AlertTriangle,
-  CheckCircle2,
-  Clock,
   ArrowRight,
-  TrendingUp,
-  ShieldAlert,
   ChevronLeft,
   ChevronRight,
   Calendar,
-  Layers,
+  Activity,
+  UserCheck,
+  Search,
   Sparkles,
+  ShieldAlert,
+  Layers,
   FileCheck
 } from "lucide-react";
 
 import ConfirmationLetterPrintPreview from "../role-views/ConfirmationLetterPrintPreview";
+import LeadTimeTracker from "./LeadTimeTracker";
 
 interface DashboardProps {
   pendingNcrs: any[];
@@ -37,7 +36,9 @@ export default function Dashboard({
   setConfirmationLetters
 }: DashboardProps) {
   const [previewClDoc, setPreviewClDoc] = useState<any | null>(null);
-  // Available Periods
+  const [selectedRoleCard, setSelectedRoleCard] = useState<string | null>(null);
+  const [globalSearch, setGlobalSearch] = useState("");
+
   const periods = [
     "Januari 2026",
     "Februari 2026",
@@ -53,11 +54,9 @@ export default function Dashboard({
     "Desember 2026"
   ];
   
-  // Default is "Juni 2026" (index 5)
   const [periodIndex, setPeriodIndex] = useState(5);
   const activePeriod = periods[periodIndex];
 
-  // Custom mock data config per period
   const periodConfig: { [key: string]: any } = {
     "Januari 2026": {
       baselineClosedNcrs: 8, activeNcrs: [], baselineClosedQprs: 2, activeQprs: [],
@@ -90,7 +89,6 @@ export default function Dashboard({
       dynamicClaimsValue: 0
     },
     "Juni 2026": {
-      // June contains live states from current session!
       baselineClosedNcrs: 20,
       activeNcrs: pendingNcrs,
       baselineClosedQprs: 0,
@@ -103,51 +101,18 @@ export default function Dashboard({
       claimRejectedCount: 0,
       dynamicClaimsValue: pendingQprs.reduce((acc, q) => acc + parseInt(q.claimAmount?.replace(/[^0-9]/g, "") || "0", 10), 0)
     },
-    "Juli 2026": {
-      baselineClosedNcrs: 0, activeNcrs: [], baselineClosedQprs: 0, activeQprs: [],
-      aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0,
-      claimClosedPaidCount: 0, claimPendingCount: 0, claimRejectedCount: 0,
-      dynamicClaimsValue: 0
-    },
-    "Agustus 2026": {
-      baselineClosedNcrs: 0, activeNcrs: [], baselineClosedQprs: 0, activeQprs: [],
-      aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0,
-      claimClosedPaidCount: 0, claimPendingCount: 0, claimRejectedCount: 0,
-      dynamicClaimsValue: 0
-    },
-    "September 2026": {
-      baselineClosedNcrs: 0, activeNcrs: [], baselineClosedQprs: 0, activeQprs: [],
-      aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0,
-      claimClosedPaidCount: 0, claimPendingCount: 0, claimRejectedCount: 0,
-      dynamicClaimsValue: 0
-    },
-    "Oktober 2026": {
-      baselineClosedNcrs: 0, activeNcrs: [], baselineClosedQprs: 0, activeQprs: [],
-      aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0,
-      claimClosedPaidCount: 0, claimPendingCount: 0, claimRejectedCount: 0,
-      dynamicClaimsValue: 0
-    },
-    "November 2026": {
-      baselineClosedNcrs: 0, activeNcrs: [], baselineClosedQprs: 0, activeQprs: [],
-      aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0,
-      claimClosedPaidCount: 0, claimPendingCount: 0, claimRejectedCount: 0,
-      dynamicClaimsValue: 0
-    },
-    "Desember 2026": {
-      baselineClosedNcrs: 0, activeNcrs: [], baselineClosedQprs: 0, activeQprs: [],
-      aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0,
-      claimClosedPaidCount: 0, claimPendingCount: 0, claimRejectedCount: 0,
-      dynamicClaimsValue: 0
-    }
+    "Juli 2026": { baselineClosedNcrs: 0, activeNcrs: [], baselineClosedQprs: 0, activeQprs: [], aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 0, claimPendingCount: 0, claimRejectedCount: 0, dynamicClaimsValue: 0 },
+    "Agustus 2026": { baselineClosedNcrs: 0, activeNcrs: [], baselineClosedQprs: 0, activeQprs: [], aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 0, claimPendingCount: 0, claimRejectedCount: 0, dynamicClaimsValue: 0 },
+    "September 2026": { baselineClosedNcrs: 0, activeNcrs: [], baselineClosedQprs: 0, activeQprs: [], aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 0, claimPendingCount: 0, claimRejectedCount: 0, dynamicClaimsValue: 0 },
+    "Oktober 2026": { baselineClosedNcrs: 0, activeNcrs: [], baselineClosedQprs: 0, activeQprs: [], aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 0, claimPendingCount: 0, claimRejectedCount: 0, dynamicClaimsValue: 0 },
+    "November 2026": { baselineClosedNcrs: 0, activeNcrs: [], baselineClosedQprs: 0, activeQprs: [], aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 0, claimPendingCount: 0, claimRejectedCount: 0, dynamicClaimsValue: 0 },
+    "Desember 2026": { baselineClosedNcrs: 0, activeNcrs: [], baselineClosedQprs: 0, activeQprs: [], aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 0, claimPendingCount: 0, claimRejectedCount: 0, dynamicClaimsValue: 0 }
   };
 
   const currentConfig = periodConfig[activePeriod] || periodConfig["Juni 2026"];
-
-  // Configurable Baseline (historical data) to merge with live state
   const baselineClosedNcrs = currentConfig.baselineClosedNcrs;
   const baselineClosedQprs = currentConfig.baselineClosedQprs;
   
-  // Dynamic metrics from current application state
   const currentActiveNcrs = currentConfig.activeNcrs;
   const totalActiveNcrs = currentActiveNcrs.length;
   const totalNcrs = baselineClosedNcrs + totalActiveNcrs;
@@ -160,75 +125,206 @@ export default function Dashboard({
   const qprInProgress = currentActiveQprs.filter((q: any) => q.status === "WAITING_APPROVAL").length;
   const qprClosed = totalQprs - qprInProgress;
 
-  // Let's compute Claim statistics
   const aprilClaims = currentConfig.aprilClaims;
   const mayClaimsClosed = currentConfig.mayClaimsClosed;
   const mayClaimsPending = currentConfig.mayClaimsPending;
   const dynamicClaimsValue = currentConfig.dynamicClaimsValue;
-
   const totalClaimsVal = aprilClaims + mayClaimsClosed + mayClaimsPending + dynamicClaimsValue;
 
-  // Breakdown of Claims by Workflow Status
   const claimClosedPaidCount = currentConfig.claimClosedPaidCount;
   const claimPendingCount = currentConfig.claimPendingCount;
   const claimRejectedCount = currentConfig.claimRejectedCount;
   const totalClaimsCount = claimClosedPaidCount + claimPendingCount + claimRejectedCount;
 
-  // Helper for rendering SVG donut charts
-  const renderDonutChart = (
-    total: number,
-    slices: { value: number; color: string; label: string }[],
-    centerText: string
-  ) => {
-    const radius = 38;
-    const circumference = 2 * Math.PI * radius; // ~238.76
-    let accumulatedPercent = 0;
+  // Helper to calculate elapsed days dynamically
+  const getDocLeadTimes = (doc: any) => {
+    const docDate = new Date(doc.date || doc.dateSent || "2026-07-01");
+    const today = new Date("2026-07-10");
+    const diffTime = Math.abs(today.getTime() - docDate.getTime());
+    const diffDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
 
-    return (
-      <div className="relative w-40 h-40 flex items-center justify-center">
-        <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-          {/* Background circle */}
-          <circle
-            cx="50"
-            cy="50"
-            r={radius}
-            fill="transparent"
-            stroke="#f1f5f9"
-            strokeWidth="10"
-          />
-          {/* Dynamic Slices */}
-          {slices.map((slice, idx) => {
-            if (slice.value === 0 || total === 0) return null;
-            const percentage = (slice.value / total) * 100;
-            const strokeLength = (percentage / 100) * circumference;
-            const strokeOffset = circumference - strokeLength + (accumulatedPercent / 100) * circumference;
-            accumulatedPercent += percentage;
+    if (doc.clNumber) {
+      // It is a Confirmation Letter! Lead time is diffDays
+      return {
+        roles: ["Accounting"],
+        leadTimes: {
+          "Accounting": { days: diffDays, status: "PENDING" as const }
+        },
+        totalLeadTime: diffDays
+      };
+    }
 
-            return (
-              <circle
-                key={idx}
-                cx="50"
-                cy="50"
-                r={radius}
-                fill="transparent"
-                stroke={slice.color}
-                strokeWidth="10"
-                strokeDasharray={`${strokeLength} ${circumference}`}
-                strokeDashoffset={strokeOffset}
-                strokeLinecap="round"
-                className="transition-all duration-500 ease-out hover:stroke-[12px] cursor-pointer"
-                title={`${slice.label}: ${slice.value} (${Math.round(percentage)}%)`}
-              />
-            );
-          })}
-        </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-          <span className="text-2xl font-black text-slate-800 leading-none">{centerText}</span>
-          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Dokumen</span>
-        </div>
-      </div>
-    );
+    if (doc.qprNumber) {
+      const roles = ["Section Head", "Dept Head", "Div Head"];
+      const currentRole = doc.requiredRole;
+      const leadTimes: Record<string, { days: number; status: "APPROVED" | "PENDING" | "UPCOMING" }> = {};
+      let currentIdx = roles.indexOf(currentRole);
+      if (currentIdx === -1) currentIdx = 0;
+
+      roles.forEach((role, idx) => {
+        if (idx < currentIdx) {
+          leadTimes[role] = { days: Math.min(3, Math.max(1, idx + 1)), status: "APPROVED" };
+        } else if (idx === currentIdx) {
+          const approvedSum = idx === 0 ? 0 : Array.from({ length: idx }, (_, i) => Math.min(3, Math.max(1, i + 1))).reduce((a, b) => a + b, 0);
+          leadTimes[role] = { days: Math.max(1, diffDays - approvedSum), status: "PENDING" };
+        } else {
+          leadTimes[role] = { days: 0, status: "UPCOMING" };
+        }
+      });
+      const totalLeadTime = Object.values(leadTimes).reduce((sum, item) => sum + item.days, 0);
+      return { roles, leadTimes, totalLeadTime };
+    } else {
+      const roles = ["QC Staff", "Section Head", "Dept Head"];
+      const currentRole = doc.requiredRole || "Section Head";
+      const leadTimes: Record<string, { days: number; status: "APPROVED" | "PENDING" | "UPCOMING" }> = {};
+      let currentIdx = roles.indexOf(currentRole);
+      if (currentIdx === -1) currentIdx = 1;
+
+      roles.forEach((role, idx) => {
+        if (idx < currentIdx) {
+          leadTimes[role] = { days: Math.min(2, idx + 1), status: "APPROVED" };
+        } else if (idx === currentIdx) {
+          const approvedSum = idx === 0 ? 0 : Array.from({ length: idx }, (_, i) => Math.min(2, i + 1)).reduce((a, b) => a + b, 0);
+          leadTimes[role] = { days: Math.max(1, diffDays - approvedSum), status: "PENDING" };
+        } else {
+          leadTimes[role] = { days: 0, status: "UPCOMING" };
+        }
+      });
+      const totalLeadTime = Object.values(leadTimes).reduce((sum, item) => sum + item.days, 0);
+      return { roles, leadTimes, totalLeadTime };
+    }
   };
+
+  // Define authorization roles for lead time cards (Section Head, Dept Head, Div Head, Accounting CL)
+  const authRoles = [
+    {
+      key: "Section Head",
+      title: "Section Head",
+      qprRoles: ["Section Head"],
+      color: "border-teal-200 hover:border-teal-500 bg-teal-50/30 text-teal-800",
+      iconColor: "bg-teal-500 text-white",
+      type: "QPR"
+    },
+    {
+      key: "Dept Head",
+      title: "Dept Head",
+      qprRoles: ["Dept Head"],
+      color: "border-indigo-200 hover:border-indigo-500 bg-indigo-50/30 text-indigo-800",
+      iconColor: "bg-indigo-500 text-white",
+      type: "QPR"
+    },
+    {
+      key: "Div Head",
+      title: "Div Head",
+      qprRoles: ["Div Head"],
+      color: "border-amber-200 hover:border-amber-500 bg-amber-50/30 text-amber-800",
+      iconColor: "bg-amber-500 text-white",
+      type: "QPR"
+    },
+    {
+      key: "Accounting (CL)",
+      title: "Accounting (CL)",
+      qprRoles: [],
+      color: "border-rose-200 hover:border-rose-500 bg-rose-50/30 text-rose-800",
+      iconColor: "bg-rose-500 text-white",
+      type: "CL"
+    }
+  ];
+
+  // Helper to extract documents pending for a specific role card
+  const getPendingDocsForRole = (role: typeof authRoles[0]) => {
+    const docs: any[] = [];
+    
+    if (role.type === "QPR") {
+      pendingQprs.forEach(qpr => {
+        if (role.qprRoles.includes(qpr.requiredRole)) {
+          const lt = getDocLeadTimes(qpr);
+          const daysStuck = lt.leadTimes[qpr.requiredRole]?.days || lt.totalLeadTime;
+          docs.push({
+            id: qpr.id,
+            docNumber: qpr.qprNumber,
+            type: "QPR",
+            vendor: qpr.supplierName,
+            date: qpr.date,
+            requiredRole: qpr.requiredRole,
+            daysStuck,
+            amount: qpr.claimAmount || "-",
+            activeTab: "approve-qpr"
+          });
+        }
+      });
+    } else if (role.type === "CL") {
+      // Show pending Confirmation Letters!
+      confirmationLetters.forEach(cl => {
+        if (cl.status === "PENDING") {
+          const lt = getDocLeadTimes(cl);
+          const daysStuck = lt.totalLeadTime;
+          docs.push({
+            id: cl.id,
+            docNumber: cl.clNumber,
+            type: "Confirmation Letter",
+            vendor: cl.supplierName,
+            date: cl.dateSent,
+            requiredRole: "Accounting Approval",
+            daysStuck,
+            amount: cl.amount,
+            activeTab: "confirmation-letter"
+          });
+        }
+      });
+    }
+
+    return docs;
+  };
+
+  // Build the list of all global system pipeline events
+  const globalPipelines = [
+    ...pendingNcrs.map(n => ({
+      id: `ncr-${n.id}`,
+      docNumber: n.ncrNumber,
+      type: "NCR",
+      vendor: n.supplierName,
+      date: n.date,
+      status: "WAITING_APPROVAL",
+      requiredRole: n.requiredRole,
+      stage: "Otorisasi Mutu",
+      amount: "-"
+    })),
+    ...pendingQprs.map(q => ({
+      id: `qpr-${q.id}`,
+      docNumber: q.qprNumber,
+      type: "QPR",
+      vendor: q.supplierName,
+      date: q.date,
+      status: "WAITING_APPROVAL",
+      requiredRole: q.requiredRole,
+      stage: "Klaim Kompensasi",
+      amount: q.claimAmount
+    })),
+    ...confirmationLetters.map(cl => ({
+      id: `cl-${cl.id}`,
+      docNumber: cl.clNumber,
+      type: "Confirmation Letter",
+      vendor: cl.supplierName,
+      date: cl.dateSent,
+      status: cl.status,
+      requiredRole: cl.status === "PENDING" ? "Vendor Confirmation" : "Closed",
+      stage: "Konfirmasi Komersial",
+      amount: cl.amount
+    }))
+  ];
+
+  // Filter global pipelines based on globalSearch
+  const filteredGlobalPipelines = globalPipelines.filter(p => {
+    const term = globalSearch.toLowerCase();
+    return (
+      p.docNumber.toLowerCase().includes(term) ||
+      p.vendor.toLowerCase().includes(term) ||
+      p.requiredRole.toLowerCase().includes(term) ||
+      p.stage.toLowerCase().includes(term) ||
+      p.type.toLowerCase().includes(term)
+    );
+  });
 
   return (
     <div className="space-y-6 text-left animate-in fade-in duration-300">
@@ -238,10 +334,10 @@ export default function Dashboard({
         <div>
           <div className="flex items-center gap-2">
             <span className="p-1.5 bg-blue-600 text-white rounded-lg"><Sparkles size={16} /></span>
-            <h3 className="text-lg font-black text-slate-900 uppercase tracking-wider">Pipeline Status Akhir</h3>
+            <h3 className="text-lg font-black text-slate-900 uppercase tracking-wider">Dashboard Utama &amp; Global Tracking</h3>
           </div>
-          <p className="text-xs text-slate-550 mt-1 font-semibold">
-            Dashboard Utama Pemantauan Terintegrasi NCR/NQR, QPR, dan Status Klaim Finansial.
+          <p className="text-xs text-slate-500 mt-1 font-semibold">
+            Pemantauan aktivitas real-time, status otorisasi, penumpukan dokumen, dan metrik lead time secara terpadu.
           </p>
         </div>
         <div className="flex items-center gap-1.5">
@@ -250,14 +346,13 @@ export default function Dashboard({
             onClick={() => setPeriodIndex(prev => Math.max(0, prev - 1))}
             disabled={periodIndex === 0}
             className="p-2 bg-white hover:bg-slate-50 rounded-lg border border-slate-200 text-slate-600 disabled:opacity-40 disabled:hover:bg-white cursor-pointer transition-all active:scale-90 shadow-sm flex items-center justify-center"
-            title="Periode Sebelumnya"
           >
-            <ChevronLeft size={14} className="stroke-[2.5]" />
+            <ChevronLeft size={14} className="stroke-[2.5] text-slate-500" />
           </button>
           
-          <div className="flex items-center gap-2 px-3.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 shadow-sm select-none">
-            <Calendar size={14} className="text-blue-500" />
-            <span>Periode Evaluasi: {activePeriod}</span>
+          <div className="flex items-center gap-2 px-3.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-750 shadow-sm select-none">
+            <Calendar size={14} className="text-blue-600" />
+            <span>Periode: {activePeriod}</span>
           </div>
 
           <button 
@@ -265,592 +360,283 @@ export default function Dashboard({
             onClick={() => setPeriodIndex(prev => Math.min(periods.length - 1, prev + 1))}
             disabled={periodIndex === periods.length - 1}
             className="p-2 bg-white hover:bg-slate-50 rounded-lg border border-slate-200 text-slate-600 disabled:opacity-40 disabled:hover:bg-white cursor-pointer transition-all active:scale-90 shadow-sm flex items-center justify-center"
-            title="Periode Selanjutnya"
           >
-            <ChevronRight size={14} className="stroke-[2.5]" />
+            <ChevronRight size={14} className="stroke-[2.5] text-slate-500" />
           </button>
         </div>
       </div>
 
-      {/* Overview KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white border border-slate-100 rounded-xl p-4.5 shadow-sm hover:shadow-md transition-all flex items-center justify-between group">
-          <div className="space-y-1">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Temuan NCR</span>
-            <h4 className="text-2xl font-black text-slate-800">{totalNcrs}</h4>
-            <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full inline-block">
-              {totalActiveNcrs} Aktif / Butuh Approval
-            </span>
-          </div>
-          <div className="w-11 h-11 bg-blue-50 group-hover:bg-blue-600 group-hover:text-white text-blue-600 rounded-xl flex items-center justify-center transition-all duration-300">
-            <ShieldAlert size={20} />
-          </div>
+      {/* Lead Time Tracker per Document */}
+      <LeadTimeTracker
+        pendingQprs={pendingQprs}
+        confirmationLetters={confirmationLetters}
+      />
+
+      {/* Grid: 5 Lead Time Role Cards (Interactive) */}
+      <div className="space-y-4">
+        <div>
+          <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest block mb-1">
+            Status Lead Time &amp; Dokumen Mengendap Berdasarkan Peran Otorisasi
+          </h4>
+          <p className="text-[10px] text-slate-500 font-semibold">
+            Pilih atau tekan salah satu kartu otorisasi di bawah ini untuk melihat rincian dokumen yang mengendap pada tahapan tersebut.
+          </p>
         </div>
 
-        <div className="bg-white border border-slate-100 rounded-xl p-4.5 shadow-sm hover:shadow-md transition-all flex items-center justify-between group">
-          <div className="space-y-1">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Internal QPR Drafts</span>
-            <h4 className="text-2xl font-black text-slate-800">{totalQprs}</h4>
-            <span className="text-[10px] font-semibold text-indigo-650 bg-indigo-50 px-2 py-0.5 rounded-full inline-block">
-              {qprInProgress} Menunggu Approval
-            </span>
-          </div>
-          <div className="w-11 h-11 bg-indigo-50 group-hover:bg-indigo-650 group-hover:text-white text-indigo-600 rounded-xl flex items-center justify-center transition-all duration-300">
-            <Layers size={20} />
-          </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {authRoles.map((role) => {
+            const docs = getPendingDocsForRole(role);
+            const totalStuckDocs = docs.length;
+            const totalStuckDays = docs.reduce((sum, d) => sum + d.daysStuck, 0);
+            const isSelected = selectedRoleCard === role.key;
+
+            return (
+              <button
+                key={role.key}
+                onClick={() => setSelectedRoleCard(isSelected ? null : role.key)}
+                className={`border text-left rounded-xl p-4 transition-all duration-200 flex flex-col justify-between h-32 cursor-pointer shadow-sm relative overflow-hidden group ${
+                  isSelected 
+                    ? "bg-white border-blue-650 ring-2 ring-blue-550/20" 
+                    : role.color
+                }`}
+              >
+                <div className="flex justify-between items-start w-full">
+                  <div className={`w-8 h-8 rounded-lg ${role.iconColor} flex items-center justify-center shadow-sm shrink-0`}>
+                    <UserCheck size={16} />
+                  </div>
+                  <span className="text-[9px] font-black uppercase bg-white border border-slate-200 rounded px-1.5 py-0.5 text-slate-500 shadow-sm">
+                    Step
+                  </span>
+                </div>
+
+                <div className="mt-2 space-y-1">
+                  <h5 className="text-[10px] font-black text-slate-805 tracking-tight leading-tight truncate group-hover:text-blue-600 transition-colors">
+                    {role.title}
+                  </h5>
+                  <div className="flex items-baseline gap-1.5 mt-0.5">
+                    <strong className="text-xl font-black text-slate-900 leading-none">
+                      {totalStuckDocs}
+                    </strong>
+                    <span className="text-[9.5px] font-bold text-slate-550">
+                      Dokumen Mengendap
+                    </span>
+                  </div>
+                  <p className="text-[8.5px] font-semibold text-slate-500">
+                    Akumulasi: <span className="font-bold text-red-650">{totalStuckDays} Hari</span>
+                  </p>
+                </div>
+
+                {isSelected && (
+                  <div className="absolute top-0 right-0 w-2 h-full bg-blue-600" />
+                )}
+              </button>
+            );
+          })}
         </div>
 
-        <div className="bg-white border border-slate-100 rounded-xl p-4.5 shadow-sm hover:shadow-md transition-all flex items-center justify-between group">
-          <div className="space-y-1">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Sudah di Klaim</span>
-            <h4 className="text-2xl font-black text-slate-800">{claimClosedPaidCount}</h4>
-            <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full inline-block">
-              Closed Paid
-            </span>
-          </div>
-          <div className="w-11 h-11 bg-emerald-50 group-hover:bg-emerald-600 group-hover:text-white text-emerald-600 rounded-xl flex items-center justify-center transition-all duration-300">
-            <CheckCircle2 size={20} />
-          </div>
-        </div>
+        {/* Selected Role Card Details Area */}
+        {selectedRoleCard && (() => {
+          const activeRole = authRoles.find(r => r.key === selectedRoleCard)!;
+          const docs = getPendingDocsForRole(activeRole);
 
-        <div className="bg-white border border-slate-100 rounded-xl p-4.5 shadow-sm hover:shadow-md transition-all flex items-center justify-between group">
-          <div className="space-y-1">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Belum di Klaim</span>
-            <h4 className="text-2xl font-black text-slate-800">{claimPendingCount}</h4>
-            <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full inline-block">
-              Waiting / Pending
-            </span>
-          </div>
-          <div className="w-11 h-11 bg-amber-50 group-hover:bg-amber-600 group-hover:text-white text-amber-600 rounded-xl flex items-center justify-center transition-all duration-300">
-            <Clock size={20} />
-          </div>
-        </div>
+          return (
+            <div className="bg-white border border-blue-200 rounded-xl p-5 shadow-md animate-in slide-in-from-top-2 duration-200 space-y-4">
+              <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
+                <div>
+                  <h5 className="text-xs font-black text-slate-900 uppercase">
+                    Rincian Dokumen Mengendap di Otorisasi: {activeRole.title}
+                  </h5>
+                  <p className="text-[10px] text-slate-500 font-semibold mt-0.5">
+                    Menampilkan total {docs.length} dokumen yang butuh tindak lanjut otorisasi segera.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setSelectedRoleCard(null)}
+                  className="text-[10px] font-bold text-slate-400 hover:text-slate-600 px-2 py-1 rounded hover:bg-slate-100 cursor-pointer transition-colors"
+                >
+                  Tutup Rincian
+                </button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-left text-slate-600">
+                  <thead className="text-[10px] text-slate-400 bg-slate-50 uppercase tracking-wider font-bold">
+                    <tr>
+                      <th className="px-4 py-2.5 border-b border-slate-100">No. Dokumen</th>
+                      <th className="px-4 py-2.5 border-b border-slate-100">Tipe</th>
+                      <th className="px-4 py-2.5 border-b border-slate-100">Supplier / Vendor</th>
+                      <th className="px-4 py-2.5 border-b border-slate-100">Tgl Pembuatan</th>
+                      <th className="px-4 py-2.5 border-b border-slate-100 text-center">Durasi Mengendap</th>
+                      <th className="px-4 py-2.5 border-b border-slate-100">Nilai Klaim</th>
+                      <th className="px-4 py-2.5 border-b border-slate-100 text-right">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {docs.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="px-4 py-8 text-center text-slate-400 italic">
+                          Tidak ada dokumen yang mengendap pada otorisasi ini.
+                        </td>
+                      </tr>
+                    ) : (
+                      docs.map((doc) => (
+                        <tr key={doc.id} className="hover:bg-slate-50 transition-colors font-semibold">
+                          <td className="px-4 py-3 text-slate-900 font-bold font-mono">{doc.docNumber}</td>
+                          <td className="px-4 py-3">
+                            <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${
+                              doc.type === "NCR" 
+                                ? "bg-blue-50 text-blue-700 border border-blue-100" 
+                                : "bg-indigo-50 text-indigo-700 border border-indigo-100"
+                            }`}>
+                              {doc.type}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-slate-800 font-bold">{doc.vendor}</td>
+                          <td className="px-4 py-3 font-mono">{doc.date}</td>
+                          <td className="px-4 py-3 text-center">
+                            <span className="px-2 py-0.5 bg-red-50 text-red-700 border border-red-200 rounded font-bold text-[10px]">
+                              {doc.daysStuck} Hari
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 font-bold text-slate-700">{doc.amount}</td>
+                          <td className="px-4 py-3 text-right">
+                            <button
+                              onClick={() => setActiveTab(doc.activeTab)}
+                              className="inline-flex items-center gap-1 px-3 py-1 bg-blue-600 hover:bg-blue-750 text-white rounded text-[10px] font-bold shadow-sm transition-all cursor-pointer"
+                            >
+                              Buka Approval
+                              <ArrowRight size={10} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
-      {/* Main Charts & Visualizations (3 Donut Charts) */}
+      {/* Global Application Activity Tracking Monitor */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* NCR / NQR Donut Card */}
-        <div className="bg-white border border-slate-150 rounded-xl shadow-sm p-6 flex flex-col items-center">
-          <div className="w-full flex justify-between items-center mb-6">
+        {/* Unified Global Pipeline Pipeline tracker */}
+        <div className="lg:col-span-2 bg-white border border-slate-150 rounded-xl shadow-sm p-6 text-left space-y-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
-              <h4 className="text-sm font-black text-slate-800">Status NCR / NQR</h4>
+              <Activity size={18} className="text-blue-600" />
+              <h4 className="text-sm font-black text-slate-800">Pelacakan Global Pipeline Aktivitas Dokumen</h4>
             </div>
-            <button 
-              onClick={() => setActiveTab("approve-ncr")} 
-              className="text-[10px] text-blue-600 font-bold hover:underline flex items-center gap-0.5 cursor-pointer"
-            >
-              Kamus Status
-              <ChevronRight size={10} />
-            </button>
-          </div>
-
-          {renderDonutChart(
-            totalNcrs,
-            [
-              { value: ncrClosed, color: "#10b981", label: "Selesai (Closed)" },
-              { value: ncrInProgress, color: "#f59e0b", label: "Sedang Diproses" }
-            ],
-            totalNcrs.toString()
-          )}
-
-          <div className="w-full mt-6 space-y-2 border-t border-slate-100 pt-4">
-            <div className="flex justify-between items-center text-xs font-semibold">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
-                <span className="text-slate-500">Total Dokumen</span>
-              </div>
-              <span className="text-slate-800 font-bold">{totalNcrs} <span className="text-[10px] text-slate-400 font-normal">100%</span></span>
-            </div>
-            
-            <div className="flex justify-between items-center text-xs font-semibold">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
-                <span className="text-slate-500">Sedang Diproses</span>
-              </div>
-              <span className="text-slate-800 font-bold">
-                {ncrInProgress} <span className="text-[10px] text-slate-400 font-normal">{Math.round((ncrInProgress / totalNcrs) * 100)}%</span>
-              </span>
-            </div>
-
-            <div className="flex justify-between items-center text-xs font-semibold">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-                <span className="text-slate-500">Selesai (Closed)</span>
-              </div>
-              <span className="text-slate-800 font-bold">
-                {ncrClosed} <span className="text-[10px] text-slate-400 font-normal">{Math.round((ncrClosed / totalNcrs) * 100)}%</span>
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* QPR Donut Card */}
-        <div className="bg-white border border-slate-150 rounded-xl shadow-sm p-6 flex flex-col items-center">
-          <div className="w-full flex justify-between items-center mb-6">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-indigo-500"></span>
-              <h4 className="text-sm font-black text-slate-800">Status Internal QPR</h4>
-            </div>
-            <button 
-              onClick={() => setActiveTab("approve-qpr")} 
-              className="text-[10px] text-blue-600 font-bold hover:underline flex items-center gap-0.5 cursor-pointer"
-            >
-              Kamus Status
-              <ChevronRight size={10} />
-            </button>
-          </div>
-
-          {renderDonutChart(
-            totalQprs,
-            [
-              { value: qprClosed, color: "#10b981", label: "Selesai Disetujui" },
-              { value: qprInProgress, color: "#f59e0b", label: "Sedang Diproses" }
-            ],
-            totalQprs.toString()
-          )}
-
-          <div className="w-full mt-6 space-y-2 border-t border-slate-100 pt-4">
-            <div className="flex justify-between items-center text-xs font-semibold">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
-                <span className="text-slate-500">Total Dokumen QPR</span>
-              </div>
-              <span className="text-slate-800 font-bold">{totalQprs} <span className="text-[10px] text-slate-400 font-normal">100%</span></span>
-            </div>
-            
-            <div className="flex justify-between items-center text-xs font-semibold">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
-                <span className="text-slate-500">Sedang Diproses</span>
-              </div>
-              <span className="text-slate-800 font-bold">
-                {qprInProgress} <span className="text-[10px] text-slate-400 font-normal">{Math.round((qprInProgress / totalQprs) * 100)}%</span>
-              </span>
-            </div>
-
-            <div className="flex justify-between items-center text-xs font-semibold">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-                <span className="text-slate-500">Selesai Disetujui</span>
-              </div>
-              <span className="text-slate-800 font-bold">
-                {qprClosed} <span className="text-[10px] text-slate-400 font-normal">{Math.round((qprClosed / totalQprs) * 100)}%</span>
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Claim Donut Card */}
-        <div className="bg-white border border-slate-150 rounded-xl shadow-sm p-6 flex flex-col items-center">
-          <div className="w-full flex justify-between items-center mb-6">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-              <h4 className="text-sm font-black text-slate-800">Status Klaim Bulanan</h4>
-            </div>
-            <button 
-              onClick={() => setActiveTab("list-qpr")} 
-              className="text-[10px] text-blue-600 font-bold hover:underline flex items-center gap-0.5 cursor-pointer"
-            >
-              Kamus Status
-              <ChevronRight size={10} />
-            </button>
-          </div>
-
-          {renderDonutChart(
-            totalClaimsCount,
-            [
-              { value: claimClosedPaidCount, color: "#10b981", label: "Closed Paid" },
-              { value: claimPendingCount, color: "#f59e0b", label: "Tunggu Keuangan" }
-            ],
-            totalClaimsCount.toString()
-          )}
-
-          <div className="w-full mt-6 space-y-2 border-t border-slate-100 pt-4">
-            <div className="flex justify-between items-center text-xs font-semibold">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
-                <span className="text-slate-500">Total Transaksi Klaim</span>
-              </div>
-              <span className="text-slate-800 font-bold">{totalClaimsCount} <span className="text-[10px] text-slate-400 font-normal">100%</span></span>
-            </div>
-            
-            <div className="flex justify-between items-center text-xs font-semibold">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
-                <span className="text-slate-500">Tunggu Keuangan (Finance)</span>
-              </div>
-              <span className="text-slate-800 font-bold">
-                {claimPendingCount} <span className="text-[10px] text-slate-400 font-normal">{Math.round((claimPendingCount / totalClaimsCount) * 100)}%</span>
-              </span>
-            </div>
-
-            <div className="flex justify-between items-center text-xs font-semibold">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-                <span className="text-slate-500">Harga Terinput</span>
-              </div>
-              <span className="text-slate-800 font-bold">
-                {claimClosedPaidCount} <span className="text-[10px] text-slate-400 font-normal">{Math.round((claimClosedPaidCount / totalClaimsCount) * 100)}%</span>
-              </span>
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-      {/* Claim Value Breakdown & Workflow Details */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Bar chart for claim bulanan */}
-        <div className="lg:col-span-2 bg-white border border-slate-150 rounded-xl shadow-sm p-6 flex flex-col text-left space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <TrendingUp size={18} className="text-blue-650" />
-              <h4 className="text-sm font-black text-slate-800">Trend Status Klaim Finansial Bulanan</h4>
-            </div>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tahun 2026</span>
-          </div>
-
-          <div className="h-56 flex items-end justify-between px-6 pt-4 gap-8">
-            {/* April */}
-            <div className="flex flex-col items-center flex-1 space-y-2 h-full justify-end group">
-              <div className="text-[10px] font-extrabold text-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity">
-                Rp 18.2M
-              </div>
-              <div 
-                className="w-full bg-emerald-400 hover:bg-emerald-550 rounded-t-lg transition-all duration-300 relative shadow-sm"
-                style={{ height: "40%" }}
-              >
-                <div className="absolute top-2 left-0 right-0 text-[8px] font-black text-white text-center">Deduction</div>
-              </div>
-              <span className="text-xs font-bold text-slate-600">April</span>
-            </div>
-
-            {/* May */}
-            <div className="flex flex-col items-center flex-1 space-y-2 h-full justify-end group">
-              <div className="text-[10px] font-extrabold text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">
-                Rp 36.5M
-              </div>
-              <div 
-                className="w-full bg-blue-500 hover:bg-blue-600 rounded-t-lg transition-all duration-300 relative shadow-sm"
-                style={{ height: "80%" }}
-              >
-                <div className="absolute top-2 left-0 right-0 text-[8px] font-black text-white text-center">Deduction + Cash</div>
-              </div>
-              <span className="text-xs font-bold text-slate-600">Mei</span>
-            </div>
-
-            {/* June */}
-            <div className="flex flex-col items-center flex-1 space-y-2 h-full justify-end group">
-              <div className="text-[10px] font-extrabold text-amber-600 opacity-0 group-hover:opacity-100 transition-opacity">
-                Rp {dynamicClaimsValue > 0 ? (dynamicClaimsValue / 1000000).toFixed(1) : "0"}M
-              </div>
-              <div 
-                className="w-full bg-amber-400 hover:bg-amber-500 rounded-t-lg transition-all duration-300 relative shadow-sm animate-pulse-ring"
-                style={{ height: dynamicClaimsValue > 0 ? "50%" : "8%" }}
-              >
-                <div className="absolute top-2 left-0 right-0 text-[8px] font-black text-white text-center">
-                  {dynamicClaimsValue > 0 ? "Otorisasi..." : "Draf QPR"}
-                </div>
-              </div>
-              <span className="text-xs font-bold text-slate-600">Juni</span>
+            {/* Search filter for global pipeline */}
+            <div className="relative w-full sm:w-60">
+              <Search className="absolute left-2.5 top-2.5 text-slate-400" size={13} />
+              <input
+                type="text"
+                placeholder="Cari No. Dokumen, Vendor..."
+                value={globalSearch}
+                onChange={e => setGlobalSearch(e.target.value)}
+                className="w-full pl-8 pr-3 py-1.5 border border-slate-200 bg-slate-50/50 rounded-lg text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white text-slate-800"
+              />
             </div>
           </div>
 
-          <div className="border-t border-slate-100 pt-4 flex flex-col sm:flex-row justify-between text-xs gap-3">
-            <div className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded bg-emerald-400 inline-block"></span>
-              <span className="text-slate-500 font-semibold">April: Rp 18.200.000 (Closed Paid)</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded bg-blue-500 inline-block"></span>
-              <span className="text-slate-500 font-semibold">Mei: Rp 36.500.000 (Selesai & Tunggu Vendor)</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded bg-amber-400 inline-block"></span>
-              <span className="text-slate-500 font-semibold">Juni: Rp {dynamicClaimsValue.toLocaleString("id-ID")} (Dynamic Draft)</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Claim Status Workflow Breakdown Card */}
-        <div className="bg-white border border-slate-150 rounded-xl shadow-sm p-6 flex flex-col text-left space-y-4">
-          <div className="flex items-center gap-2">
-            <Clock size={18} className="text-blue-600" />
-            <h4 className="text-sm font-black text-slate-800">Workflow & Status Klaim</h4>
-          </div>
-
-          <div className="space-y-4 pt-2">
-            {/* Approved / Paid */}
-            <div className="p-3.5 bg-emerald-50/50 border border-emerald-100 rounded-lg flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-emerald-500 text-white flex items-center justify-center font-bold">
-                  ✓
-                </div>
-                <div>
-                  <h5 className="text-xs font-black text-slate-800">Approved & Closed Paid</h5>
-                  <p className="text-[10px] text-slate-400 mt-0.5">Denda lunas / terpotong tagihan.</p>
-                </div>
-              </div>
-              <span className="text-sm font-black text-emerald-600 bg-emerald-100 px-3 py-1 rounded-md">
-                {claimClosedPaidCount}
-              </span>
-            </div>
-
-            {/* Pending Workflow */}
-            <div className="p-3.5 bg-amber-50/50 border border-amber-100 rounded-lg flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-amber-500 text-white flex items-center justify-center font-bold">
-                  ⋯
-                </div>
-                <div>
-                  <h5 className="text-xs font-black text-slate-800">Pending / Waiting Decision</h5>
-                  <p className="text-[10px] text-slate-400 mt-0.5">Menunggu respon vendor & approval.</p>
-                </div>
-              </div>
-              <span className="text-sm font-black text-amber-600 bg-amber-100 px-3 py-1 rounded-md">
-                {claimPendingCount}
-              </span>
-            </div>
-
-            {/* Rejected / Cancelled */}
-            <div className="p-3.5 bg-rose-50/50 border border-rose-100 rounded-lg flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-rose-500 text-white flex items-center justify-center font-bold">
-                  ✕
-                </div>
-                <div>
-                  <h5 className="text-xs font-black text-slate-800">Rejected / Ditolak</h5>
-                  <p className="text-[10px] text-slate-400 mt-0.5">Dispute / Negosiasi ulang denda.</p>
-                </div>
-              </div>
-              <span className="text-sm font-black text-rose-600 bg-rose-100 px-3 py-1 rounded-md">
-                {claimRejectedCount}
-              </span>
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-      {/* Confirmation Letter Monitoring Card */}
-      <div className="bg-white border border-slate-150 rounded-xl shadow-sm p-6 text-left space-y-4">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-100 pb-3">
-          <div className="text-left">
-            <div className="flex items-center gap-2">
-              <FileCheck size={18} className="text-indigo-600" />
-              <h4 className="text-sm font-black text-slate-800 font-sans">Status & Pemantauan Confirmation Letter (CL) Vendor</h4>
-            </div>
-            <p className="text-[10px] text-slate-400 mt-0.5 font-semibold">
-              Surat konfirmasi denda finansial yang telah dikirim ke vendor untuk proses otorisasi.
-            </p>
-          </div>
-          <button
-            onClick={() => setActiveTab("confirmation-letter")}
-            className="text-[10px] text-blue-600 font-bold hover:underline flex items-center gap-0.5 cursor-pointer self-start sm:self-auto"
-          >
-            Kelola & Kirim CL
-            <ChevronRight size={10} />
-          </button>
-        </div>
-
-        {/* Small CL Stats Grid */}
-        <div className="grid grid-cols-3 gap-4 py-1">
-          <div className="bg-indigo-50/50 p-2.5 rounded-lg border border-indigo-100/50 text-left">
-            <span className="text-[9px] font-bold text-slate-400 block uppercase">Total Terkirim</span>
-            <strong className="text-base font-black text-indigo-700">{confirmationLetters.length}</strong>
-          </div>
-          <div className="bg-emerald-50/50 p-2.5 rounded-lg border border-emerald-100/50 text-left">
-            <span className="text-[9px] font-bold text-slate-400 block uppercase">Sudah di-Approval</span>
-            <strong className="text-base font-black text-emerald-700">
-              {confirmationLetters.filter((cl: any) => cl.status === "APPROVED").length}
-            </strong>
-          </div>
-          <div className="bg-amber-50/50 p-2.5 rounded-lg border border-amber-100/50 text-left">
-            <span className="text-[9px] font-bold text-slate-400 block uppercase">Belum di-Approval</span>
-            <strong className="text-base font-black text-amber-700">
-              {confirmationLetters.filter((cl: any) => cl.status === "PENDING").length}
-            </strong>
-          </div>
-        </div>
-
-        <div className="overflow-x-auto pt-2">
-          <table className="w-full text-xs text-left text-slate-500">
-            <thead className="text-[10px] text-slate-450 bg-slate-50 uppercase tracking-wider font-bold">
-              <tr>
-                <th className="px-4 py-2.5">No. Confirmation Letter</th>
-                <th className="px-4 py-2.5">Vendor / Supplier</th>
-                <th className="px-4 py-2.5">Nilai Klaim</th>
-                <th className="px-4 py-2.5 text-center">AOP Internal Memo</th>
-                <th className="px-4 py-2.5 text-center">Status Approval Vendor</th>
-                <th className="px-4 py-2.5 text-right">Aksi</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {confirmationLetters.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-4 py-6 text-center text-slate-450 italic font-semibold">
-                    Belum ada Confirmation Letter terkirim.
-                  </td>
-                </tr>
-              ) : (
-                confirmationLetters.map((cl: any) => (
-                  <tr key={cl.id} className="hover:bg-slate-50 transition-colors font-semibold">
-                    <td className="px-4 py-2.5 font-mono font-bold text-slate-800">{cl.clNumber}</td>
-                    <td className="px-4 py-2.5 text-slate-700 font-bold">{cl.supplierName}</td>
-                    <td className="px-4 py-2.5 text-red-600 font-extrabold">{cl.amount}</td>
-                    <td className="px-4 py-2.5 text-center">
-                      <span className="px-2 py-0.5 rounded bg-blue-55 border border-blue-150 text-blue-800 text-[9px] font-bold">
-                        {cl.memoStatus === "SENT_AOP" ? "Sent to AOP" : "Draft"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2.5 text-center">
-                      {cl.status === "APPROVED" ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-green-50 text-green-700 border border-green-200 rounded-full text-[10px] font-bold">
-                          <CheckCircle2 size={10} className="text-green-600" />
-                          Sudah di-Approval
+          <div className="overflow-y-auto max-h-96 pr-2 space-y-3">
+            {filteredGlobalPipelines.length === 0 ? (
+              <p className="text-xs text-slate-400 italic py-8 text-center">Tidak ada dokumen aktif yang cocok dengan kriteria pencarian.</p>
+            ) : (
+              filteredGlobalPipelines.map((p) => (
+                <div key={p.id} className="p-3 border border-slate-100 rounded-lg bg-slate-50/30 hover:bg-slate-50/60 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 font-semibold text-xs text-slate-600">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                      p.type === "NCR" 
+                        ? "bg-blue-50 text-blue-700" 
+                        : p.type === "QPR" 
+                          ? "bg-indigo-50 text-indigo-700"
+                          : "bg-emerald-50 text-emerald-700"
+                    }`}>
+                      {p.type === "NCR" ? <ShieldAlert size={15} /> : p.type === "QPR" ? <Layers size={15} /> : <FileCheck size={15} />}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <strong className="text-slate-800 font-bold font-mono">{p.docNumber}</strong>
+                        <span className="text-[8px] font-black uppercase px-1.5 py-0.2 rounded border bg-slate-100 text-slate-500">
+                          {p.type}
                         </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-[10px] font-bold">
-                          <Clock size={10} className="text-amber-600 animate-pulse" />
-                          Belum di-Approval
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-2.5 text-right">
-                      <div className="flex items-center justify-end gap-2 font-sans">
-                        <button
-                          onClick={() => setPreviewClDoc(cl)}
-                          className="px-2 py-1 bg-blue-600 hover:bg-blue-750 text-white font-bold rounded text-[10px] shadow-sm cursor-pointer border border-blue-700 hover:scale-105 transition-all"
-                          title="Lihat Confirmation Letter PDF"
-                        >
-                          Lihat PDF
-                        </button>
-                        {cl.status === "PENDING" && setConfirmationLetters && (
-                          <button
-                            onClick={() => {
-                              setConfirmationLetters(prev => prev.map(item => 
-                                item.id === cl.id ? { ...item, status: "APPROVED" } : item
-                              ));
-                              alert(`Simulasi persetujuan vendor sukses untuk ${cl.clNumber}!`);
-                            }}
-                            className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded text-[10px] shadow-sm cursor-pointer border border-emerald-750 hover:scale-105 transition-all"
-                            title="Simulasikan approval dari vendor"
-                          >
-                            Approve
-                          </button>
-                        )}
-                        <button
-                          onClick={() => {
-                            alert(`Reminder untuk ${cl.clNumber} berhasil dikirim ulang!`);
-                            if (setConfirmationLetters) {
-                              setConfirmationLetters(prev => prev.map(item => 
-                                item.id === cl.id ? { ...item, reminderSentCount: item.reminderSentCount + 1 } : item
-                              ));
-                            }
-                          }}
-                          className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-350 font-bold rounded text-[10px] cursor-pointer hover:scale-105 transition-all"
-                          title={`Kirim reminder email (Terkirim: ${cl.reminderSentCount}x)`}
-                        >
-                          Remind
-                        </button>
                       </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                      <p className="text-[10px] text-slate-505 font-semibold mt-0.5">
+                        Supplier: <span className="font-bold text-slate-700">{p.vendor}</span> • Tgl: {p.date}
+                      </p>
+                    </div>
+                  </div>
 
-      {/* Action Items List (Integrated Action Center) */}
-      <div className="bg-white border border-slate-150 rounded-xl shadow-sm p-6 text-left space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <FileText size={18} className="text-blue-600" />
-            <h4 className="text-sm font-black text-slate-800">Daftar Tunggu Tindakan Otorisasi (Action Items)</h4>
+                  <div className="flex items-center gap-4 justify-between sm:justify-end">
+                    <div className="text-left sm:text-right">
+                      <span className="text-[9px] text-slate-400 block uppercase font-bold">Status Otorisasi</span>
+                      <span className="font-bold text-slate-700">{p.requiredRole}</span>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className="text-[9px] text-slate-400 block uppercase font-bold">Nilai Klaim</span>
+                      <strong className={`font-black ${p.amount !== "-" ? "text-red-650" : "text-slate-500"}`}>{p.amount}</strong>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
-          <span className="text-[10px] font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded-full uppercase tracking-wider">
-            {pendingNcrs.length + pendingQprs.length} Tindakan Butuh Perhatian
-          </span>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left text-slate-500">
-            <thead className="text-[10px] text-slate-400 bg-slate-50 uppercase tracking-wider font-bold">
-              <tr>
-                <th className="px-4 py-3">No. Dokumen</th>
-                <th className="px-4 py-3">Tipe</th>
-                <th className="px-4 py-3">Supplier / Vendor</th>
-                <th className="px-4 py-3">Status Pipeline</th>
-                <th className="px-4 py-3">Otoritas yang Dibutuhkan</th>
-                <th className="px-4 py-3 text-right">Aksi</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {pendingNcrs.map(ncr => (
-                <tr key={ncr.id} className="hover:bg-slate-50 transition-colors font-semibold">
-                  <td className="px-4 py-3.5 font-bold text-slate-800">{ncr.ncrNumber}</td>
-                  <td className="px-4 py-3.5">
-                    <span className="px-2.5 py-1 rounded bg-blue-100 text-blue-800 text-[10px] font-bold">NCR / NQR</span>
-                  </td>
-                  <td className="px-4 py-3.5 text-slate-700 font-bold">{ncr.supplierName}</td>
-                  <td className="px-4 py-3.5">
-                    <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-800 text-[9px] font-extrabold uppercase">
-                      Tunggu Approval
-                    </span>
-                  </td>
-                  <td className="px-4 py-3.5 font-bold text-slate-600">Role: {ncr.requiredRole}</td>
-                  <td className="px-4 py-3.5 text-right">
-                    <button
-                      onClick={() => setActiveTab("approve-ncr")}
-                      className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-750 text-white rounded text-[10px] font-bold shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-1 ml-auto cursor-pointer"
-                    >
-                      Otorisasi
-                      <ArrowRight size={10} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
+        {/* Global Recent Activity Log Feed */}
+        <div className="bg-white border border-slate-150 rounded-xl shadow-sm p-6 text-left space-y-4">
+          <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+            <Activity size={18} className="text-violet-650 animate-pulse" />
+            <h4 className="text-sm font-black text-slate-800">Aktivitas Sistem Terbaru</h4>
+          </div>
 
-              {pendingQprs.map(qpr => (
-                <tr key={qpr.id} className="hover:bg-slate-50 transition-colors font-semibold">
-                  <td className="px-4 py-3.5 font-bold text-slate-800">{qpr.qprNumber}</td>
-                  <td className="px-4 py-3.5">
-                    <span className="px-2.5 py-1 rounded bg-indigo-100 text-indigo-800 text-[10px] font-bold">QPR Claim</span>
-                  </td>
-                  <td className="px-4 py-3.5 text-slate-700 font-bold">{qpr.supplierName}</td>
-                  <td className="px-4 py-3.5">
-                    <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-800 text-[9px] font-extrabold uppercase">
-                      Tunggu Approval
-                    </span>
-                  </td>
-                  <td className="px-4 py-3.5 font-bold text-slate-600">Role: {qpr.requiredRole}</td>
-                  <td className="px-4 py-3.5 text-right">
-                    <button
-                      onClick={() => setActiveTab("approve-qpr")}
-                      className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-[10px] font-bold shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-1 ml-auto cursor-pointer"
-                    >
-                      Otorisasi
-                      <ArrowRight size={10} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
+          <div className="relative pl-4 border-l border-slate-100 space-y-5 text-xs py-2 pr-1 max-h-96 overflow-y-auto">
+            {/* Activity 1 */}
+            <div className="relative space-y-1">
+              <span className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-blue-600 border border-white" />
+              <div className="text-slate-400 text-[9px] font-bold uppercase tracking-wider">10 Juli 2026 - 15:30</div>
+              <h5 className="font-bold text-slate-800">NCR Baru Diterbitkan</h5>
+              <p className="text-[10px] text-slate-505 font-semibold">
+                QC Staff membuat dokumen <span className="font-mono font-bold text-blue-700">NCR/2026/06/031</span> untuk PT JAYADI.
+              </p>
+            </div>
 
-              {pendingNcrs.length === 0 && pendingQprs.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-slate-400 italic">
-                    Tidak ada dokumen yang menunggu tindakan approval Anda saat ini.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+            {/* Activity 2 */}
+            <div className="relative space-y-1">
+              <span className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-emerald-500 border border-white" />
+              <div className="text-slate-400 text-[9px] font-bold uppercase tracking-wider">09 Juli 2026 - 11:15</div>
+              <h5 className="font-bold text-slate-800">Persetujuan Otorisasi Dept Head</h5>
+              <p className="text-[10px] text-slate-505 font-semibold">
+                Dokumen <span className="font-mono font-bold text-indigo-750">QPR/2026/05/RUICHENG</span> berhasil disetujui di tingkat Dept Head.
+              </p>
+            </div>
+
+            {/* Activity 3 */}
+            <div className="relative space-y-1">
+              <span className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-amber-500 border border-white" />
+              <div className="text-slate-400 text-[9px] font-bold uppercase tracking-wider">08 Juli 2026 - 09:45</div>
+              <h5 className="font-bold text-slate-800">Confirmation Letter Terkirim</h5>
+              <p className="text-[10px] text-slate-550 font-semibold">
+                Surat konfirmasi denda <span className="font-mono font-bold text-slate-700">CL/2026/06/002</span> dikirimkan ke PT IKAN BAKAR.
+              </p>
+            </div>
+
+            {/* Activity 4 */}
+            <div className="relative space-y-1">
+              <span className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-indigo-500 border border-white" />
+              <div className="text-slate-400 text-[9px] font-bold uppercase tracking-wider">06 Juli 2026 - 14:00</div>
+              <h5 className="font-bold text-slate-800">Draft QPR Disimpan</h5>
+              <p className="text-[10px] text-slate-550 font-semibold">
+                Operator menyelesaikan pengisian QPR Draft untuk periode Mei 2026 PT JAYADI.
+              </p>
+            </div>
+          </div>
         </div>
+
       </div>
 
       {previewClDoc && (
