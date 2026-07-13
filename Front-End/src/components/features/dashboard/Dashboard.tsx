@@ -12,11 +12,66 @@ import {
   Sparkles,
   ShieldAlert,
   Layers,
-  FileCheck
+  FileCheck,
+  CheckCircle2,
+  Clock,
+  X,
+  Eye
 } from "lucide-react";
 
 import ConfirmationLetterPrintPreview from "../role-views/ConfirmationLetterPrintPreview";
-import LeadTimeTracker from "./LeadTimeTracker";
+
+interface PipelineStage {
+  name: string;
+  status: "APPROVED" | "PENDING" | "UPCOMING";
+}
+
+const getDocPipelineStages = (
+  type: string,
+  requiredRole?: string,
+  status?: string
+): PipelineStage[] => {
+  const isApproved = status === "APPROVED" || status === "CLOSED" || status === "CLOSED_PAID" || requiredRole === "Closed";
+
+  if (type === "NCR") {
+    const chain = ["QC Staff", "SPV QA", "MNG QA"];
+    if (isApproved) return chain.map(name => ({ name, status: "APPROVED" }));
+    let currentIndex = 0;
+    if (requiredRole === "Section Head") currentIndex = 1;
+    if (requiredRole === "Dept Head") currentIndex = 2;
+
+    return chain.map((name, idx) => {
+      if (idx < currentIndex) return { name, status: "APPROVED" };
+      if (idx === currentIndex) return { name, status: "PENDING" };
+      return { name, status: "UPCOMING" };
+    });
+  } else if (type === "QPR") {
+    const chain = ["Sec. Head", "Dept. Head", "Div. Head", "Accounting"];
+    if (isApproved) return chain.map(name => ({ name, status: "APPROVED" }));
+    let currentIndex = 0;
+    if (requiredRole === "Dept Head") currentIndex = 1;
+    if (requiredRole === "Div Head") currentIndex = 2;
+    if (requiredRole === "Accounting") currentIndex = 3;
+
+    return chain.map((name, idx) => {
+      if (idx < currentIndex) return { name, status: "APPROVED" };
+      if (idx === currentIndex) return { name, status: "PENDING" };
+      return { name, status: "UPCOMING" };
+    });
+  } else {
+    // Confirmation Letter (CL)
+    const chain = ["Vendor Conf.", "Accounting"];
+    if (isApproved) return chain.map(name => ({ name, status: "APPROVED" }));
+    let currentIndex = 0;
+    if (requiredRole === "Accounting Approval") currentIndex = 1;
+
+    return chain.map((name, idx) => {
+      if (idx < currentIndex) return { name, status: "APPROVED" };
+      if (idx === currentIndex) return { name, status: "PENDING" };
+      return { name, status: "UPCOMING" };
+    });
+  }
+};
 
 interface DashboardProps {
   pendingNcrs: any[];
@@ -38,6 +93,7 @@ export default function Dashboard({
   const [previewClDoc, setPreviewClDoc] = useState<any | null>(null);
   const [selectedRoleCard, setSelectedRoleCard] = useState<string | null>(null);
   const [globalSearch, setGlobalSearch] = useState("");
+  const [selectedPipelineDoc, setSelectedPipelineDoc] = useState<any | null>(null);
 
   const periods = [
     "Januari 2026",
@@ -314,17 +370,92 @@ export default function Dashboard({
     }))
   ];
 
-  // Filter global pipelines based on globalSearch
-  const filteredGlobalPipelines = globalPipelines.filter(p => {
-    const term = globalSearch.toLowerCase();
-    return (
-      p.docNumber.toLowerCase().includes(term) ||
-      p.vendor.toLowerCase().includes(term) ||
-      p.requiredRole.toLowerCase().includes(term) ||
-      p.stage.toLowerCase().includes(term) ||
-      p.type.toLowerCase().includes(term)
-    );
-  });
+  // Combined list of all documents with their pipeline stages and lead time status
+  const documentPipelineList = [
+    ...pendingNcrs.map(n => {
+      const lt = getDocLeadTimes(n);
+      return {
+        id: `ncr-${n.id}`,
+        docNumber: n.ncrNumber,
+        type: "NCR",
+        vendor: n.supplierName,
+        date: n.date,
+        requiredRole: n.requiredRole,
+        status: n.status,
+        leadTime: lt.totalLeadTime,
+        isClosed: n.status === "APPROVED" || n.status === "CLOSED_PAID"
+      };
+    }),
+    ...pendingQprs.map(q => {
+      const lt = getDocLeadTimes(q);
+      return {
+        id: `qpr-${q.id}`,
+        docNumber: q.qprNumber,
+        type: "QPR",
+        vendor: q.supplierName,
+        date: q.date,
+        requiredRole: q.requiredRole,
+        status: q.status,
+        leadTime: lt.totalLeadTime,
+        isClosed: q.status === "APPROVED" || q.status === "CLOSED_PAID"
+      };
+    }),
+    ...confirmationLetters.map(cl => {
+      const lt = getDocLeadTimes(cl);
+      return {
+        id: `cl-${cl.id}`,
+        docNumber: cl.clNumber,
+        type: "CL",
+        vendor: cl.supplierName,
+        date: cl.dateSent,
+        requiredRole: cl.status === "PENDING" ? "Vendor Confirmation" : "Closed",
+        status: cl.status,
+        leadTime: lt.totalLeadTime,
+        isClosed: cl.status === "APPROVED" || cl.status === "CLOSED_PAID"
+      };
+    })
+  ];
+
+  const historicalClosedDocs = [
+    {
+      id: "hist-1",
+      docNumber: "QPR/2026/04/JAYADI",
+      type: "QPR",
+      vendor: "PT JAYADI",
+      date: "2026-04-10",
+      requiredRole: "Closed",
+      status: "APPROVED",
+      leadTime: 12,
+      isClosed: true
+    },
+    {
+      id: "hist-2",
+      docNumber: "QPR/2026/05/IKAN_BAKAR",
+      type: "QPR",
+      vendor: "PT IKAN BAKAR",
+      date: "2026-05-15",
+      requiredRole: "Closed",
+      status: "APPROVED",
+      leadTime: 11,
+      isClosed: true
+    },
+    {
+      id: "hist-3",
+      docNumber: "NCR/2026/06/015",
+      type: "NCR",
+      vendor: "PT IKAN BAKAR",
+      date: "2026-06-15",
+      requiredRole: "Closed",
+      status: "APPROVED",
+      leadTime: 8,
+      isClosed: true
+    }
+  ];
+
+  const allDocPipelines = [
+    ...documentPipelineList,
+    ...historicalClosedDocs
+  ];
 
   return (
     <div className="space-y-6 text-left animate-in fade-in duration-300">
@@ -366,19 +497,13 @@ export default function Dashboard({
         </div>
       </div>
 
-      {/* Lead Time Tracker per Document */}
-      <LeadTimeTracker
-        pendingQprs={pendingQprs}
-        confirmationLetters={confirmationLetters}
-      />
-
       {/* Grid: 5 Lead Time Role Cards (Interactive) */}
       <div className="space-y-4">
         <div>
-          <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest block mb-1">
+          <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest block mb-1">
             Status Lead Time &amp; Dokumen Mengendap Berdasarkan Peran Otorisasi
           </h4>
-          <p className="text-[10px] text-slate-500 font-semibold">
+          <p className="text-xs text-slate-500 font-semibold">
             Pilih atau tekan salah satu kartu otorisasi di bawah ini untuk melihat rincian dokumen yang mengendap pada tahapan tersebut.
           </p>
         </div>
@@ -404,24 +529,24 @@ export default function Dashboard({
                   <div className={`w-8 h-8 rounded-lg ${role.iconColor} flex items-center justify-center shadow-sm shrink-0`}>
                     <UserCheck size={16} />
                   </div>
-                  <span className="text-[9px] font-black uppercase bg-white border border-slate-200 rounded px-1.5 py-0.5 text-slate-500 shadow-sm">
+                  <span className="text-[11px] font-black uppercase bg-white border border-slate-200 rounded px-1.5 py-0.5 text-slate-500 shadow-sm">
                     Step
                   </span>
                 </div>
 
                 <div className="mt-2 space-y-1">
-                  <h5 className="text-[10px] font-black text-slate-805 tracking-tight leading-tight truncate group-hover:text-blue-600 transition-colors">
+                  <h5 className="text-xs font-black text-slate-850 tracking-tight leading-tight truncate group-hover:text-blue-600 transition-colors">
                     {role.title}
                   </h5>
                   <div className="flex items-baseline gap-1.5 mt-0.5">
                     <strong className="text-xl font-black text-slate-900 leading-none">
                       {totalStuckDocs}
                     </strong>
-                    <span className="text-[9.5px] font-bold text-slate-550">
+                    <span className="text-xs font-bold text-slate-550">
                       Dokumen Mengendap
                     </span>
                   </div>
-                  <p className="text-[8.5px] font-semibold text-slate-500">
+                  <p className="text-[11px] font-semibold text-slate-500">
                     Akumulasi: <span className="font-bold text-red-650">{totalStuckDays} Hari</span>
                   </p>
                 </div>
@@ -519,125 +644,172 @@ export default function Dashboard({
         })()}
       </div>
 
-      {/* Global Application Activity Tracking Monitor */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Unified Global Pipeline Pipeline tracker */}
-        <div className="lg:col-span-2 bg-white border border-slate-150 rounded-xl shadow-sm p-6 text-left space-y-4">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-100 pb-3">
-            <div className="flex items-center gap-2">
-              <Activity size={18} className="text-blue-600" />
-              <h4 className="text-sm font-black text-slate-800">Pelacakan Global Pipeline Aktivitas Dokumen</h4>
-            </div>
-            {/* Search filter for global pipeline */}
-            <div className="relative w-full sm:w-60">
-              <Search className="absolute left-2.5 top-2.5 text-slate-400" size={13} />
-              <input
-                type="text"
-                placeholder="Cari No. Dokumen, Vendor..."
-                value={globalSearch}
-                onChange={e => setGlobalSearch(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 border border-slate-200 bg-slate-50/50 rounded-lg text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white text-slate-800"
-              />
-            </div>
-          </div>
+      {/* Visual Pipeline & Lead Time tracking per document */}
+      <div className="bg-white border border-slate-150 rounded-xl shadow-sm p-6 text-left space-y-4">
+        <div>
+          <h4 className="text-sm font-black text-slate-800 uppercase tracking-wide flex items-center gap-2">
+            <Activity size={16} className="text-blue-650 animate-pulse" />
+            Pelacakan Pipeline &amp; Lead Time Durasi per Dokumen
+          </h4>
+          <p className="text-xs text-slate-500 font-semibold mt-0.5">
+            Menampilkan status pelacakan alur otorisasi dokumen beserta akumulasi waktu pengerjaan hingga selesai (Close Paid).
+          </p>
+        </div>
 
-          <div className="overflow-y-auto max-h-96 pr-2 space-y-3">
-            {filteredGlobalPipelines.length === 0 ? (
-              <p className="text-xs text-slate-400 italic py-8 text-center">Tidak ada dokumen aktif yang cocok dengan kriteria pencarian.</p>
-            ) : (
-              filteredGlobalPipelines.map((p) => (
-                <div key={p.id} className="p-3 border border-slate-100 rounded-lg bg-slate-50/30 hover:bg-slate-50/60 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 font-semibold text-xs text-slate-600">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                      p.type === "NCR" 
-                        ? "bg-blue-50 text-blue-700" 
-                        : p.type === "QPR" 
-                          ? "bg-indigo-50 text-indigo-700"
-                          : "bg-emerald-50 text-emerald-700"
-                    }`}>
-                      {p.type === "NCR" ? <ShieldAlert size={15} /> : p.type === "QPR" ? <Layers size={15} /> : <FileCheck size={15} />}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <strong className="text-slate-800 font-bold font-mono">{p.docNumber}</strong>
-                        <span className="text-[8px] font-black uppercase px-1.5 py-0.2 rounded border bg-slate-100 text-slate-500">
-                          {p.type}
+        <div className="overflow-x-auto border border-slate-200 rounded-lg">
+          <table className="w-full text-left border-collapse text-xs">
+            <thead className="bg-slate-50 text-slate-700 font-extrabold border-b border-slate-200 whitespace-nowrap">
+              <tr>
+                <th className="px-4 py-3 w-12 text-center">No</th>
+                <th className="px-4 py-3">No. Dokumen</th>
+                <th className="px-4 py-3">Vendor / Supplier</th>
+                <th className="px-4 py-3 text-center w-24">Tipe</th>
+                <th className="px-4 py-3 text-center w-40">Lead Time / Durasi</th>
+                <th className="px-4 py-3 text-center w-24">Aksi</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 whitespace-nowrap">
+              {allDocPipelines.map((doc, idx) => {
+                return (
+                  <tr key={doc.id} className="hover:bg-slate-50/40 transition-colors font-semibold">
+                    <td className="px-4 py-3 text-center text-slate-400 font-mono font-bold">{idx + 1}</td>
+                    <td className="px-4 py-3 font-mono font-bold text-slate-800">{doc.docNumber}</td>
+                    <td className="px-4 py-3 font-bold text-slate-700">{doc.vendor}</td>
+                    <td className="px-4 py-3 text-center">
+                      <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                        doc.type === "NCR" 
+                          ? "bg-blue-50 text-blue-700 border border-blue-100" 
+                          : doc.type === "QPR" 
+                            ? "bg-indigo-50 text-indigo-700 border border-indigo-100"
+                            : "bg-emerald-50 text-emerald-700 border border-emerald-100"
+                      }`}>
+                        {doc.type}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      {doc.isClosed ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-green-50 text-green-700 border border-green-200 rounded-full text-xs font-bold shadow-sm">
+                          <CheckCircle2 size={10} className="text-green-600" />
+                          Close Paid: {doc.leadTime} Hari
                         </span>
-                      </div>
-                      <p className="text-[10px] text-slate-505 font-semibold mt-0.5">
-                        Supplier: <span className="font-bold text-slate-700">{p.vendor}</span> • Tgl: {p.date}
-                      </p>
-                    </div>
-                  </div>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-full text-xs font-bold shadow-sm">
+                          <Clock size={10} className="text-amber-500" />
+                          Aktif: {doc.leadTime} Hari
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <button
+                        onClick={() => setSelectedPipelineDoc(doc)}
+                        className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 rounded font-bold text-xs shadow-sm transition-all cursor-pointer inline-flex items-center gap-1.5"
+                      >
+                        <Eye size={12} />
+                        Detail
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-                  <div className="flex items-center gap-4 justify-between sm:justify-end">
-                    <div className="text-left sm:text-right">
-                      <span className="text-[9px] text-slate-400 block uppercase font-bold">Status Otorisasi</span>
-                      <span className="font-bold text-slate-700">{p.requiredRole}</span>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <span className="text-[9px] text-slate-400 block uppercase font-bold">Nilai Klaim</span>
-                      <strong className={`font-black ${p.amount !== "-" ? "text-red-650" : "text-slate-500"}`}>{p.amount}</strong>
-                    </div>
+      {selectedPipelineDoc && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="bg-white border border-slate-200 rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden animate-zoom-in text-left">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center bg-slate-50 px-6 py-4 border-b border-slate-150">
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 bg-blue-100 text-blue-800 rounded border border-blue-200/50">
+                  {selectedPipelineDoc.type} Pipeline
+                </span>
+                <h4 className="text-sm font-black text-slate-805 mt-1.5 font-mono">
+                  {selectedPipelineDoc.docNumber}
+                </h4>
+              </div>
+              <button
+                onClick={() => setSelectedPipelineDoc(null)}
+                className="p-1 text-slate-400 hover:text-slate-650 hover:bg-slate-205 rounded-lg transition-all cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-6">
+              {/* Document Summary Row */}
+              <div className="grid grid-cols-2 gap-4 bg-slate-50/55 p-4 border border-slate-150 rounded-xl text-xs">
+                <div>
+                  <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wider">Vendor / Supplier</span>
+                  <strong className="text-sm font-bold text-slate-800 mt-0.5 block">{selectedPipelineDoc.vendor}</strong>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wider">Lead Time / Durasi</span>
+                  <div className="mt-1">
+                    {selectedPipelineDoc.isClosed ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-green-50 text-green-700 border border-green-200 rounded-full font-bold">
+                        <CheckCircle2 size={11} className="text-green-600" />
+                        Close Paid: {selectedPipelineDoc.leadTime} Hari
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-full font-bold animate-pulse">
+                        <Clock size={11} className="text-amber-500" />
+                        Aktif: {selectedPipelineDoc.leadTime} Hari
+                      </span>
+                    )}
                   </div>
                 </div>
-              ))
-            )}
-          </div>
-        </div>
+              </div>
 
-        {/* Global Recent Activity Log Feed */}
-        <div className="bg-white border border-slate-150 rounded-xl shadow-sm p-6 text-left space-y-4">
-          <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-            <Activity size={18} className="text-violet-650 animate-pulse" />
-            <h4 className="text-sm font-black text-slate-800">Aktivitas Sistem Terbaru</h4>
-          </div>
-
-          <div className="relative pl-4 border-l border-slate-100 space-y-5 text-xs py-2 pr-1 max-h-96 overflow-y-auto">
-            {/* Activity 1 */}
-            <div className="relative space-y-1">
-              <span className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-blue-600 border border-white" />
-              <div className="text-slate-400 text-[9px] font-bold uppercase tracking-wider">10 Juli 2026 - 15:30</div>
-              <h5 className="font-bold text-slate-800">NCR Baru Diterbitkan</h5>
-              <p className="text-[10px] text-slate-505 font-semibold">
-                QC Staff membuat dokumen <span className="font-mono font-bold text-blue-700">NCR/2026/06/031</span> untuk PT JAYADI.
-              </p>
+              {/* Approval Stages Visualization */}
+              <div className="space-y-3">
+                <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wider font-mono">Alur Persetujuan Dokumen</span>
+                
+                <div className="flex flex-col md:flex-row md:items-center gap-2 p-4 bg-white border border-slate-150 rounded-xl overflow-x-auto">
+                  {getDocPipelineStages(selectedPipelineDoc.type, selectedPipelineDoc.requiredRole, selectedPipelineDoc.status).map((stage, i, arr) => (
+                    <React.Fragment key={i}>
+                      <div
+                        className={`flex flex-col p-3 rounded-lg border flex-1 min-w-[120px] transition-all ${
+                          stage.status === "APPROVED"
+                            ? "bg-green-50/40 text-green-800 border-green-200 shadow-sm"
+                            : stage.status === "PENDING"
+                            ? "bg-amber-50 text-amber-800 border-amber-300 ring-2 ring-amber-100 shadow-sm"
+                            : "bg-slate-50 text-slate-400 border-slate-200 border-dashed"
+                        }`}
+                      >
+                        <div className="flex justify-between items-center w-full">
+                          <span className="text-[10px] font-black uppercase tracking-wider">Stage {i + 1}</span>
+                          {stage.status === "APPROVED" && <CheckCircle2 size={12} className="text-green-600" />}
+                          {stage.status === "PENDING" && <Clock size={12} className="text-amber-500" />}
+                        </div>
+                        <strong className="text-xs font-bold mt-1.5 leading-tight truncate">{stage.name}</strong>
+                        <span className="text-[9px] text-slate-400 font-semibold mt-1 uppercase">
+                          {stage.status === "APPROVED" ? "Selesai" : stage.status === "PENDING" ? "Sedang Diproses" : "Belum Mulai"}
+                        </span>
+                      </div>
+                      {i < arr.length - 1 && (
+                        <div className="hidden md:flex text-slate-300 font-black text-lg select-none shrink-0 mx-1">→</div>
+                      )}
+                    </React.Fragment>
+                  ))}
+                </div>
+              </div>
             </div>
 
-            {/* Activity 2 */}
-            <div className="relative space-y-1">
-              <span className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-emerald-500 border border-white" />
-              <div className="text-slate-400 text-[9px] font-bold uppercase tracking-wider">09 Juli 2026 - 11:15</div>
-              <h5 className="font-bold text-slate-800">Persetujuan Otorisasi Dept Head</h5>
-              <p className="text-[10px] text-slate-505 font-semibold">
-                Dokumen <span className="font-mono font-bold text-indigo-750">QPR/2026/05/RUICHENG</span> berhasil disetujui di tingkat Dept Head.
-              </p>
-            </div>
-
-            {/* Activity 3 */}
-            <div className="relative space-y-1">
-              <span className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-amber-500 border border-white" />
-              <div className="text-slate-400 text-[9px] font-bold uppercase tracking-wider">08 Juli 2026 - 09:45</div>
-              <h5 className="font-bold text-slate-800">Confirmation Letter Terkirim</h5>
-              <p className="text-[10px] text-slate-550 font-semibold">
-                Surat konfirmasi denda <span className="font-mono font-bold text-slate-700">CL/2026/06/002</span> dikirimkan ke PT IKAN BAKAR.
-              </p>
-            </div>
-
-            {/* Activity 4 */}
-            <div className="relative space-y-1">
-              <span className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-indigo-500 border border-white" />
-              <div className="text-slate-400 text-[9px] font-bold uppercase tracking-wider">06 Juli 2026 - 14:00</div>
-              <h5 className="font-bold text-slate-800">Draft QPR Disimpan</h5>
-              <p className="text-[10px] text-slate-550 font-semibold">
-                Operator menyelesaikan pengisian QPR Draft untuk periode Mei 2026 PT JAYADI.
-              </p>
+            {/* Modal Footer */}
+            <div className="bg-slate-50 px-6 py-4 border-t border-slate-150 flex justify-end gap-3">
+              <button
+                onClick={() => setSelectedPipelineDoc(null)}
+                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-750 rounded-lg text-xs font-bold shadow-sm transition-all cursor-pointer"
+              >
+                Tutup
+              </button>
             </div>
           </div>
         </div>
-
-      </div>
+      )}
 
       {previewClDoc && (
         <ConfirmationLetterPrintPreview

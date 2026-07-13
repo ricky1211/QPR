@@ -40,6 +40,60 @@ const stageLabel = (type: string, requiredRole?: string, status?: string): strin
   return "Disetujui";
 };
 
+interface ApprovalStage {
+  name: string;
+  status: "APPROVED" | "PENDING" | "UPCOMING";
+}
+
+const getApprovalStages = (
+  type: string,
+  requiredRole?: string,
+  approvedBy: string[] = [],
+  status?: string
+): ApprovalStage[] => {
+  if (status === "APPROVED") {
+    const defaultChain =
+      type === "NCR"
+        ? ["QC Staff", "SPV QA", "MNG QA"]
+        : ["Section Head", "Dept Head", "Div Head", "Accounting"];
+    return defaultChain.map((name) => ({ name, status: "APPROVED" }));
+  }
+
+  if (type === "NCR") {
+    const chain = ["QC Staff", "SPV QA", "MNG QA"];
+    let currentIndex = 0;
+    if (requiredRole === "Section Head") currentIndex = 1;
+    if (requiredRole === "Dept Head") currentIndex = 2;
+
+    return chain.map((name, idx) => {
+      if (idx < currentIndex) {
+        return { name, status: "APPROVED" };
+      } else if (idx === currentIndex) {
+        return { name, status: "PENDING" };
+      } else {
+        return { name, status: "UPCOMING" };
+      }
+    });
+  } else {
+    const chain = ["Section Head", "Dept Head", "Div Head", "Accounting"];
+    let currentIndex = 0;
+    if (requiredRole === "Dept Head") currentIndex = 1;
+    if (requiredRole === "Div Head") currentIndex = 2;
+    if (requiredRole === "Accounting") currentIndex = 3;
+
+    return chain.map((name, idx) => {
+      if (idx < currentIndex) {
+        return { name, status: "APPROVED" };
+      } else if (idx === currentIndex) {
+        return { name, status: "PENDING" };
+      } else {
+        return { name, status: "UPCOMING" };
+      }
+    });
+  }
+};
+
+
 // All NCR + QPR documents (approved + in-progress)
 const allDocuments = [
   // --- IN-PROGRESS NCRs ---
@@ -743,7 +797,7 @@ export default function ListQprDashboard() {
 
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
-            <thead className="bg-slate-100 text-slate-700 font-extrabold border-b border-slate-200">
+            <thead className="bg-slate-100 text-slate-700 font-extrabold border-b border-slate-200 whitespace-nowrap">
               <tr>
                 <th className="px-4 py-3 w-12 text-center">No</th>
                 <th className="px-4 py-3 w-28 text-center">Tanggal</th>
@@ -758,7 +812,7 @@ export default function ListQprDashboard() {
                     <th className="px-4 py-3 text-right">Nilai Klaim</th>
                   </>
                 )}
-                <th className="px-4 py-3 text-center w-28">Status</th>
+                <th className="px-4 py-3 text-center">Status / Tracking</th>
                 <th className="px-4 py-3 text-center w-24">Aksi</th>
               </tr>
             </thead>
@@ -773,62 +827,69 @@ export default function ListQprDashboard() {
               ) : (
                 filteredData.map((doc, idx) => {
                   return (
-                    <tr key={doc.id} className="hover:bg-slate-50/75 transition-colors font-semibold">
+                    <tr key={doc.id} className="hover:bg-slate-50/75 transition-colors font-semibold whitespace-nowrap">
                       <td className="px-4 py-3 text-center text-slate-400 font-mono font-bold">{idx + 1}</td>
                       <td className="px-4 py-3 text-center text-slate-600">{formatDateIndo(doc.date)}</td>
                       <td className="px-4 py-3 font-mono font-bold text-slate-800">{doc.docNumber}</td>
                       <td className="px-4 py-3 font-bold text-slate-700">{doc.vendorName}</td>
-                      <td className="px-4 py-3 text-slate-600">{doc.partName} <span className="text-[10px] text-slate-400 font-normal block mt-0.5 font-mono">({doc.partNumber})</span></td>
+                      <td className="px-4 py-3 text-slate-600">
+                        {doc.partName} <span className="text-[10px] text-slate-450 font-normal font-mono ml-1">({doc.partNumber})</span>
+                      </td>
                       {activeTab === "ncr" ? (
                         <td className="px-4 py-3 text-slate-650">
-                          <span className="font-bold">Reject: {doc.reject} pcs</span> / Total: {doc.qty} pcs
-                          <span className="text-[10px] text-slate-450 font-semibold block mt-0.5 italic">NG: {doc.defectType}</span>
+                          <div><span className="font-bold text-slate-700">Reject: {doc.reject} pcs</span> / Total: {doc.qty} pcs</div>
+                          <div className="text-[10px] text-slate-455 font-semibold italic mt-0.5">NG: {doc.defectType}</div>
                         </td>
                       ) : (
                         <>
                           <td className="px-4 py-3 text-right font-bold text-slate-600">{doc.allowanceRatio}</td>
-                          <td className="px-4 py-3 text-right font-black text-emerald-650">
-                            {doc.claimAmount}
-                            <span className="text-[9px] text-slate-450 block font-normal mt-0.5">NG: {doc.reject} pcs / {doc.qty} pcs</span>
+                          <td className="px-4 py-3 text-right">
+                            <div className="font-black text-emerald-650">{doc.claimAmount}</div>
+                            <div className="text-[9px] text-slate-455 font-normal mt-0.5">NG: {doc.reject} pcs / {doc.qty} pcs</div>
                           </td>
                         </>
                       )}
-                      <td className="px-4 py-3 text-center">
-                        {doc.status === "APPROVED" ? (
-                          <div className="flex flex-col items-center gap-1">
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-green-50 text-green-700 border border-green-200 rounded-full text-[10px] font-bold">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2.5 justify-center">
+                          {doc.status === "APPROVED" ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-green-50 text-green-700 border border-green-200 rounded-full text-[10px] font-bold shadow-sm shrink-0">
                               <CheckCircle2 size={10} className="text-green-600" />
                               Disetujui
                             </span>
-                            <div className="flex flex-wrap justify-center gap-1 mt-1">
-                              {(doc.approvedBy || []).map((role: string, i: number) => (
-                                <span key={i} className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded text-[8.5px] font-bold">
-                                  <CheckCircle2 size={7} className="text-emerald-500" />
-                                  {role}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="flex flex-col items-center gap-1.5">
-                            {/* Already approved roles */}
-                            {(doc.approvedBy || []).length > 0 && (
-                              <div className="flex flex-wrap justify-center gap-1">
-                                {(doc.approvedBy || []).map((role: string, i: number) => (
-                                  <span key={i} className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded text-[8.5px] font-bold">
-                                    <CheckCircle2 size={7} className="text-emerald-500" />
-                                    {role}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                            {/* Current pending role */}
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-[9px] font-bold whitespace-nowrap">
-                              <Clock size={9} className="text-amber-500 shrink-0" />
-                              {stageLabel(doc.type, doc.requiredRole, doc.status)}
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-[10px] font-bold shadow-sm shrink-0">
+                              <Clock size={10} className="text-amber-600 animate-pulse" />
+                              Proses
                             </span>
+                          )}
+
+                          {/* Divider */}
+                          <span className="text-slate-300 font-bold shrink-0">|</span>
+
+                          {/* Approval Stages Timeline Flow */}
+                          <div className="flex items-center gap-1 text-[8.5px] shrink-0">
+                            {getApprovalStages(doc.type, doc.requiredRole, doc.approvedBy, doc.status).map((stage, i, arr) => (
+                              <React.Fragment key={i}>
+                                <span
+                                  className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded font-bold transition-all border shrink-0 ${
+                                    stage.status === "APPROVED"
+                                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                      : stage.status === "PENDING"
+                                      ? "bg-amber-50 text-amber-800 border-amber-350 ring-1 ring-amber-100"
+                                      : "bg-slate-50 text-slate-400 border-slate-200 border-dashed"
+                                  }`}
+                                >
+                                  {stage.status === "APPROVED" && <CheckCircle2 size={7} className="text-emerald-500" />}
+                                  {stage.status === "PENDING" && <Clock size={7} className="text-amber-500" />}
+                                  {stage.name}
+                                </span>
+                                {i < arr.length - 1 && (
+                                  <span className="text-slate-350 font-black text-[9px] select-none shrink-0">→</span>
+                                )}
+                              </React.Fragment>
+                            ))}
                           </div>
-                        )}
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-center">
                         <button

@@ -104,10 +104,28 @@ export default function BuatQprView({ pendingQprs, setPendingQprs }: BuatQprView
       period,
       totalItems: totalQty,
       rejectItems: totalQtyNg,
-      allowanceRatio: `${((totalStdAllowance / totalQty) * 100).toFixed(1)}%`,
+      allowanceRatio: `${((totalStdAllowance / (totalQty || 1)) * 100).toFixed(1)}%`,
       claimAmount: "-",
       status: "WAITING_APPROVAL",
-      requiredRole: "Section Head"
+      requiredRole: "Section Head",
+      parts: partRows.map((row, idx) => {
+        const matchedPart = availableParts.find(p => String(p.id) === String(row.partId));
+        const totalVal = parseInt(row.totalQty) || 0;
+        const ngVal = parseInt(row.qtyNg) || 0;
+        const stdVal = parseInt(row.stdAllowance) || 0;
+        return {
+          no: idx + 1,
+          partName: matchedPart ? matchedPart.partName : "ALL TYPE PART FINISH",
+          totalQty: totalVal,
+          qtyNG: ngVal,
+          ngActual: totalVal > 0 ? (ngVal / totalVal) * 100 : 0.0,
+          stdAllowance: stdVal,
+          qtyClaim: Math.max(0, ngVal - stdVal)
+        };
+      }),
+      refNcrNumber,
+      problem,
+      claimType
     };
     if (setPendingQprs) {
       setPendingQprs((prev: any[]) => [newQpr, ...prev]);
@@ -422,29 +440,6 @@ export default function BuatQprView({ pendingQprs, setPendingQprs }: BuatQprView
             </div>
           </div>
 
-          {/* Approval Chain */}
-          <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-3">
-            <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2">
-              Rantai Otorisasi
-            </h4>
-            <div className="space-y-2 text-xs">
-              {[
-                { step: "1", role: "Section Head", color: "text-teal-600 bg-teal-50 border-teal-200" },
-                { step: "2", role: "Dept Head", color: "text-indigo-600 bg-indigo-50 border-indigo-200" },
-                { step: "3", role: "Div Head", color: "text-amber-600 bg-amber-50 border-amber-200" },
-                { step: "4", role: "Purchasing (Ack)", color: "text-blue-600 bg-blue-50 border-blue-200" },
-                { step: "5", role: "Accounting (CL)", color: "text-rose-600 bg-rose-50 border-rose-200" }
-              ].map(({ step, role, color }) => (
-                <div key={step} className={`flex items-center justify-between p-2.5 rounded-lg border ${color}`}>
-                  <div className="flex items-center gap-2">
-                    <span className="w-5 h-5 rounded-full bg-white border border-current flex items-center justify-center font-black text-[9px]">{step}</span>
-                    <span className="font-bold">{role}</span>
-                  </div>
-                  <span className="text-[9px] font-black uppercase opacity-60">Pending</span>
-                </div>
-              ))}
-            </div>
-          </div>
 
           {/* Actions */}
           <div className="space-y-2">
@@ -464,7 +459,25 @@ export default function BuatQprView({ pendingQprs, setPendingQprs }: BuatQprView
                   allowanceRatio: `${((totalStdAllowance / (totalQty || 1)) * 100).toFixed(1)}%`,
                   claimAmount: "-",
                   requiredRole: "Section Head",
-                  status: "WAITING_APPROVAL"
+                  status: "WAITING_APPROVAL",
+                  parts: partRows.map((row, idx) => {
+                    const matchedPart = availableParts.find(p => String(p.id) === String(row.partId));
+                    const totalVal = parseInt(row.totalQty) || 0;
+                    const ngVal = parseInt(row.qtyNg) || 0;
+                    const stdVal = parseInt(row.stdAllowance) || 0;
+                    return {
+                      no: idx + 1,
+                      partName: matchedPart ? matchedPart.partName : "ALL TYPE PART FINISH",
+                      totalQty: totalVal,
+                      qtyNG: ngVal,
+                      ngActual: totalVal > 0 ? (ngVal / totalVal) * 100 : 0.0,
+                      stdAllowance: stdVal,
+                      qtyClaim: Math.max(0, ngVal - stdVal)
+                    };
+                  }),
+                  refNcrNumber,
+                  problem,
+                  claimType
                 });
               }}
               className="w-full py-2 border border-violet-200 bg-violet-50 hover:bg-violet-100 text-violet-700 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer"

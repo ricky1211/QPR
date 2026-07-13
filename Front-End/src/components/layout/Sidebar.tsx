@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   LayoutDashboard,
   PlusCircle,
@@ -11,24 +11,28 @@ import {
   Calendar as CalendarIcon,
   List as ListIcon,
   X,
-  Menu,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Mail,
-  ClipboardList
+  ClipboardList,
+  Shield,
+  Layers
 } from "lucide-react";
 
 export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSidebarOpen }) {
-  const dashboardMenus = [
-    { id: "dashboard", name: "Dashboard Utama", icon: LayoutDashboard, color: "text-blue-500" },
-    { id: "buat-ncr", name: "Buat NCR", icon: PlusCircle, color: "text-blue-600" },
-    { id: "approve-ncr", name: "Approval NCR", icon: CheckSquare, color: "text-amber-500" },
-    { id: "buat-qpr", name: "Pengisian QPR", icon: ClipboardList, color: "text-violet-500" },
-    { id: "approve-qpr", name: "Approval QPR", icon: FileCheck2, color: "text-indigo-500" },
-    { id: "confirmation-letter", name: "Buat Confirmation Letter", icon: FileText, color: "text-rose-500" },
-    { id: "i-memo", name: "SSC Billing & Reminder", icon: Mail, color: "text-teal-500" },
-    { id: "list-qpr", name: "List NCR & QPR", icon: ListTodo, color: "text-emerald-500" }
-  ];
+  const [ncrExpanded, setNcrExpanded] = useState(activeTab === "buat-ncr" || activeTab === "approve-ncr");
+  const [qprExpanded, setQprExpanded] = useState(activeTab === "buat-qpr" || activeTab === "approve-qpr");
+
+  // Sync expanded status when active tab changes externally
+  useEffect(() => {
+    if (activeTab === "buat-ncr" || activeTab === "approve-ncr") {
+      setNcrExpanded(true);
+    }
+    if (activeTab === "buat-qpr" || activeTab === "approve-qpr") {
+      setQprExpanded(true);
+    }
+  }, [activeTab]);
 
   const globalMenus = [
     { id: "calendar", name: "Calendar Logs", icon: CalendarIcon },
@@ -42,6 +46,20 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
       setSidebarOpen(false);
     }
   };
+
+  const handleGroupClick = (group: "ncr" | "qpr") => {
+    if (!sidebarOpen) {
+      setSidebarOpen(true);
+      if (group === "ncr") setNcrExpanded(true);
+      if (group === "qpr") setQprExpanded(true);
+    } else {
+      if (group === "ncr") setNcrExpanded(!ncrExpanded);
+      if (group === "qpr") setQprExpanded(!qprExpanded);
+    }
+  };
+
+  const isNcrActive = activeTab === "buat-ncr" || activeTab === "approve-ncr";
+  const isQprActive = activeTab === "buat-qpr" || activeTab === "approve-qpr";
 
   return (
     <>
@@ -101,28 +119,174 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
             <span className={`px-3 text-xs font-bold text-slate-400 tracking-widest uppercase block mb-2 transition-all ${sidebarOpen ? "block animate-in fade-in" : "xl:hidden"}`}>
               Main Dashboard
             </span>
-            <nav className="space-y-1">
-              {dashboardMenus.map((menu) => {
-                const IconComp = menu.icon;
-                const isActive = activeTab === menu.id;
-                return (
-                  <button
-                    key={menu.id}
-                    onClick={() => handleMenuClick(menu.id)}
-                    className={`group flex items-center w-full gap-3 text-left rounded-md transition-all duration-150 touch-manipulation cursor-pointer ${
-                      sidebarOpen ? "px-3 py-3" : "px-3 py-3 xl:px-0 xl:justify-center"
-                    } ${
-                      isActive
-                        ? "bg-blue-600 text-white"
-                        : "text-slate-500 hover:text-white hover:bg-blue-600"
-                    }`}
-                    title={!sidebarOpen ? menu.name : undefined}
-                  >
-                    <IconComp size={20} className={isActive ? "text-white shrink-0" : `${menu.color} group-hover:text-white transition-colors shrink-0`} />
-                    <span className={`text-sm font-bold truncate transition-all ${sidebarOpen ? "block animate-in fade-in" : "xl:hidden"}`}>{menu.name}</span>
-                  </button>
-                );
-              })}
+            <nav className="space-y-1.5">
+              {/* Dashboard Utama */}
+              <button
+                onClick={() => handleMenuClick("dashboard")}
+                className={`group flex items-center w-full gap-3 text-left rounded-md transition-all duration-150 touch-manipulation cursor-pointer ${
+                  sidebarOpen ? "px-3 py-3" : "px-3 py-3 xl:px-0 xl:justify-center"
+                } ${
+                  activeTab === "dashboard"
+                    ? "bg-blue-600 text-white shadow-sm"
+                    : "text-slate-500 hover:text-white hover:bg-blue-600"
+                }`}
+                title={!sidebarOpen ? "Dashboard Utama" : undefined}
+              >
+                <LayoutDashboard size={20} className={activeTab === "dashboard" ? "text-white shrink-0" : "text-blue-500 group-hover:text-white transition-colors shrink-0"} />
+                <span className={`text-sm font-bold truncate transition-all ${sidebarOpen ? "block animate-in fade-in" : "xl:hidden"}`}>Dashboard Utama</span>
+              </button>
+
+              {/* NCR Group Accordion */}
+              <div>
+                <button
+                  onClick={() => handleGroupClick("ncr")}
+                  className={`group flex items-center justify-between w-full text-left rounded-md transition-all duration-150 touch-manipulation cursor-pointer ${
+                    sidebarOpen ? "px-3 py-3" : "px-3 py-3 xl:px-0 xl:justify-center"
+                  } ${
+                    isNcrActive && sidebarOpen
+                      ? "bg-slate-50 text-slate-800"
+                      : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+                  }`}
+                  title={!sidebarOpen ? "NCR" : undefined}
+                >
+                  <div className="flex items-center gap-3">
+                    <Shield size={20} className={`shrink-0 ${isNcrActive ? "text-blue-600" : "text-slate-400 group-hover:text-blue-600"} transition-colors`} />
+                    <span className={`text-sm font-bold truncate transition-all ${sidebarOpen ? "block animate-in fade-in" : "xl:hidden"}`}>
+                      NCR
+                    </span>
+                  </div>
+                  {sidebarOpen && (
+                    ncrExpanded ? <ChevronDown size={14} className="text-slate-400" /> : <ChevronRight size={14} className="text-slate-400" />
+                  )}
+                </button>
+
+                {/* Submenu NCR */}
+                {sidebarOpen && ncrExpanded && (
+                  <div className="pl-4 ml-5 border-l border-slate-100 mt-1 space-y-1 animate-slide-down">
+                    {[
+                      { id: "buat-ncr", name: "Buat NCR", icon: PlusCircle, color: "text-blue-600" },
+                      { id: "approve-ncr", name: "Approval NCR", icon: CheckSquare, color: "text-amber-500" }
+                    ].map((sub) => {
+                      const SubIcon = sub.icon;
+                      const isSubActive = activeTab === sub.id;
+                      return (
+                        <button
+                          key={sub.id}
+                          onClick={() => handleMenuClick(sub.id)}
+                          className={`group flex items-center w-full gap-3 text-left rounded-md px-3 py-2 transition-all duration-150 cursor-pointer ${
+                            isSubActive
+                              ? "bg-blue-600 text-white font-black shadow-sm"
+                              : "text-slate-500 hover:bg-slate-50 hover:text-slate-800 font-bold"
+                          }`}
+                        >
+                          <SubIcon size={16} className={isSubActive ? "text-white" : `${sub.color} group-hover:text-blue-600`} />
+                          <span className="text-sm font-bold truncate">{sub.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* QPR Group Accordion */}
+              <div>
+                <button
+                  onClick={() => handleGroupClick("qpr")}
+                  className={`group flex items-center justify-between w-full text-left rounded-md transition-all duration-150 touch-manipulation cursor-pointer ${
+                    sidebarOpen ? "px-3 py-3" : "px-3 py-3 xl:px-0 xl:justify-center"
+                  } ${
+                    isQprActive && sidebarOpen
+                      ? "bg-slate-50 text-slate-800"
+                      : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+                  }`}
+                  title={!sidebarOpen ? "QPR" : undefined}
+                >
+                  <div className="flex items-center gap-3">
+                    <Layers size={20} className={`shrink-0 ${isQprActive ? "text-violet-650" : "text-slate-400 group-hover:text-violet-650"} transition-colors`} />
+                    <span className={`text-sm font-bold truncate transition-all ${sidebarOpen ? "block animate-in fade-in" : "xl:hidden"}`}>
+                      QPR
+                    </span>
+                  </div>
+                  {sidebarOpen && (
+                    qprExpanded ? <ChevronDown size={14} className="text-slate-400" /> : <ChevronRight size={14} className="text-slate-400" />
+                  )}
+                </button>
+
+                {/* Submenu QPR */}
+                {sidebarOpen && qprExpanded && (
+                  <div className="pl-4 ml-5 border-l border-slate-100 mt-1 space-y-1 animate-slide-down">
+                    {[
+                      { id: "buat-qpr", name: "Pengisian QPR", icon: ClipboardList, color: "text-violet-500" },
+                      { id: "approve-qpr", name: "Approval QPR", icon: FileCheck2, color: "text-indigo-500" }
+                    ].map((sub) => {
+                      const SubIcon = sub.icon;
+                      const isSubActive = activeTab === sub.id;
+                      return (
+                        <button
+                          key={sub.id}
+                          onClick={() => handleMenuClick(sub.id)}
+                          className={`group flex items-center w-full gap-3 text-left rounded-md px-3 py-2 transition-all duration-150 cursor-pointer ${
+                            isSubActive
+                              ? "bg-blue-600 text-white font-black shadow-sm"
+                              : "text-slate-500 hover:bg-slate-50 hover:text-slate-800 font-bold"
+                          }`}
+                        >
+                          <SubIcon size={16} className={isSubActive ? "text-white" : `${sub.color} group-hover:text-violet-555`} />
+                          <span className="text-sm font-bold truncate">{sub.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Buat Confirmation Letter */}
+              <button
+                onClick={() => handleMenuClick("confirmation-letter")}
+                className={`group flex items-center w-full gap-3 text-left rounded-md transition-all duration-150 touch-manipulation cursor-pointer ${
+                  sidebarOpen ? "px-3 py-3" : "px-3 py-3 xl:px-0 xl:justify-center"
+                } ${
+                  activeTab === "confirmation-letter"
+                    ? "bg-blue-600 text-white shadow-sm"
+                    : "text-slate-500 hover:text-white hover:bg-blue-600"
+                }`}
+                title={!sidebarOpen ? "Buat Confirmation Letter" : undefined}
+              >
+                <FileText size={20} className={activeTab === "confirmation-letter" ? "text-white shrink-0" : "text-rose-500 group-hover:text-white transition-colors shrink-0"} />
+                <span className={`text-sm font-bold truncate transition-all ${sidebarOpen ? "block animate-in fade-in" : "xl:hidden"}`}>Buat Confirmation Letter</span>
+              </button>
+
+              {/* SSC Billing & Reminder */}
+              <button
+                onClick={() => handleMenuClick("i-memo")}
+                className={`group flex items-center w-full gap-3 text-left rounded-md transition-all duration-150 touch-manipulation cursor-pointer ${
+                  sidebarOpen ? "px-3 py-3" : "px-3 py-3 xl:px-0 xl:justify-center"
+                } ${
+                  activeTab === "i-memo"
+                    ? "bg-blue-600 text-white shadow-sm"
+                    : "text-slate-500 hover:text-white hover:bg-blue-600"
+                }`}
+                title={!sidebarOpen ? "SSC Billing & Reminder" : undefined}
+              >
+                <Mail size={20} className={activeTab === "i-memo" ? "text-white shrink-0" : "text-teal-500 group-hover:text-white transition-colors shrink-0"} />
+                <span className={`text-sm font-bold truncate transition-all ${sidebarOpen ? "block animate-in fade-in" : "xl:hidden"}`}>SSC Billing &amp; Reminder</span>
+              </button>
+
+              {/* List NCR & QPR */}
+              <button
+                onClick={() => handleMenuClick("list-qpr")}
+                className={`group flex items-center w-full gap-3 text-left rounded-md transition-all duration-150 touch-manipulation cursor-pointer ${
+                  sidebarOpen ? "px-3 py-3" : "px-3 py-3 xl:px-0 xl:justify-center"
+                } ${
+                  activeTab === "list-qpr"
+                    ? "bg-blue-600 text-white shadow-sm"
+                    : "text-slate-500 hover:text-white hover:bg-blue-600"
+                }`}
+                title={!sidebarOpen ? "List NCR & QPR" : undefined}
+              >
+                <ListTodo size={20} className={activeTab === "list-qpr" ? "text-white shrink-0" : "text-emerald-500 group-hover:text-white transition-colors shrink-0"} />
+                <span className={`text-sm font-bold truncate transition-all ${sidebarOpen ? "block animate-in fade-in" : "xl:hidden"}`}>List NCR &amp; QPR</span>
+              </button>
             </nav>
           </div>
 
@@ -143,7 +307,7 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
                       sidebarOpen ? "px-3 py-3" : "px-3 py-3 xl:px-0 xl:justify-center"
                     } ${
                       isActive
-                        ? "bg-blue-600 text-white"
+                        ? "bg-blue-600 text-white shadow-sm"
                         : "text-slate-500 hover:text-white hover:bg-blue-600"
                     }`}
                     title={!sidebarOpen ? menu.name : undefined}
@@ -158,8 +322,6 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
 
           {/* Bottom spacer */}
           <div className="flex-1" />
-
-
 
           {/* Footer info */}
           <div className={`py-4 border-t border-slate-100 shrink-0 transition-all duration-300 ${sidebarOpen ? "px-6 text-left" : "px-6 xl:px-0 text-left xl:text-center"}`}>

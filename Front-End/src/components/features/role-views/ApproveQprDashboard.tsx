@@ -20,7 +20,7 @@ import {
 import QprPrintPreview from "./QprPrintPreview";
 
 export default function ApproveQprDashboard({ pendingQprs, handleApproveQprAction }) {
-  const [levelTab, setLevelTab] = useState("section-head"); // 'section-head', 'dept-head', 'div-head', 'purchasing'
+  const [levelTab, setLevelTab] = useState("section-head"); // 'section-head', 'dept-head', 'div-head'
   const [activeFilterTab, setActiveFilterTab] = useState("all-pending"); // 'all-pending', 'needs-verification', 'returned'
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -41,7 +41,6 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
       case "section-head": return "Section Head";
       case "dept-head": return "Dept Head";
       case "div-head": return "Div Head";
-      case "purchasing": return "Purchasing";
       default: return "Section Head";
     }
   };
@@ -154,8 +153,7 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
              {[
               { id: "section-head", label: "SEC HEAD" },
               { id: "dept-head", label: "DEPT HEAD" },
-              { id: "div-head", label: "DIV HEAD" },
-              { id: "purchasing", label: "PURCHASING (ACK)" }
+              { id: "div-head", label: "DIV HEAD" }
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -434,7 +432,7 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
                       </td>
 
                       {/* Tanggal Laporan */}
-                      <td className="px-2 py-3 border-r border-slate-400 text-center text-slate-650 text-[11px] whitespace-nowrap overflow-hidden text-ellipsis">
+                      <td className="px-2 py-3 border-r border-slate-400 text-center text-slate-600 text-[11px] whitespace-nowrap overflow-hidden text-ellipsis">
                         {formatDate(qpr.date)}
                       </td>
 
@@ -648,14 +646,6 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
                           {levelTab !== "section-head" && levelTab !== "dept-head" ? "Signed (Arif T.W.)" : "PENDING"}
                         </span>
                       </div>
-                      <div className="flex justify-between items-center pt-2.5">
-                        <span className="font-bold text-slate-700">4. Purchasing (Ack)</span>
-                        <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase ${
-                          selectedQpr.status === "APPROVED" || selectedQpr.requiredRole === "Closed" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
-                        }`}>
-                          {selectedQpr.status === "APPROVED" || selectedQpr.requiredRole === "Closed" ? "Acknowledged" : "PENDING"}
-                        </span>
-                      </div>
                     </div>
                   </div>
 
@@ -690,15 +680,13 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
                   }}
                   className={`px-5 py-2.5 text-white rounded-md font-bold text-xs shadow-md transition-colors cursor-pointer ${
                     levelTab === "section-head" ? "bg-teal-600 hover:bg-teal-700 shadow-teal-600/10" :
-                    levelTab === "dept-head" ? "bg-indigo-650 hover:bg-indigo-700 shadow-indigo-500/10" :
-                    levelTab === "div-head" ? "bg-amber-600 hover:bg-amber-700 shadow-amber-600/10" :
-                    "bg-blue-600 hover:bg-blue-700 shadow-blue-500/10"
+                    levelTab === "dept-head" ? "bg-indigo-600 hover:bg-indigo-700 shadow-indigo-500/10" :
+                    "bg-amber-600 hover:bg-amber-700 shadow-amber-600/10"
                   }`}
                 >
                   {levelTab === "section-head" ? "Approve QPR (Section Head)" :
                    levelTab === "dept-head" ? "Approve QPR (Dept Head)" :
-                   levelTab === "div-head" ? "Approve QPR (Div Head)" :
-                   "Acknowledge QPR (Purchasing)"}
+                   "Approve QPR (Div Head)"}
                 </button>
               </div>
             </div>

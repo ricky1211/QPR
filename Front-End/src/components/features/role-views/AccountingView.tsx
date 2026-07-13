@@ -481,7 +481,7 @@ export default function AccountingView({
                 confirmationLetters.map((cl, index) => (
                   <tr key={cl.id} className="hover:bg-slate-55 transition-colors font-semibold">
                     <td className="px-4 py-3 text-center text-slate-400 font-mono">{index + 1}</td>
-                    <td className="px-4 py-3 font-mono font-bold text-slate-800">{cl.clNumber}</td>
+                    <td className="px-4 py-3 font-mono font-bold text-slate-800 break-all">{cl.clNumber}</td>
                     <td className="px-4 py-3 font-bold text-slate-700">{cl.supplierName}</td>
                     <td className="px-4 py-3 text-slate-500">{cl.dateSent}</td>
                     <td className="px-4 py-3 text-red-600 font-extrabold">{cl.amount}</td>
