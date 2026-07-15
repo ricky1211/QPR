@@ -18,7 +18,6 @@ export default function CalendarView({
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-6 bg-white border border-slate-100 rounded-lg shadow-sm gap-4">
         <div>
           <h3 className="text-sm font-bold text-slate-800">Visualisasi Pengiriman Harian</h3>
-          <p className="text-xs text-slate-400 mt-1">Menampilkan data reject dibandingkan dengan limit allowance per supplier.</p>
         </div>
         <div className="flex items-center gap-2">
           <span className="flex items-center gap-1 text-[10px] font-bold text-slate-500 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100">

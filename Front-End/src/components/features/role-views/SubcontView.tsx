@@ -3,21 +3,56 @@
 import React, { useState } from "react";
 import { User, CheckCircle2, Upload, FileText, X, AlertTriangle } from "lucide-react";
 
-export default function SubcontView() {
+interface SubcontViewProps {
+  pendingQprs?: any[];
+  setPendingQprs?: React.Dispatch<React.SetStateAction<any[]>>;
+}
+
+export default function SubcontView({ pendingQprs = [], setPendingQprs }: SubcontViewProps) {
   const [activeTab, setActiveTab] = useState<"pica" | "settlement">("pica");
   
-  // Simulated active NCR / QPR for vendor
-  const [activeClaim, setActiveClaim] = useState({
-    id: 30,
-    qprNumber: "QPR/2026/05/JAYADI",
-    ncrNumber: "NCR/2026/05/008",
-    supplierName: "PT JAYADI",
-    period: "Mei 2026",
-    partName: "Motherboard X1",
-    qtyNG: 15,
-    amount: "Rp 12.500.000",
-    status: "WAITING_VENDOR"
-  });
+  // Get dynamic vendor queue of QPRs waiting for vendor approval
+  const vendorQueue = React.useMemo(() => {
+    return pendingQprs.filter(q => q.status === "WAITING_VENDOR" || q.requiredRole === "Vendor");
+  }, [pendingQprs]);
+
+  // Keep track of selected QPR id
+  const [selectedQprId, setSelectedQprId] = useState<number | string>(
+    vendorQueue.length > 0 ? vendorQueue[0].id : "static-30"
+  );
+
+  // If we have dynamic QPRs, use the selected one; otherwise fallback to the mock one
+  const activeClaim = React.useMemo(() => {
+    const dynamicQpr = vendorQueue.find(q => String(q.id) === String(selectedQprId));
+    if (dynamicQpr) {
+      return {
+        id: dynamicQpr.id,
+        qprNumber: dynamicQpr.qprNumber,
+        ncrNumber: dynamicQpr.refNcrNumber || "NCR/2026/06/012",
+        supplierName: dynamicQpr.supplierName,
+        period: dynamicQpr.period,
+        partName: dynamicQpr.parts?.[0]?.partName || "Part Material NG",
+        qtyNG: dynamicQpr.rejectItems || 30,
+        amount: dynamicQpr.claimAmount !== "-" ? dynamicQpr.claimAmount : "Rp 12.500.000",
+        status: dynamicQpr.status
+      };
+    }
+    // Fallback static claim if queue is empty
+    if (selectedQprId === "static-30") {
+      return {
+        id: 30,
+        qprNumber: "QPR/2026/05/JAYADI",
+        ncrNumber: "NCR/2026/05/008",
+        supplierName: "PT JAYADI",
+        period: "Mei 2026",
+        partName: "Motherboard X1",
+        qtyNG: 15,
+        amount: "Rp 12.500.000",
+        status: "WAITING_VENDOR"
+      };
+    }
+    return null;
+  }, [vendorQueue, selectedQprId]);
 
   // PICA Form State
   const [rootCause, setRootCause] = useState("");
@@ -32,6 +67,25 @@ export default function SubcontView() {
   const [proofFile, setProofFile] = useState<any>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [settled, setSettled] = useState(false);
+
+  // Reset form states when QPR selection changes
+  React.useEffect(() => {
+    setRootCause("");
+    setCorrectiveAction("");
+    setPreventiveAction("");
+    setPicaFile(null);
+    setPicaSubmitted(false);
+    setPicaVerified(false);
+    setProofFile(null);
+    setSettled(false);
+  }, [selectedQprId]);
+
+  // Sync selected QPR if the current one is approved
+  React.useEffect(() => {
+    if (selectedQprId !== "static-30" && !vendorQueue.some(q => String(q.id) === String(selectedQprId))) {
+      setSelectedQprId(vendorQueue.length > 0 ? vendorQueue[0].id : "static-30");
+    }
+  }, [vendorQueue, selectedQprId]);
 
   const handlePicaFileChange = (e: any) => {
     const file = e.target.files[0];
@@ -79,8 +133,16 @@ export default function SubcontView() {
     setTimeout(() => {
       setIsSubmitting(false);
       setSettled(true);
-      setActiveClaim(null);
-      alert("Bukti pembayaran / surat potong tagihan berhasil dikirim dan terverifikasi!");
+      if (setPendingQprs && activeClaim && activeClaim.id !== 30) {
+        setPendingQprs((prev: any[]) =>
+          prev.map(q =>
+            q.id === activeClaim.id
+              ? { ...q, status: "APPROVED_BY_VENDOR", requiredRole: "Accounting" }
+              : q
+          )
+        );
+      }
+      alert("Bukti penyelesaian denda QPR berhasil dikirim! Status QPR kini APPROVED BY VENDOR dan diteruskan ke Accounting.");
     }, 1500);
   };
 
@@ -91,10 +153,26 @@ export default function SubcontView() {
       <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 text-left">
         <div>
           <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest block">External Vendor Portal</span>
-          <h2 className="text-lg font-black text-slate-800 mt-0.5">Portal Subkontraktor: {activeClaim ? activeClaim.supplierName : "PT JAYADI"}</h2>
-          <p className="text-xs text-slate-500 mt-1">
-            Gunakan portal ini untuk merespons NCR & QPR, mengunggah analisis perbaikan (PICA), serta mengonfirmasi penyelesaian keuangan.
-          </p>
+          <h2 className="text-lg font-black text-slate-800 mt-0.5">Portal Subkontraktor: {activeClaim ? activeClaim.supplierName : "—"}</h2>
+        </div>
+
+        {/* QPR Selector for Vendor */}
+        <div className="w-full md:w-64 bg-slate-50 border border-slate-200 rounded-xl p-3 shadow-inner text-left shrink-0">
+          <label className="block text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">
+            Pilih QPR Masuk Vendor
+          </label>
+          <select
+            value={selectedQprId}
+            onChange={(e) => setSelectedQprId(e.target.value)}
+            className="w-full p-2 text-xs border border-slate-250 rounded-lg bg-white font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+          >
+            {vendorQueue.map((q) => (
+              <option key={q.id} value={q.id}>
+                {q.supplierName} ({q.qprNumber})
+              </option>
+            ))}
+            <option value="static-30">PT JAYADI (QPR/2026/05/JAYADI) [Demo]</option>
+          </select>
         </div>
       </div>
 

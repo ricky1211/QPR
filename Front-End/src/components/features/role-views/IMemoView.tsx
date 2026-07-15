@@ -16,6 +16,7 @@ import {
   Building,
   Eye
 } from "lucide-react";
+import ConfirmationLetterPrintPreview from "./ConfirmationLetterPrintPreview";
 
 interface IMemoViewProps {
   confirmationLetters: any[];
@@ -29,11 +30,24 @@ export default function IMemoView({
   const [selectedClId, setSelectedClId] = useState<string>(
     confirmationLetters.length > 0 ? confirmationLetters[0].id : ""
   );
-  const [activeSubTab, setActiveSubTab] = useState<"ssc_purchasing" | "buat_ssc_payment" | "reminder">("ssc_purchasing");
+  const [activeSubTab, setActiveSubTab] = useState<"ssc_purchasing" | "buat_ssc_payment" | "reminder" | "kirim_cl">("ssc_purchasing");
   const [copied, setCopied] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [previewCl, setPreviewCl] = useState<any | null>(null);
 
   const selectedCl = confirmationLetters.find(cl => cl.id === selectedClId) || confirmationLetters[0];
+
+  const handleSendToVendor = (id: string, clNumber: string) => {
+    setConfirmationLetters(prev =>
+      prev.map(cl => {
+        if (cl.id === id) {
+          alert(`Sukses: Confirmation Letter ${clNumber} berhasil dikirim/diteruskan ke Vendor!`);
+          return { ...cl, sentToVendor: true };
+        }
+        return cl;
+      })
+    );
+  };
 
   const handlePrint = () => {
     window.print();
@@ -217,12 +231,13 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
         </button>
       </div>
 
+      {/* Editor & Templates Preview */}
       {confirmationLetters.length === 0 ? (
         <div className="bg-white border border-slate-200 rounded-xl p-12 text-center text-slate-400 font-bold italic">
           Belum ada Confirmation Letter yang dibuat. Silakan terbitkan Confirmation Letter terlebih dahulu di tab "Buat Confirmation Letter".
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Left Sidebar (Selector & Navigation) */}
           <div className="lg:col-span-1 space-y-4">
             {/* Pilih Confirmation Letter Dropdown */}
@@ -278,7 +293,29 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                 <Mail size={13} />
                 EMAIL REMINDER
               </button>
+              <button
+                onClick={() => setActiveSubTab("kirim_cl")}
+                className={`w-full py-2 px-3 rounded-lg font-bold text-xs transition-all flex items-center gap-2 cursor-pointer ${
+                  activeSubTab === "kirim_cl"
+                    ? "bg-white text-blue-750 shadow-sm border border-slate-200/50"
+                    : "text-slate-500 hover:text-slate-800 hover:bg-slate-50/50"
+                }`}
+              >
+                <Send size={13} />
+                KIRIM CL KE VENDOR
+              </button>
             </div>
+
+            {activeSubTab === "kirim_cl" && (
+              <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-sm space-y-2 text-left">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block border-b border-slate-100 pb-1">
+                  Panduan Purchasing
+                </span>
+                <p className="text-[10.5px] text-slate-550 font-bold leading-relaxed">
+                  Periksa antrean CL di kanan dan kirimkan surat ke Vendor.
+                </p>
+              </div>
+            )}
 
             {activeSubTab === "buat_ssc_payment" && (
               /* Informational Sidebar for SSC Payment tab */
@@ -287,7 +324,7 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                   SSC Payment Status
                 </span>
                 <p className="text-[11px] text-slate-500 font-semibold font-sans">
-                  Lengkapi/edit rincian tabel pada form di kanan.
+                  Lengkapi form di kanan.
                 </p>
                 <div className="bg-blue-50/50 p-2 rounded-lg border border-blue-100 text-[10px] text-blue-800 font-bold leading-normal">
                   Vendor aktif: <strong>{selectedCl?.supplierName}</strong>
@@ -323,14 +360,14 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
           </div>
 
           {/* Editor & Templates Preview */}
-          <div className="lg:col-span-4 space-y-4">
+          <div className="lg:col-span-3 space-y-4">
 
             {/* Template Sheet Content Container */}
             <div className="bg-white border border-slate-250 rounded-xl shadow-sm overflow-hidden flex flex-col">
               {/* Toolbar */}
               <div className="px-6 py-3 border-b border-slate-200 bg-slate-50 flex justify-between items-center print:hidden">
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                  {activeSubTab === "buat_ssc_payment" ? "Form Input Memo SSC" : "Preview Template Sheet"}
+                  {activeSubTab === "buat_ssc_payment" ? "Form Input Memo SSC" : activeSubTab === "kirim_cl" ? "Otorisasi Pengiriman CL ke Vendor" : "Preview Template Sheet"}
                 </span>
                 <div className="flex gap-2">
                   {activeSubTab === "buat_ssc_payment" ? (
@@ -372,85 +409,246 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
 
               {/* SHEET SIMULATOR */}
               <div className={`bg-slate-100 flex justify-center overflow-x-auto ${
-                activeSubTab === "buat_ssc_payment"
+                activeSubTab === "buat_ssc_payment" || activeSubTab === "ssc_purchasing"
                   ? "p-4 md:p-5 items-start min-h-0"
                   : "p-6 md:p-10 items-center min-h-[600px]"
               }`}>
 
 
                 {activeSubTab === "ssc_purchasing" && (
-                  /* Internal Memo to SSC - Billing Purchasing Layout */
-                  <div
-                    id="internal-memo-sheet"
-                    className="bg-white shadow-lg border border-slate-300 w-full text-slate-900 p-6 text-left relative overflow-x-auto"
-                    style={{ fontFamily: 'Calibri, "Segoe UI", Arial, sans-serif', minHeight: "500px" }}
-                  >
-                    {/* Sheet Header Information */}
-                    <div className="mb-4 pb-3 border-b border-slate-200">
-                      <h3 className="text-sm font-bold text-blue-900">REKAPITULASI KLAIM DENDA KUALITAS (QPR) - SSC BILLING</h3>
-                      <p className="text-[11px] text-slate-500">Tujuan: Shared Service Center (SSC) Astra Otoparts Group • Format Penyesuaian Tagihan Purchasing (Deduction Note)</p>
+                  /* Form Pengisian Manual + Live A4 Preview */
+                  <div className="w-full space-y-4">
+                    {/* Form Input Box */}
+                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 w-full p-4 text-left space-y-4">
+                      <div className="flex items-center justify-between border-b border-slate-150 pb-2">
+                        <div>
+                          <h4 className="text-sm font-extrabold text-slate-800">Form Pengisian Manual SSC Billing</h4>
+                        </div>
+                        <span className="text-[9px] font-black bg-blue-100 text-blue-800 px-2 py-0.5 rounded">TEMPLATED FORM</span>
+                      </div>
+
+                      {/* Gold Table Rows Inputs */}
+                      <div className="space-y-2 pt-1">
+                        <div className="flex justify-between items-center">
+                          <label className="block text-[10px] font-black text-slate-650 uppercase tracking-wider">
+                            Rincian Baris Tabel (Table Data)
+                          </label>
+                          <button
+                            onClick={handleAddRow}
+                            className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[9.5px] font-bold rounded-lg shadow-sm flex items-center gap-1 transition-all active:scale-95 cursor-pointer"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-plus-circle"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>
+                            Tambah Baris
+                          </button>
+                        </div>
+
+                        <div className="border border-slate-200 rounded-lg bg-white p-1.5 shadow-inner overflow-x-auto">
+                          <table className="w-full text-left text-xs border-collapse min-w-[920px]">
+                            <thead>
+                              <tr className="text-[10px] text-slate-500 font-extrabold uppercase border-b border-slate-200 tracking-wider">
+                                <th className="p-1.5 pb-2 w-[85px]">Customer</th>
+                                <th className="p-1.5 pb-2 w-[110px]">Doc No</th>
+                                <th className="p-1.5 pb-2 w-[220px]">Text / Description</th>
+                                <th className="p-1.5 pb-2 w-[150px]">Vendor</th>
+                                <th className="p-1.5 pb-2 w-[95px]">Doc. Date</th>
+                                <th className="p-1.5 pb-2 w-[110px]">Amount</th>
+                                <th className="p-1.5 pb-2 w-[100px]">Pay Date</th>
+                                <th className="p-1.5 pb-2 w-[40px] text-center">Aksi</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-150">
+                              {confirmationLetters.map((cl, idx) => (
+                                <tr key={cl.id} className="hover:bg-slate-50/50 transition-colors">
+                                  <td className="p-1">
+                                    <input
+                                      type="text"
+                                      value={cl.customerCode !== undefined ? cl.customerCode : "OTC08002"}
+                                      onChange={e => handleUpdateClField(cl.id, "customerCode", e.target.value)}
+                                      className="w-full px-2 py-1 border border-slate-300 rounded font-mono text-[11px] text-slate-800 bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-center font-bold"
+                                    />
+                                  </td>
+                                  <td className="p-1">
+                                    <input
+                                      type="text"
+                                      value={cl.documentNo !== undefined ? cl.documentNo : (cl.clNumber.replace(/[^0-9]/g, "").slice(-11) || `180000000${53 + idx}`)}
+                                      onChange={e => handleUpdateClField(cl.id, "documentNo", e.target.value)}
+                                      className="w-full px-2 py-1 border border-slate-300 rounded font-mono text-[11px] text-slate-800 bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-center font-bold"
+                                    />
+                                  </td>
+                                  <td className="p-1">
+                                    <input
+                                      type="text"
+                                      value={cl.customText !== undefined ? cl.customText : `POTONG TAGIH ${getClaimText(cl)}`}
+                                      onChange={e => handleUpdateClField(cl.id, "customText", e.target.value)}
+                                      className="w-full px-2 py-1 border border-slate-300 rounded font-mono text-[11px] text-slate-800 bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-black text-[11px]"
+                                    />
+                                  </td>
+                                  <td className="p-1">
+                                    <input
+                                      type="text"
+                                      value={cl.supplierName}
+                                      onChange={e => handleUpdateClField(cl.id, "supplierName", e.target.value)}
+                                      className="w-full px-2 py-1 border border-slate-300 rounded text-[11px] text-slate-800 bg-white font-bold focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                                    />
+                                  </td>
+                                  <td className="p-1">
+                                    <input
+                                      type="text"
+                                      value={cl.dateSent}
+                                      onChange={e => handleUpdateClField(cl.id, "dateSent", e.target.value)}
+                                      className="w-full px-2 py-1 border border-slate-300 rounded font-mono text-[11px] text-slate-800 bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-center font-semibold"
+                                    />
+                                  </td>
+                                  <td className="p-1">
+                                    <input
+                                      type="text"
+                                      value={cl.amount}
+                                      onChange={e => handleUpdateClField(cl.id, "amount", e.target.value)}
+                                      className="w-full px-2 py-1 border border-slate-300 rounded font-mono text-[11px] text-slate-850 font-black bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-right"
+                                    />
+                                  </td>
+                                  <td className="p-1">
+                                    <input
+                                      type="text"
+                                      value={cl.paymentDate !== undefined ? cl.paymentDate : getPaymentDate(cl.dateSent)}
+                                      onChange={e => handleUpdateClField(cl.id, "paymentDate", e.target.value)}
+                                      className="w-full px-2 py-1 border border-slate-300 rounded font-mono text-[11px] text-slate-800 bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-center font-bold"
+                                    />
+                                  </td>
+                                  <td className="p-1 text-center font-sans">
+                                    <button
+                                      onClick={() => handleDeleteRow(cl.id)}
+                                      title="Hapus baris ini"
+                                      className="p-1 hover:bg-red-50 text-red-600 hover:text-red-700 rounded transition-all cursor-pointer inline-flex items-center justify-center border border-slate-200 hover:border-red-200 bg-white shadow-sm"
+                                    >
+                                      <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-trash-2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
                     </div>
 
-                    {/* Table Container styled like Excel */}
-                    <table className="w-full text-[10.5px] border-collapse border border-slate-400">
-                      <thead>
-                        <tr className="bg-[#f0ac0e] text-black border border-slate-400 text-center font-bold">
-                          <th className="border border-slate-400 px-1.5 py-1 w-[70px]">Customer</th>
-                          <th className="border border-slate-400 px-1.5 py-1 w-[90px]">DocumentNo</th>
-                          <th className="border border-slate-400 px-1.5 py-1">Text</th>
-                          <th className="border border-slate-400 px-1.5 py-1">Vendor</th>
-                          <th className="border border-slate-400 px-1.5 py-1 w-[80px]">Doc. Date</th>
-                          <th className="border border-slate-400 px-1.5 py-1 w-[95px] text-right">Local Crcy Amt</th>
-                          <th className="border border-slate-400 px-1.5 py-1 w-[120px]">Potong tagih payment date</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {confirmationLetters.map((cl, idx) => {
-                          const amountNum = parseInt(cl.amount?.replace(/[^0-9]/g, "") || "0", 10);
-                          return (
-                            <tr key={cl.id} className={`hover:bg-slate-50 font-semibold border border-slate-400 text-slate-800 ${cl.id === selectedClId ? 'bg-blue-50/50 font-bold' : ''}`}>
-                              <td className="border border-slate-400 px-1.5 py-1 text-center font-mono">
-                                {cl.customerCode !== undefined ? cl.customerCode : "OTC08002"}
-                              </td>
-                              <td className="border border-slate-400 px-1.5 py-1 text-center font-mono">
-                                {cl.documentNo !== undefined ? cl.documentNo : (cl.clNumber.replace(/[^0-9]/g, "").slice(-11) || `180000000${53 + idx}`)}
-                              </td>
-                              <td className="border border-slate-400 px-1.5 py-1 text-left font-mono text-[9.5px] uppercase font-bold">
-                                {cl.customText !== undefined ? cl.customText : `POTONG TAGIH ${getClaimText(cl)}`}
-                              </td>
-                              <td className="border border-slate-400 px-1.5 py-1 text-left font-sans">
-                                {cl.supplierName}
-                              </td>
-                              <td className="border border-slate-400 px-1.5 py-1 text-center font-mono">
-                                {formatSscDate(cl.dateSent)}
-                              </td>
-                              <td className="border border-slate-400 px-1.5 py-1 text-right font-mono font-bold">
-                                {cl.amount}
-                              </td>
-                              <td className="border border-slate-400 px-1.5 py-1 text-center font-mono text-emerald-700 font-bold text-[10px]">
-                                {cl.paymentDate !== undefined ? cl.paymentDate : getPaymentDate(cl.dateSent)}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-
-                    <div className="mt-8 text-[10px] text-slate-400 leading-normal flex justify-between">
-                      <span>Dibuat oleh: Finance Department MTM</span>
-                      <span>Diunduh/Dicetak pada: {new Date().toLocaleDateString('id-ID')}</span>
+                    {/* Toggle Preview Button Container */}
+                    <div className="flex justify-between items-center bg-slate-50 border border-slate-200 rounded-lg p-2 print:hidden">
+                      <span className="text-[11px] text-slate-500 font-bold font-sans">
+                        Vendor aktif: <strong>{selectedCl?.supplierName || "—"}</strong>
+                      </span>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleExportExcel("ssc_purchasing")}
+                          className="px-2.5 py-1.5 bg-emerald-650 hover:bg-emerald-700 text-white font-bold text-[9.5px] rounded-lg shadow-sm flex items-center gap-1 transition-all cursor-pointer active:scale-95"
+                        >
+                          <FileText size={11} />
+                          Export Excel
+                        </button>
+                        <button
+                          onClick={handlePrint}
+                          className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-[9.5px] rounded-lg shadow-sm flex items-center gap-1 transition-all cursor-pointer active:scale-95"
+                        >
+                          <Printer size={11} />
+                          Cetak PDF
+                        </button>
+                        <button
+                          onClick={() => setShowPreview(!showPreview)}
+                          className={`px-3 py-1.5 font-bold text-[9.5px] rounded-lg border transition-all flex items-center gap-1 cursor-pointer active:scale-95 shadow-sm ${
+                            showPreview 
+                              ? "bg-slate-200 border-slate-350 text-slate-700 hover:bg-slate-300" 
+                              : "bg-blue-50 border-blue-200 text-blue-800 hover:bg-blue-100"
+                          }`}
+                        >
+                          <Eye size={12} />
+                          {showPreview ? "Sembunyikan Pratinjau" : "Tampilkan Pratinjau Sheet"}
+                        </button>
+                      </div>
                     </div>
 
-                    {/* Direct email action button inside the SSC Billing sheet view */}
-                    <div className="mt-6 flex justify-end print:hidden">
-                      <button
-                        onClick={handleEmailSSC}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg transition-all cursor-pointer shadow-sm"
-                      >
-                        <Mail size={12} className="stroke-[2.5]" />
-                        Direct Email ke SSC / AOP
-                      </button>
-                    </div>
+                    {showPreview && (
+                      /* LIVE PREVIEW AREA */
+                      <div className="bg-slate-100 rounded-xl p-4 border border-slate-250 space-y-3 w-full">
+                        <div className="flex border-b border-slate-200 pb-2 print:hidden">
+                          <strong className="text-xs font-black uppercase tracking-wider text-slate-700 block">
+                            Pratinjau Rekapitulasi Klaim SSC Billing (A4)
+                          </strong>
+                        </div>
+
+                        {/* Sheet A4 Scroll Frame */}
+                        <div className="max-h-[550px] overflow-y-auto border border-slate-300 rounded-lg shadow-inner bg-white p-3 print:max-h-none print:overflow-visible print:border-none print:p-0 w-full">
+                          <div
+                            id="internal-memo-sheet"
+                            className="bg-white shadow-lg border border-slate-300 w-full text-slate-900 p-6 text-left relative overflow-x-auto mx-auto max-w-[210mm]"
+                            style={{ fontFamily: 'Calibri, "Segoe UI", Arial, sans-serif', minHeight: "297mm" }}
+                          >
+                            {/* Sheet Header Information */}
+                            <div className="mb-4 pb-3 border-b border-slate-200">
+                              <h3 className="text-sm font-bold text-blue-900">REKAPITULASI KLAIM DENDA KUALITAS (QPR) - SSC BILLING</h3>
+                              <p className="text-[11px] text-slate-500">Tujuan: Shared Service Center (SSC) Astra Otoparts Group • Format Penyesuaian Tagihan Purchasing (Deduction Note)</p>
+                            </div>
+
+                            {/* Table Container styled like Excel */}
+                            <table className="w-full text-[10.5px] border-collapse border border-slate-400">
+                              <thead>
+                                <tr className="bg-[#f0ac0e] text-black border border-slate-400 text-center font-bold">
+                                  <th className="border border-slate-400 px-1.5 py-1 w-[70px]">Customer</th>
+                                  <th className="border border-slate-400 px-1.5 py-1 w-[90px]">DocumentNo</th>
+                                  <th className="border border-slate-400 px-1.5 py-1">Text</th>
+                                  <th className="border border-slate-400 px-1.5 py-1">Vendor</th>
+                                  <th className="border border-slate-400 px-1.5 py-1 w-[80px]">Doc. Date</th>
+                                  <th className="border border-slate-400 px-1.5 py-1 w-[95px] text-right">Local Crcy Amt</th>
+                                  <th className="border border-slate-400 px-1.5 py-1 w-[120px]">Potong tagih payment date</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {confirmationLetters.map((cl, idx) => (
+                                  <tr key={cl.id} className={`hover:bg-slate-50 font-semibold border border-slate-400 text-slate-800 ${cl.id === selectedClId ? 'bg-blue-50/50 font-bold' : ''}`}>
+                                    <td className="border border-slate-400 px-1.5 py-1 text-center font-mono">
+                                      {cl.customerCode !== undefined ? cl.customerCode : "OTC08002"}
+                                    </td>
+                                    <td className="border border-slate-400 px-1.5 py-1 text-center font-mono">
+                                      {cl.documentNo !== undefined ? cl.documentNo : (cl.clNumber.replace(/[^0-9]/g, "").slice(-11) || `180000000${53 + idx}`)}
+                                    </td>
+                                    <td className="border border-slate-400 px-1.5 py-1 text-left font-mono text-[9.5px] uppercase font-bold">
+                                      {cl.customText !== undefined ? cl.customText : `POTONG TAGIH ${getClaimText(cl)}`}
+                                    </td>
+                                    <td className="border border-slate-400 px-1.5 py-1 text-left font-sans">
+                                      {cl.supplierName}
+                                    </td>
+                                    <td className="border border-slate-400 px-1.5 py-1 text-center font-mono">
+                                      {formatSscDate(cl.dateSent)}
+                                    </td>
+                                    <td className="border border-slate-400 px-1.5 py-1 text-right font-mono font-bold">
+                                      {cl.amount}
+                                    </td>
+                                    <td className="border border-slate-400 px-1.5 py-1 text-center font-mono text-emerald-700 font-bold text-[10px]">
+                                      {cl.paymentDate !== undefined ? cl.paymentDate : getPaymentDate(cl.dateSent)}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+
+                            <div className="mt-8 text-[10px] text-slate-400 leading-normal flex justify-between">
+                              <span>Dibuat oleh: Finance Department MTM</span>
+                              <span>Diunduh/Dicetak pada: {new Date().toLocaleDateString('id-ID')}</span>
+                            </div>
+
+                            {/* Direct email action button inside the SSC Billing sheet view */}
+                            <div className="mt-6 flex justify-end print:hidden">
+                              <button
+                                onClick={handleEmailSSC}
+                                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg transition-all cursor-pointer shadow-sm"
+                              >
+                                <Mail size={12} className="stroke-[2.5]" />
+                                Direct Email ke SSC / AOP
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
                 {activeSubTab === "buat_ssc_payment" && (
@@ -515,79 +713,79 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                         </div>
 
                         <div className="border border-slate-200 rounded-lg bg-white p-1.5 shadow-inner">
-                          <table className="w-full text-left text-xs border-collapse">
+                          <table className="w-full text-left text-xs border-collapse min-w-[920px]">
                             <thead>
-                              <tr className="text-[9.5px] text-slate-400 font-extrabold uppercase border-b border-slate-200 tracking-wider">
-                                <th className="p-1 pb-1.5 w-[65px]">Customer</th>
-                                <th className="p-1 pb-1.5 w-[90px]">Doc No</th>
-                                <th className="p-1 pb-1.5 w-[140px]">Text / Description</th>
-                                <th className="p-1 pb-1.5 w-[100px]">Vendor</th>
-                                <th className="p-1 pb-1.5 w-[80px]">Doc. Date</th>
-                                <th className="p-1 pb-1.5 w-[95px]">Amount</th>
-                                <th className="p-1 pb-1.5 w-[80px]">Pay Date</th>
-                                <th className="p-1 pb-1.5 w-[32px] text-center">Aksi</th>
+                              <tr className="text-[10px] text-slate-500 font-extrabold uppercase border-b border-slate-200 tracking-wider">
+                                <th className="p-1.5 pb-2 w-[85px]">Customer</th>
+                                <th className="p-1.5 pb-2 w-[110px]">Doc No</th>
+                                <th className="p-1.5 pb-2 w-[220px]">Text / Description</th>
+                                <th className="p-1.5 pb-2 w-[150px]">Vendor</th>
+                                <th className="p-1.5 pb-2 w-[95px]">Doc. Date</th>
+                                <th className="p-1.5 pb-2 w-[110px]">Amount</th>
+                                <th className="p-1.5 pb-2 w-[100px]">Pay Date</th>
+                                <th className="p-1.5 pb-2 w-[40px] text-center">Aksi</th>
                               </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100">
+                            <tbody className="divide-y divide-slate-150">
                               {confirmationLetters.map((cl, idx) => (
                                 <tr key={cl.id} className="hover:bg-slate-50/50 transition-colors">
-                                  <td className="p-0.5 py-1">
+                                  <td className="p-1">
                                     <input
                                       type="text"
                                       value={cl.customerCode !== undefined ? cl.customerCode : "OTC08002"}
                                       onChange={e => handleUpdateClField(cl.id, "customerCode", e.target.value)}
-                                      className="w-full px-1 py-0.5 border border-slate-300 rounded font-mono text-[10.5px] text-slate-800 bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-center"
+                                      className="w-full px-2 py-1 border border-slate-300 rounded font-mono text-[11px] text-slate-800 bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-center font-bold"
                                     />
                                   </td>
-                                  <td className="p-0.5 py-1">
+                                  <td className="p-1">
                                     <input
                                       type="text"
                                       value={cl.documentNo !== undefined ? cl.documentNo : (cl.clNumber.replace(/[^0-9]/g, "").slice(-11) || `180000000${53 + idx}`)}
                                       onChange={e => handleUpdateClField(cl.id, "documentNo", e.target.value)}
-                                      className="w-full px-1 py-0.5 border border-slate-300 rounded font-mono text-[10.5px] text-slate-800 bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-center"
+                                      className="w-full px-2 py-1 border border-slate-300 rounded font-mono text-[11px] text-slate-800 bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-center font-bold"
                                     />
                                   </td>
-                                  <td className="p-0.5 py-1">
+                                  <td className="p-1">
                                     <input
                                       type="text"
                                       value={cl.customText !== undefined ? cl.customText : `POTONG TAGIH ${getClaimText(cl)}`}
                                       onChange={e => handleUpdateClField(cl.id, "customText", e.target.value)}
-                                      className="w-full px-1 py-0.5 border border-slate-300 rounded font-mono text-[10.5px] text-slate-800 bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-bold text-[10px]"
+                                      className="w-full px-2 py-1 border border-slate-300 rounded font-mono text-[11px] text-slate-800 bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-black text-[11px]"
                                     />
                                   </td>
-                                  <td className="p-0.5 py-1">
+                                  <td className="p-1">
                                     <input
                                       type="text"
                                       value={cl.supplierName}
                                       onChange={e => handleUpdateClField(cl.id, "supplierName", e.target.value)}
-                                      className="w-full px-1 py-0.5 border border-slate-300 rounded text-[10.5px] text-slate-800 bg-white font-semibold focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                                      className="w-full px-2 py-1 border border-slate-300 rounded text-[11px] text-slate-800 bg-white font-bold focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
                                     />
                                   </td>
-                                  <td className="p-0.5 py-1">
+                                  <td className="p-1">
                                     <input
                                       type="text"
                                       value={cl.dateSent}
                                       onChange={e => handleUpdateClField(cl.id, "dateSent", e.target.value)}
-                                      className="w-full px-1 py-0.5 border border-slate-300 rounded font-mono text-[10.5px] text-slate-800 bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-center"
+                                      className="w-full px-2 py-1 border border-slate-300 rounded font-mono text-[11px] text-slate-800 bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-center font-semibold"
                                     />
                                   </td>
-                                  <td className="p-0.5 py-1">
+                                  <td className="p-1">
                                     <input
                                       type="text"
                                       value={cl.amount}
                                       onChange={e => handleUpdateClField(cl.id, "amount", e.target.value)}
-                                      className="w-full px-1 py-0.5 border border-slate-300 rounded font-mono text-[10.5px] text-slate-850 font-bold bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-right"
+                                      className="w-full px-2 py-1 border border-slate-300 rounded font-mono text-[11px] text-slate-850 font-black bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-right"
                                     />
                                   </td>
-                                  <td className="p-0.5 py-1">
+                                  <td className="p-1">
                                     <input
                                       type="text"
                                       value={cl.paymentDate !== undefined ? cl.paymentDate : getPaymentDate(cl.dateSent)}
                                       onChange={e => handleUpdateClField(cl.id, "paymentDate", e.target.value)}
-                                      className="w-full px-1 py-0.5 border border-slate-300 rounded font-mono text-[10.5px] text-slate-800 bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-center"
+                                      className="w-full px-2 py-1 border border-slate-300 rounded font-mono text-[11px] text-slate-800 bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-center font-bold"
                                     />
                                   </td>
-                                  <td className="p-0.5 py-1 text-center font-sans">
+                                  <td className="p-1 text-center font-sans">
                                     <button
                                       onClick={() => handleDeleteRow(cl.id)}
                                       title="Hapus baris ini"
@@ -907,6 +1105,87 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                     </div>
                   </div>
                 )}
+
+                {activeSubTab === "kirim_cl" && (
+                  <div className="w-full bg-white rounded-xl shadow-md border border-slate-200 p-6 text-left space-y-6">
+                    <div>
+                      <h4 className="text-sm font-black text-slate-850 uppercase tracking-wide">
+                        Antrean Dokumen Confirmation Letter
+                      </h4>
+                      <p className="text-[11.5px] text-slate-500 font-bold mt-1 leading-normal">
+                        Berikut adalah daftar Confirmation Letter (CL) denda kualitas yang diterbitkan oleh tim Accounting. Silakan teruskan ke perwakilan vendor/supplier masing-masing.
+                      </p>
+                    </div>
+
+                    <div className="overflow-x-auto border border-slate-200 rounded-lg">
+                      <table className="w-full text-xs text-left border-collapse">
+                        <thead className="bg-slate-50 text-slate-750 font-black border-b border-slate-200">
+                          <tr>
+                            <th className="px-4 py-3 w-10 text-center">No</th>
+                            <th className="px-4 py-3">No. Confirmation Letter</th>
+                            <th className="px-4 py-3">Supplier / Vendor</th>
+                            <th className="px-4 py-3 text-center">Status Kirim</th>
+                            <th className="px-4 py-3 text-center">Pratinjau</th>
+                            <th className="px-4 py-3 text-right">Aksi</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200 font-bold">
+                          {confirmationLetters.length === 0 ? (
+                            <tr>
+                              <td colSpan={6} className="px-4 py-8 text-center text-slate-400 italic">
+                                Belum ada Confirmation Letter terdaftar.
+                              </td>
+                            </tr>
+                          ) : (
+                            confirmationLetters.map((cl, index) => (
+                              <tr key={cl.id} className="hover:bg-slate-50/50">
+                                <td className="px-4 py-3 text-center text-slate-400 font-mono">{index + 1}</td>
+                                <td className="px-4 py-3 font-mono text-slate-800">{cl.clNumber}</td>
+                                <td className="px-4 py-3 text-slate-700">{cl.supplierName}</td>
+                                <td className="px-4 py-3 text-center">
+                                  {cl.sentToVendor ? (
+                                    <span className="inline-flex items-center px-2 py-0.5 bg-green-50 text-green-700 border border-green-200 rounded text-[9.5px] font-bold">
+                                      Terkirim ke Vendor
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded text-[9.5px] font-bold animate-pulse">
+                                      Menunggu Dikirim
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-3 text-center">
+                                  <button
+                                    onClick={() => setPreviewCl(cl)}
+                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-[10px] font-bold rounded-lg text-slate-700 cursor-pointer transition-colors"
+                                    title="Lihat Pratinjau Confirmation Letter"
+                                  >
+                                    <Eye size={11} />
+                                    Pratinjau CL
+                                  </button>
+                                </td>
+                                <td className="px-4 py-3 text-right">
+                                  {!cl.sentToVendor ? (
+                                    <button
+                                      onClick={() => handleSendToVendor(cl.id, cl.clNumber)}
+                                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-750 active:scale-95 text-white text-[10px] font-bold rounded-lg shadow-sm transition-all cursor-pointer"
+                                    >
+                                      <Send size={11} />
+                                      Kirim ke Vendor
+                                    </button>
+                                  ) : (
+                                    <span className="text-[10px] text-slate-400 italic font-semibold mr-2">
+                                      Selesai diteruskan
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -919,6 +1198,12 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
           #internal-memo-sheet { position: absolute; left: 0; top: 0; width: 100%; margin: 0; padding: 0; border: none; box-shadow: none; }
         }
       `}</style>
+      {previewCl && (
+        <ConfirmationLetterPrintPreview
+          cl={previewCl}
+          onClose={() => setPreviewCl(null)}
+        />
+      )}
     </div>
   );
 }

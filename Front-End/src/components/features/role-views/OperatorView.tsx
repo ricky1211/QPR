@@ -241,7 +241,7 @@ export default function OperatorView({
           docsToRevise: finalDocs.join(", "),
           images: uploadedImages,
           status: "WAITING_APPROVAL",
-          requiredRole: "Foreman"
+          requiredRole: "Section Head"
         };
 
         newNcrs.push(newNcr);
@@ -299,6 +299,78 @@ export default function OperatorView({
       // Show success alert toast
       setIsSubmitting(false);
       setSuccessNcrNumber(newNcrs[0]?.ncrNumber || "BATCH-SUCCESS");
+    }, 800);
+  };
+
+  const handleSaveDraft = () => {
+    if (!supplierId) {
+      setQtyError("Harap pilih Supplier terlebih dahulu!");
+      return;
+    }
+
+    const activeRows = inputRows.filter(row => row.partId && row.qtyNG && row.ngTypes);
+    if (activeRows.length === 0) {
+      setQtyError("Harap isi setidaknya satu baris part dengan lengkap!");
+      return;
+    }
+
+    const currentSupplier = suppliers.find((s) => s.id === parseInt(String(supplierId)));
+    if (!currentSupplier) return;
+
+    setIsSubmitting(true);
+    setQtyError(null);
+
+    const finalDocs = [...docsToRevise];
+    if (customDoc.trim()) {
+      finalDocs.push(customDoc.trim());
+    }
+
+    setTimeout(() => {
+      const newNcrs: any[] = [];
+      activeRows.forEach((row, index) => {
+        const currentPart = parts.find((p) => p.id === parseInt(String(row.partId)));
+        if (!currentPart) return;
+
+        const ncrNum = `NCR/2026/06/DFT-${Math.floor(100 + Math.random() * 900) + index}`;
+        const qty = parseInt(row.qtyNG) || 0;
+
+        const newNcr = {
+          id: Date.now() + index,
+          ncrNumber: ncrNum,
+          date: selectedDate || new Date().toISOString().split("T")[0],
+          partNumber: currentPart.partNumber,
+          partName: currentPart.partName,
+          supplierName: currentSupplier.name,
+          qty: qty,
+          reject: row.ngTypes.trim().toUpperCase(),
+          locationFound: Array.isArray(locationFound) ? locationFound.join(", ") : locationFound,
+          problemType: Array.isArray(problemType) ? problemType.join(", ") : problemType,
+          foundBy: foundBy.join(", "),
+          defectType: description || "Draf Simpanan",
+          disposition: Array.isArray(disposition) ? disposition.join(", ") : disposition,
+          customerApproval: customerApproval || "-",
+          docsToRevise: finalDocs.join(", "),
+          images: uploadedImages,
+          status: "DRAFT",
+          requiredRole: "Foreman"
+        };
+
+        newNcrs.push(newNcr);
+      });
+
+      setPendingNcrs((prev) => [...newNcrs, ...prev]);
+      setIsSubmitting(false);
+      
+      // Reset input rows, keep date & supplier
+      setInputRows([{ id: Date.now(), partId: "", qtyNG: "", ngTypes: "", isManualNg: false }]);
+      setLocationFound([]);
+      setProblemType([]);
+      setDescription("");
+      setDocsToRevise([]);
+      setCustomDoc("");
+      setUploadedImages([]);
+      
+      alert("Draf NCR berhasil disimpan! Anda dapat melihatnya di sub-menu Draf NCR.");
     }, 800);
   };
 

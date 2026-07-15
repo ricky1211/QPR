@@ -231,148 +231,197 @@ export default function LoginPage() {
             </div>
 
             {/* Sign In Form */}
-            {activeTab === 'signin' && (
-              <form action={formAction} id="login-form" noValidate>
+            <form action={formAction} id="login-form" className={activeTab === 'signin' ? '' : 'hidden'} noValidate>
 
-                {/* Error alert */}
-                {state?.error && (
-                  <div
-                    className="error-shake flex items-start gap-2.5 mb-5 px-3.5 py-3 rounded-lg border"
-                    style={{
-                      background: '#fef2f2',
-                      borderColor: '#fca5a5',
-                    }}
-                  >
-                    <AlertCircle
-                      size={15}
-                      className="shrink-0 mt-0.5"
-                      style={{ color: '#dc2626' }}
-                    />
-                    <p className="text-xs font-semibold" style={{ color: '#b91c1c' }}>
-                      {state.error}
-                    </p>
-                  </div>
-                )}
-
-                {/* Username field */}
-                <div className="mb-4">
-                  <label
-                    htmlFor="username"
-                    className="block text-[10px] font-extrabold tracking-widest uppercase mb-1.5"
-                    style={{ color: '#64748b' }}
-                  >
-                    Username / NPK
-                  </label>
-                  <div
-                    className="input-focus-ring flex items-center gap-2.5 px-3.5 rounded-lg border transition-all"
-                    style={{
-                      borderColor: '#e2e8f0',
-                      background: '#f8fafc',
-                    }}
-                  >
-                    <User size={15} style={{ color: '#94a3b8', flexShrink: 0 }} />
-                    <input
-                      id="username"
-                      name="username"
-                      type="text"
-                      autoComplete="username"
-                      defaultValue="admin"
-                      placeholder="Masukkan username atau NPK"
-                      required
-                      className="flex-1 bg-transparent py-3 text-sm outline-none placeholder:text-slate-300 font-medium"
-                      style={{ color: '#0f172a' }}
-                    />
-                  </div>
-                </div>
-
-                {/* Password field */}
-                <div className="mb-6">
-                  <label
-                    htmlFor="password"
-                    className="block text-[10px] font-extrabold tracking-widest uppercase mb-1.5"
-                    style={{ color: '#64748b' }}
-                  >
-                    Password
-                  </label>
-                  <div
-                    className="input-focus-ring flex items-center gap-2.5 px-3.5 rounded-lg border transition-all"
-                    style={{
-                      borderColor: '#e2e8f0',
-                      background: '#f8fafc',
-                    }}
-                  >
-                    <Lock size={15} style={{ color: '#94a3b8', flexShrink: 0 }} />
-                    <input
-                      id="password"
-                      name="password"
-                      type={showPassword ? 'text' : 'password'}
-                      autoComplete="current-password"
-                      defaultValue="password123"
-                      placeholder="Masukkan password"
-                      required
-                      className="flex-1 bg-transparent py-3 text-sm outline-none placeholder:text-slate-300 font-medium"
-                      style={{ color: '#0f172a' }}
-                    />
-                    <button
-                      type="button"
-                      id="toggle-password"
-                      aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
-                      onClick={() => setShowPassword((v) => !v)}
-                      className="p-1 rounded transition-colors hover:bg-slate-100"
-                      style={{ color: '#94a3b8' }}
-                    >
-                      {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Submit button */}
-                <button
-                  type="submit"
-                  id="btn-login"
-                  disabled={isPending}
-                  className="btn-shimmer w-full flex items-center justify-center gap-2.5 py-3.5 rounded-lg font-bold text-sm text-white transition-all"
-                  style={{ minHeight: 48 }}
-                >
-                  {isPending ? (
-                    <>
-                      <Loader2 size={16} className="animate-spin" />
-                      Memverifikasi…
-                    </>
-                  ) : (
-                    <>
-                      <LogIn size={16} />
-                      Masuk
-                    </>
-                  )}
-                </button>
-              </form>
-            )}
-
-            {/* Quick Access tab placeholder */}
-            {activeTab === 'quickaccess' && (
-              <div className="py-8 flex flex-col items-center gap-3 text-center">
+              {/* Error alert */}
+              {state?.error && (
                 <div
-                  className="w-14 h-14 rounded-2xl flex items-center justify-center"
-                  style={{ background: '#eff6ff' }}
+                  className="error-shake flex items-start gap-2.5 mb-5 px-3.5 py-3 rounded-lg border"
+                  style={{
+                    background: '#fef2f2',
+                    borderColor: '#fca5a5',
+                  }}
                 >
-                  <Zap size={26} style={{ color: '#2563eb' }} />
+                  <AlertCircle
+                    size={15}
+                    className="shrink-0 mt-0.5"
+                    style={{ color: '#dc2626' }}
+                  />
+                  <p className="text-xs font-semibold" style={{ color: '#b91c1c' }}>
+                    {state.error}
+                  </p>
                 </div>
-                <p className="text-sm font-bold" style={{ color: '#1e293b' }}>
-                  Quick Access
-                </p>
-                <p className="text-xs leading-relaxed" style={{ color: '#94a3b8', maxWidth: 240 }}>
-                  Fitur ini belum tersedia. Silakan gunakan tab{' '}
+              )}
+
+              {/* Username field */}
+              <div className="mb-4">
+                <label
+                  htmlFor="username"
+                  className="block text-[10px] font-extrabold tracking-widest uppercase mb-1.5"
+                  style={{ color: '#64748b' }}
+                >
+                  Username / NPK
+                </label>
+                <div
+                  className="input-focus-ring flex items-center gap-2.5 px-3.5 rounded-lg border transition-all"
+                  style={{
+                    borderColor: '#e2e8f0',
+                    background: '#f8fafc',
+                  }}
+                >
+                  <User size={15} style={{ color: '#94a3b8', flexShrink: 0 }} />
+                  <input
+                    id="username"
+                    name="username"
+                    type="text"
+                    autoComplete="username"
+                    defaultValue="admin"
+                    placeholder="Masukkan username atau NPK"
+                    required
+                    className="flex-1 bg-transparent py-3 text-sm outline-none placeholder:text-slate-300 font-medium"
+                    style={{ color: '#0f172a' }}
+                  />
+                </div>
+              </div>
+
+              {/* Password field */}
+              <div className="mb-6">
+                <label
+                  htmlFor="password"
+                  className="block text-[10px] font-extrabold tracking-widest uppercase mb-1.5"
+                  style={{ color: '#64748b' }}
+                >
+                  Password
+                </label>
+                <div
+                  className="input-focus-ring flex items-center gap-2.5 px-3.5 rounded-lg border transition-all"
+                  style={{
+                    borderColor: '#e2e8f0',
+                    background: '#f8fafc',
+                  }}
+                >
+                  <Lock size={15} style={{ color: '#94a3b8', flexShrink: 0 }} />
+                  <input
+                    id="password"
+                    name="password"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    defaultValue="password123"
+                    placeholder="Masukkan password"
+                    required
+                    className="flex-1 bg-transparent py-3 text-sm outline-none placeholder:text-slate-300 font-medium"
+                    style={{ color: '#0f172a' }}
+                  />
                   <button
                     type="button"
-                    className="font-bold underline"
-                    style={{ color: '#2563eb' }}
-                    onClick={() => setActiveTab('signin')}
+                    id="toggle-password"
+                    aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="p-1 rounded transition-colors hover:bg-slate-100"
+                    style={{ color: '#94a3b8' }}
                   >
-                    Sign In
-                  </button>{' '}
-                  untuk masuk.
-                </p>
+                    {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Submit button */}
+              <button
+                type="submit"
+                id="btn-login"
+                disabled={isPending}
+                className="btn-shimmer w-full flex items-center justify-center gap-2.5 py-3.5 rounded-lg font-bold text-sm text-white transition-all"
+                style={{ minHeight: 48 }}
+              >
+                {isPending ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    Memverifikasi…
+                  </>
+                ) : (
+                  <>
+                    <LogIn size={16} />
+                    Masuk
+                  </>
+                )}
+              </button>
+            </form>
+
+            {/* Quick Access tab */}
+            {activeTab === 'quickaccess' && (
+              <div className="space-y-3.5 max-h-[380px] overflow-y-auto pr-1.5 text-left">
+                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-2">PILIH AKUN LOGIN CEPAT</span>
+                
+                {[
+                  {
+                    username: "operator",
+                    role: "QA/QC Operator (Foreman)",
+                    duty: "Buat NCR & Draf QPR",
+                    color: "border-blue-200 hover:bg-blue-50/30"
+                  },
+                  {
+                    username: "sectionhead",
+                    role: "QA Section Head",
+                    duty: "Validasi & Approve NCR/QPR",
+                    color: "border-indigo-200 hover:bg-indigo-50/30"
+                  },
+                  {
+                    username: "depthead",
+                    role: "QA Dept Head",
+                    duty: "Approve NCR & QPR",
+                    color: "border-violet-200 hover:bg-violet-50/30"
+                  },
+                  {
+                    username: "divhead",
+                    role: "QA Division Head",
+                    duty: "Approve Akhir QPR",
+                    color: "border-purple-200 hover:bg-purple-50/30"
+                  },
+                  {
+                    username: "purchasing",
+                    role: "Purchasing Department",
+                    duty: "Kelola SSC Billing & Kirim CL",
+                    color: "border-amber-200 hover:bg-amber-50/30"
+                  },
+                  {
+                    username: "accounting",
+                    role: "Finance & Accounting",
+                    duty: "Input Denda & Terbitkan CL",
+                    color: "border-rose-200 hover:bg-rose-50/30"
+                  },
+                  {
+                    username: "admin",
+                    role: "System Administrator",
+                    duty: "Akses Penuh Seluruh Portal",
+                    color: "border-slate-350 hover:bg-slate-50"
+                  }
+                ].map((acc) => (
+                  <button
+                    key={acc.username}
+                    type="button"
+                    onClick={() => {
+                      const usernameEl = document.getElementById('username') as HTMLInputElement;
+                      const passwordEl = document.getElementById('password') as HTMLInputElement;
+                      if (usernameEl && passwordEl) {
+                        usernameEl.value = acc.username;
+                        passwordEl.value = 'password123';
+                        const formEl = document.getElementById('login-form') as HTMLFormElement;
+                        if (formEl) {
+                          formEl.requestSubmit();
+                        }
+                      }
+                    }}
+                    className={`w-full px-4 py-3 rounded-xl border bg-white flex items-center justify-between transition-all duration-200 active:scale-[0.98] text-left cursor-pointer shadow-sm ${acc.color}`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between">
+                        <strong className="text-xs font-black text-slate-800">{acc.role}</strong>
+                        <span className="text-[8px] font-mono font-bold bg-slate-100 text-slate-500 px-1 py-0.2 rounded uppercase">@{acc.username}</span>
+                      </div>
+                      <p className="text-[10px] text-slate-400 font-semibold mt-0.5 leading-normal truncate">{acc.duty}</p>
+                    </div>
+                  </button>
+                ))}
               </div>
             )}
 

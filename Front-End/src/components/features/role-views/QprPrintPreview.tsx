@@ -107,8 +107,16 @@ export default function QprPrintPreview({ qpr, onClose, inline = false }: QprPre
   const documentContent = (
     <div
       id="qpr-print-area"
-      className={`bg-white mx-auto ${inline ? "w-full shadow-sm" : "shadow-2xl w-full max-w-3xl my-16"}`}
-      style={{ fontFamily: "Arial, sans-serif", fontSize: "10px", border: "1px solid #000" }}
+      className={`bg-white mx-auto ${inline ? "w-full shadow-sm" : "shadow-2xl my-4"}`}
+      style={{
+        fontFamily: "Arial, sans-serif",
+        fontSize: "10px",
+        border: "1px solid #000",
+        width: inline ? "100%" : "210mm",
+        minHeight: inline ? "auto" : "297mm",
+        padding: inline ? "8px" : "15mm",
+        boxSizing: "border-box"
+      }}
     >
         {/* Company Header */}
         <div className="flex items-center" style={{ borderBottom: "1px solid #000", padding: "6px 10px" }}>
@@ -257,34 +265,41 @@ export default function QprPrintPreview({ qpr, onClose, inline = false }: QprPre
 
         {/* Parts Table */}
         <div style={{ borderBottom: "1px solid #000" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "8.5px" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "7.5px" }}>
             <thead>
               <tr style={{ backgroundColor: "transparent" }}>
-                <th style={{ border: "1px solid #000", padding: "4px 6px", textAlign: "center", fontWeight: "bold", backgroundColor: "#f1f5f9" }}>NO</th>
-                <th style={{ border: "1px solid #000", padding: "4px 6px", textAlign: "center", fontWeight: "bold", backgroundColor: "#f1f5f9" }}>PART NAME</th>
-                <th style={{ border: "1px solid #000", padding: "4px 6px", textAlign: "center", fontWeight: "bold", backgroundColor: "#f1f5f9" }}>TOTAL QTY (PCS)</th>
-                <th style={{ border: "1px solid #000", padding: "4px 6px", textAlign: "center", fontWeight: "bold", backgroundColor: "#f1f5f9" }}>QTY NG (PCS)</th>
-                <th style={{ border: "1px solid #000", padding: "4px 6px", textAlign: "center", fontWeight: "bold", backgroundColor: "#ffff00" }}>NG ACTUAL (%)</th>
-                <th style={{ border: "1px solid #000", padding: "4px 6px", textAlign: "center", fontWeight: "bold", backgroundColor: "#bbf7d0" }}>STD NG ALLOWANCE<br/>0 % (PCS)</th>
-                <th style={{ border: "1px solid #000", padding: "4px 6px", textAlign: "center", fontWeight: "bold", backgroundColor: "#fca5a5" }}>QTY CLAIM (PCS)</th>
+                <th style={{ border: "1px solid #000", padding: "2.5px 4px", textAlign: "center", fontWeight: "bold", backgroundColor: "#f1f5f9" }}>NO</th>
+                <th style={{ border: "1px solid #000", padding: "2.5px 4px", textAlign: "center", fontWeight: "bold", backgroundColor: "#f1f5f9" }}>PART NAME</th>
+                <th style={{ border: "1px solid #000", padding: "2.5px 4px", textAlign: "center", fontWeight: "bold", backgroundColor: "#f1f5f9" }}>TOTAL QTY (PCS)</th>
+                <th style={{ border: "1px solid #000", padding: "2.5px 4px", textAlign: "center", fontWeight: "bold", backgroundColor: "#f1f5f9" }}>QTY NG (PCS)</th>
+                <th style={{ border: "1px solid #000", padding: "2.5px 4px", textAlign: "center", fontWeight: "bold", backgroundColor: "#ffff00" }}>NG ACTUAL (%)</th>
+                <th style={{ border: "1px solid #000", padding: "2.5px 4px", textAlign: "center", fontWeight: "bold", backgroundColor: "#bbf7d0" }}>STD NG ALLOWANCE<br/>0.5 % (PCS)</th>
+                <th style={{ border: "1px solid #000", padding: "2.5px 4px", textAlign: "center", fontWeight: "bold", backgroundColor: "#fca5a5" }}>QTY CLAIM (PCS)</th>
               </tr>
             </thead>
             <tbody>
-              {(qpr.parts || PART_ITEMS).map((item: any) => (
-                <tr key={item.no}>
-                  <td style={{ border: "1px solid #000", padding: "4px 6px", textAlign: "center" }}>{item.no}</td>
-                  <td style={{ border: "1px solid #000", padding: "4px 8px", fontWeight: "600" }}>{item.partName}</td>
-                  <td style={{ border: "1px solid #000", padding: "4px 6px", textAlign: "center" }}>{item.totalQty.toLocaleString("id-ID")}</td>
-                  <td style={{ border: "1px solid #000", padding: "4px 6px", textAlign: "center" }}>{item.qtyNG.toLocaleString("id-ID")}</td>
-                  <td style={{ border: "1px solid #000", padding: "4px 6px", textAlign: "center", fontWeight: "bold", color: "#b91c1c" }}>{item.ngActual.toFixed(1)}</td>
-                  <td style={{ border: "1px solid #000", padding: "4px 6px", textAlign: "center" }}>{item.stdAllowance !== undefined ? item.stdAllowance : 0}</td>
-                  <td style={{ border: "1px solid #000", padding: "4px 6px", textAlign: "center", fontWeight: "bold" }}>{(item.qtyClaim !== undefined ? item.qtyClaim : item.qtyNG).toLocaleString("id-ID")}</td>
-                </tr>
-              ))}
+              {(qpr.parts || PART_ITEMS).map((item: any) => {
+                const totalQty = item.totalQty || 0;
+                const qtyNG = item.qtyNG !== undefined ? item.qtyNG : item.qtyNg || 0;
+                const stdAllowance = item.stdAllowance !== undefined ? item.stdAllowance : Math.round(totalQty * 0.005);
+                const ngActual = item.ngActual !== undefined ? item.ngActual : (totalQty > 0 ? (qtyNG / totalQty) * 100 : 0);
+                const qtyClaim = item.qtyClaim !== undefined ? item.qtyClaim : qtyNG - stdAllowance;
+                return (
+                  <tr key={item.no}>
+                    <td style={{ border: "1px solid #000", padding: "2.5px 4px", textAlign: "center" }}>{item.no}</td>
+                    <td style={{ border: "1px solid #000", padding: "2.5px 6px", fontWeight: "600" }}>{item.partName}</td>
+                    <td style={{ border: "1px solid #000", padding: "2.5px 4px", textAlign: "center" }}>{totalQty.toLocaleString("id-ID")}</td>
+                    <td style={{ border: "1px solid #000", padding: "2.5px 4px", textAlign: "center" }}>{qtyNG.toLocaleString("id-ID")}</td>
+                    <td style={{ border: "1px solid #000", padding: "2.5px 4px", textAlign: "center", fontWeight: "bold", color: "#b91c1c" }}>{ngActual.toFixed(2)}%</td>
+                    <td style={{ border: "1px solid #000", padding: "2.5px 4px", textAlign: "center" }}>{stdAllowance.toLocaleString("id-ID")}</td>
+                    <td style={{ border: "1px solid #000", padding: "2.5px 4px", textAlign: "center", fontWeight: "bold" }}>{qtyClaim.toLocaleString("id-ID")}</td>
+                  </tr>
+                );
+              })}
               {[...Array(2)].map((_, i) => (
                 <tr key={`empty-${i}`}>
                   {[...Array(7)].map((__, j) => (
-                    <td key={j} style={{ border: "1px solid #000", padding: "4px 6px", height: "20px" }}>&nbsp;</td>
+                    <td key={j} style={{ border: "1px solid #000", padding: "2.5px 4px", height: "12px" }}>&nbsp;</td>
                   ))}
                 </tr>
               ))}
@@ -361,27 +376,16 @@ export default function QprPrintPreview({ qpr, onClose, inline = false }: QprPre
 
         {/* MTM REQUEST TABLE */}
         <div style={{ borderBottom: "1px solid #000" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "8.5px" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "7.5px" }}>
             <thead>
               <tr style={{ backgroundColor: "transparent" }}>
-                <th rowSpan={9} style={{ border: "1.5px solid #000", backgroundColor: "#475569", color: "#ffffff", fontWeight: "bold", fontSize: "9px", width: "32px", minWidth: "32px", padding: "8px 0", textAlign: "center", verticalAlign: "middle" }}>
-                  <div style={{
-                    writingMode: "vertical-rl",
-                    transform: "rotate(180deg)",
-                    whiteSpace: "nowrap",
-                    margin: "0 auto",
-                    letterSpacing: "0.05em",
-                    display: "inline-block"
-                  }}>
-                    MTM REQUEST
-                  </div>
-                </th>
-                <th style={{ border: "1.5px solid #000", borderBottom: "1.5px solid #000", backgroundColor: "#f1f5f9", padding: "4px 6px", fontWeight: "bold", textAlign: "center", width: "30px" }}>NO</th>
-                <th style={{ border: "1.5px solid #000", borderBottom: "1.5px solid #000", backgroundColor: "#f1f5f9", padding: "4px 6px", fontWeight: "bold", textAlign: "center" }}>ITEM</th>
-                <th style={{ border: "1.5px solid #000", borderBottom: "1.5px solid #000", backgroundColor: "#f1f5f9", padding: "4px 6px", fontWeight: "bold", width: "20px" }}>&nbsp;</th>
-                <th style={{ border: "1.5px solid #000", borderBottom: "1.5px solid #000", backgroundColor: "#f1f5f9", padding: "4px 6px", fontWeight: "bold", textAlign: "center", width: "60px" }}>D/D</th>
-                <th style={{ border: "1.5px solid #000", borderBottom: "1.5px solid #000", backgroundColor: "#f1f5f9", padding: "4px 6px", fontWeight: "bold", textAlign: "center", width: "60px" }}>PIC</th>
-                <th style={{ border: "1.5px solid #000", borderBottom: "1.5px solid #000", backgroundColor: "#f1f5f9", padding: "4px 6px", fontWeight: "bold", textAlign: "center", width: "150px" }}>REMARKS</th>
+                <th style={{ border: "1.5px solid #000", backgroundColor: "#f1f5f9", width: "32px", minWidth: "32px", padding: "2.5px 3px" }}>&nbsp;</th>
+                <th style={{ border: "1.5px solid #000", borderBottom: "1.5px solid #000", backgroundColor: "#f1f5f9", padding: "2.5px 3px", fontWeight: "bold", textAlign: "center", width: "30px" }}>NO</th>
+                <th style={{ border: "1.5px solid #000", borderBottom: "1.5px solid #000", backgroundColor: "#f1f5f9", padding: "2.5px 3px", fontWeight: "bold", textAlign: "center" }}>ITEM</th>
+                <th style={{ border: "1.5px solid #000", borderBottom: "1.5px solid #000", backgroundColor: "#f1f5f9", padding: "2.5px 3px", fontWeight: "bold", width: "20px" }}>&nbsp;</th>
+                <th style={{ border: "1.5px solid #000", borderBottom: "1.5px solid #000", backgroundColor: "#f1f5f9", padding: "2.5px 3px", fontWeight: "bold", textAlign: "center", width: "60px" }}>D/D</th>
+                <th style={{ border: "1.5px solid #000", borderBottom: "1.5px solid #000", backgroundColor: "#f1f5f9", padding: "2.5px 3px", fontWeight: "bold", textAlign: "center", width: "60px" }}>PIC</th>
+                <th style={{ border: "1.5px solid #000", borderBottom: "1.5px solid #000", backgroundColor: "#f1f5f9", padding: "2.5px 3px", fontWeight: "bold", textAlign: "center", width: "150px" }}>REMARKS</th>
               </tr>
             </thead>
             <tbody>
@@ -392,20 +396,35 @@ export default function QprPrintPreview({ qpr, onClose, inline = false }: QprPre
                 { no: 4, items: ["Presentasi"] },
                 { no: 5, items: ["Audit"] },
                 { no: 6, items: ["Others"] },
-              ].map((row) => (
+              ].map((row, rowIndex) => (
                 <React.Fragment key={row.no}>
                   {row.items.map((item, i) => (
                     <tr key={`${row.no}-${i}`} style={{ backgroundColor: "transparent" }}>
+                      {/* Vertical MTM REQUEST header rendered only in the very first cell of the body */}
+                      {rowIndex === 0 && i === 0 && (
+                        <td rowSpan={8} style={{ border: "1.5px solid #000", backgroundColor: "#475569", color: "#ffffff", fontWeight: "bold", fontSize: "8px", width: "32px", minWidth: "32px", padding: "2px 0", textAlign: "center", verticalAlign: "middle" }}>
+                          <div style={{
+                            writingMode: "vertical-rl",
+                            transform: "rotate(180deg)",
+                            whiteSpace: "nowrap",
+                            margin: "0 auto",
+                            letterSpacing: "0.05em",
+                            display: "inline-block"
+                          }}>
+                            MTM REQUEST
+                          </div>
+                        </td>
+                      )}
                       {i === 0 && (
-                        <td rowSpan={row.items.length} style={{ border: "1.5px solid #000", padding: "3px 4px", textAlign: "center", fontFamily: "monospace", fontWeight: "bold", fontSize: "9px" }}>
+                        <td rowSpan={row.items.length} style={{ border: "1.5px solid #000", padding: "1.5px 2px", textAlign: "center", fontFamily: "monospace", fontWeight: "bold", fontSize: "8px" }}>
                           {row.no}
                         </td>
                       )}
-                      <td style={{ border: "1.5px solid #000", padding: "3px 6px", fontSize: "8px", fontWeight: "bold" }}>{item}</td>
-                      <td style={{ border: "1.5px solid #000", padding: "3px 4px", textAlign: "center", fontWeight: "bold", fontSize: "8.5px" }}>-</td>
-                      <td style={{ border: "1.5px solid #000", padding: "3px 4px", textAlign: "center", fontWeight: "bold", fontSize: "8.5px" }}>-</td>
-                      <td style={{ border: "1.5px solid #000", padding: "3px 4px", textAlign: "center", fontWeight: "bold", fontSize: "8.5px" }}>-</td>
-                      <td style={{ border: "1.5px solid #000", padding: "3px 4px" }}>&nbsp;</td>
+                      <td style={{ border: "1.5px solid #000", padding: "1.5px 4px", fontSize: "7px", fontWeight: "bold" }}>{item}</td>
+                      <td style={{ border: "1.5px solid #000", padding: "1.5px 3px", textAlign: "center", fontWeight: "bold", fontSize: "7.5px" }}>-</td>
+                      <td style={{ border: "1.5px solid #000", padding: "1.5px 3px", textAlign: "center", fontWeight: "bold", fontSize: "7.5px" }}>-</td>
+                      <td style={{ border: "1.5px solid #000", padding: "1.5px 3px", textAlign: "center", fontWeight: "bold", fontSize: "7.5px" }}>-</td>
+                      <td style={{ border: "1.5px solid #000", padding: "1.5px 3px" }}>&nbsp;</td>
                     </tr>
                   ))}
                 </React.Fragment>
@@ -488,16 +507,16 @@ export default function QprPrintPreview({ qpr, onClose, inline = false }: QprPre
                   )
                 }
               ].map((sig, i) => (
-                <div key={i} style={{ borderRight: i < 4 ? "1px solid #000" : "none", textAlign: "center", display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: "80px" }}>
-                  <div style={{ borderBottom: "1px solid #000", padding: "2px 4px", fontWeight: "bold", fontSize: "7px", background: "#f8fafc" }}>{sig.type}</div>
-                  <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", minHeight: "45px", padding: "2px" }}>
+                <div key={i} style={{ borderRight: i < 4 ? "1px solid #000" : "none", textAlign: "center", display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: "60px" }}>
+                  <div style={{ borderBottom: "1px solid #000", padding: "1px 2px", fontWeight: "bold", fontSize: "7px", background: "#f8fafc" }}>{sig.type}</div>
+                  <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", minHeight: "30px", padding: "1px" }}>
                     {sig.isSigned ? (
                       sig.sigSvg
                     ) : (
                       <span style={{ fontSize: "6.5px", color: "#cbd5e1", fontStyle: "italic" }}>(Pending)</span>
                     )}
                   </div>
-                  <div style={{ borderTop: "1px solid #000", padding: "2px 4px", fontSize: "7px", color: "#64748b", textAlign: "center", lineHeight: "1.3", fontWeight: "bold" }}>
+                  <div style={{ borderTop: "1px solid #000", padding: "1px 2px", fontSize: "7px", color: "#64748b", textAlign: "center", lineHeight: "1.2", fontWeight: "bold" }}>
                     {sig.name}
                   </div>
                 </div>
@@ -514,9 +533,29 @@ export default function QprPrintPreview({ qpr, onClose, inline = false }: QprPre
         {documentContent}
         <style>{`
           @media print {
+            @page {
+              size: A4;
+              margin: 0;
+            }
+            html, body {
+              height: 100%;
+              overflow: hidden;
+            }
             body * { visibility: hidden; }
             #qpr-print-area, #qpr-print-area * { visibility: visible; }
-            #qpr-print-area { position: fixed; left: 0; top: 0; width: 100%; margin: 0; box-shadow: none; }
+            #qpr-print-area {
+              position: absolute !important;
+              left: 0 !important;
+              top: 0 !important;
+              width: 100% !important;
+              height: 100% !important;
+              min-height: 0 !important;
+              margin: 0 !important;
+              padding: 8mm !important;
+              border: none !important;
+              box-shadow: none !important;
+              page-break-inside: avoid !important;
+            }
           }
         `}</style>
       </>
@@ -524,7 +563,7 @@ export default function QprPrintPreview({ qpr, onClose, inline = false }: QprPre
   }
 
   return (
-    <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-start justify-center p-4 overflow-y-auto">
+    <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 overflow-y-auto flex flex-col items-center p-4">
       {/* Action Bar */}
       <div className="fixed top-4 right-4 flex gap-2 z-50 print:hidden">
         <button
@@ -544,12 +583,34 @@ export default function QprPrintPreview({ qpr, onClose, inline = false }: QprPre
           </button>
         )}
       </div>
-      {documentContent}
+      <div className="pt-16 pb-8 w-full flex justify-center">
+        {documentContent}
+      </div>
       <style>{`
         @media print {
+          @page {
+            size: A4;
+            margin: 0;
+          }
+          html, body {
+            height: 100%;
+            overflow: hidden;
+          }
           body * { visibility: hidden; }
           #qpr-print-area, #qpr-print-area * { visibility: visible; }
-          #qpr-print-area { position: fixed; left: 0; top: 0; width: 100%; margin: 0; box-shadow: none; }
+          #qpr-print-area {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            padding: 8mm !important;
+            border: none !important;
+            box-shadow: none !important;
+            page-break-inside: avoid !important;
+          }
         }
       `}</style>
     </div>

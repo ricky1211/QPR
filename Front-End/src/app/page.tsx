@@ -16,6 +16,7 @@ import ListQprDashboard from "@/components/features/role-views/ListQprDashboard"
 import Dashboard from "@/components/features/dashboard/Dashboard";
 import IMemoView from "@/components/features/role-views/IMemoView";
 import BuatQprView from "@/components/features/role-views/BuatQprView";
+import DraftNcrView from "@/components/features/role-views/DraftNcrView";
 
 // Global tracking views & modals
 import CalendarView from "@/components/features/calendar/CalendarView";
@@ -34,7 +35,8 @@ import {
 
 export default function Home() {
   // Tabs: 'dashboard', 'buat-ncr', 'approve-ncr', 'approve-qpr', 'confirmation-letter', 'list-qpr', 'calendar', 'parts'
-  const [activeTab, setActiveTab] = useState("dashboard");
+  const [activeTab, setActiveTab] = useState("");
+  const [username, setUsername] = useState<string>("");
 
   // State for custom alert modal
   const [customAlert, setCustomAlert] = useState<{ isOpen: boolean; message: string }>({
@@ -52,6 +54,32 @@ export default function Home() {
         message: msg
       });
     };
+
+    // Read mtm_user cookie (non-httpOnly, set by server on login)
+    const getUsername = (): string => {
+      const match = document.cookie.match(/(?:^|; )mtm_user=([^;]*)/);
+      return match?.[1] || "admin";
+    };
+
+    const user = getUsername();
+    setUsername(user);
+
+    // Initial default tab routing based on role
+    if (user === "operator") {
+      setActiveTab("buat-ncr");
+    } else if (user === "sectionhead") {
+      setActiveTab("approve-ncr");
+    } else if (user === "depthead") {
+      setActiveTab("approve-ncr");
+    } else if (user === "divhead") {
+      setActiveTab("approve-qpr");
+    } else if (user === "purchasing") {
+      setActiveTab("i-memo");
+    } else if (user === "accounting") {
+      setActiveTab("confirmation-letter");
+    } else {
+      setActiveTab("dashboard");
+    }
 
     return () => {
       window.alert = originalAlert;
@@ -83,7 +111,8 @@ export default function Home() {
       amount: "Rp 18.200.000",
       status: "APPROVED", // Sudah di Approval
       memoStatus: "SENT_AOP", // Terkirim ke AOP
-      reminderSentCount: 1
+      reminderSentCount: 1,
+      sentToVendor: true
     },
     {
       id: "cl-2",
@@ -94,7 +123,8 @@ export default function Home() {
       amount: "Rp 24.000.000",
       status: "PENDING", // Belum di Approval
       memoStatus: "SENT_AOP",
-      reminderSentCount: 2
+      reminderSentCount: 2,
+      sentToVendor: true
     },
     {
       id: "cl-3",
@@ -105,11 +135,12 @@ export default function Home() {
       amount: "Rp 12.500.000",
       status: "PENDING", // Belum di Approval
       memoStatus: "DRAFT_MEMO",
-      reminderSentCount: 1
+      reminderSentCount: 1,
+      sentToVendor: false
     }
   ]);
 
-  const handleGenerateCL = (qpr: any, amount: string) => {
+  const handleGenerateCL = (qpr: any, amount: string, items?: any[]) => {
     const newClId = `cl-${Date.now()}`;
     const cleanAmount = amount.startsWith("Rp") ? amount : `Rp ${amount}`;
     const newCl = {
@@ -121,7 +152,9 @@ export default function Home() {
       amount: cleanAmount,
       status: "PENDING",
       memoStatus: "SENT_AOP",
-      reminderSentCount: 1
+      reminderSentCount: 1,
+      sentToVendor: false, // Needs to be sent by Purchasing!
+      items: items || []
     };
     setConfirmationLetters(prev => [newCl, ...prev]);
     setPendingQprs(prev => prev.map(q => q.qprNumber === qpr.qprNumber ? { ...q, status: "CLOSED", requiredRole: "Closed" } : q));
@@ -273,9 +306,9 @@ export default function Home() {
             notifMsg = `Klaim QPR ${qprNum} disetujui oleh Dept Head dan diteruskan ke Div Head.`;
             return { ...q, requiredRole: "Div Head" };
           } else if (q.requiredRole === "Div Head") {
-            alertMsg = `Sukses: Klaim QPR ${qprNum} disetujui oleh Div Head, diposting ke Accounting untuk penerbitan Confirmation Letter & Acknowledge Purchasing!`;
-            notifMsg = `Klaim QPR ${qprNum} disetujui oleh Div Head dan diposting ke Vendor/Accounting.`;
-            return { ...q, requiredRole: "Purchasing", status: "APPROVED_INTERNAL" };
+            alertMsg = `Sukses: Klaim QPR ${qprNum} disetujui oleh Div Head dan diteruskan ke Vendor Portal & Accounting Queue!`;
+            notifMsg = `Klaim QPR ${qprNum} disetujui oleh Div Head dan masuk ke Portal Vendor.`;
+            return { ...q, requiredRole: "Vendor", status: "WAITING_VENDOR" };
           } else if (q.requiredRole === "Purchasing") {
             alertMsg = `Sukses: Klaim QPR ${qprNum} di-acknowledge oleh Purchasing!`;
             notifMsg = `Klaim QPR ${qprNum} di-acknowledge oleh Purchasing.`;
@@ -334,6 +367,7 @@ export default function Home() {
         setActiveTab={setActiveTab}
         sidebarOpen={sidebarOpen}
         setSidebarOpen={setSidebarOpen}
+        username={username}
       />
 
       {/* MAIN LAYOUT */}
@@ -347,6 +381,7 @@ export default function Home() {
           setShowNotifications={setShowNotifications}
           notifications={notifications}
           handleClearNotifications={handleClearNotifications}
+          activeTab={activeTab}
         />
 
         {/* CONTAINER CONTENT */}
@@ -409,7 +444,10 @@ export default function Home() {
             )}
 
             {/* ROUTING CORRESPONDING JOBDESK VIEW */}
-            {activeTab === "dashboard" && (
+            {/* ===== ROLE-BASED CONTENT GUARDS ===== */}
+            {/* Each panel only renders if the logged-in user's role permits it */}
+
+            {activeTab === "dashboard" && username && (
               <Dashboard
                 pendingNcrs={pendingNcrs}
                 pendingQprs={pendingQprs}
@@ -420,7 +458,7 @@ export default function Home() {
               />
             )}
 
-            {activeTab === "buat-ncr" && (
+            {activeTab === "buat-ncr" && (username === "operator" || username === "admin") && (
               <OperatorView
                 pendingNcrs={pendingNcrs}
                 setPendingNcrs={setPendingNcrs}
@@ -430,44 +468,55 @@ export default function Home() {
               />
             )}
 
-            {activeTab === "approve-ncr" && (
+            {activeTab === "draft-ncr" && (username === "operator" || username === "admin") && (
+              <DraftNcrView
+                pendingNcrs={pendingNcrs}
+                setPendingNcrs={setPendingNcrs}
+                setActiveTab={setActiveTab}
+              />
+            )}
+
+            {activeTab === "approve-ncr" && (username === "sectionhead" || username === "depthead" || username === "admin") && (
               <ApproveNcrDashboard
                 pendingNcrs={pendingNcrs}
                 handleApproveNcrAction={handleApproveNcrAction}
+                username={username}
               />
             )}
 
-            {activeTab === "approve-qpr" && (
+            {activeTab === "approve-qpr" && (username === "sectionhead" || username === "depthead" || username === "divhead" || username === "admin") && (
               <ApproveQprDashboard
                 pendingQprs={pendingQprs}
                 handleApproveQprAction={handleApproveQprAction}
+                username={username}
               />
             )}
 
-            {activeTab === "buat-qpr" && (
+            {activeTab === "buat-qpr" && (username === "operator" || username === "admin") && (
               <BuatQprView
                 pendingQprs={pendingQprs}
                 setPendingQprs={setPendingQprs}
               />
             )}
 
-            {activeTab === "confirmation-letter" && (
+            {activeTab === "confirmation-letter" && (username === "accounting" || username === "admin") && (
               <AccountingView 
                 confirmationLetters={confirmationLetters}
                 setConfirmationLetters={setConfirmationLetters}
                 handleGenerateCL={handleGenerateCL}
                 pendingQprs={pendingQprs}
+                setPendingQprs={setPendingQprs}
               />
             )}
 
-            {activeTab === "i-memo" && (
+            {activeTab === "i-memo" && (username === "purchasing" || username === "admin") && (
               <IMemoView
                 confirmationLetters={confirmationLetters}
                 setConfirmationLetters={setConfirmationLetters}
               />
             )}
 
-            {activeTab === "list-qpr" && (
+            {activeTab === "list-qpr" && (username === "admin" || username === "operator" || username === "accounting" || username === "purchasing") && (
               <ListQprDashboard />
             )}
 
@@ -623,7 +672,13 @@ export default function Home() {
                   <div className="p-6 flex flex-col items-center text-center space-y-4">
                     {customAlert.message.toLowerCase().includes("gagal") || 
                      customAlert.message.toLowerCase().includes("peringatan") || 
-                     customAlert.message.toLowerCase().includes("harus") ? (
+                     customAlert.message.toLowerCase().includes("harus") ||
+                     customAlert.message.toLowerCase().includes("harap") ||
+                     customAlert.message.toLowerCase().includes("mohon") ||
+                     customAlert.message.toLowerCase().includes("isi") ||
+                     customAlert.message.toLowerCase().includes("belum") ||
+                     customAlert.message.toLowerCase().includes("salah") ||
+                     customAlert.message.toLowerCase().includes("tidak") ? (
                       <div className="w-14 h-14 rounded-full bg-amber-50 text-amber-600 border border-amber-250 flex items-center justify-center shadow-inner">
                         <AlertTriangle size={28} className="animate-bounce" />
                       </div>
@@ -638,7 +693,13 @@ export default function Home() {
                       <h4 className="text-sm font-extrabold text-slate-950 uppercase tracking-tight">
                         {customAlert.message.toLowerCase().includes("gagal") || 
                          customAlert.message.toLowerCase().includes("peringatan") || 
-                         customAlert.message.toLowerCase().includes("harus")
+                         customAlert.message.toLowerCase().includes("harus") ||
+                         customAlert.message.toLowerCase().includes("harap") ||
+                         customAlert.message.toLowerCase().includes("mohon") ||
+                         customAlert.message.toLowerCase().includes("isi") ||
+                         customAlert.message.toLowerCase().includes("belum") ||
+                         customAlert.message.toLowerCase().includes("salah") ||
+                         customAlert.message.toLowerCase().includes("tidak")
                           ? "Pemberitahuan" 
                           : "Approval Sukses"}
                       </h4>

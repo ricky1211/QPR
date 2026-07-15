@@ -8,6 +8,12 @@ import { createSession, deleteSession } from '@/app/lib/session'
 // ============================================================
 const VALID_USERS: Record<string, string> = {
   admin: 'password123',
+  operator: 'password123',
+  sectionhead: 'password123',
+  depthead: 'password123',
+  divhead: 'password123',
+  purchasing: 'password123',
+  accounting: 'password123',
 }
 
 export interface LoginState {

@@ -69,7 +69,17 @@ export default function BuatQprView({ pendingQprs, setPendingQprs }: BuatQprView
   };
 
   const updateRow = (id: number, field: keyof PartRow, value: string) => {
-    setPartRows(prev => prev.map(r => r.id === id ? { ...r, [field]: value } : r));
+    setPartRows(prev => prev.map(r => {
+      if (r.id === id) {
+        const updated = { ...r, [field]: value };
+        if (field === "totalQty") {
+          const qty = parseInt(value) || 0;
+          updated.stdAllowance = String(Math.round(qty * 0.005));
+        }
+        return updated;
+      }
+      return r;
+    }));
   };
 
   const addRow = () => {
@@ -82,8 +92,8 @@ export default function BuatQprView({ pendingQprs, setPendingQprs }: BuatQprView
 
   const totalQtyNg = partRows.reduce((acc, r) => acc + (parseInt(r.qtyNg) || 0), 0);
   const totalQty = partRows.reduce((acc, r) => acc + (parseInt(r.totalQty) || 0), 0);
-  const totalStdAllowance = partRows.reduce((acc, r) => acc + (parseInt(r.stdAllowance) || 0), 0);
-  const billableQty = Math.max(0, totalQtyNg - totalStdAllowance);
+  const totalStdAllowance = partRows.reduce((acc, r) => acc + Math.round((parseInt(r.totalQty) || 0) * 0.005), 0);
+  const billableQty = totalQtyNg - totalStdAllowance;
 
   const claimTypeOptions = [
     "MATERIAL", "PROSES PACKING", "PROSES CHECK",
@@ -112,7 +122,7 @@ export default function BuatQprView({ pendingQprs, setPendingQprs }: BuatQprView
         const matchedPart = availableParts.find(p => String(p.id) === String(row.partId));
         const totalVal = parseInt(row.totalQty) || 0;
         const ngVal = parseInt(row.qtyNg) || 0;
-        const stdVal = parseInt(row.stdAllowance) || 0;
+        const stdVal = Math.round(totalVal * 0.005);
         return {
           no: idx + 1,
           partName: matchedPart ? matchedPart.partName : "ALL TYPE PART FINISH",
@@ -120,7 +130,7 @@ export default function BuatQprView({ pendingQprs, setPendingQprs }: BuatQprView
           qtyNG: ngVal,
           ngActual: totalVal > 0 ? (ngVal / totalVal) * 100 : 0.0,
           stdAllowance: stdVal,
-          qtyClaim: Math.max(0, ngVal - stdVal)
+          qtyClaim: ngVal - stdVal
         };
       }),
       refNcrNumber,
@@ -183,9 +193,6 @@ export default function BuatQprView({ pendingQprs, setPendingQprs }: BuatQprView
             </span>
             <h3 className="text-base font-black uppercase tracking-wider">Pengisian Form QPR</h3>
           </div>
-          <p className="text-xs text-violet-200 mt-1 font-semibold">
-            Isi data Quality Problem Report (QPR) untuk dikirim ke rantai otorisasi.
-          </p>
         </div>
       </div>
 
@@ -242,6 +249,11 @@ export default function BuatQprView({ pendingQprs, setPendingQprs }: BuatQprView
                   type="date"
                   value={date}
                   onChange={e => setDate(e.target.value)}
+                  onClick={(e) => {
+                    try {
+                      e.currentTarget.showPicker();
+                    } catch (err) {}
+                  }}
                   className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent text-slate-800 font-semibold bg-white cursor-pointer"
                 />
               </div>
@@ -298,7 +310,8 @@ export default function BuatQprView({ pendingQprs, setPendingQprs }: BuatQprView
                     <th className="border border-slate-300 px-2 py-2">Part</th>
                     <th className="border border-slate-300 px-2 py-2 w-24">Total Qty (pcs)</th>
                     <th className="border border-slate-300 px-2 py-2 w-24">Qty NG (pcs)</th>
-                    <th className="border border-slate-300 px-2 py-2 w-24">Std Allowance (pcs)</th>
+                    <th className="border border-slate-300 px-2 py-2 w-24">NG Actual (%)</th>
+                    <th className="border border-slate-300 px-2 py-2 w-24">Std Allowance 0.5% (pcs)</th>
                     <th className="border border-slate-300 px-2 py-2 w-24">Qty Claim (pcs)</th>
                     <th className="border border-slate-300 px-2 py-2 w-10"></th>
                   </tr>
@@ -307,8 +320,9 @@ export default function BuatQprView({ pendingQprs, setPendingQprs }: BuatQprView
                   {partRows.map(row => {
                     const qty = parseInt(row.totalQty) || 0;
                     const ng = parseInt(row.qtyNg) || 0;
-                    const std = parseInt(row.stdAllowance) || 0;
-                    const claim = Math.max(0, ng - std);
+                    const std = Math.round(qty * 0.005);
+                    const claim = ng - std;
+                    const ngActual = qty > 0 ? ((ng / qty) * 100).toFixed(2) : "0.00";
                     return (
                       <tr key={row.id} className="border border-slate-300 hover:bg-slate-50/50 transition-colors">
                         <td className="border border-slate-300 px-2 py-1.5">
@@ -344,15 +358,11 @@ export default function BuatQprView({ pendingQprs, setPendingQprs }: BuatQprView
                             className="w-full text-xs border-0 bg-transparent focus:ring-0 text-red-600 font-bold text-center"
                           />
                         </td>
-                        <td className="border border-slate-300 px-2 py-1.5">
-                          <input
-                            type="number"
-                            value={row.stdAllowance}
-                            onChange={e => updateRow(row.id, "stdAllowance", e.target.value)}
-                            placeholder="0"
-                            min="0"
-                            className="w-full text-xs border-0 bg-transparent focus:ring-0 text-slate-700 font-semibold text-center"
-                          />
+                        <td className="border border-slate-300 px-2 py-1.5 text-center font-bold text-slate-700 bg-slate-50/20">
+                          {ngActual}%
+                        </td>
+                        <td className="border border-slate-300 px-2 py-1.5 text-center font-bold text-slate-700 bg-slate-50/20">
+                          {std.toLocaleString("id-ID")}
                         </td>
                         <td className="border border-slate-300 px-2 py-1.5 text-center font-bold text-emerald-700">
                           {claim.toLocaleString("id-ID")}
@@ -374,6 +384,7 @@ export default function BuatQprView({ pendingQprs, setPendingQprs }: BuatQprView
                     <td className="border border-slate-300 px-2 py-1.5 text-slate-600 text-left font-black">TOTAL</td>
                     <td className="border border-slate-300 px-2 py-1.5 text-slate-800">{totalQty.toLocaleString("id-ID")}</td>
                     <td className="border border-slate-300 px-2 py-1.5 text-red-600 font-black">{totalQtyNg.toLocaleString("id-ID")}</td>
+                    <td className="border border-slate-300 px-2 py-1.5 text-slate-700 bg-slate-50">{totalQty > 0 ? ((totalQtyNg / totalQty) * 100).toFixed(2) : "0.00"}%</td>
                     <td className="border border-slate-300 px-2 py-1.5 text-slate-700">{totalStdAllowance.toLocaleString("id-ID")}</td>
                     <td className="border border-slate-300 px-2 py-1.5 text-emerald-700 font-black">{billableQty.toLocaleString("id-ID")}</td>
                     <td className="border border-slate-300"></td>
@@ -464,7 +475,7 @@ export default function BuatQprView({ pendingQprs, setPendingQprs }: BuatQprView
                     const matchedPart = availableParts.find(p => String(p.id) === String(row.partId));
                     const totalVal = parseInt(row.totalQty) || 0;
                     const ngVal = parseInt(row.qtyNg) || 0;
-                    const stdVal = parseInt(row.stdAllowance) || 0;
+                    const stdVal = Math.round(totalVal * 0.005);
                     return {
                       no: idx + 1,
                       partName: matchedPart ? matchedPart.partName : "ALL TYPE PART FINISH",
@@ -472,7 +483,7 @@ export default function BuatQprView({ pendingQprs, setPendingQprs }: BuatQprView
                       qtyNG: ngVal,
                       ngActual: totalVal > 0 ? (ngVal / totalVal) * 100 : 0.0,
                       stdAllowance: stdVal,
-                      qtyClaim: Math.max(0, ngVal - stdVal)
+                      qtyClaim: ngVal - stdVal
                     };
                   }),
                   refNcrNumber,

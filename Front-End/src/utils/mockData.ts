@@ -240,6 +240,34 @@ export const mockPendingNcrs = [
     disposition: "REWORK",
     status: "WAITING_APPROVAL",
     requiredRole: "Dept Head"
+  },
+  {
+    id: 3,
+    ncrNumber: "NCR/2026/06/005",
+    date: "2026-06-02",
+    partNumber: "CP-003",
+    partName: "CPU Fan Cooler",
+    supplierName: "PT IKAN BAKAR",
+    qty: 500,
+    reject: 12,
+    defectType: "Cracked Housing",
+    disposition: "RETURN TO VENDOR",
+    status: "DRAFT",
+    requiredRole: "Foreman"
+  },
+  {
+    id: 4,
+    ncrNumber: "NCR/2026/06/009",
+    date: "2026-06-04",
+    partNumber: "CR-001",
+    partName: "CONE RACE ALL TYPE",
+    supplierName: "SHIJIAZHUANG RUICHENG TRADE CO., LTD",
+    qty: 1000,
+    reject: 25,
+    defectType: "Rust",
+    disposition: "REWORK",
+    status: "DRAFT",
+    requiredRole: "Foreman"
   }
 ];
 

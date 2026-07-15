@@ -15,16 +15,19 @@ model Part {
   updatedAt   DateTime     @updatedAt
   vendorParts VendorPart[]
   ncrs        Ncr[]
+  qprParts    QprPart[]
 }
 
 model Vendor {
-  id          String       @id @default(cuid())
-  vendorCode  String       @unique
-  vendorName  String?      @unique
-  createdAt   DateTime?    @default(now())
-  updatedAt   DateTime?    @updatedAt
-  vendorParts VendorPart[]
-  ncrs        Ncr[]
+  id                  String               @id @default(cuid())
+  vendorCode          String               @unique
+  vendorName          String?              @unique
+  createdAt           DateTime?            @default(now())
+  updatedAt           DateTime?            @updatedAt
+  vendorParts         VendorPart[]
+  ncrs                Ncr[]
+  qprs                Qpr[]
+  confirmationLetters ConfirmationLetter[]
 }
 
 model VendorPart {
@@ -102,4 +105,123 @@ enum Disposition {
   ACCEPT_AS_IS
   REPAIR
   REGRADE
+}
+
+model Qpr {
+  id                  String               @id @default(cuid())
+  qprNumber           String               @unique
+  date                DateTime             @default(now())
+  vendorId            String
+  vendor              Vendor               @relation(fields: [vendorId], references: [id])
+  status              QprStatus            @default(WAITING_APPROVAL)
+  requiredRole        String
+  refNcrNumber        String?
+  problem             String?
+  claimType           String?
+  totalQty            Int
+  totalQtyNg          Int
+  totalStdAllowance   Int
+  billableQty         Int
+  claimAmount         Float?
+  qprParts            QprPart[]
+  approvalProgress    QprApprovalProgress?
+  confirmationLetter  ConfirmationLetter?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+}
+
+model QprPart {
+  id            String   @id @default(cuid())
+  qprId         String
+  qpr           Qpr      @relation(fields: [qprId], references: [id])
+  partId        String
+  part          Part     @relation(fields: [partId], references: [id])
+  totalQty      Int
+  qtyNg         Int
+  stdAllowance  Int
+  qtyClaim      Int
+  unitPrice     Float?
+  taxRate       Float?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model QprApprovalProgress {
+  id                  String    @id @default(cuid())
+  qprId               String    @unique
+  qpr                 Qpr       @relation(fields: [qprId], references: [id])
+  checksumSectionHead Bytes?
+  checksumDeptHead    Bytes?
+  checksumDivHead     Bytes?
+  checksumVendor      Bytes?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+}
+
+model ConfirmationLetter {
+  id              String      @id @default(cuid())
+  clNumber        String      @unique
+  dateSent        DateTime    @default(now())
+  qprId           String      @unique
+  qpr             Qpr         @relation(fields: [qprId], references: [id])
+  vendorId        String
+  vendor          Vendor      @relation(fields: [vendorId], references: [id])
+  amount          Float
+  status          ClStatus    @default(PENDING)
+  sscBilling      SscBilling?
+  sscPayment      SscPayment?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
+model SscBilling {
+  id            String          @id @default(cuid())
+  clId          String          @unique
+  cl            ConfirmationLetter @relation(fields: [clId], references: [id])
+  billingNo     String          @unique
+  billingDate   DateTime        @default(now())
+  totalAmount   Float
+  status        BillingStatus   @default(UNPAID)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+}
+
+model SscPayment {
+  id            String          @id @default(cuid())
+  clId          String          @unique
+  cl            ConfirmationLetter @relation(fields: [clId], references: [id])
+  paymentNo     String          @unique
+  paymentDate   DateTime        @default(now())
+  amountPaid    Float
+  bankName      String?
+  accountNo     String?
+  status        PaymentStatus   @default(PENDING)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+}
+
+enum QprStatus {
+  WAITING_APPROVAL
+  WAITING_VENDOR
+  APPROVED_BY_VENDOR
+  APPROVED
+  CLOSED
+  CLOSED_PAID
+}
+
+enum ClStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum BillingStatus {
+  UNPAID
+  PAID
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
 }

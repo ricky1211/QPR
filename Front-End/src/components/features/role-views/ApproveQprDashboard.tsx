@@ -19,8 +19,20 @@ import {
 } from "lucide-react";
 import QprPrintPreview from "./QprPrintPreview";
 
-export default function ApproveQprDashboard({ pendingQprs, handleApproveQprAction }) {
-  const [levelTab, setLevelTab] = useState("section-head"); // 'section-head', 'dept-head', 'div-head'
+export default function ApproveQprDashboard({ pendingQprs, handleApproveQprAction, username = "admin" }) {
+  const getInitialTab = () => {
+    if (username === "sectionhead") return "section-head";
+    if (username === "depthead") return "dept-head";
+    if (username === "divhead") return "div-head";
+    return "section-head";
+  };
+
+  const [levelTab, setLevelTab] = useState(getInitialTab());
+
+  React.useEffect(() => {
+    setLevelTab(getInitialTab());
+  }, [username]);
+
   const [activeFilterTab, setActiveFilterTab] = useState("all-pending"); // 'all-pending', 'needs-verification', 'returned'
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -144,31 +156,36 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-5 bg-white border border-slate-100 rounded-lg shadow-sm gap-4">
         <div>
           <h3 className="text-lg font-black text-slate-800 uppercase tracking-wide">Approval QPR</h3>
-          <p className="text-xs text-slate-455 mt-1">Review and authorize Quality Problem Reports for final submission.</p>
         </div>
         
         <div className="flex items-center gap-3 shrink-0">
-          {/* Toggle Switcher */}
-          <div className="flex bg-slate-100 p-1 rounded-md overflow-x-auto max-w-[400px] sm:max-w-none">
-             {[
-              { id: "section-head", label: "SEC HEAD" },
-              { id: "dept-head", label: "DEPT HEAD" },
-              { id: "div-head", label: "DIV HEAD" }
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => {
-                  setLevelTab(tab.id);
-                  setCurrentPage(1);
-                }}
-                className={`px-3 py-1.5 text-[10px] font-bold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
-                  levelTab === tab.id ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-900"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
+          {/* Toggle Switcher — Only visible for Admin (Super User) to prevent crossing tasks */}
+          {username === "admin" ? (
+            <div className="flex bg-slate-100 p-1 rounded-md overflow-x-auto max-w-[400px] sm:max-w-none">
+               {[
+                { id: "section-head", label: "SEC HEAD" },
+                { id: "dept-head", label: "DEPT HEAD" },
+                { id: "div-head", label: "DIV HEAD" }
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => {
+                    setLevelTab(tab.id);
+                    setCurrentPage(1);
+                  }}
+                  className={`px-3 py-1.5 text-[10px] font-bold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+                    levelTab === tab.id ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-900"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-1.5 rounded font-bold uppercase whitespace-nowrap">
+              Role: {levelTab === "section-head" ? "Sec Head" : levelTab === "dept-head" ? "Dept Head" : "Div Head"}
+            </span>
+          )}
 
           {/* Action buttons matching screenshot */}
           <button
@@ -405,10 +422,10 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
                     severityBg = "bg-amber-50 text-amber-600 border border-amber-100/50";
                   }
 
-                  // Verification status text based on role active
-                  const statusText = levelTab === "ppic" 
-                    ? "Menunggu Verifikasi PPIC" 
-                    : "Menunggu Manajer Quality";
+                  // Verification status text based on active role
+                  const statusText = levelTab === "section-head" ? "Menunggu Approval Sec. Head" :
+                                     levelTab === "dept-head" ? "Menunggu Approval Dept. Head" :
+                                     "Menunggu Approval Div. Head";
 
                   return (
                     <tr key={qpr.id} className="border-b border-slate-400 hover:bg-slate-50/40 transition-colors text-center font-bold">
@@ -678,11 +695,7 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
                     handleApproveQprAction(selectedQpr.id, selectedQpr.qprNumber);
                     setSelectedQpr(null);
                   }}
-                  className={`px-5 py-2.5 text-white rounded-md font-bold text-xs shadow-md transition-colors cursor-pointer ${
-                    levelTab === "section-head" ? "bg-teal-600 hover:bg-teal-700 shadow-teal-600/10" :
-                    levelTab === "dept-head" ? "bg-indigo-600 hover:bg-indigo-700 shadow-indigo-500/10" :
-                    "bg-amber-600 hover:bg-amber-700 shadow-amber-600/10"
-                  }`}
+                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-bold text-xs shadow-md shadow-blue-500/10 transition-colors cursor-pointer"
                 >
                   {levelTab === "section-head" ? "Approve QPR (Section Head)" :
                    levelTab === "dept-head" ? "Approve QPR (Dept Head)" :

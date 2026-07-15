@@ -24,10 +24,12 @@ interface AccountingViewProps {
   setConfirmationLetters: React.Dispatch<React.SetStateAction<any[]>>;
   handleGenerateCL: (qpr: any, amount: string) => void;
   pendingQprs?: any[];
+  setPendingQprs?: React.Dispatch<React.SetStateAction<any[]>>;
 }
 
 export default function AccountingView({
   confirmationLetters,
+  setPendingQprs,
   setConfirmationLetters,
   handleGenerateCL,
   pendingQprs
@@ -55,7 +57,11 @@ export default function AccountingView({
 
   // List of QPRs ready for accounting action, dynamically compiled from pendingQprs
   const accountingQueue = React.useMemo(() => {
-    const qprs = pendingQprs ? pendingQprs.filter((q: any) => (q.status === "APPROVED_INTERNAL" || q.requiredRole === "Purchasing") && q.status !== "CLOSED" && q.requiredRole !== "Closed") : [];
+    const qprs = pendingQprs ? pendingQprs.filter((q: any) => 
+      (q.status === "APPROVED_INTERNAL" || q.status === "WAITING_VENDOR" || q.status === "APPROVED_BY_VENDOR" || q.requiredRole === "Purchasing" || q.requiredRole === "Vendor" || q.requiredRole === "Accounting") && 
+      q.status !== "CLOSED" && 
+      q.requiredRole !== "Closed"
+    ) : [];
     
     const list = qprs.map((q: any) => ({
       id: q.id,
@@ -79,42 +85,74 @@ export default function AccountingView({
         totalQty: 10000, // Total Qty
         allowanceRatio: 0.2, // allowance limit
         period: "Mei 2026",
-        status: "APPROVED_INTERNAL"
+        status: "APPROVED_BY_VENDOR"
       });
     }
 
     return list;
   }, [pendingQprs, confirmationLetters]);
 
+  const [clItems, setClItems] = useState<any[]>([]);
+
+  React.useEffect(() => {
+    if (selectedQpr) {
+      setClItems([
+        {
+          id: `item-${Date.now()}`,
+          partName: selectedQpr.partName || "Motherboard X1",
+          totalQty: selectedQpr.totalQty || 1000,
+          rejectCount: selectedQpr.rejectCount || 30,
+          allowanceRatio: selectedQpr.allowanceRatio || 0.5,
+          unitPrice: "250000"
+        }
+      ]);
+    } else {
+      setClItems([]);
+    }
+  }, [selectedQpr]);
+
   const handleCalculateTotal = () => {
     if (!selectedQpr) {
       return {
-        stdAllowance: 0,
-        billableQty: 0,
+        items: [],
         subtotal: "0",
         tax: "0",
-        total: "0"
+        total: "0",
+        totalNum: 0
       };
     }
 
-    const qtyNg = selectedQpr.rejectCount;
-    const totalQty = selectedQpr.totalQty;
-    const allowanceRatio = selectedQpr.allowanceRatio; // e.g. 0.2 %
+    let grandSubtotal = 0;
     
-    const stdAllowance = Math.round(totalQty * (allowanceRatio / 100));
-    const billableQty = Math.max(0, qtyNg - stdAllowance);
+    const itemsCalculated = clItems.map(item => {
+      const totalQty = parseFloat(String(item.totalQty)) || 0;
+      const rejectCount = parseFloat(String(item.rejectCount)) || 0;
+      const allowanceRatio = parseFloat(String(item.allowanceRatio)) || 0;
+      const unitPriceVal = parseFloat(String(item.unitPrice)) || 0;
 
-    const price = parseFloat(unitPrice) || 0;
-    const subtotal = billableQty * price;
-    const tax = subtotal * (parseFloat(taxRate) / 100);
-    const total = subtotal + tax;
+      const stdAllowance = Math.round(totalQty * (allowanceRatio / 100));
+      const billableQty = Math.max(0, rejectCount - stdAllowance);
+      const subtotal = billableQty * unitPriceVal;
+      
+      grandSubtotal += subtotal;
+
+      return {
+        ...item,
+        stdAllowance,
+        billableQty,
+        subtotal
+      };
+    });
+
+    const tax = grandSubtotal * (parseFloat(taxRate) / 100);
+    const total = grandSubtotal + tax;
 
     return {
-      stdAllowance,
-      billableQty,
-      subtotal: subtotal.toLocaleString("id-ID"),
+      items: itemsCalculated,
+      subtotal: grandSubtotal.toLocaleString("id-ID"),
       tax: tax.toLocaleString("id-ID"),
-      total: total.toLocaleString("id-ID")
+      total: total.toLocaleString("id-ID"),
+      totalNum: total
     };
   };
 
@@ -124,7 +162,7 @@ export default function AccountingView({
     
     setTimeout(() => {
       // 1. Generate & save the CL to global state
-      handleGenerateCL(selectedQpr, calcResult.total);
+      handleGenerateCL(selectedQpr, calcResult.total, calcResult.items);
       
       // 2. Open Success modal showing Internal Memo & Vendor Reminder
       const simulatedClNumber = `CL/2026/06/${selectedQpr.supplierName.replace("PT ", "").replace(/ /g, "_")}_${Math.floor(Math.random() * 900 + 100)}`;
@@ -137,7 +175,8 @@ export default function AccountingView({
         period: selectedQpr.period,
         status: "PENDING",
         memoStatus: "SENT_AOP",
-        reminderSentCount: 1
+        reminderSentCount: 1,
+        items: calcResult.items
       });
 
       // 3. Clear selected state
@@ -174,7 +213,6 @@ export default function AccountingView({
       {/* Page Title */}
       <div className="pl-1">
         <h4 className="text-lg font-black text-slate-800">Eksekusi Finansial QPR & Penutupan Kasus</h4>
-        <p className="text-xs text-slate-400 mt-0.5">Fase 4: Hitung nilai klaim denda menggunakan rumus resmi dan terbitkan PDF confirmation letter.</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -227,7 +265,8 @@ export default function AccountingView({
                     <div className="overflow-hidden">
                       <span className="font-mono text-[9px] font-bold text-slate-800 block">{qpr.qprNumber}</span>
                       <strong className="text-xs font-bold text-slate-900 block mt-1">{qpr.supplierName}</strong>
-                      <span className="text-[10px] text-slate-400">{qpr.partName} • {qpr.rejectCount} pcs NG / {qpr.totalQty} Total</span>
+                      <span className="text-[10px] text-slate-400 block">{qpr.partName} • {qpr.rejectCount} pcs NG / {qpr.totalQty} Total</span>
+
                     </div>
                     <ChevronRight size={14} className="text-slate-400 shrink-0" />
                   </button>
@@ -239,13 +278,26 @@ export default function AccountingView({
 
         {/* Right: Pricing Calculator panel */}
         <div className="lg:col-span-2 bg-white border border-slate-100 rounded-lg shadow-sm overflow-hidden flex flex-col">
-          <div className="p-5 border-b border-slate-100 bg-slate-50/10 flex items-center gap-2">
-            <Calculator size={18} className="text-blue-500" />
-            <h4 className="text-sm font-bold text-slate-800">Konfigurasi & Kalkulator Formula Klaim</h4>
+          <div className="p-5 border-b border-slate-100 bg-slate-50/10 flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <Calculator size={18} className="text-blue-500" />
+              <h4 className="text-sm font-bold text-slate-800">Konfigurasi & Kalkulator Formula Klaim</h4>
+            </div>
+            {selectedQpr && (
+              <button
+                onClick={() => setSelectedQpr(null)}
+                className="text-xs font-bold text-red-600 hover:text-red-700 px-2.5 py-1.5 rounded-lg bg-red-50 hover:bg-red-100/70 border border-red-200 transition-all flex items-center gap-1 cursor-pointer active:scale-95"
+                title="Batal pilih / Bersihkan pilihan"
+              >
+                <X size={13} className="stroke-[2.5]" />
+                Batal Pilih
+              </button>
+            )}
           </div>
 
           {selectedQpr ? (
             <div className="p-6 space-y-6 flex-1">
+
               
               {/* Manual Document Input Form */}
               {selectedQpr.isManual ? (
@@ -342,82 +394,175 @@ export default function AccountingView({
                     </div>
                   </div>
                 </div>
-              ) : (
-                /* Queued Param details grid (Read-Only) */
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 p-4 border border-slate-200/50 rounded-lg text-xs font-bold">
-                  <div>
-                    <span className="text-[9px] text-slate-400 uppercase tracking-wider block">Total Qty:</span>
-                    <span className="text-slate-800 text-sm block mt-0.5">{selectedQpr.totalQty.toLocaleString("id-ID")} pcs</span>
-                  </div>
-                  <div>
-                    <span className="text-[9px] text-slate-400 uppercase tracking-wider block">Qty NG:</span>
-                    <span className="text-slate-800 text-sm block mt-0.5">{selectedQpr.rejectCount} pcs</span>
-                  </div>
-                  <div>
-                    <span className="text-[9px] text-slate-400 uppercase tracking-wider block">Std Allowance Limit:</span>
-                    <span className="text-blue-600 text-sm block mt-0.5">{selectedQpr.allowanceRatio}%</span>
-                  </div>
-                  <div>
-                    <span className="text-[9px] text-red-500 uppercase tracking-wider block">Std Allowance Qty:</span>
-                    <span className="text-red-600 text-sm block mt-0.5">{calc.stdAllowance} pcs</span>
-                  </div>
-                </div>
-              )}
+              ) : null}
 
-              {/* Form Input */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-bold text-slate-700">Harga Satuan Part (Rp)</label>
-                  <div className="relative">
-                    <span className="absolute left-4 top-3 text-xs font-bold text-slate-400">Rp</span>
-                    <input
-                      type="number"
-                      value={unitPrice}
-                      onChange={(e) => setUnitPrice(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 text-xs border border-slate-200 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-850"
-                    />
-                  </div>
+              {/* Part Items List Configuration Table */}
+              <div className="space-y-3.5 text-xs text-left">
+                <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+                  <strong className="text-slate-800 font-extrabold uppercase tracking-wide">
+                    Konfigurasi Part & Harga per Item
+                  </strong>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setClItems(prev => [
+                        ...prev,
+                        {
+                          id: `item-${Date.now()}`,
+                          partName: "Custom Part",
+                          totalQty: 1000,
+                          rejectCount: 10,
+                          allowanceRatio: 0.5,
+                          unitPrice: "250000"
+                        }
+                      ]);
+                    }}
+                    className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold rounded-lg border border-blue-200 transition-all flex items-center gap-1 cursor-pointer active:scale-95 text-[10.5px]"
+                  >
+                    ➕ Tambah Part Item
+                  </button>
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-bold text-slate-700">PPN (%)</label>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      value={taxRate}
-                      onChange={(e) => setTaxRate(e.target.value)}
-                      className="w-full px-4 py-2.5 text-xs border border-slate-200 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-850"
-                    />
-                    <span className="absolute right-4 top-3 text-xs font-bold text-slate-400">%</span>
-                  </div>
+                <div className="overflow-x-auto border border-slate-200 rounded-lg">
+                  <table className="w-full text-[11px] text-left border-collapse min-w-[900px]">
+                    <thead className="bg-slate-50 text-slate-750 font-black border-b border-slate-200">
+                      <tr>
+                        <th className="px-3 py-3">Nama Part / Deskripsi</th>
+                        <th className="px-3 py-3 w-28 text-right">Total Qty</th>
+                        <th className="px-3 py-3 w-28 text-right">Qty NG</th>
+                        <th className="px-3 py-3 w-24 text-right">Limit (%)</th>
+                        <th className="px-3 py-3 w-24 text-right">Allow. Qty</th>
+                        <th className="px-3 py-3 w-24 text-right">Qty Denda</th>
+                        <th className="px-3 py-3 w-40 text-right">Harga Satuan (Rp)</th>
+                        <th className="px-3 py-3 w-36 text-right">Subtotal (Rp)</th>
+                        <th className="px-3 py-3 w-10 text-center"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-150 font-bold">
+                      {calc.items.map((item) => (
+                        <tr key={item.id} className="hover:bg-slate-55">
+                          <td className="p-2">
+                            <input
+                              type="text"
+                              value={item.partName}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setClItems(prev => prev.map(x => x.id === item.id ? { ...x, partName: val } : x));
+                              }}
+                              className="w-full px-2.5 py-1.5 border border-slate-200 rounded text-slate-855 font-bold focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            />
+                          </td>
+                          <td className="p-2">
+                            <input
+                              type="number"
+                              value={item.totalQty}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value) || 0;
+                                setClItems(prev => prev.map(x => x.id === item.id ? { ...x, totalQty: val } : x));
+                              }}
+                              className="w-full px-2.5 py-1.5 border border-slate-200 rounded text-right font-mono text-slate-855 font-bold focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            />
+                          </td>
+                          <td className="p-2">
+                            <input
+                              type="number"
+                              value={item.rejectCount}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value) || 0;
+                                setClItems(prev => prev.map(x => x.id === item.id ? { ...x, rejectCount: val } : x));
+                              }}
+                              className="w-full px-2.5 py-1.5 border border-slate-200 rounded text-right font-mono text-slate-855 font-bold focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            />
+                          </td>
+                          <td className="p-2">
+                            <input
+                              type="number"
+                              step="0.1"
+                              value={item.allowanceRatio}
+                              onChange={(e) => {
+                                const val = parseFloat(e.target.value) || 0;
+                                setClItems(prev => prev.map(x => x.id === item.id ? { ...x, allowanceRatio: val } : x));
+                              }}
+                              className="w-full px-2.5 py-1.5 border border-slate-200 rounded text-right font-mono text-slate-855 font-bold focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            />
+                          </td>
+                          <td className="p-2 text-right font-mono text-slate-500 pr-4">
+                            {item.stdAllowance}
+                          </td>
+                          <td className="p-2 text-right font-mono text-blue-650 pr-4">
+                            {item.billableQty}
+                          </td>
+                          <td className="p-2">
+                            <div className="relative">
+                              <span className="absolute left-2 top-2 text-[10px] text-slate-400">Rp</span>
+                              <input
+                                type="number"
+                                value={item.unitPrice}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setClItems(prev => prev.map(x => x.id === item.id ? { ...x, unitPrice: val } : x));
+                                }}
+                                className="w-full pl-8 pr-2.5 py-1.5 border border-slate-200 rounded text-right font-mono text-slate-855 font-bold focus:outline-none focus:ring-1 focus:ring-blue-500"
+                              />
+                            </div>
+                          </td>
+                          <td className="p-2 text-right font-mono text-slate-855 pr-4">
+                            Rp {item.subtotal.toLocaleString("id-ID")}
+                          </td>
+                          <td className="p-2 text-center">
+                            <button
+                              type="button"
+                              disabled={clItems.length <= 1}
+                              onClick={() => {
+                                setClItems(prev => prev.filter(x => x.id !== item.id));
+                              }}
+                              className="p-1 text-red-500 hover:text-red-700 disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed text-xs"
+                            >
+                              ❌
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Tax PPN Configuration */}
+              <div className="w-full max-w-[200px] text-left">
+                <label className="block text-xs font-bold text-slate-750 mb-1">PPN (%)</label>
+                <div className="relative text-xs">
+                  <input
+                    type="number"
+                    value={taxRate}
+                    onChange={(e) => setTaxRate(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-850"
+                  />
+                  <span className="absolute right-3 top-2 text-slate-400 font-bold">%</span>
                 </div>
               </div>
 
               {/* Calculation Summary with Formula visual */}
               <div className="p-4 bg-slate-50 border border-slate-100 rounded-lg space-y-3.5">
-                <div className="flex justify-between items-center">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Rincian Perhitungan Formula Klaim</span>
+                <div className="flex justify-between items-center border-b border-slate-200/50 pb-2">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Ringkasan Total Klaim</span>
                   <span className="text-[8px] bg-slate-200 text-slate-700 font-black px-1.5 py-0.5 rounded uppercase">
-                    (Qty NG - Std Allowance) x Harga Satuan
+                    (Qty NG - Std Allowance) x Harga Satuan per Part
                   </span>
                 </div>
                 
                 <div className="space-y-2 text-xs">
                   <div className="flex justify-between">
-                    <span className="text-slate-500">Kuantitas Denda (Qty NG: {selectedQpr.rejectCount} - Allowance: {calc.stdAllowance})</span>
-                    <span className="font-bold text-slate-800">{calc.billableQty} pcs</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Subtotal ({calc.billableQty} pcs x Rp {parseFloat(unitPrice).toLocaleString("id-ID")})</span>
-                    <span className="font-bold text-slate-800">Rp {calc.subtotal}</span>
+                    <span className="text-slate-500">Subtotal Seluruh Part</span>
+                    <span className="font-bold text-slate-850">Rp {calc.subtotal}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-500">PPN ({taxRate}%)</span>
-                    <span className="font-bold text-slate-800">Rp {calc.tax}</span>
+                    <span className="font-bold text-slate-850">Rp {calc.tax}</span>
                   </div>
                   <div className="flex justify-between pt-2 border-t border-slate-200/50">
                     <span className="font-extrabold text-slate-900">Total Claim Denda Akhir</span>
-                    <span className="font-black text-sm text-red-600">Rp {calc.total}</span>
+                    <span className="font-black text-sm text-red-650">Rp {calc.total}</span>
                   </div>
                 </div>
               </div>
@@ -427,7 +572,7 @@ export default function AccountingView({
                 <button
                   onClick={handleGeneratePdf}
                   disabled={isGenerated}
-                  className="flex items-center gap-1.5 px-6 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-md text-xs font-bold shadow-md shadow-rose-600/10 transition-colors cursor-pointer"
+                  className="flex items-center gap-1.5 px-6 py-3 rounded-md text-xs font-bold shadow-md transition-colors cursor-pointer bg-rose-600 hover:bg-rose-700 text-white shadow-rose-600/10"
                 >
                   <FileText size={14} />
                   {isGenerated ? "Generating PDF..." : "Generate Confirmation Letter & Kirim ke Vendor"}
@@ -464,7 +609,6 @@ export default function AccountingView({
                 <th className="px-4 py-3">No. Confirmation Letter</th>
                 <th className="px-4 py-3">Vendor / Supplier</th>
                 <th className="px-4 py-3">Tanggal Kirim</th>
-                <th className="px-4 py-3">Total Nilai Klaim</th>
                 <th className="px-4 py-3 text-center">AOP Internal Memo</th>
                 <th className="px-4 py-3 text-center">Status Approval Vendor</th>
                 <th className="px-4 py-3 text-right">Aksi</th>
@@ -473,7 +617,7 @@ export default function AccountingView({
             <tbody className="divide-y divide-slate-200">
               {confirmationLetters.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-slate-400 italic font-semibold">
+                  <td colSpan={7} className="px-4 py-8 text-center text-slate-400 italic font-semibold">
                     Belum ada Confirmation Letter yang dikirim.
                   </td>
                 </tr>
@@ -484,7 +628,6 @@ export default function AccountingView({
                     <td className="px-4 py-3 font-mono font-bold text-slate-800 break-all">{cl.clNumber}</td>
                     <td className="px-4 py-3 font-bold text-slate-700">{cl.supplierName}</td>
                     <td className="px-4 py-3 text-slate-500">{cl.dateSent}</td>
-                    <td className="px-4 py-3 text-red-600 font-extrabold">{cl.amount}</td>
                     <td className="px-4 py-3 text-center">
                       {cl.memoStatus === "SENT_AOP" ? (
                         <span className="inline-flex items-center px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded text-[10px] font-bold">
@@ -560,82 +703,152 @@ export default function AccountingView({
             {/* Content: Double Column Preview */}
             <div className="p-6 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 max-h-[65vh]">
               
-              {/* AOP Internal Memo Preview */}
-              <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-sm flex flex-col text-left space-y-4">
-                <div className="border-b border-slate-200 pb-2 flex justify-between items-center">
-                  <span className="text-xs font-black text-indigo-750 flex items-center gap-1">
-                    <FileText size={14} />
-                    Internal Memo ke AOP
-                  </span>
-                  <span className="text-[9px] bg-indigo-50 text-indigo-700 px-1.5 rounded font-bold">Auto-Generated</span>
-                </div>
+              {/* Left Column: Confirmation Letter Document Sheet Preview (A4 style) */}
+              <div className="border border-slate-200 rounded-lg bg-slate-100 p-3 max-h-[60vh] overflow-y-auto shadow-inner flex items-start justify-center">
+                <div 
+                  className="w-full bg-white shadow-md p-6 text-black border border-slate-350 text-left font-serif"
+                  style={{ fontFamily: '"Times New Roman", Times, serif', fontSize: "10.5px", lineHeight: "1.35" }}
+                >
+                  {/* Top black line */}
+                  <div className="border-t border-black mb-4 w-full" />
 
-                <div className="flex-1 space-y-3 font-serif text-[11px] text-slate-800 p-3 bg-slate-50/50 rounded border border-slate-100/50 leading-relaxed">
-                  <div className="text-center font-bold text-xs uppercase border-b border-slate-400 pb-2 mb-3">
-                    PT MENARA TERUS MAKMUR
-                    <span className="block text-[8px] font-normal italic font-sans text-slate-400">A Member of ASTRA Otoparts Group</span>
-                  </div>
-                  
-                  <div className="grid grid-cols-3 gap-y-1 font-sans text-[10px] mb-3">
-                    <span className="font-bold text-slate-400">KEPADA:</span>
-                    <span className="col-span-2 text-slate-850 font-bold">Finance & Accounting Div. AOP</span>
-                    
-                    <span className="font-bold text-slate-400">DARI:</span>
-                    <span className="col-span-2 text-slate-850 font-bold">Finance Department MTM</span>
-                    
-                    <span className="font-bold text-slate-400">TANGGAL:</span>
-                    <span className="col-span-2 text-slate-800">{justGeneratedCl.dateSent}</span>
-                    
-                    <span className="font-bold text-slate-400">HAL:</span>
-                    <span className="col-span-2 text-slate-850 font-bold">Pengajuan Klaim Kualitas Penalti (QPR) - {justGeneratedCl.supplierName}</span>
+                  {/* Title */}
+                  <div className="text-center mb-3">
+                    <h5 className="text-sm font-bold tracking-normal uppercase">Confirmation Letter</h5>
                   </div>
 
-                  <p>Dengan hormat,</p>
-                  <p>
-                    Bersama memo ini kami informasikan pengajuan rencana pemotongan tagihan (Deduction) atas klaim denda kualitas QPR terhadap supplier <strong>{justGeneratedCl.supplierName}</strong> periode <strong>{justGeneratedCl.period}</strong> dengan rincian berikut:
-                  </p>
-                  
-                  <div className="bg-slate-100 p-2.5 rounded font-sans text-[11px] space-y-1 my-2 border border-slate-200">
-                    <div className="flex justify-between">
-                      <span>No. Confirmation Letter:</span>
-                      <strong className="font-mono">{justGeneratedCl.clNumber}</strong>
+                  {/* Date */}
+                  <div className="text-right text-[9.5px] mb-3">
+                    Cikarang, {(() => {
+                      if (!justGeneratedCl.dateSent) return "02 December 2025";
+                      const parts = justGeneratedCl.dateSent.split("-");
+                      if (parts.length !== 3) return justGeneratedCl.dateSent;
+                      const months = [
+                        "January", "February", "March", "April", "May", "June",
+                        "July", "August", "September", "October", "November", "December"
+                      ];
+                      return `${parts[2]} ${months[parseInt(parts[1], 10) - 1]} ${parts[0]}`;
+                    })()}
+                  </div>
+
+                  {/* To Address */}
+                  <div className="font-bold mb-4 text-[10px]">
+                    <div>To:</div>
+                    <div>{justGeneratedCl.supplierName.toUpperCase().endsWith(", PT.") ? justGeneratedCl.supplierName : `${justGeneratedCl.supplierName}, PT.`}</div>
+                    <div>Jl. Science Timur I Blok A 5H</div>
+                    <div>Cikarang Timur, Bekasi, Jawa Barat 17530</div>
+                  </div>
+
+                  {/* Intro texts */}
+                  <div className="space-y-2 mb-4 text-[9.5px] text-justify">
+                    <p>
+                      According to quality problem report (QPR) that we have checked at Menara Terus Makmur, PT.:
+                    </p>
+                    <p>
+                      We would like to confirm to you that we have agreed if it is found some NG parts which are not caused by our internal process. NG parts and loss can be seen as follows:
+                    </p>
+                  </div>
+
+                  {/* Table */}
+                  <div className="mb-4">
+                    <table className="w-full text-[9px] border-collapse border border-black text-black">
+                      <thead>
+                        <tr className="border-b border-black text-center font-bold">
+                          <th className="border border-black px-1.5 py-1 w-6">No</th>
+                          <th className="border border-black px-1.5 py-1">Description</th>
+                          <th className="border border-black px-1.5 py-1 w-10">Qty</th>
+                          <th className="border border-black px-1.5 py-1 w-20">Claim Cost</th>
+                          <th className="border border-black px-1.5 py-1 w-24">Amount (IDR)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {justGeneratedCl.items && justGeneratedCl.items.length > 0 ? (
+                          justGeneratedCl.items.map((item: any, idx: number) => {
+                            const totalQty = parseFloat(String(item.totalQty)) || 0;
+                            const rejectCount = parseFloat(String(item.rejectCount)) || 0;
+                            const allowanceRatio = parseFloat(String(item.allowanceRatio)) || 0;
+                            const unitPriceVal = parseFloat(String(item.unitPrice)) || 0;
+                            const stdAllowance = Math.round(totalQty * (allowanceRatio / 100));
+                            const billableQty = Math.max(0, rejectCount - stdAllowance);
+                            const subtotal = billableQty * unitPriceVal;
+                            return (
+                              <tr key={item.id || idx}>
+                                <td className="border border-black px-1.5 py-1 text-center">{idx + 1}</td>
+                                <td className="border border-black px-1.5 py-1">{item.partName}</td>
+                                <td className="border border-black px-1.5 py-1 text-center font-mono">{billableQty}</td>
+                                <td className="border border-black px-1.5 py-1 text-right font-mono">{unitPriceVal.toLocaleString("en-US")}</td>
+                                <td className="border border-black px-1.5 py-1 text-right font-mono">{subtotal.toLocaleString("en-US")}</td>
+                              </tr>
+                            );
+                          })
+                        ) : (
+                          <>
+                            <tr>
+                              <td className="border border-black px-1.5 py-1 text-center">1</td>
+                              <td className="border border-black px-1.5 py-1">HUB CLUTCH, IMV 683N</td>
+                              <td className="border border-black px-1.5 py-1 text-center font-mono">14</td>
+                              <td className="border border-black px-1.5 py-1 text-right font-mono">49,516</td>
+                              <td className="border border-black px-1.5 py-1 text-right font-mono">693,224</td>
+                            </tr>
+                            <tr>
+                              <td className="border border-black px-1.5 py-1 text-center">2</td>
+                              <td className="border border-black px-1.5 py-1">HUB CLUTCH, RZN</td>
+                              <td className="border border-black px-1.5 py-1 text-center font-mono">6</td>
+                              <td className="border border-black px-1.5 py-1 text-right font-mono">56,277</td>
+                              <td className="border border-black px-1.5 py-1 text-right font-mono">337,662</td>
+                            </tr>
+                          </>
+                        )}
+                        <tr>
+                          <td className="border-l border-black px-1.5 py-0.5"></td>
+                          <td className="border-l border-black px-1.5 py-0.5" colSpan={3}>VAT</td>
+                          <td className="border border-black px-1.5 py-0.5 text-right font-mono">
+                            {(() => {
+                              const totalVal = parseInt(justGeneratedCl.amount.replace(/[^0-9]/g, "") || "0", 10);
+                              const subVal = Math.round(totalVal / 1.11);
+                              return (totalVal - subVal).toLocaleString("en-US");
+                            })()}
+                          </td>
+                        </tr>
+                        <tr className="font-bold">
+                          <td className="border-l border-b border-black px-1.5 py-0.5"></td>
+                          <td className="border-l border-b border-black px-1.5 py-0.5" colSpan={3}>Total</td>
+                          <td className="border border-black px-1.5 py-0.5 text-right font-mono">{parseInt(justGeneratedCl.amount.replace(/[^0-9]/g, "") || "0", 10).toLocaleString("en-US")}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Closing texts */}
+                  <div className="space-y-2 mb-4 text-[9.5px] text-justify">
+                    <p>
+                      Based on the data above, we will release a debit note to {justGeneratedCl.supplierName.toUpperCase().endsWith(", PT.") ? justGeneratedCl.supplierName : `${justGeneratedCl.supplierName}, PT.`} if there is no any confirmation within 5 working days. We are looking forward for your confirmation
+                    </p>
+                    <div>
+                      <span>Attachment :</span>
+                      <div className="font-bold">QPR Number : {justGeneratedCl.qprNumber}</div>
                     </div>
-                    <div className="flex justify-between">
-                      <span>Jumlah Denda Kualitas:</span>
-                      <strong className="text-red-650">{justGeneratedCl.amount}</strong>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Status Pengiriman Vendor:</span>
-                      <span className="text-amber-600 font-bold">Sent (Pending Approval)</span>
-                    </div>
                   </div>
 
-                  <p>
-                    Memo ini diajukan sebagai basis pencatatan pencadangan piutang denda (accrual claim) di tingkat AOP Group, menunggu konfirmasi persetujuan basah/digital resmi dari vendor yang bersangkutan.
-                  </p>
-                  
-                  <div className="pt-4 flex justify-between font-sans text-[10px] text-slate-400">
-                    <span>Dibuat oleh: Finance Div MTM</span>
-                    <span>Approved by: Accounting Dep. Head</span>
+                  {/* Signature */}
+                  <div className="flex justify-between text-[9.5px] font-bold mt-6">
+                    <div className="flex flex-col justify-between min-h-[90px]">
+                      <div>
+                        <span>Yours Faithfully,</span>
+                        <div className="mt-0.5 font-bold">MenaraTerusMakmur, PT</div>
+                        <div className="font-normal text-[8.5px]">Accounting & Finance Departement</div>
+                      </div>
+                      <div className="pt-4">
+                        <span className="block underline font-bold">Anindita Irnilaningtyas</span>
+                        <span className="block font-normal text-[8px] text-slate-500">Dep. Head Accounting & Finance</span>
+                      </div>
+                    </div>
+                    <div className="flex flex-col justify-between items-end text-right min-h-[90px] pr-2">
+                      <span>Approved</span>
+                      <div className="w-24 border-b border-dashed border-slate-400 h-8" />
+                      <span className="font-bold text-center w-24">Representative</span>
+                    </div>
                   </div>
-                </div>
-
-                <div className="flex gap-2">
-                  <button 
-                    onClick={() => alert("Memo Internal AOP berhasil terkirim ke sistem integrasi AOP!")}
-                    className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-xs font-bold flex items-center justify-center gap-1 cursor-pointer"
-                  >
-                    <Send size={11} />
-                    Kirim ke AOP Finance
-                  </button>
-                  <button 
-                    onClick={() => setPreviewMemoCl(justGeneratedCl)}
-                    className="px-3 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-350 text-slate-700 rounded text-xs font-bold cursor-pointer flex items-center gap-1"
-                    title="Lihat Full PDF Memo AOP"
-                  >
-                    <Eye size={12} />
-                    PDF
-                  </button>
                 </div>
               </div>
 
@@ -650,14 +863,14 @@ export default function AccountingView({
                 </div>
 
                 <div className="flex-1 space-y-3 font-sans text-[11px] text-slate-800 p-3 bg-slate-50/50 rounded border border-slate-100/50 leading-relaxed">
-                  <div className="border border-slate-200 bg-white p-2 rounded text-[10px] space-y-1 font-bold text-slate-600">
-                    <div><span className="text-slate-400">To:</span> management@{justGeneratedCl.supplierName.toLowerCase().replace("pt ", "").replace(/ /g, "")}.co.id</div>
-                    <div><span className="text-slate-400">Subject:</span> [URGENT REMINDER] Lembar Confirmation Letter Kualitas {justGeneratedCl.clNumber} - MTM</div>
+                  <div className="border border-slate-200 bg-white p-2 rounded text-[10px] space-y-1 font-bold text-slate-600 overflow-hidden">
+                    <div className="break-all"><span className="text-slate-400">To:</span> management@{justGeneratedCl.supplierName.toLowerCase().replace("pt ", "").replace(/ /g, "")}.co.id</div>
+                    <div className="break-all"><span className="text-slate-400">Subject:</span> [URGENT REMINDER] Lembar Confirmation Letter Kualitas {justGeneratedCl.clNumber} - MTM</div>
                   </div>
 
                   <p className="pt-2">Kepada Yth. Pimpinan Keuangan / Sales Manager <strong>{justGeneratedCl.supplierName}</strong>,</p>
                   <p>
-                    Kami telah menerbitkan lembar persetujuan <strong>Confirmation Letter Penalti Kualitas (QPR)</strong> dengan nomor <strong>{justGeneratedCl.clNumber}</strong> tanggal pengiriman <strong>{justGeneratedCl.dateSent}</strong>.
+                    Kami telah menerbitkan lembar persetujuan <strong>Confirmation Letter Penalti Kualitas (QPR)</strong> dengan nomor <strong className="break-all">{justGeneratedCl.clNumber}</strong> tanggal pengiriman <strong>{justGeneratedCl.dateSent}</strong>.
                   </p>
                   <p>
                     Nilai denda klaim yang disepakati adalah sebesar <strong className="text-red-650">{justGeneratedCl.amount}</strong>. Sesuai prosedur Astra Otoparts, harap segera melakukan verifikasi dan penandatanganan lembar Confirmation Letter terlampir.

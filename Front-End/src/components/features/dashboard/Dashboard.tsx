@@ -33,19 +33,7 @@ const getDocPipelineStages = (
 ): PipelineStage[] => {
   const isApproved = status === "APPROVED" || status === "CLOSED" || status === "CLOSED_PAID" || requiredRole === "Closed";
 
-  if (type === "NCR") {
-    const chain = ["QC Staff", "SPV QA", "MNG QA"];
-    if (isApproved) return chain.map(name => ({ name, status: "APPROVED" }));
-    let currentIndex = 0;
-    if (requiredRole === "Section Head") currentIndex = 1;
-    if (requiredRole === "Dept Head") currentIndex = 2;
-
-    return chain.map((name, idx) => {
-      if (idx < currentIndex) return { name, status: "APPROVED" };
-      if (idx === currentIndex) return { name, status: "PENDING" };
-      return { name, status: "UPCOMING" };
-    });
-  } else if (type === "QPR") {
+  if (type === "QPR") {
     const chain = ["Sec. Head", "Dept. Head", "Div. Head", "Accounting"];
     if (isApproved) return chain.map(name => ({ name, status: "APPROVED" }));
     let currentIndex = 0;
@@ -63,7 +51,9 @@ const getDocPipelineStages = (
     const chain = ["Vendor Conf.", "Accounting"];
     if (isApproved) return chain.map(name => ({ name, status: "APPROVED" }));
     let currentIndex = 0;
-    if (requiredRole === "Accounting Approval") currentIndex = 1;
+    if (requiredRole === "Accounting Approval" || status === "APPROVED" || status === "CLOSED_PAID" || status === "APPROVED_BY_VENDOR") {
+      currentIndex = 1;
+    }
 
     return chain.map((name, idx) => {
       if (idx < currentIndex) return { name, status: "APPROVED" };
@@ -94,6 +84,7 @@ export default function Dashboard({
   const [selectedRoleCard, setSelectedRoleCard] = useState<string | null>(null);
   const [globalSearch, setGlobalSearch] = useState("");
   const [selectedPipelineDoc, setSelectedPipelineDoc] = useState<any | null>(null);
+  const [showPipeline, setShowPipeline] = useState(false);
 
   const periods = [
     "Januari 2026",
@@ -110,62 +101,45 @@ export default function Dashboard({
     "Desember 2026"
   ];
   
-  const [periodIndex, setPeriodIndex] = useState(5);
+  const [periodIndex, setPeriodIndex] = useState(4);
   const activePeriod = periods[periodIndex];
 
-  const periodConfig: { [key: string]: any } = {
-    "Januari 2026": {
-      baselineClosedNcrs: 8, activeNcrs: [], baselineClosedQprs: 2, activeQprs: [],
-      aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0,
-      claimClosedPaidCount: 2, claimPendingCount: 0, claimRejectedCount: 0,
-      dynamicClaimsValue: 12000000
-    },
-    "Februari 2026": {
-      baselineClosedNcrs: 11, activeNcrs: [], baselineClosedQprs: 3, activeQprs: [],
-      aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0,
-      claimClosedPaidCount: 3, claimPendingCount: 0, claimRejectedCount: 1,
-      dynamicClaimsValue: 15500000
-    },
-    "Maret 2026": {
-      baselineClosedNcrs: 14, activeNcrs: [], baselineClosedQprs: 4, activeQprs: [],
-      aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0,
-      claimClosedPaidCount: 4, claimPendingCount: 0, claimRejectedCount: 0,
-      dynamicClaimsValue: 18000000
-    },
-    "April 2026": {
-      baselineClosedNcrs: 18, activeNcrs: [], baselineClosedQprs: 5, activeQprs: [],
-      aprilClaims: 18200000, mayClaimsClosed: 0, mayClaimsPending: 0,
-      claimClosedPaidCount: 1, claimPendingCount: 0, claimRejectedCount: 0,
-      dynamicClaimsValue: 0
-    },
-    "Mei 2026": {
-      baselineClosedNcrs: 15, activeNcrs: [], baselineClosedQprs: 7, activeQprs: [],
-      aprilClaims: 0, mayClaimsClosed: 24000000, mayClaimsPending: 12500000,
-      claimClosedPaidCount: 1, claimPendingCount: 1, claimRejectedCount: 0,
-      dynamicClaimsValue: 0
-    },
-    "Juni 2026": {
-      baselineClosedNcrs: 20,
-      activeNcrs: pendingNcrs,
-      baselineClosedQprs: 0,
-      activeQprs: pendingQprs,
-      aprilClaims: 0,
-      mayClaimsClosed: 0,
-      mayClaimsPending: 0,
-      claimClosedPaidCount: 2,
-      claimPendingCount: 1 + pendingQprs.length,
-      claimRejectedCount: 0,
-      dynamicClaimsValue: pendingQprs.reduce((acc, q) => acc + parseInt(q.claimAmount?.replace(/[^0-9]/g, "") || "0", 10), 0)
-    },
-    "Juli 2026": { baselineClosedNcrs: 0, activeNcrs: [], baselineClosedQprs: 0, activeQprs: [], aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 0, claimPendingCount: 0, claimRejectedCount: 0, dynamicClaimsValue: 0 },
-    "Agustus 2026": { baselineClosedNcrs: 0, activeNcrs: [], baselineClosedQprs: 0, activeQprs: [], aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 0, claimPendingCount: 0, claimRejectedCount: 0, dynamicClaimsValue: 0 },
-    "September 2026": { baselineClosedNcrs: 0, activeNcrs: [], baselineClosedQprs: 0, activeQprs: [], aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 0, claimPendingCount: 0, claimRejectedCount: 0, dynamicClaimsValue: 0 },
-    "Oktober 2026": { baselineClosedNcrs: 0, activeNcrs: [], baselineClosedQprs: 0, activeQprs: [], aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 0, claimPendingCount: 0, claimRejectedCount: 0, dynamicClaimsValue: 0 },
-    "November 2026": { baselineClosedNcrs: 0, activeNcrs: [], baselineClosedQprs: 0, activeQprs: [], aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 0, claimPendingCount: 0, claimRejectedCount: 0, dynamicClaimsValue: 0 },
-    "Desember 2026": { baselineClosedNcrs: 0, activeNcrs: [], baselineClosedQprs: 0, activeQprs: [], aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 0, claimPendingCount: 0, claimRejectedCount: 0, dynamicClaimsValue: 0 }
+  const getDynamicPeriodConfig = (periodName: string) => {
+    // Dynamically filter active QPRs and CLs by period name
+    const activePeriodQprs = pendingQprs.filter(q => q.period === periodName);
+    const activePeriodConfirmationLetters = confirmationLetters.filter(cl => {
+      if (cl.period) return cl.period === periodName;
+      const months = [
+        "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+        "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+      ];
+      const clDate = new Date(cl.dateSent || cl.date || "2026-07-10");
+      const clPeriod = `${months[clDate.getMonth()]} ${clDate.getFullYear()}`;
+      return clPeriod === periodName;
+    });
+
+    const baselineConfig: { [key: string]: any } = {
+      "Januari 2026": { baselineClosedNcrs: 8, baselineClosedQprs: 2, aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 2, claimRejectedCount: 0 },
+      "Februari 2026": { baselineClosedNcrs: 11, baselineClosedQprs: 3, aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 3, claimRejectedCount: 1 },
+      "Maret 2026": { baselineClosedNcrs: 14, baselineClosedQprs: 4, aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 4, claimRejectedCount: 0 },
+      "April 2026": { baselineClosedNcrs: 18, baselineClosedQprs: 5, aprilClaims: 18200000, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 1, claimRejectedCount: 0 },
+      "Mei 2026": { baselineClosedNcrs: 15, baselineClosedQprs: 7, aprilClaims: 0, mayClaimsClosed: 24000000, mayClaimsPending: 12500000, claimClosedPaidCount: 1, claimRejectedCount: 0 },
+      "Juni 2026": { baselineClosedNcrs: 20, baselineClosedQprs: 0, aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 2, claimRejectedCount: 0 },
+    };
+
+    const base = baselineConfig[periodName] || { baselineClosedNcrs: 0, baselineClosedQprs: 0, aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 0, claimRejectedCount: 0 };
+    
+    return {
+      ...base,
+      activeNcrs: [] as any[],
+      activeQprs: activePeriodQprs,
+      activeConfirmationLetters: activePeriodConfirmationLetters,
+      claimPendingCount: activePeriodQprs.length + activePeriodConfirmationLetters.length,
+      dynamicClaimsValue: activePeriodQprs.reduce((acc, q) => acc + parseInt(q.claimAmount?.replace(/[^0-9]/g, "") || "0", 10), 0) + activePeriodConfirmationLetters.reduce((acc, cl) => acc + parseInt(cl.amount?.replace(/[^0-9]/g, "") || "0", 10), 0)
+    };
   };
 
-  const currentConfig = periodConfig[activePeriod] || periodConfig["Juni 2026"];
+  const currentConfig = getDynamicPeriodConfig(activePeriod);
   const baselineClosedNcrs = currentConfig.baselineClosedNcrs;
   const baselineClosedQprs = currentConfig.baselineClosedQprs;
   
@@ -176,6 +150,7 @@ export default function Dashboard({
   const ncrClosed = totalNcrs - ncrInProgress;
 
   const currentActiveQprs = currentConfig.activeQprs;
+  const currentActiveConfirmationLetters = currentConfig.activeConfirmationLetters;
   const totalActiveQprs = currentActiveQprs.length;
   const totalQprs = baselineClosedQprs + totalActiveQprs;
   const qprInProgress = currentActiveQprs.filter((q: any) => q.status === "WAITING_APPROVAL").length;
@@ -257,32 +232,32 @@ export default function Dashboard({
       key: "Section Head",
       title: "Section Head",
       qprRoles: ["Section Head"],
-      color: "border-teal-200 hover:border-teal-500 bg-teal-50/30 text-teal-800",
-      iconColor: "bg-teal-500 text-white",
+      color: "border-blue-200 hover:border-blue-500 bg-blue-50/30 text-blue-800",
+      iconColor: "bg-blue-500 text-white",
       type: "QPR"
     },
     {
       key: "Dept Head",
       title: "Dept Head",
       qprRoles: ["Dept Head"],
-      color: "border-indigo-200 hover:border-indigo-500 bg-indigo-50/30 text-indigo-800",
-      iconColor: "bg-indigo-500 text-white",
+      color: "border-blue-200 hover:border-blue-500 bg-blue-50/30 text-blue-800",
+      iconColor: "bg-blue-500 text-white",
       type: "QPR"
     },
     {
       key: "Div Head",
       title: "Div Head",
       qprRoles: ["Div Head"],
-      color: "border-amber-200 hover:border-amber-500 bg-amber-50/30 text-amber-800",
-      iconColor: "bg-amber-500 text-white",
+      color: "border-blue-200 hover:border-blue-500 bg-blue-50/30 text-blue-800",
+      iconColor: "bg-blue-500 text-white",
       type: "QPR"
     },
     {
       key: "Accounting (CL)",
       title: "Accounting (CL)",
       qprRoles: [],
-      color: "border-rose-200 hover:border-rose-500 bg-rose-50/30 text-rose-800",
-      iconColor: "bg-rose-500 text-white",
+      color: "border-blue-200 hover:border-blue-500 bg-blue-50/30 text-blue-800",
+      iconColor: "bg-blue-500 text-white",
       type: "CL"
     }
   ];
@@ -292,7 +267,7 @@ export default function Dashboard({
     const docs: any[] = [];
     
     if (role.type === "QPR") {
-      pendingQprs.forEach(qpr => {
+      currentActiveQprs.forEach(qpr => {
         if (role.qprRoles.includes(qpr.requiredRole)) {
           const lt = getDocLeadTimes(qpr);
           const daysStuck = lt.leadTimes[qpr.requiredRole]?.days || lt.totalLeadTime;
@@ -311,7 +286,7 @@ export default function Dashboard({
       });
     } else if (role.type === "CL") {
       // Show pending Confirmation Letters!
-      confirmationLetters.forEach(cl => {
+      currentActiveConfirmationLetters.forEach(cl => {
         if (cl.status === "PENDING") {
           const lt = getDocLeadTimes(cl);
           const daysStuck = lt.totalLeadTime;
@@ -335,18 +310,7 @@ export default function Dashboard({
 
   // Build the list of all global system pipeline events
   const globalPipelines = [
-    ...pendingNcrs.map(n => ({
-      id: `ncr-${n.id}`,
-      docNumber: n.ncrNumber,
-      type: "NCR",
-      vendor: n.supplierName,
-      date: n.date,
-      status: "WAITING_APPROVAL",
-      requiredRole: n.requiredRole,
-      stage: "Otorisasi Mutu",
-      amount: "-"
-    })),
-    ...pendingQprs.map(q => ({
+    ...currentActiveQprs.map(q => ({
       id: `qpr-${q.id}`,
       docNumber: q.qprNumber,
       type: "QPR",
@@ -357,7 +321,7 @@ export default function Dashboard({
       stage: "Klaim Kompensasi",
       amount: q.claimAmount
     })),
-    ...confirmationLetters.map(cl => ({
+    ...currentActiveConfirmationLetters.map(cl => ({
       id: `cl-${cl.id}`,
       docNumber: cl.clNumber,
       type: "Confirmation Letter",
@@ -372,21 +336,7 @@ export default function Dashboard({
 
   // Combined list of all documents with their pipeline stages and lead time status
   const documentPipelineList = [
-    ...pendingNcrs.map(n => {
-      const lt = getDocLeadTimes(n);
-      return {
-        id: `ncr-${n.id}`,
-        docNumber: n.ncrNumber,
-        type: "NCR",
-        vendor: n.supplierName,
-        date: n.date,
-        requiredRole: n.requiredRole,
-        status: n.status,
-        leadTime: lt.totalLeadTime,
-        isClosed: n.status === "APPROVED" || n.status === "CLOSED_PAID"
-      };
-    }),
-    ...pendingQprs.map(q => {
+    ...currentActiveQprs.map(q => {
       const lt = getDocLeadTimes(q);
       return {
         id: `qpr-${q.id}`,
@@ -400,7 +350,7 @@ export default function Dashboard({
         isClosed: q.status === "APPROVED" || q.status === "CLOSED_PAID"
       };
     }),
-    ...confirmationLetters.map(cl => {
+    ...currentActiveConfirmationLetters.map(cl => {
       const lt = getDocLeadTimes(cl);
       return {
         id: `cl-${cl.id}`,
@@ -441,8 +391,8 @@ export default function Dashboard({
     },
     {
       id: "hist-3",
-      docNumber: "NCR/2026/06/015",
-      type: "NCR",
+      docNumber: "CL/2026/06/015",
+      type: "CL",
       vendor: "PT IKAN BAKAR",
       date: "2026-06-15",
       requiredRole: "Closed",
@@ -457,21 +407,38 @@ export default function Dashboard({
     ...historicalClosedDocs
   ];
 
+  const secHeadDays = currentActiveQprs.filter(q => q.requiredRole === "Section Head").reduce((sum, doc) => {
+    const lt = getDocLeadTimes(doc);
+    return sum + (lt.leadTimes["Section Head"]?.days || lt.totalLeadTime);
+  }, 0);
+
+  const deptHeadDays = currentActiveQprs.filter(q => q.requiredRole === "Dept Head").reduce((sum, doc) => {
+    const lt = getDocLeadTimes(doc);
+    return sum + (lt.leadTimes["Dept Head"]?.days || lt.totalLeadTime);
+  }, 0);
+
+  const divHeadDays = currentActiveQprs.filter(q => q.requiredRole === "Div Head").reduce((sum, doc) => {
+    const lt = getDocLeadTimes(doc);
+    return sum + (lt.leadTimes["Div Head"]?.days || lt.totalLeadTime);
+  }, 0);
+
+  const accountingDays = [
+    ...currentActiveQprs.filter(q => q.requiredRole === "Accounting" || q.status === "WAITING_VENDOR" || q.status === "APPROVED_BY_VENDOR"),
+    ...currentActiveConfirmationLetters.filter(cl => cl.status === "PENDING")
+  ].reduce((sum, doc) => {
+    const lt = getDocLeadTimes(doc);
+    return sum + lt.totalLeadTime;
+  }, 0);
+
   return (
     <div className="space-y-6 text-left animate-in fade-in duration-300">
       
       {/* Title Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl shadow-sm gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="p-1.5 bg-blue-600 text-white rounded-lg"><Sparkles size={16} /></span>
-            <h3 className="text-lg font-black text-slate-900 uppercase tracking-wider">Dashboard Utama &amp; Global Tracking</h3>
-          </div>
-          <p className="text-xs text-slate-500 mt-1 font-semibold">
-            Pemantauan aktivitas real-time, status otorisasi, penumpukan dokumen, dan metrik lead time secara terpadu.
-          </p>
+      <div className="flex flex-col sm:flex-row justify-between items-center p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl shadow-sm gap-4">
+        <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+          Filter Periode Data:
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 shrink-0">
           <button 
             type="button"
             onClick={() => setPeriodIndex(prev => Math.max(0, prev - 1))}
@@ -482,7 +449,7 @@ export default function Dashboard({
           </button>
           
           <div className="flex items-center gap-2 px-3.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-750 shadow-sm select-none">
-            <Calendar size={14} className="text-blue-600" />
+            <Calendar size={14} className="text-blue-650" />
             <span>Periode: {activePeriod}</span>
           </div>
 
@@ -497,15 +464,55 @@ export default function Dashboard({
         </div>
       </div>
 
+      {/* Analytics Charts Grid */}
+      <div className="grid grid-cols-1 gap-6">
+        {/* Bar Chart */}
+        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <h4 className="text-sm font-black text-slate-800 uppercase tracking-wide">Distribusi Dokumen &amp; Waktu Tunggu Aktif</h4>
+            </div>
+            <span className="text-[10px] font-black bg-violet-50 text-violet-700 border border-violet-150 px-2 py-0.5 rounded uppercase">Stuck Queue</span>
+          </div>
+
+          <div className="space-y-3 pt-2 text-xs">
+            {[
+              { label: "Sec. Head", value: currentActiveQprs.filter(q => q.requiredRole === "Section Head").length, days: secHeadDays, max: 5, color: "from-blue-500 to-blue-600" },
+              { label: "Dept. Head", value: currentActiveQprs.filter(q => q.requiredRole === "Dept Head").length, days: deptHeadDays, max: 5, color: "from-blue-500 to-blue-600" },
+              { label: "Div. Head", value: currentActiveQprs.filter(q => q.requiredRole === "Div Head").length, days: divHeadDays, max: 5, color: "from-blue-500 to-blue-600" },
+              { label: "Accounting", value: currentActiveQprs.filter(q => q.requiredRole === "Accounting" || q.status === "WAITING_VENDOR" || q.status === "APPROVED_BY_VENDOR").length + currentActiveConfirmationLetters.filter(cl => cl.status === "PENDING").length, days: accountingDays, max: 5, color: "from-blue-500 to-blue-600" }
+            ].map((bar, idx) => {
+              const widthPct = bar.value === 0 ? 0 : Math.min(100, Math.max(10, (bar.value / bar.max) * 100));
+              return (
+                <div key={idx} className="space-y-1.5">
+                  <div className="flex justify-between font-bold text-slate-700 text-[11px]">
+                    <span>{bar.label}</span>
+                    <div className="flex gap-2 items-center font-mono">
+                      <span className="font-sans text-slate-900 font-extrabold">{bar.value} Dokumen</span>
+                      <span className="px-2 py-0.5 bg-red-50 text-red-700 border border-red-200 rounded text-[10px] font-black flex items-center gap-1 shadow-sm">
+                        ⏳ {bar.days} Hari Mengendap
+                      </span>
+                    </div>
+                  </div>
+                  <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                    <div
+                      className={`bg-gradient-to-r ${bar.color} h-full rounded-full transition-all duration-500`}
+                      style={{ width: `${widthPct}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
       {/* Grid: 5 Lead Time Role Cards (Interactive) */}
       <div className="space-y-4">
         <div>
           <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest block mb-1">
             Status Lead Time &amp; Dokumen Mengendap Berdasarkan Peran Otorisasi
           </h4>
-          <p className="text-xs text-slate-500 font-semibold">
-            Pilih atau tekan salah satu kartu otorisasi di bawah ini untuk melihat rincian dokumen yang mengendap pada tahapan tersebut.
-          </p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -519,22 +526,13 @@ export default function Dashboard({
               <button
                 key={role.key}
                 onClick={() => setSelectedRoleCard(isSelected ? null : role.key)}
-                className={`border text-left rounded-xl p-4 transition-all duration-200 flex flex-col justify-between h-32 cursor-pointer shadow-sm relative overflow-hidden group ${
+                className={`border text-left rounded-xl p-4 transition-all duration-200 flex flex-col justify-end h-26 cursor-pointer shadow-sm relative overflow-hidden group ${
                   isSelected 
                     ? "bg-white border-blue-650 ring-2 ring-blue-550/20" 
                     : role.color
                 }`}
               >
-                <div className="flex justify-between items-start w-full">
-                  <div className={`w-8 h-8 rounded-lg ${role.iconColor} flex items-center justify-center shadow-sm shrink-0`}>
-                    <UserCheck size={16} />
-                  </div>
-                  <span className="text-[11px] font-black uppercase bg-white border border-slate-200 rounded px-1.5 py-0.5 text-slate-500 shadow-sm">
-                    Step
-                  </span>
-                </div>
-
-                <div className="mt-2 space-y-1">
+                <div className="space-y-1">
                   <h5 className="text-xs font-black text-slate-850 tracking-tight leading-tight truncate group-hover:text-blue-600 transition-colors">
                     {role.title}
                   </h5>
@@ -644,76 +642,123 @@ export default function Dashboard({
         })()}
       </div>
 
-      {/* Visual Pipeline & Lead Time tracking per document */}
-      <div className="bg-white border border-slate-150 rounded-xl shadow-sm p-6 text-left space-y-4">
-        <div>
-          <h4 className="text-sm font-black text-slate-800 uppercase tracking-wide flex items-center gap-2">
-            <Activity size={16} className="text-blue-650 animate-pulse" />
-            Pelacakan Pipeline &amp; Lead Time Durasi per Dokumen
-          </h4>
-          <p className="text-xs text-slate-500 font-semibold mt-0.5">
-            Menampilkan status pelacakan alur otorisasi dokumen beserta akumulasi waktu pengerjaan hingga selesai (Close Paid).
-          </p>
-        </div>
+      {/* Visual Pipeline & Lead Time tracking per document (Collapsible under Otorisasi Cards) */}
+      <div className="bg-white border border-slate-150 rounded-xl shadow-sm overflow-hidden mt-6">
+        <button
+          onClick={() => setShowPipeline(!showPipeline)}
+          className="w-full flex justify-between items-center p-5 bg-slate-50/50 hover:bg-slate-50 transition-colors text-left border-none focus:outline-none cursor-pointer"
+        >
+          <div className="flex items-center gap-2">
+            <Activity size={16} className="text-blue-650" />
+            <h4 className="text-sm font-black text-slate-800 uppercase tracking-wide">
+              Pelacakan Pipeline &amp; Lead Time Durasi per Dokumen
+            </h4>
+          </div>
+          <div className="text-xs font-bold text-blue-600 hover:text-blue-800 select-none">
+            {showPipeline ? "Sembunyikan" : "Tampilkan"} Pelacakan Pipeline ({allDocPipelines.length} Dokumen)
+          </div>
+        </button>
 
-        <div className="overflow-x-auto border border-slate-200 rounded-lg">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead className="bg-slate-50 text-slate-700 font-extrabold border-b border-slate-200 whitespace-nowrap">
-              <tr>
-                <th className="px-4 py-3 w-12 text-center">No</th>
-                <th className="px-4 py-3">No. Dokumen</th>
-                <th className="px-4 py-3">Vendor / Supplier</th>
-                <th className="px-4 py-3 text-center w-24">Tipe</th>
-                <th className="px-4 py-3 text-center w-40">Lead Time / Durasi</th>
-                <th className="px-4 py-3 text-center w-24">Aksi</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 whitespace-nowrap">
-              {allDocPipelines.map((doc, idx) => {
-                return (
-                  <tr key={doc.id} className="hover:bg-slate-50/40 transition-colors font-semibold">
-                    <td className="px-4 py-3 text-center text-slate-400 font-mono font-bold">{idx + 1}</td>
-                    <td className="px-4 py-3 font-mono font-bold text-slate-800">{doc.docNumber}</td>
-                    <td className="px-4 py-3 font-bold text-slate-700">{doc.vendor}</td>
-                    <td className="px-4 py-3 text-center">
-                      <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
-                        doc.type === "NCR" 
-                          ? "bg-blue-50 text-blue-700 border border-blue-100" 
-                          : doc.type === "QPR" 
-                            ? "bg-indigo-50 text-indigo-700 border border-indigo-100"
-                            : "bg-emerald-50 text-emerald-700 border border-emerald-100"
-                      }`}>
-                        {doc.type}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      {doc.isClosed ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-green-50 text-green-700 border border-green-200 rounded-full text-xs font-bold shadow-sm">
-                          <CheckCircle2 size={10} className="text-green-600" />
-                          Close Paid: {doc.leadTime} Hari
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-full text-xs font-bold shadow-sm">
-                          <Clock size={10} className="text-amber-500" />
-                          Aktif: {doc.leadTime} Hari
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <button
-                        onClick={() => setSelectedPipelineDoc(doc)}
-                        className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 rounded font-bold text-xs shadow-sm transition-all cursor-pointer inline-flex items-center gap-1.5"
-                      >
-                        <Eye size={12} />
-                        Detail
-                      </button>
-                    </td>
+        {showPipeline && (
+          <div className="p-6 border-t border-slate-155 bg-white space-y-4">
+            <div className="overflow-x-auto border border-slate-200 rounded-lg">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead className="bg-slate-50 text-slate-700 font-extrabold border-b border-slate-200 whitespace-nowrap">
+                  <tr>
+                    <th className="px-4 py-3 w-12 text-center">No</th>
+                    <th className="px-4 py-3">No. Dokumen</th>
+                    <th className="px-4 py-3">Vendor / Supplier</th>
+                    <th className="px-4 py-3 text-center w-24">Tipe</th>
+                    <th className="px-4 py-3 text-left">Status / Tracking</th>
+                    <th className="px-4 py-3 text-center w-24">Aksi</th>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                </thead>
+                <tbody className="divide-y divide-slate-100 whitespace-nowrap">
+                  {allDocPipelines.map((doc, idx) => (
+                    <tr key={doc.id} className="hover:bg-slate-50/40 transition-colors font-semibold">
+                      <td className="px-4 py-3 text-center text-slate-400 font-mono font-bold">{idx + 1}</td>
+                      <td className="px-4 py-3 font-mono font-bold text-slate-800">{doc.docNumber}</td>
+                      <td className="px-4 py-3 font-bold text-slate-700">{doc.vendor}</td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                          doc.type === "NCR" 
+                            ? "bg-blue-50 text-blue-700 border border-blue-100" 
+                            : doc.type === "QPR" 
+                              ? "bg-indigo-50 text-indigo-700 border border-indigo-100"
+                              : "bg-emerald-50 text-emerald-700 border border-emerald-100"
+                        }`}>
+                          {doc.type}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-left">
+                        <div className="flex items-center gap-3">
+                          {/* Overall Status Badge */}
+                          {doc.isClosed ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-green-50 text-green-700 border border-green-200 rounded-full text-[10px] font-bold shadow-sm select-none">
+                              <CheckCircle2 size={10} className="text-green-600" />
+                              Disetujui
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-full text-[10px] font-bold shadow-sm select-none">
+                              <Clock size={10} className="text-amber-500" />
+                              Proses
+                            </span>
+                          )}
+
+                          <span className="text-slate-300">|</span>
+
+                          {/* Approval Stages Chain */}
+                          <div className="flex items-center gap-1.5 py-1">
+                            {getDocPipelineStages(doc.type, doc.requiredRole, doc.status).map((stage, idx, arr) => (
+                              <React.Fragment key={idx}>
+                                <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-[9px] font-bold border transition-all ${
+                                  stage.status === "APPROVED"
+                                    ? "bg-green-50 text-green-700 border-green-200"
+                                    : stage.status === "PENDING"
+                                    ? "bg-amber-50 text-amber-800 border-amber-300 ring-1 ring-amber-100"
+                                    : "bg-slate-50 text-slate-400 border-slate-200 opacity-60"
+                                }`}>
+                                  {stage.status === "APPROVED" && <CheckCircle2 size={8} className="text-green-600 shrink-0" />}
+                                  {stage.status === "PENDING" && <Clock size={8} className="text-amber-500 shrink-0" />}
+                                  {stage.name}
+                                </span>
+                                {idx < arr.length - 1 && (
+                                  <span className="text-slate-350 text-[10px] select-none shrink-0 font-bold">→</span>
+                                )}
+                              </React.Fragment>
+                            ))}
+                          </div>
+
+                          <span className="text-slate-300">|</span>
+
+                          {/* Lead Time Info at the end */}
+                          {doc.isClosed ? (
+                            <span className="text-[10px] font-bold text-green-700 bg-green-50/50 border border-green-150 px-2 py-0.5 rounded font-mono shadow-sm">
+                              ✅ Selesai: {doc.leadTime} Hari
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold text-amber-800 bg-amber-50/50 border border-amber-150 px-2 py-0.5 rounded font-mono shadow-sm">
+                              ⏳ Aktif: {doc.leadTime} Hari
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <button
+                          onClick={() => setSelectedPipelineDoc(doc)}
+                          className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 rounded font-bold text-xs shadow-sm transition-all cursor-pointer inline-flex items-center gap-1.5"
+                        >
+                          <Eye size={12} />
+                          Detail
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
 
       {selectedPipelineDoc && (

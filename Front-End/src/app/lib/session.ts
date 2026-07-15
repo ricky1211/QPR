@@ -84,6 +84,15 @@ export async function createSession(username: string): Promise<void> {
     sameSite: 'lax',
     path: '/',
   })
+
+  // Also set a client-readable cookie for the username (used by client components for RBAC)
+  cookieStore.set('mtm_user', username, {
+    httpOnly: false,
+    secure: process.env.NODE_ENV === 'production',
+    expires: new Date(expiresAt),
+    sameSite: 'lax',
+    path: '/',
+  })
 }
 
 export async function getSession(): Promise<SessionPayload | null> {
@@ -96,4 +105,5 @@ export async function getSession(): Promise<SessionPayload | null> {
 export async function deleteSession(): Promise<void> {
   const cookieStore = await cookies()
   cookieStore.delete(COOKIE_NAME)
+  cookieStore.delete('mtm_user')
 }

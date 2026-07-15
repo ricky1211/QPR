@@ -10,7 +10,8 @@ export default function Topbar({
   showNotifications,
   setShowNotifications,
   notifications,
-  handleClearNotifications
+  handleClearNotifications,
+  activeTab
 }) {
   return (
     <header className="sticky top-0 z-10 flex items-center justify-between px-4 sm:px-6 h-[64px] sm:h-[72px] bg-white/90 backdrop-blur-md border-b border-slate-200">
@@ -26,14 +27,22 @@ export default function Topbar({
           <Menu size={22} />
         </button>
 
-        <div>
-          <h2 className="text-xs sm:text-sm font-black text-slate-900 tracking-wider uppercase leading-tight">
-            Quality Problem Report
-          </h2>
-          <p className="text-[9px] sm:text-[10px] text-slate-400 font-semibold hidden sm:block">
-            PT Menara Terus Makmur
-          </p>
-        </div>
+        {activeTab === "dashboard" ? (
+          <div>
+            <h2 className="text-xs sm:text-sm font-black text-slate-900 tracking-wider uppercase leading-tight">
+              Dashboard
+            </h2>
+          </div>
+        ) : (
+          <div>
+            <h2 className="text-xs sm:text-sm font-black text-slate-900 tracking-wider uppercase leading-tight">
+              Quality Problem Report
+            </h2>
+            <p className="text-[9px] sm:text-[10px] text-slate-400 font-semibold hidden sm:block">
+              PT Menara Terus Makmur
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Right Action Controls */}
