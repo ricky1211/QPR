@@ -91,7 +91,7 @@ export default function DeptHeadView({
     <div className="space-y-6 text-left">
       
 
-      <div className={`grid gap-6 ${showNcr && showQpr ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1 max-w-3xl mx-auto w-full"}`}>
+      <div className={`grid gap-6 ${showNcr && showQpr ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1 w-full"}`}>
         
         {/* Panel 1: Pending NCRs */}
         {showNcr && (
@@ -305,7 +305,9 @@ export default function DeptHeadView({
                             {/* Report ID & Defect Info */}
                             <td className="px-6 py-4.5 whitespace-nowrap">
                               <div className="font-bold text-slate-800 text-[13px]">{ncr.ncrNumber}</div>
-                              <div className="text-[10px] text-slate-400 font-semibold mt-0.5">{ncr.partName} ({ncr.reject})</div>
+                              <div className="text-[10px] text-slate-400 font-semibold mt-0.5">
+                                {ncr.partName?.toUpperCase().includes("ALL TYPE") ? "ALL TYPE" : ncr.partName} ({ncr.reject})
+                              </div>
                             </td>
 
                             {/* Supplier */}

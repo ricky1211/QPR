@@ -70,11 +70,9 @@ export default function OperatorView({
   // Local state for NCR history sent during this session
   const [items, setItems] = useState<any[]>([]);
 
-  // Filter parts based on selected supplier, and exclude parts already sent to approval in this session
+  // Filter parts based on selected supplier
   const filteredParts = supplierId
-    ? parts
-        .filter((p) => p.supplierId === supplierId)
-        .filter((p) => !items.some((item) => item.partNumber === p.partNumber))
+    ? parts.filter((p) => p.supplierId === supplierId)
     : [];
 
   const getFilteredPartsForRow = (currentRowId: number) => {
@@ -213,56 +211,74 @@ export default function OperatorView({
 
     // Simulate API submission
     setTimeout(() => {
-      const newNcrs: any[] = [];
-      const newNotifs: any[] = [];
+      const currentPartIds = activeRows.map(r => parseInt(String(r.partId)));
+      const supplierParts = parts.filter(p => p.supplierId === currentSupplier.id);
+      const isAllPartsSelected = supplierParts.every(p => currentPartIds.includes(p.id));
 
-      activeRows.forEach((row, index) => {
+      const partsDetail = activeRows.map((row, index) => {
         const currentPart = parts.find((p) => p.id === parseInt(String(row.partId)));
-        if (!currentPart) return;
-
-        const ncrNum = `NCR/2026/06/SIM-${Math.floor(100 + Math.random() * 900) + index}`;
-        const qty = parseInt(row.qtyNG) || 0;
-
-        const newNcr = {
-          id: Date.now() + index,
-          ncrNumber: ncrNum,
-          date: selectedDate,
-          partNumber: currentPart.partNumber,
-          partName: currentPart.partName,
-          supplierName: currentSupplier.name,
-          qty: qty, // Qty NG
-          reject: row.ngTypes.trim().toUpperCase(),
-          locationFound: Array.isArray(locationFound) ? locationFound.join(", ") : locationFound,
-          problemType: Array.isArray(problemType) ? problemType.join(", ") : problemType,
-          foundBy: foundBy.join(", "),
-          defectType: description || "Quality defect found",
-          disposition: Array.isArray(disposition) ? disposition.join(", ") : disposition,
-          customerApproval: customerApproval || "-",
-          docsToRevise: finalDocs.join(", "),
-          images: uploadedImages,
-          status: "WAITING_APPROVAL",
-          requiredRole: "Section Head"
+        return {
+          no: index + 1,
+          partNumber: currentPart?.partNumber || "-",
+          partName: currentPart?.partName || "-",
+          qtyNG: parseInt(row.qtyNG) || 0,
+          ngType: row.ngTypes.trim().toUpperCase()
         };
+      });
 
-        newNcrs.push(newNcr);
+      const totalQtyNG = partsDetail.reduce((sum, p) => sum + p.qtyNG, 0);
+      const ncrNum = `NCR/2026/06/SIM-${Math.floor(100 + Math.random() * 900)}`;
 
-        // Generate notifications
-        newNotifs.push({
-          id: Date.now() + 100 + index,
-          message: `NCR Baru ${ncrNum} berhasil dibuat secara manual oleh Operator untuk ${currentPart.partName} (${currentSupplier.name}).`,
+      let mainPartName = "";
+      let mainPartNumber = "";
+      if (isAllPartsSelected) {
+        mainPartName = "CONE RACE ALL TYPE";
+        mainPartNumber = "ALL-TYPE-001";
+      } else {
+        mainPartName = partsDetail.map(p => p.partName).join(", ");
+        mainPartNumber = partsDetail.map(p => p.partNumber).join(", ");
+      }
+
+      const newNcr = {
+        id: Date.now(),
+        ncrNumber: ncrNum,
+        date: selectedDate || new Date().toISOString().split("T")[0],
+        partNumber: mainPartNumber,
+        partName: mainPartName,
+        supplierName: currentSupplier.name,
+        qty: totalQtyNG, // Total Qty NG
+        reject: partsDetail.map(p => p.ngType).join(", "),
+        locationFound: Array.isArray(locationFound) ? locationFound.join(", ") : locationFound,
+        problemType: Array.isArray(problemType) ? problemType.join(", ") : problemType,
+        foundBy: foundBy.join(", "),
+        defectType: description || "Quality defect found",
+        disposition: Array.isArray(disposition) ? disposition.join(", ") : disposition,
+        customerApproval: customerApproval || "-",
+        docsToRevise: finalDocs.join(", "),
+        images: uploadedImages,
+        status: "WAITING_APPROVAL",
+        requiredRole: "Section Head",
+        partsDetail: partsDetail,
+        isAllParts: isAllPartsSelected
+      };
+
+      const newNcrs = [newNcr];
+      const newNotifs = [
+        {
+          id: Date.now() + 100,
+          message: `NCR Baru ${ncrNum} berhasil dibuat secara manual oleh Operator untuk ${mainPartName} (${currentSupplier.name}).`,
           time: "Baru saja",
           type: "success",
           unread: true
-        });
-
-        newNotifs.push({
-          id: Date.now() + 200 + index,
-          message: `[CC PPIC/Purchase] Dokumen NCR Baru ${ncrNum} untuk supplier ${currentSupplier.name} (Part: ${currentPart.partName}) telah otomatis diteruskan ke bagian PPIC & Purchasing PT MTM.`,
+        },
+        {
+          id: Date.now() + 200,
+          message: `[CC PPIC/Purchase] Dokumen NCR Baru ${ncrNum} untuk supplier ${currentSupplier.name} telah otomatis diteruskan ke PPIC & Purchasing.`,
           time: "Baru saja",
           type: "info",
           unread: true
-        });
-      });
+        }
+      ];
 
       // 1. Send directly to pending Ncrs (Approval)
       setPendingNcrs((prev) => [...newNcrs, ...prev]);
@@ -326,39 +342,58 @@ export default function OperatorView({
     }
 
     setTimeout(() => {
-      const newNcrs: any[] = [];
-      activeRows.forEach((row, index) => {
+      const currentPartIds = activeRows.map(r => parseInt(String(r.partId)));
+      const supplierParts = parts.filter(p => p.supplierId === currentSupplier.id);
+      const isAllPartsSelected = supplierParts.every(p => currentPartIds.includes(p.id));
+
+      const partsDetail = activeRows.map((row, index) => {
         const currentPart = parts.find((p) => p.id === parseInt(String(row.partId)));
-        if (!currentPart) return;
-
-        const ncrNum = `NCR/2026/06/DFT-${Math.floor(100 + Math.random() * 900) + index}`;
-        const qty = parseInt(row.qtyNG) || 0;
-
-        const newNcr = {
-          id: Date.now() + index,
-          ncrNumber: ncrNum,
-          date: selectedDate || new Date().toISOString().split("T")[0],
-          partNumber: currentPart.partNumber,
-          partName: currentPart.partName,
-          supplierName: currentSupplier.name,
-          qty: qty,
-          reject: row.ngTypes.trim().toUpperCase(),
-          locationFound: Array.isArray(locationFound) ? locationFound.join(", ") : locationFound,
-          problemType: Array.isArray(problemType) ? problemType.join(", ") : problemType,
-          foundBy: foundBy.join(", "),
-          defectType: description || "Draf Simpanan",
-          disposition: Array.isArray(disposition) ? disposition.join(", ") : disposition,
-          customerApproval: customerApproval || "-",
-          docsToRevise: finalDocs.join(", "),
-          images: uploadedImages,
-          status: "DRAFT",
-          requiredRole: "Foreman"
+        return {
+          no: index + 1,
+          partNumber: currentPart?.partNumber || "-",
+          partName: currentPart?.partName || "-",
+          qtyNG: parseInt(row.qtyNG) || 0,
+          ngType: row.ngTypes.trim().toUpperCase()
         };
-
-        newNcrs.push(newNcr);
       });
 
-      setPendingNcrs((prev) => [...newNcrs, ...prev]);
+      const totalQtyNG = partsDetail.reduce((sum, p) => sum + p.qtyNG, 0);
+      const ncrNum = `NCR/2026/06/DFT-${Math.floor(100 + Math.random() * 900)}`;
+
+      let mainPartName = "";
+      let mainPartNumber = "";
+      if (isAllPartsSelected) {
+        mainPartName = "CONE RACE ALL TYPE";
+        mainPartNumber = "ALL-TYPE-001";
+      } else {
+        mainPartName = partsDetail.map(p => p.partName).join(", ");
+        mainPartNumber = partsDetail.map(p => p.partNumber).join(", ");
+      }
+
+      const newNcr = {
+        id: Date.now(),
+        ncrNumber: ncrNum,
+        date: selectedDate || new Date().toISOString().split("T")[0],
+        partNumber: mainPartNumber,
+        partName: mainPartName,
+        supplierName: currentSupplier.name,
+        qty: totalQtyNG,
+        reject: partsDetail.map(p => p.ngType).join(", "),
+        locationFound: Array.isArray(locationFound) ? locationFound.join(", ") : locationFound,
+        problemType: Array.isArray(problemType) ? problemType.join(", ") : problemType,
+        foundBy: foundBy.join(", "),
+        defectType: description || "Draf Simpanan",
+        disposition: Array.isArray(disposition) ? disposition.join(", ") : disposition,
+        customerApproval: customerApproval || "-",
+        docsToRevise: finalDocs.join(", "),
+        images: uploadedImages,
+        status: "DRAFT",
+        requiredRole: "Foreman",
+        partsDetail: partsDetail,
+        isAllParts: isAllPartsSelected
+      };
+
+      setPendingNcrs((prev) => [newNcr, ...prev]);
       setIsSubmitting(false);
       
       // Reset input rows, keep date & supplier

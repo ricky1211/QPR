@@ -2,27 +2,27 @@
 
 import React, { useState } from "react";
 import { 
-  CreditCard, 
   FileText, 
   CheckCircle2, 
-  ChevronRight, 
+  ChevronRight,
   Calculator,
   Mail,
   Send,
-  Eye,
   AlertTriangle,
   Clock,
   X,
-  FileCheck,
-  Check,
-  Download
+  Banknote,
+  ShieldCheck
 } from "lucide-react";
 import ConfirmationLetterPrintPreview from "./ConfirmationLetterPrintPreview";
 
 interface AccountingViewProps {
   confirmationLetters: any[];
   setConfirmationLetters: React.Dispatch<React.SetStateAction<any[]>>;
-  handleGenerateCL: (qpr: any, amount: string) => void;
+  handleGenerateCL: (qpr: any, amount: string, items?: any[]) => void;
+  handleApproveCL?: (clId: string, level: "sect" | "dept" | "div") => void;
+  handleMarkClosedPaid?: (clId: string) => void;
+  handleDebitNote?: (clId: string) => void;
   pendingQprs?: any[];
   setPendingQprs?: React.Dispatch<React.SetStateAction<any[]>>;
 }
@@ -32,6 +32,9 @@ export default function AccountingView({
   setPendingQprs,
   setConfirmationLetters,
   handleGenerateCL,
+  handleApproveCL,
+  handleMarkClosedPaid,
+  handleDebitNote,
   pendingQprs
 }: AccountingViewProps) {
   const [selectedQpr, setSelectedQpr] = useState<any>(null);
@@ -591,26 +594,37 @@ export default function AccountingView({
 
       {/* MONITORING PANEL FOR CONFIRMATION LETTERS SENT */}
       <div className="bg-white border border-slate-300 rounded-xl shadow-sm overflow-hidden mt-6">
-        <div className="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+        <div className="p-4 border-b border-slate-200 bg-slate-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="text-left">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Dashboard Monitoring CL</span>
-            <h4 className="text-xs font-bold text-slate-850 mt-1">Status Pengiriman & Otorisasi Confirmation Letter Vendor</h4>
+            <h4 className="text-xs font-bold text-slate-850 mt-1">Status Pengiriman, Otorisasi Internal & Pembayaran Confirmation Letter</h4>
           </div>
-          <span className="px-2.5 py-1 bg-blue-50 text-blue-700 text-[10px] font-bold rounded shadow-sm">
-            Total CL: {confirmationLetters.length} Surat
-          </span>
+          
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-1.5 rounded font-bold uppercase whitespace-nowrap">
+              Otorisasi Level: {
+                (() => {
+                  const mtmUser = typeof document !== 'undefined' ? document.cookie.match(/(?:^|; )mtm_user=([^;]*)/)?.[1] : 'admin';
+                  return mtmUser === 'accounting' ? 'Sect/Dept/Div Accounting' : 'Admin';
+                })()
+              }
+            </span>
+            <span className="px-2.5 py-1 bg-blue-50 text-blue-700 text-[10px] font-bold rounded shadow-sm">
+              Total CL: {confirmationLetters.length} Surat
+            </span>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left border-collapse">
+          <table className="w-full text-xs text-left border-collapse min-w-[1100px]">
             <thead className="bg-slate-100 text-slate-700 font-extrabold border-b border-slate-200">
               <tr>
-                <th className="px-4 py-3 w-12 text-center">No</th>
+                <th className="px-4 py-3 w-10 text-center">No</th>
                 <th className="px-4 py-3">No. Confirmation Letter</th>
-                <th className="px-4 py-3">Vendor / Supplier</th>
-                <th className="px-4 py-3">Tanggal Kirim</th>
-                <th className="px-4 py-3 text-center">AOP Internal Memo</th>
-                <th className="px-4 py-3 text-center">Status Approval Vendor</th>
+                <th className="px-4 py-3">Vendor</th>
+                <th className="px-4 py-3">Tgl Kirim</th>
+                <th className="px-4 py-3 text-center w-52">Lead Time (Proses Accounting)</th>
+                <th className="px-4 py-3 text-center">Status Pembayaran</th>
                 <th className="px-4 py-3 text-right">Aksi</th>
               </tr>
             </thead>
@@ -622,59 +636,129 @@ export default function AccountingView({
                   </td>
                 </tr>
               ) : (
-                confirmationLetters.map((cl, index) => (
-                  <tr key={cl.id} className="hover:bg-slate-55 transition-colors font-semibold">
-                    <td className="px-4 py-3 text-center text-slate-400 font-mono">{index + 1}</td>
-                    <td className="px-4 py-3 font-mono font-bold text-slate-800 break-all">{cl.clNumber}</td>
-                    <td className="px-4 py-3 font-bold text-slate-700">{cl.supplierName}</td>
-                    <td className="px-4 py-3 text-slate-500">{cl.dateSent}</td>
-                    <td className="px-4 py-3 text-center">
-                      {cl.memoStatus === "SENT_AOP" ? (
-                        <span className="inline-flex items-center px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded text-[10px] font-bold">
-                          Terkirim ke AOP
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center px-2 py-0.5 bg-slate-150 text-slate-600 rounded text-[10px] font-bold">
-                          Draft Memo
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      {cl.status === "APPROVED" ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-green-50 text-green-700 border border-green-200 rounded-full text-[10px] font-bold">
-                          <CheckCircle2 size={10} className="text-green-600" />
-                          Sudah di Approval
-                        </span>
-                      ) : (
-                        <div className="flex items-center justify-center gap-2">
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-[10px] font-bold">
-                            <Clock size={10} className="text-amber-600 animate-pulse" />
-                            Belum di Approval
+                confirmationLetters.map((cl, index) => {
+                  const prog = cl.clApprovalProgress || { sectAccounting: false, deptAccounting: false };
+                  const currentRole = cl.requiredRole || (
+                    !prog.sectAccounting ? "Sect Accounting" :
+                    !prog.deptAccounting ? "Dept Accounting" : "Closed"
+                  );
+
+                  const approvalSteps = [
+                    { key: "sect", label: "Sect Accounting", done: prog.sectAccounting, roleMatch: "Sect Accounting" },
+                    { key: "dept", label: "Dept Accounting", done: prog.deptAccounting, roleMatch: "Dept Accounting" }
+                  ];
+                  const fullyApproved = prog.sectAccounting && prog.deptAccounting;
+                  const closedPaid = cl.closedPaid || cl.status === "CLOSED_PAID";
+                  const debitCount = cl.debitNoteCount || 0;
+
+                  return (
+                    <tr key={cl.id} className="hover:bg-slate-50 transition-colors font-semibold">
+                      <td className="px-4 py-3 text-center text-slate-400 font-mono">{index + 1}</td>
+                      <td className="px-4 py-3 font-mono font-bold text-slate-800 break-all">{cl.clNumber}</td>
+                      <td className="px-4 py-3 font-bold text-slate-700">{cl.supplierName}</td>
+                      <td className="px-4 py-3 text-slate-500">{cl.dateSent}</td>
+
+                       {/* Lead Time (Proses Accounting) — Progress Bar Style */}
+                       <td className="px-4 py-3">
+                         {(() => {
+                           const MAX_DAYS = 7;
+                           let diffDays = 1;
+                           try {
+                             const sentDate = new Date(cl.dateSent);
+                             const nowDate = new Date("2026-07-16");
+                             diffDays = Math.max(1, Math.ceil(Math.abs(nowDate.getTime() - sentDate.getTime()) / (1000 * 60 * 60 * 24)));
+                           } catch {}
+                           const finalDays = fullyApproved ? (cl.id === "cl-1" ? 2 : 1) : diffDays;
+                           const pct = Math.min(100, Math.round((finalDays / MAX_DAYS) * 100));
+                           const barColor = fullyApproved
+                             ? "bg-emerald-500"
+                             : finalDays <= 2 ? "bg-emerald-400"
+                             : finalDays <= 4 ? "bg-amber-400"
+                             : "bg-red-500";
+                           const textColor = fullyApproved
+                             ? "text-emerald-700"
+                             : finalDays <= 2 ? "text-emerald-700"
+                             : finalDays <= 4 ? "text-amber-700"
+                             : "text-red-700";
+                           return (
+                             <div className="flex flex-col gap-1.5 min-w-[140px]">
+                               <div className="flex items-center justify-between">
+                                 <span className={`text-[10px] font-black ${textColor}`}>
+                                   {fullyApproved
+                                     ? <span className="inline-flex items-center gap-1"><CheckCircle2 size={10} /> {finalDays} Hari ✓</span>
+                                     : `${finalDays} Hari Berjalan`
+                                   }
+                                 </span>
+                                 <span className="text-[9px] text-slate-400 font-bold">{pct}%</span>
+                               </div>
+                               <div className="h-2 rounded-full bg-slate-100 border border-slate-200 overflow-hidden">
+                                 <div
+                                   className={`h-full rounded-full transition-all duration-500 ${barColor}`}
+                                   style={{ width: `${pct}%` }}
+                                 />
+                               </div>
+                               <div className="flex items-center justify-between text-[8.5px] text-slate-400 font-bold">
+                                 <span>0</span>
+                                 <span className="text-slate-500">Target: {MAX_DAYS} hari</span>
+                               </div>
+                               {/* Approval step mini badges */}
+                               <div className="flex gap-1 mt-0.5">
+                                 {approvalSteps.map(step => (
+                                   <span
+                                     key={step.key}
+                                     className={`text-[8px] font-black px-1.5 py-0.5 rounded ${step.done ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'}`}
+                                   >
+                                     {step.done ? '✓' : '○'} {step.key === 'sect' ? 'Sect' : 'Dept'}
+                                   </span>
+                                 ))}
+                               </div>
+                             </div>
+                           );
+                         })()}
+                       </td>
+
+                       {/* Status Pembayaran */}
+                       <td className="px-4 py-3 text-center">
+                        {closedPaid ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-50 text-green-700 border border-green-300 rounded-full text-[9px] font-black">
+                            <CheckCircle2 size={10} className="text-green-600" />
+                            Close Paid
                           </span>
+                        ) : fullyApproved ? (
                           <button
-                            onClick={() => handleToggleApproval(cl.id)}
-                            className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 border border-slate-350 text-slate-700 text-[10px] rounded cursor-pointer transition-colors"
-                            title="Verifikasi persetujuan manual (Simulasi Vendor)"
+                            onClick={() => handleMarkClosedPaid?.(cl.id)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-300 rounded-full text-[9px] font-bold cursor-pointer transition-colors active:scale-95"
+                            title="Tandai sebagai Close Paid (vendor sudah bayar)"
                           >
-                            Approve
+                            <Banknote size={10} />
+                            Mark Close Paid
+                          </button>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-100 text-slate-500 border border-slate-200 rounded-full text-[9px] font-bold">
+                            <Clock size={9} className="text-slate-400" />
+                            Belum Lunas
+                          </span>
+                        )}
+                      </td>
+
+
+
+                      {/* Aksi */}
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => setPreviewClDoc(cl)}
+                            className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-md text-[10px] font-bold cursor-pointer flex items-center justify-center gap-1"
+                            title="Lihat Confirmation Letter PDF"
+                          >
+                            <FileText size={12} />
+                            Lihat CL PDF
                           </button>
                         </div>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button
-                          onClick={() => setPreviewClDoc(cl)}
-                          className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-md text-[10px] font-bold cursor-pointer flex items-center justify-center gap-1 mx-auto"
-                          title="Lihat Confirmation Letter PDF"
-                        >
-                          <FileText size={12} />
-                          Lihat CL PDF
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

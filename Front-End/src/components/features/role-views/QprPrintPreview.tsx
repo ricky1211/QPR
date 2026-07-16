@@ -83,6 +83,15 @@ export default function QprPrintPreview({ qpr, onClose, inline = false }: QprPre
     window.print();
   };
 
+  React.useEffect(() => {
+    if (inline) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [inline]);
+
   const formatDateIndo = (dateStr?: string) => {
     if (!dateStr) return "28 JULI 2025";
     const parts = dateStr.split("-");
@@ -543,76 +552,81 @@ export default function QprPrintPreview({ qpr, onClose, inline = false }: QprPre
             }
             body * { visibility: hidden; }
             #qpr-print-area, #qpr-print-area * { visibility: visible; }
+              #qpr-print-area {
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100% !important;
+                height: 100% !important;
+                min-height: 0 !important;
+                margin: 0 !important;
+                padding: 8mm !important;
+                border: none !important;
+                box-shadow: none !important;
+                page-break-inside: avoid !important;
+              }
+            }
+          `}</style>
+        </>
+      );
+    }
+  
+    return (
+      <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 overflow-y-auto flex flex-col items-center p-4">
+        {/* Action Bar */}
+        <div className="fixed top-4 right-4 flex gap-2 z-50 print:hidden">
+          <button
+            onClick={handlePrint}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-lg transition-colors cursor-pointer"
+          >
+            <Printer size={14} />
+            Cetak / Print
+          </button>
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-bold shadow-lg border border-slate-200 transition-colors cursor-pointer"
+            >
+              <X size={14} />
+              Batal
+            </button>
+          )}
+        </div>
+        <div className="pt-16 pb-8 w-full flex justify-center">
+          {documentContent}
+        </div>
+        <style>{`
+          @media print {
+            @page {
+              size: A4 portrait;
+              margin: 10mm;
+            }
+            html, body {
+              height: auto;
+              margin: 0 !important;
+              padding: 0 !important;
+              background: #fff !important;
+            }
+            body * { visibility: hidden; }
+            #qpr-print-area, #qpr-print-area * { visibility: visible; }
             #qpr-print-area {
-              position: absolute !important;
+              position: relative !important;
               left: 0 !important;
               top: 0 !important;
-              width: 100% !important;
-              height: 100% !important;
+              width: 190mm !important;
+              height: 277mm !important;
               min-height: 0 !important;
-              margin: 0 !important;
+              margin: 0 auto !important;
               padding: 8mm !important;
-              border: none !important;
+              border: 1.5px solid #000 !important;
               box-shadow: none !important;
+              box-sizing: border-box !important;
               page-break-inside: avoid !important;
+              transform: scale(0.91) !important;
+              transform-origin: top center !important;
             }
           }
         `}</style>
-      </>
-    );
-  }
-
-  return (
-    <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 overflow-y-auto flex flex-col items-center p-4">
-      {/* Action Bar */}
-      <div className="fixed top-4 right-4 flex gap-2 z-50 print:hidden">
-        <button
-          onClick={handlePrint}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-lg transition-colors cursor-pointer"
-        >
-          <Printer size={14} />
-          Cetak / Print
-        </button>
-        {onClose && (
-          <button
-            onClick={onClose}
-            className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-bold shadow-lg border border-slate-200 transition-colors cursor-pointer"
-          >
-            <X size={14} />
-            Tutup
-          </button>
-        )}
-      </div>
-      <div className="pt-16 pb-8 w-full flex justify-center">
-        {documentContent}
-      </div>
-      <style>{`
-        @media print {
-          @page {
-            size: A4;
-            margin: 0;
-          }
-          html, body {
-            height: 100%;
-            overflow: hidden;
-          }
-          body * { visibility: hidden; }
-          #qpr-print-area, #qpr-print-area * { visibility: visible; }
-          #qpr-print-area {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 100% !important;
-            height: 100% !important;
-            min-height: 0 !important;
-            margin: 0 !important;
-            padding: 8mm !important;
-            border: none !important;
-            box-shadow: none !important;
-            page-break-inside: avoid !important;
-          }
-        }
-      `}</style>
     </div>
   );
 }

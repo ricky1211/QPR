@@ -94,6 +94,11 @@ export default function DraftNcrView({
   const draftCount = pendingNcrs.filter(n => n.status === "DRAFT").length;
   const pendingCount = pendingNcrs.filter(n => n.status === "WAITING_APPROVAL").length;
   const approvedCount = pendingNcrs.filter(n => n.status === "APPROVED" || n.status === "CLOSED").length;
+  // NCR eligible QPR: approved AND ng ratio > 0.5%
+  const qprEligibleCount = pendingNcrs.filter(n => {
+    const ngRatio = ((n.reject || n.qty || 0) / (n.qty || 1)) * 100;
+    return (n.status === "APPROVED" || n.status === "CLOSED") && ngRatio > 0.5;
+  }).length;
 
   return (
     <div className="space-y-6 text-left">
@@ -146,6 +151,18 @@ export default function DraftNcrView({
           <div>
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Sudah Disetujui</span>
             <strong className="text-lg font-black text-slate-800">{approvedCount}</strong>
+          </div>
+        </div>
+
+        {/* QPR Eligible */}
+        <div className="bg-white p-4 border border-amber-100 rounded-xl shadow-sm flex items-center gap-3">
+          <div className="p-3 bg-amber-50 text-amber-600 rounded-lg">
+            <FileText size={18} />
+          </div>
+          <div>
+            <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest block">Layak Buat QPR</span>
+            <strong className="text-lg font-black text-amber-700">{qprEligibleCount}</strong>
+            <span className="text-[9px] text-slate-400 font-bold block">NG &gt; 0.5%</span>
           </div>
         </div>
       </div>
@@ -212,7 +229,7 @@ export default function DraftNcrView({
                 <th className="px-4 py-3 text-right">Qty NG</th>
                 <th className="px-4 py-3">Jenis Cacat</th>
                 <th className="px-4 py-3">Tanggal Temuan</th>
-                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Status & NG Ratio</th>
                 <th className="px-4 py-3 text-right">Aksi</th>
               </tr>
             </thead>
@@ -230,36 +247,71 @@ export default function DraftNcrView({
                     <tr key={ncr.id} className="hover:bg-slate-55 transition-colors">
                       <td className="px-4 py-3 font-mono font-bold text-slate-850">{ncr.ncrNumber}</td>
                       <td className="px-4 py-3 text-slate-800 font-bold">{ncr.supplierName}</td>
-                      <td className="px-4 py-3 text-slate-650">{ncr.partName}</td>
+                      <td className="px-4 py-3 text-slate-650">
+                        {ncr.partName?.toUpperCase().includes("ALL TYPE") ? "ALL TYPE" : ncr.partName}
+                      </td>
                       <td className="px-4 py-3 text-right font-mono font-bold text-slate-800">{ncr.reject || ncr.qty || 0}</td>
                       <td className="px-4 py-3 text-slate-500">{ncr.defectType || "-"}</td>
                       <td className="px-4 py-3 text-slate-500 font-semibold">{ncr.date}</td>
                       <td className="px-4 py-3">
-                        {ncr.status === "DRAFT" ? (
-                          <span className="inline-flex items-center px-2 py-0.5 bg-slate-100 text-slate-600 border border-slate-200 rounded text-[9px] font-black uppercase">
-                            Draf
-                          </span>
-                        ) : ncr.status === "WAITING_APPROVAL" ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-250 rounded text-[9px] font-black uppercase">
-                            <span className="w-1.5 h-1.5 bg-amber-550 rounded-full animate-ping" />
-                            {ncr.requiredRole === "Section Head" ? "Waiting SPV" : "Waiting Dept"}
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-50 text-green-700 border border-green-200 rounded text-[9px] font-black uppercase">
-                            Disetujui
-                          </span>
-                        )}
-                      </td>
+                          {(() => {
+                            const qtyTotal = ncr.qty || 1;
+                            const qtyNG = ncr.reject || 0;
+                            const ngRatio = (qtyNG / qtyTotal) * 100;
+                            const THRESHOLD = 0.5;
+                            const isEligibleQpr = ngRatio > THRESHOLD;
+                            const barPct = Math.min(100, Math.round((ngRatio / (THRESHOLD * 4)) * 100));
+                            const barColor = isEligibleQpr ? 'bg-red-500' : 'bg-emerald-500';
+                            return (
+                              <div className="flex flex-col gap-1 min-w-[140px]">
+                                {/* Status Badge */}
+                                {ncr.status === "DRAFT" ? (
+                                  <span className="inline-flex items-center px-2 py-0.5 bg-slate-100 text-slate-600 border border-slate-200 rounded text-[9px] font-black uppercase w-fit">Draf</span>
+                                ) : ncr.status === "WAITING_APPROVAL" ? (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-250 rounded text-[9px] font-black uppercase w-fit">
+                                    <span className="w-1.5 h-1.5 bg-amber-550 rounded-full animate-ping" />
+                                    {ncr.requiredRole === "Section Head" ? "Waiting SPV" : "Waiting Dept"}
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-50 text-green-700 border border-green-200 rounded text-[9px] font-black uppercase w-fit">
+                                    <CheckCircle2 size={9} /> Disetujui
+                                  </span>
+                                )}
+                                {/* NG Ratio Progress Bar */}
+                                <div className="flex items-center justify-between text-[8.5px] font-black">
+                                  <span className={isEligibleQpr ? 'text-red-600' : 'text-emerald-700'}>
+                                    NG: {ngRatio.toFixed(2)}%
+                                  </span>
+                                  <span className="text-slate-400">Std: {THRESHOLD}%</span>
+                                </div>
+                                <div className="h-1.5 rounded-full bg-slate-100 border border-slate-200 overflow-hidden relative">
+                                  <div className={`h-full rounded-full ${barColor}`} style={{ width: `${barPct}%` }} />
+                                  {/* Threshold line */}
+                                  <div className="absolute top-0 bottom-0 border-r-2 border-slate-500 border-dashed" style={{ left: '25%' }} />
+                                </div>
+                                {isEligibleQpr && (ncr.status === "APPROVED" || ncr.status === "CLOSED") && (
+                                  <span className="text-[8px] font-black text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded w-fit">
+                                    ⚠ Layak Buat QPR
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex justify-end gap-1.5">
-                          {/* Preview PDF */}
+                          {/* Preview / Print PDF — always visible, esp. for APPROVED */}
                           <button
                             onClick={() => setSelectedNcr(ncr)}
-                            className="px-2.5 py-1.5 bg-slate-50 hover:bg-slate-150 border border-slate-250 text-slate-700 rounded text-[10px] font-bold cursor-pointer transition-colors flex items-center gap-1"
-                            title="Pratinjau Lembar NCR PDF"
+                            className={`px-2.5 py-1.5 border rounded text-[10px] font-bold cursor-pointer transition-colors flex items-center gap-1 ${
+                              ncr.status === "APPROVED" || ncr.status === "CLOSED"
+                                ? "bg-blue-600 hover:bg-blue-700 text-white border-blue-700 shadow-sm"
+                                : "bg-slate-50 hover:bg-slate-150 border-slate-250 text-slate-700"
+                            }`}
+                            title={ncr.status === "APPROVED" || ncr.status === "CLOSED" ? "Cetak PDF NCR (Sudah Disetujui)" : "Pratinjau Lembar NCR PDF"}
                           >
                             <Eye size={11} />
-                            Lihat PDF
+                            {ncr.status === "APPROVED" || ncr.status === "CLOSED" ? "Cetak PDF" : "Lihat PDF"}
                           </button>
 
                           {/* Submit Draft */}

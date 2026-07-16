@@ -27,6 +27,15 @@ export default function ClPrintPreview({ cl, onClose, inline = false }: ClPrevie
     window.print();
   };
 
+  React.useEffect(() => {
+    if (inline) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [inline]);
+
   const docNo = cl.clNumber || cl.docNumber || "CL/2026/06/001";
   const partNo = cl.partNumber || "-";
   const partName = cl.partName || "-";
@@ -129,41 +138,96 @@ export default function ClPrintPreview({ cl, onClose, inline = false }: ClPrevie
   );
 
   if (inline) {
-    return documentContent;
+    return (
+      <>
+        {documentContent}
+        <style>{`
+          @media print {
+            @page {
+              size: A4;
+              margin: 0;
+            }
+            html, body {
+              height: 100%;
+              overflow: hidden;
+            }
+            body * { visibility: hidden; }
+            #cl-print-area, #cl-print-area * { visibility: visible; }
+            #cl-print-area {
+              position: absolute !important;
+              left: 0 !important;
+              top: 0 !important;
+              width: 100% !important;
+              height: auto !important;
+              min-height: 0 !important;
+              margin: 0 !important;
+              padding: 8mm !important;
+              border: none !important;
+              box-shadow: none !important;
+              page-break-inside: avoid !important;
+            }
+          }
+        `}</style>
+      </>
+    );
   }
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="relative w-full max-w-4xl bg-slate-100 rounded-xl shadow-2xl border border-slate-300 overflow-hidden flex flex-col my-8">
-        
-        {/* Modal Controls Toolbar */}
-        <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-slate-200">
-          <div className="flex items-center gap-2">
-            <span className="p-1 bg-emerald-50 text-emerald-700 rounded"><Printer size={16} /></span>
-            <span className="text-sm font-black text-slate-800">Cetak Surat Konfirmasi Denda (CL)</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handlePrint}
-              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-750 text-white font-bold rounded-lg text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
-            >
-              <Printer size={14} />
-              Cetak Dokumen
-            </button>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-800 transition-all cursor-pointer"
-            >
-              <X size={16} />
-            </button>
-          </div>
-        </div>
-
-        {/* Modal Document Body */}
-        <div className="flex-1 overflow-y-auto px-8 py-4 bg-slate-100/50 flex justify-center items-center">
-          {documentContent}
-        </div>
+    <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 overflow-y-auto flex flex-col items-center p-4">
+      {/* Action Bar */}
+      <div className="fixed top-4 right-4 flex gap-2 z-50 print:hidden">
+        <button
+          onClick={handlePrint}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-lg transition-colors cursor-pointer"
+        >
+          <Printer size={14} />
+          Cetak / Print
+        </button>
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-bold shadow-lg border border-slate-200 transition-colors cursor-pointer"
+          >
+            <X size={14} />
+            Batal
+          </button>
+        )}
       </div>
+
+      <div className="pt-16 pb-8 w-full flex justify-center">
+        {documentContent}
+      </div>
+
+      <style>{`
+        @media print {
+          @page {
+            size: A4 portrait;
+            margin: 10mm;
+          }
+          html, body {
+            height: auto;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #fff !important;
+          }
+          body * { visibility: hidden; }
+          #cl-print-area, #cl-print-area * { visibility: visible; }
+          #cl-print-area {
+            position: relative !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 190mm !important;
+            height: auto !important;
+            min-height: 0 !important;
+            margin: 0 auto !important;
+            padding: 8mm !important;
+            border: 1px solid #000 !important;
+            box-shadow: none !important;
+            box-sizing: border-box !important;
+            page-break-inside: avoid !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Shield, FileCheck, CheckCircle2, X, Search, Filter, ChevronLeft, ChevronRight, AlertTriangle, Clock } from "lucide-react";
+import { Shield, FileCheck, CheckCircle2, X, Search, Filter, ChevronLeft, ChevronRight, AlertTriangle, Clock, Printer } from "lucide-react";
 import NcrPrintPreview from "./NcrPrintPreview";
 
 export default function SectionHeadView({ pendingNcrs, handleApproveNcrAction, role = "Section Head" }) {
@@ -8,6 +8,7 @@ export default function SectionHeadView({ pendingNcrs, handleApproveNcrAction, r
   const [reviewComment, setReviewComment] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [printNcr, setPrintNcr] = useState(null);
 
   // Advanced Filter states
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -286,7 +287,9 @@ export default function SectionHeadView({ pendingNcrs, handleApproveNcrAction, r
                       {/* Report ID & Defect Info */}
                       <td className="px-6 py-4.5 whitespace-nowrap">
                         <div className="font-bold text-slate-800 text-[13px]">{ncr.ncrNumber}</div>
-                        <div className="text-[10px] text-slate-400 font-semibold mt-0.5">{ncr.partName} ({ncr.reject})</div>
+                        <div className="text-[10px] text-slate-400 font-semibold mt-0.5">
+                          {ncr.partName?.toUpperCase().includes("ALL TYPE") ? "ALL TYPE" : ncr.partName} ({ncr.reject})
+                        </div>
                       </td>
 
                       {/* Supplier */}
@@ -562,6 +565,16 @@ export default function SectionHeadView({ pendingNcrs, handleApproveNcrAction, r
               >
                 Tutup
               </button>
+              {/* Cetak PDF — hanya untuk NCR yang sudah fully approved */}
+              {(selectedNcr?.status === "APPROVED" || selectedNcr?.requiredRole === "Closed") && (
+                <button
+                  onClick={() => setPrintNcr(selectedNcr)}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-bold text-xs flex items-center gap-1.5 shadow-md transition-colors cursor-pointer"
+                >
+                  <Printer size={13} />
+                  Cetak PDF
+                </button>
+              )}
               <button
                 onClick={() => {
                   handleApproveNcrAction(selectedNcr.id, selectedNcr.ncrNumber, reviewComment);
@@ -575,6 +588,14 @@ export default function SectionHeadView({ pendingNcrs, handleApproveNcrAction, r
             </div>
           </div>
         </div>
+      )}
+
+      {/* NCR Print Preview Modal (for approved NCRs) */}
+      {printNcr && (
+        <NcrPrintPreview
+          ncr={printNcr}
+          onClose={() => setPrintNcr(null)}
+        />
       )}
 
     </div>

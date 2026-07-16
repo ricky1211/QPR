@@ -20,12 +20,17 @@ import {
 } from "lucide-react";
 
 export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSidebarOpen, username = "admin" }) {
-  const [ncrExpanded, setNcrExpanded] = useState(activeTab === "buat-ncr" || activeTab === "approve-ncr" || activeTab === "draft-ncr");
+  const isDraftTab = activeTab === "draft-ncr" || activeTab === "draft-qpr" || activeTab === "draft-cl";
+  const [ncrExpanded, setNcrExpanded] = useState(activeTab === "buat-ncr" || activeTab === "approve-ncr");
+  const [draftExpanded, setDraftExpanded] = useState(isDraftTab);
 
   // Sync expanded status when active tab changes externally
   useEffect(() => {
-    if (activeTab === "buat-ncr" || activeTab === "approve-ncr" || activeTab === "draft-ncr") {
+    if (activeTab === "buat-ncr" || activeTab === "approve-ncr") {
       setNcrExpanded(true);
+    }
+    if (activeTab === "draft-ncr" || activeTab === "draft-qpr" || activeTab === "draft-cl") {
+      setDraftExpanded(true);
     }
   }, [activeTab]);
 
@@ -41,16 +46,18 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
     }
   };
 
-  const handleGroupClick = (group: "ncr") => {
+  const handleGroupClick = (group: "ncr" | "draft") => {
     if (!sidebarOpen) {
       setSidebarOpen(true);
       if (group === "ncr") setNcrExpanded(true);
+      if (group === "draft") setDraftExpanded(true);
     } else {
       if (group === "ncr") setNcrExpanded(!ncrExpanded);
+      if (group === "draft") setDraftExpanded(!draftExpanded);
     }
   };
 
-  const isNcrActive = activeTab === "buat-ncr" || activeTab === "approve-ncr" || activeTab === "draft-ncr";
+  const isNcrActive = activeTab === "buat-ncr" || activeTab === "approve-ncr";
 
   // Role Access Checks
   const isAdmin = username === "admin";
@@ -184,9 +191,6 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
                           { id: "buat-ncr", name: "Buat NCR", icon: PlusCircle, color: "text-blue-600" },
                         ] : []),
                         ...(canApproveNcr ? [{ id: "approve-ncr", name: "Approval NCR", icon: CheckSquare, color: "text-amber-500" }] : []),
-                        ...(canBuatNcr ? [
-                          { id: "draft-ncr", name: "Draf NCR", icon: FileText, color: "text-slate-500" }
-                        ] : []),
                       ].map((sub) => {
                         const SubIcon = sub.icon;
                         const isSubActive = activeTab === sub.id;
@@ -259,8 +263,26 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
                   }`}
                   title={!sidebarOpen ? "Buat Confirmation Letter" : undefined}
                 >
-                  <FileText size={20} className={activeTab === "confirmation-letter" ? "text-white shrink-0" : "text-rose-500 group-hover:text-white transition-colors shrink-0"} />
-                  <span className={`text-sm font-bold truncate transition-all ${sidebarOpen ? "block animate-in fade-in" : "xl:hidden"}`}>Buat Confirmation Letter</span>
+                  <PlusCircle size={20} className={activeTab === "confirmation-letter" ? "text-white shrink-0" : "text-rose-500 group-hover:text-white transition-colors shrink-0"} />
+                  <span className={`text-sm font-bold truncate transition-all ${sidebarOpen ? "block animate-in fade-in" : "xl:hidden"}`}>Buat CL</span>
+                </button>
+              )}
+
+              {/* Approval Confirmation Letter */}
+              {canCL && (
+                <button
+                  onClick={() => handleMenuClick("approve-cl")}
+                  className={`group flex items-center w-full gap-3 text-left rounded-md transition-all duration-150 touch-manipulation cursor-pointer ${
+                    sidebarOpen ? "px-3 py-3" : "px-3 py-3 xl:px-0 xl:justify-center"
+                  } ${
+                    activeTab === "approve-cl"
+                      ? "bg-blue-600 text-white shadow-sm"
+                      : "text-slate-500 hover:text-white hover:bg-blue-600"
+                  }`}
+                  title={!sidebarOpen ? "Approval CL" : undefined}
+                >
+                  <FileText size={20} className={activeTab === "approve-cl" ? "text-white shrink-0" : "text-indigo-500 group-hover:text-white transition-colors shrink-0"} />
+                  <span className={`text-sm font-bold truncate transition-all ${sidebarOpen ? "block animate-in fade-in" : "xl:hidden"}`}>Approval CL</span>
                 </button>
               )}
 
@@ -282,6 +304,8 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
                 </button>
               )}
 
+
+
               {/* List QPR & CL */}
               {canListQpr && (
                 <button
@@ -293,10 +317,10 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
                       ? "bg-blue-600 text-white shadow-sm"
                       : "text-slate-500 hover:text-white hover:bg-blue-600"
                   }`}
-                  title={!sidebarOpen ? "List QPR & CL" : undefined}
+                  title={!sidebarOpen ? "List NCR, QPR & CL" : undefined}
                 >
                   <ListTodo size={20} className={activeTab === "list-qpr" ? "text-white shrink-0" : "text-emerald-500 group-hover:text-white transition-colors shrink-0"} />
-                  <span className={`text-sm font-bold truncate transition-all ${sidebarOpen ? "block animate-in fade-in" : "xl:hidden"}`}>List QPR &amp; CL</span>
+                  <span className={`text-sm font-bold truncate transition-all ${sidebarOpen ? "block animate-in fade-in" : "xl:hidden"}`}>List NCR, QPR &amp; CL</span>
                 </button>
               )}
             </nav>

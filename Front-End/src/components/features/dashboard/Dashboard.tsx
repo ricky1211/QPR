@@ -16,7 +16,9 @@ import {
   CheckCircle2,
   Clock,
   X,
-  Eye
+  Eye,
+  Banknote,
+  ShieldCheck
 } from "lucide-react";
 
 import ConfirmationLetterPrintPreview from "../role-views/ConfirmationLetterPrintPreview";
@@ -29,9 +31,10 @@ interface PipelineStage {
 const getDocPipelineStages = (
   type: string,
   requiredRole?: string,
-  status?: string
+  status?: string,
+  clApprovalProgress?: { sectAccounting: boolean; deptAccounting: boolean }
 ): PipelineStage[] => {
-  const isApproved = status === "APPROVED" || status === "CLOSED" || status === "CLOSED_PAID" || requiredRole === "Closed";
+  const isApproved = status === "APPROVED" || status === "CLOSED" || status === "CLOSED_PAID" || status === "FULLY_APPROVED" || requiredRole === "Closed";
 
   if (type === "QPR") {
     const chain = ["Sec. Head", "Dept. Head", "Div. Head", "Accounting"];
@@ -47,17 +50,20 @@ const getDocPipelineStages = (
       return { name, status: "UPCOMING" };
     });
   } else {
-    // Confirmation Letter (CL)
-    const chain = ["Vendor Conf.", "Accounting"];
+    // Confirmation Letter (CL) — 3-step chain with 2 accounting levels
+    const chain = ["Vendor Conf.", "Sect Acc.", "Dept Acc."];
     if (isApproved) return chain.map(name => ({ name, status: "APPROVED" }));
-    let currentIndex = 0;
-    if (requiredRole === "Accounting Approval" || status === "APPROVED" || status === "CLOSED_PAID" || status === "APPROVED_BY_VENDOR") {
-      currentIndex = 1;
-    }
+
+    const prog = clApprovalProgress || { sectAccounting: false, deptAccounting: false };
 
     return chain.map((name, idx) => {
-      if (idx < currentIndex) return { name, status: "APPROVED" };
-      if (idx === currentIndex) return { name, status: "PENDING" };
+      if (idx === 0) {
+        // Vendor confirmation — treat as approved once CL is in any approval stage
+        const vendorDone = status === "APPROVED_SECT" || status === "FULLY_APPROVED" || status === "CLOSED_PAID" || status === "APPROVED_BY_VENDOR";
+        return { name, status: vendorDone ? "APPROVED" : "PENDING" };
+      }
+      if (idx === 1) return { name, status: prog.sectAccounting ? "APPROVED" : (status === "PENDING" || status === "APPROVED_BY_VENDOR" ? "PENDING" : "UPCOMING") };
+      if (idx === 2) return { name, status: prog.deptAccounting ? "APPROVED" : (prog.sectAccounting ? "PENDING" : "UPCOMING") };
       return { name, status: "UPCOMING" };
     });
   }
@@ -118,6 +124,17 @@ export default function Dashboard({
       return clPeriod === periodName;
     });
 
+    const activePeriodNcrs = pendingNcrs.filter(n => {
+      if (!n.date) return false;
+      const months = [
+        "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+        "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+      ];
+      const ncrDate = new Date(n.date);
+      const ncrPeriod = `${months[ncrDate.getMonth()]} ${ncrDate.getFullYear()}`;
+      return ncrPeriod === periodName;
+    });
+
     const baselineConfig: { [key: string]: any } = {
       "Januari 2026": { baselineClosedNcrs: 8, baselineClosedQprs: 2, aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 2, claimRejectedCount: 0 },
       "Februari 2026": { baselineClosedNcrs: 11, baselineClosedQprs: 3, aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 3, claimRejectedCount: 1 },
@@ -131,7 +148,7 @@ export default function Dashboard({
     
     return {
       ...base,
-      activeNcrs: [] as any[],
+      activeNcrs: activePeriodNcrs,
       activeQprs: activePeriodQprs,
       activeConfirmationLetters: activePeriodConfirmationLetters,
       claimPendingCount: activePeriodQprs.length + activePeriodConfirmationLetters.length,
@@ -361,7 +378,10 @@ export default function Dashboard({
         requiredRole: cl.status === "PENDING" ? "Vendor Confirmation" : "Closed",
         status: cl.status,
         leadTime: lt.totalLeadTime,
-        isClosed: cl.status === "APPROVED" || cl.status === "CLOSED_PAID"
+        isClosed: cl.status === "APPROVED" || cl.status === "CLOSED_PAID" || cl.status === "FULLY_APPROVED",
+        closedPaid: cl.closedPaid || cl.status === "CLOSED_PAID",
+        debitNoteCount: cl.debitNoteCount || 0,
+        clApprovalProgress: cl.clApprovalProgress || { sectAccounting: false, deptAccounting: false }
       };
     })
   ];
@@ -430,42 +450,187 @@ export default function Dashboard({
     return sum + lt.totalLeadTime;
   }, 0);
 
+  const handleDownloadTemplate = (type: "qpr" | "cl") => {
+    try {
+      import("xlsx").then((XLSX) => {
+        let headers: string[] = [];
+        let sampleData: any[] = [];
+        let fileName = "";
+        
+        if (type === "qpr") {
+          headers = ["PartNumber", "PartName", "TotalQty", "QtyNG", "AllowanceRatio"];
+          sampleData = [
+            { PartNumber: "MB-001", PartName: "Motherboard X1", TotalQty: 1000, QtyNG: 15, AllowanceRatio: "0.5%" },
+            { PartNumber: "HD-002", PartName: "Harddisk 1TB", TotalQty: 500, QtyNG: 8, AllowanceRatio: "0.5%" }
+          ];
+          fileName = "Template_Upload_QPR.xlsx";
+        } else {
+          headers = ["Customer", "DocumentNo", "Text", "Vendor", "Doc. Date", "Local Crcy Amt", "Potong tagih payment date"];
+          sampleData = [
+            { Customer: "OTC08002", DocumentNo: "18000000053", Text: "POTONG TAGIH CLAIM PT JAYADI", Vendor: "PT JAYADI", "Doc. Date": "6/10/2026", "Local Crcy Amt": 18200000, "Potong tagih payment date": "8/10/2026" }
+          ];
+          fileName = "Template_Upload_Confirmation_Letter.xlsx";
+        }
+        
+        const worksheet = XLSX.utils.json_to_sheet(sampleData, { header: headers });
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Template");
+        XLSX.writeFile(workbook, fileName);
+        alert(`Sukses mengunduh template: ${fileName}`);
+      });
+    } catch (e) {
+      alert("Gagal mengunduh template: " + e);
+    }
+  };
+
   return (
-    <div className="space-y-6 text-left animate-in fade-in duration-300">
-      
-      {/* Title Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-center p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl shadow-sm gap-4">
-        <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-          Filter Periode Data:
-        </div>
-        <div className="flex items-center gap-1.5 shrink-0">
-          <button 
+    <div className="space-y-5 text-left animate-in fade-in duration-300">
+
+      {/* ── TOP HEADER: Period Filter + Download Buttons ─────────────────── */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 p-4 bg-white border border-slate-200 rounded-xl shadow-sm">
+        {/* Period Filter */}
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Periode:</span>
+          <button
             type="button"
             onClick={() => setPeriodIndex(prev => Math.max(0, prev - 1))}
             disabled={periodIndex === 0}
-            className="p-2 bg-white hover:bg-slate-50 rounded-lg border border-slate-200 text-slate-600 disabled:opacity-40 disabled:hover:bg-white cursor-pointer transition-all active:scale-90 shadow-sm flex items-center justify-center"
+            className="p-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg border border-slate-200 text-slate-600 disabled:opacity-40 cursor-pointer transition-all active:scale-90 flex items-center justify-center"
           >
-            <ChevronLeft size={14} className="stroke-[2.5] text-slate-500" />
+            <ChevronLeft size={13} className="stroke-[2.5] text-slate-500" />
           </button>
-          
-          <div className="flex items-center gap-2 px-3.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-750 shadow-sm select-none">
-            <Calendar size={14} className="text-blue-650" />
-            <span>Periode: {activePeriod}</span>
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg text-xs font-bold text-blue-800 select-none">
+            <Calendar size={13} className="text-blue-600" />
+            <span>{activePeriod}</span>
           </div>
-
-          <button 
+          <button
             type="button"
             onClick={() => setPeriodIndex(prev => Math.min(periods.length - 1, prev + 1))}
             disabled={periodIndex === periods.length - 1}
-            className="p-2 bg-white hover:bg-slate-50 rounded-lg border border-slate-200 text-slate-600 disabled:opacity-40 disabled:hover:bg-white cursor-pointer transition-all active:scale-90 shadow-sm flex items-center justify-center"
+            className="p-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg border border-slate-200 text-slate-600 disabled:opacity-40 cursor-pointer transition-all active:scale-90 flex items-center justify-center"
           >
-            <ChevronRight size={14} className="stroke-[2.5] text-slate-500" />
+            <ChevronRight size={13} className="stroke-[2.5] text-slate-500" />
           </button>
         </div>
+
+
       </div>
 
-      {/* Analytics Charts Grid */}
-      <div className="grid grid-cols-1 gap-6">
+      {/* ── 3 SYNCHRONIZED SUMMARY CARDS: NCR / QPR / CL ────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+
+        {/* NCR Card */}
+        {(() => {
+          const totalNcrAvgLt = totalNcrs > 0 ? Math.round(totalNcrs * 1.5) : 0;
+          const ncrPct = totalNcrs > 0 ? Math.round((ncrClosed / totalNcrs) * 100) : 0;
+          return (
+            <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-3">
+              <div className="flex justify-between items-start">
+                <div>
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Non-Conformance Report</span>
+                  <h4 className="text-2xl font-black text-slate-900 mt-0.5 leading-none">{totalNcrs}</h4>
+                  <span className="text-[10px] text-slate-500 font-semibold">Total NCR</span>
+                </div>
+                <div className="p-2 bg-blue-50 rounded-lg border border-blue-100">
+                  <ShieldAlert size={16} className="text-blue-600" />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-[10px] font-bold text-slate-600">
+                  <span>{ncrClosed} Selesai</span>
+                  <span className="text-blue-600">{ncrInProgress} Proses</span>
+                </div>
+                <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                  <div className="bg-blue-500 h-full rounded-full transition-all duration-500" style={{ width: `${ncrPct}%` }} />
+                </div>
+                <div className="flex items-center gap-1 text-[10px] text-slate-500 font-semibold">
+                  <Clock size={10} className="text-slate-400" />
+                  <span>Avg. Lead Time: <strong className="text-slate-800">~{totalNcrAvgLt > 0 ? Math.ceil(totalNcrAvgLt / Math.max(1, totalNcrs)) : 3} Hari</strong></span>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* QPR Card */}
+        {(() => {
+          const qprPct = totalQprs > 0 ? Math.round((qprClosed / totalQprs) * 100) : 0;
+          const avgQprLt = currentActiveQprs.length > 0
+            ? Math.round(currentActiveQprs.reduce((s: number, q: any) => s + getDocLeadTimes(q).totalLeadTime, 0) / currentActiveQprs.length)
+            : 7;
+          return (
+            <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-3">
+              <div className="flex justify-between items-start">
+                <div>
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Quality Problem Report</span>
+                  <h4 className="text-2xl font-black text-slate-900 mt-0.5 leading-none">{totalQprs}</h4>
+                  <span className="text-[10px] text-slate-500 font-semibold">Total QPR</span>
+                </div>
+                <div className="p-2 bg-indigo-50 rounded-lg border border-indigo-100">
+                  <FileCheck size={16} className="text-indigo-600" />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-[10px] font-bold text-slate-600">
+                  <span>{qprClosed} Selesai</span>
+                  <span className="text-indigo-600">{qprInProgress} Proses</span>
+                </div>
+                <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                  <div className="bg-indigo-500 h-full rounded-full transition-all duration-500" style={{ width: `${qprPct}%` }} />
+                </div>
+                <div className="flex items-center gap-1 text-[10px] text-slate-500 font-semibold">
+                  <Clock size={10} className="text-slate-400" />
+                  <span>Avg. Lead Time: <strong className={`${avgQprLt > 7 ? 'text-red-600' : 'text-slate-800'}`}>{avgQprLt} Hari</strong></span>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* CL Card */}
+        {(() => {
+          const totalCl = currentActiveConfirmationLetters.length + claimClosedPaidCount;
+          const clLunas = claimClosedPaidCount;
+          const clProgress = currentActiveConfirmationLetters.length;
+          const clPct = totalCl > 0 ? Math.round((clLunas / totalCl) * 100) : 0;
+          const avgClLt = currentActiveConfirmationLetters.length > 0
+            ? Math.round(currentActiveConfirmationLetters.reduce((s: number, cl: any) => s + getDocLeadTimes(cl).totalLeadTime, 0) / currentActiveConfirmationLetters.length)
+            : 5;
+          const totalClaimVal = totalClaimsVal > 0
+            ? `Rp ${(totalClaimsVal / 1_000_000).toFixed(1)}jt`
+            : "-";
+          return (
+            <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-3">
+              <div className="flex justify-between items-start">
+                <div>
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Confirmation Letter</span>
+                  <h4 className="text-2xl font-black text-slate-900 mt-0.5 leading-none">{totalCl}</h4>
+                  <span className="text-[10px] text-slate-500 font-semibold">Total CL</span>
+                </div>
+                <div className="p-2 bg-emerald-50 rounded-lg border border-emerald-100">
+                  <ShieldCheck size={16} className="text-emerald-600" />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-[10px] font-bold text-slate-600">
+                  <span>{clLunas} Lunas</span>
+                  <span className="text-emerald-600">{clProgress} Proses</span>
+                </div>
+                <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                  <div className="bg-emerald-500 h-full rounded-full transition-all duration-500" style={{ width: `${clPct}%` }} />
+                </div>
+                <div className="flex items-center gap-1 text-[10px] text-slate-500 font-semibold">
+                  <Clock size={10} className="text-slate-400" />
+                  <span>Avg. Lead Time: <strong className={`${avgClLt > 7 ? 'text-red-600' : 'text-slate-800'}`}>{avgClLt} Hari</strong></span>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+      </div>
+
+      {/* ── BAR CHART: Distribusi Dokumen & Waktu Tunggu ─────────────────── */}
+      <div className="grid grid-cols-1 gap-5">
         {/* Bar Chart */}
         <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
           <div className="flex justify-between items-center">
@@ -477,10 +642,10 @@ export default function Dashboard({
 
           <div className="space-y-3 pt-2 text-xs">
             {[
-              { label: "Sec. Head", value: currentActiveQprs.filter(q => q.requiredRole === "Section Head").length, days: secHeadDays, max: 5, color: "from-blue-500 to-blue-600" },
-              { label: "Dept. Head", value: currentActiveQprs.filter(q => q.requiredRole === "Dept Head").length, days: deptHeadDays, max: 5, color: "from-blue-500 to-blue-600" },
-              { label: "Div. Head", value: currentActiveQprs.filter(q => q.requiredRole === "Div Head").length, days: divHeadDays, max: 5, color: "from-blue-500 to-blue-600" },
-              { label: "Accounting", value: currentActiveQprs.filter(q => q.requiredRole === "Accounting" || q.status === "WAITING_VENDOR" || q.status === "APPROVED_BY_VENDOR").length + currentActiveConfirmationLetters.filter(cl => cl.status === "PENDING").length, days: accountingDays, max: 5, color: "from-blue-500 to-blue-600" }
+              { label: "Sec. Head", value: currentActiveQprs.filter((q: any) => q.requiredRole === "Section Head").length, days: secHeadDays, max: 5, color: "from-blue-500 to-blue-600" },
+              { label: "Dept. Head", value: currentActiveQprs.filter((q: any) => q.requiredRole === "Dept Head").length, days: deptHeadDays, max: 5, color: "from-blue-500 to-blue-600" },
+              { label: "Div. Head", value: currentActiveQprs.filter((q: any) => q.requiredRole === "Div Head").length, days: divHeadDays, max: 5, color: "from-blue-500 to-blue-600" },
+              { label: "Accounting", value: currentActiveQprs.filter((q: any) => q.requiredRole === "Accounting" || q.status === "WAITING_VENDOR" || q.status === "APPROVED_BY_VENDOR").length + currentActiveConfirmationLetters.filter((cl: any) => cl.status === "PENDING").length, days: accountingDays, max: 5, color: "from-blue-500 to-blue-600" }
             ].map((bar, idx) => {
               const widthPct = bar.value === 0 ? 0 : Math.min(100, Math.max(10, (bar.value / bar.max) * 100));
               return (
@@ -691,7 +856,7 @@ export default function Dashboard({
                         </span>
                       </td>
                       <td className="px-4 py-3 text-left">
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 flex-wrap">
                           {/* Overall Status Badge */}
                           {doc.isClosed ? (
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-green-50 text-green-700 border border-green-200 rounded-full text-[10px] font-bold shadow-sm select-none">
@@ -709,7 +874,7 @@ export default function Dashboard({
 
                           {/* Approval Stages Chain */}
                           <div className="flex items-center gap-1.5 py-1">
-                            {getDocPipelineStages(doc.type, doc.requiredRole, doc.status).map((stage, idx, arr) => (
+                            {getDocPipelineStages(doc.type, doc.requiredRole, doc.status, doc.clApprovalProgress).map((stage, idx, arr) => (
                               <React.Fragment key={idx}>
                                 <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-[9px] font-bold border transition-all ${
                                   stage.status === "APPROVED"
@@ -728,6 +893,33 @@ export default function Dashboard({
                               </React.Fragment>
                             ))}
                           </div>
+
+                          <span className="text-slate-300">|</span>
+
+                          {/* CL-specific: Close Paid badge & Debit Note count */}
+                          {doc.type === "CL" && (
+                            <>
+                              {doc.closedPaid ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-green-50 text-green-700 border border-green-200 rounded-full text-[9px] font-bold shadow-sm">
+                                  <CheckCircle2 size={8} className="text-green-600" />
+                                  Close Paid
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-[9px] font-bold shadow-sm">
+                                  <Clock size={8} className="text-amber-500" />
+                                  Belum Lunas
+                                </span>
+                              )}
+                              <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[9px] font-bold border ${
+                                (doc.debitNoteCount || 0) > 0
+                                  ? "bg-rose-50 text-rose-700 border-rose-200"
+                                  : "bg-slate-100 text-slate-400 border-slate-200"
+                              }`}>
+                                <Banknote size={8} />
+                                {doc.debitNoteCount || 0}× Potong Tagih
+                              </span>
+                            </>
+                          )}
 
                           <span className="text-slate-300">|</span>
 
@@ -806,6 +998,39 @@ export default function Dashboard({
                     )}
                   </div>
                 </div>
+                {selectedPipelineDoc.type === "CL" && (
+                  <>
+                    <div>
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wider">Status Pembayaran</span>
+                      <div className="mt-1">
+                        {selectedPipelineDoc.closedPaid ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-green-50 text-green-700 border border-green-200 rounded-full font-bold">
+                            <CheckCircle2 size={11} className="text-green-600" />
+                            Close Paid
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full font-bold">
+                            <Clock size={11} className="text-amber-500" />
+                            Belum Lunas
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wider">Tarik / Potong Tagih</span>
+                      <div className="mt-1">
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-bold border ${
+                          (selectedPipelineDoc.debitNoteCount || 0) > 0
+                            ? "bg-rose-50 text-rose-700 border-rose-200"
+                            : "bg-slate-100 text-slate-500 border-slate-200"
+                        }`}>
+                          <Banknote size={11} />
+                          {selectedPipelineDoc.debitNoteCount || 0}× Potong Tagih
+                        </span>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Approval Stages Visualization */}
@@ -813,7 +1038,7 @@ export default function Dashboard({
                 <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wider font-mono">Alur Persetujuan Dokumen</span>
                 
                 <div className="flex flex-col md:flex-row md:items-center gap-2 p-4 bg-white border border-slate-150 rounded-xl overflow-x-auto">
-                  {getDocPipelineStages(selectedPipelineDoc.type, selectedPipelineDoc.requiredRole, selectedPipelineDoc.status).map((stage, i, arr) => (
+                  {getDocPipelineStages(selectedPipelineDoc.type, selectedPipelineDoc.requiredRole, selectedPipelineDoc.status, selectedPipelineDoc.clApprovalProgress).map((stage, i, arr) => (
                     <React.Fragment key={i}>
                       <div
                         className={`flex flex-col p-3 rounded-lg border flex-1 min-w-[120px] transition-all ${

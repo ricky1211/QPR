@@ -11,12 +11,16 @@ import Topbar from "@/components/layout/Topbar";
 import OperatorView from "@/components/features/role-views/OperatorView";
 import ApproveNcrDashboard from "@/components/features/role-views/ApproveNcrDashboard";
 import ApproveQprDashboard from "@/components/features/role-views/ApproveQprDashboard";
+import ApproveClDashboard from "@/components/features/role-views/ApproveClDashboard";
 import AccountingView from "@/components/features/role-views/AccountingView";
 import ListQprDashboard from "@/components/features/role-views/ListQprDashboard";
 import Dashboard from "@/components/features/dashboard/Dashboard";
 import IMemoView from "@/components/features/role-views/IMemoView";
 import BuatQprView from "@/components/features/role-views/BuatQprView";
 import DraftNcrView from "@/components/features/role-views/DraftNcrView";
+import DraftQprView from "@/components/features/role-views/DraftQprView";
+import DraftClView from "@/components/features/role-views/DraftClView";
+
 
 // Global tracking views & modals
 import CalendarView from "@/components/features/calendar/CalendarView";
@@ -76,7 +80,7 @@ export default function Home() {
     } else if (user === "purchasing") {
       setActiveTab("i-memo");
     } else if (user === "accounting") {
-      setActiveTab("confirmation-letter");
+      setActiveTab("approve-cl");
     } else {
       setActiveTab("dashboard");
     }
@@ -96,11 +100,123 @@ export default function Home() {
 
   // Notification bell state
   const [showNotifications, setShowNotifications] = useState(false);
-  const [notifications, setNotifications] = useState(mockNotifications);
+  const [notifications, setNotifications] = useState([
+    {
+      id: 1,
+      message: "NCR baru berhasil diterbitkan: NCR/2026/06/020 untuk PT IKAN BAKAR (Harddisk 1TB).",
+      time: "1 jam yang lalu",
+      type: "info",
+      unread: true
+    },
+    {
+      id: 2,
+      message: "Draf QPR QPR/2026/06/GL001 berhasil dibuat untuk PT JAYADI.",
+      time: "3 jam yang lalu",
+      type: "success",
+      unread: true
+    }
+  ]);
 
   // Dynamic lists for simulation
-  const [pendingNcrs, setPendingNcrs] = useState(mockPendingNcrs);
-  const [pendingQprs, setPendingQprs] = useState(mockPendingQprs);
+  const [pendingNcrs, setPendingNcrs] = useState([
+    {
+      id: 1,
+      ncrNumber: "NCR/2026/06/012",
+      date: "2026-06-05",
+      partNumber: "MB-001",
+      partName: "Motherboard X1",
+      supplierName: "PT JAYADI",
+      qty: 180,
+      reject: 4,
+      defectType: "Dent / Scratch",
+      disposition: "RETURN TO VENDOR",
+      status: "WAITING_APPROVAL",
+      requiredRole: "Section Head"
+    },
+    {
+      id: 2,
+      ncrNumber: "NCR/2026/06/020",
+      date: "2026-06-22",
+      partNumber: "HD-002",
+      partName: "Harddisk 1TB",
+      supplierName: "PT IKAN BAKAR",
+      qty: 240,
+      reject: 8,
+      defectType: "Bad Sector / Noise",
+      disposition: "REWORK",
+      status: "WAITING_APPROVAL",
+      requiredRole: "Dept Head"
+    },
+    {
+      id: 3,
+      ncrNumber: "NCR/2026/06/005",
+      date: "2026-06-02",
+      partNumber: "CP-003",
+      partName: "CPU Fan Cooler",
+      supplierName: "PT IKAN BAKAR",
+      qty: 500,
+      reject: 12,
+      defectType: "Cracked Housing",
+      disposition: "RETURN TO VENDOR",
+      status: "DRAFT",
+      requiredRole: "Foreman"
+    },
+    {
+      id: 4,
+      ncrNumber: "NCR/2026/06/009",
+      date: "2026-06-04",
+      partNumber: "CR-001",
+      partName: "CONE RACE ALL TYPE",
+      supplierName: "SHIJIAZHUANG RUICHENG TRADE CO., LTD",
+      qty: 1000,
+      reject: 25,
+      defectType: "Rust",
+      disposition: "REWORK",
+      status: "DRAFT",
+      requiredRole: "Foreman"
+    }
+  ]);
+  const [pendingQprs, setPendingQprs] = useState([
+    {
+      id: 1,
+      qprNumber: "QPR/2026/05/JAYADI",
+      date: "2026-06-10",
+      supplierName: "PT JAYADI",
+      period: "Mei 2026",
+      totalItems: 500,
+      rejectItems: 15,
+      allowanceRatio: "0.5%",
+      claimAmount: "Rp 12.500.000",
+      status: "WAITING_APPROVAL",
+      requiredRole: "Section Head"
+    },
+    {
+      id: 2,
+      qprNumber: "QPR/2026/05/IKAN_BAKAR",
+      date: "2026-06-10",
+      supplierName: "PT IKAN BAKAR",
+      period: "Mei 2026",
+      totalItems: 800,
+      rejectItems: 25,
+      allowanceRatio: "0.8%",
+      claimAmount: "Rp 24.000.000",
+      status: "WAITING_APPROVAL",
+      requiredRole: "Dept Head"
+    },
+    {
+      id: 3,
+      qprNumber: "QPR/2026/05/RUA_BIASA",
+      date: "2026-06-12",
+      supplierName: "SHIJIAZHUANG RUICHENG TRADE CO., LTD",
+      period: "Mei 2026",
+      totalItems: 1200,
+      rejectItems: 40,
+      allowanceRatio: "0.6%",
+      claimAmount: "Rp 32.000.000",
+      status: "WAITING_APPROVAL",
+      requiredRole: "Purchasing"
+    }
+  ]);
   const [confirmationLetters, setConfirmationLetters] = useState([
     {
       id: "cl-1",
@@ -109,10 +225,15 @@ export default function Home() {
       supplierName: "PT JAYADI",
       dateSent: "2026-06-10",
       amount: "Rp 18.200.000",
-      status: "APPROVED", // Sudah di Approval
-      memoStatus: "SENT_AOP", // Terkirim ke AOP
+      status: "FULLY_APPROVED",
+      requiredRole: "Closed",
+      memoStatus: "SENT_AOP",
       reminderSentCount: 1,
-      sentToVendor: true
+      sentToVendor: true,
+      clApprovalProgress: { sectAccounting: true, deptAccounting: true },
+      closedPaid: true,
+      debitNoteCount: 0,
+      reminderCount: 1
     },
     {
       id: "cl-2",
@@ -121,10 +242,15 @@ export default function Home() {
       supplierName: "PT IKAN BAKAR",
       dateSent: "2026-06-18",
       amount: "Rp 24.000.000",
-      status: "PENDING", // Belum di Approval
+      status: "APPROVED_SECT",
+      requiredRole: "Dept Accounting",
       memoStatus: "SENT_AOP",
       reminderSentCount: 2,
-      sentToVendor: true
+      sentToVendor: true,
+      clApprovalProgress: { sectAccounting: true, deptAccounting: false },
+      closedPaid: false,
+      debitNoteCount: 1,
+      reminderCount: 2
     },
     {
       id: "cl-3",
@@ -133,10 +259,15 @@ export default function Home() {
       supplierName: "PT JAYADI",
       dateSent: "2026-06-25",
       amount: "Rp 12.500.000",
-      status: "PENDING", // Belum di Approval
+      status: "PENDING",
+      requiredRole: "Sect Accounting",
       memoStatus: "DRAFT_MEMO",
       reminderSentCount: 1,
-      sentToVendor: false
+      sentToVendor: false,
+      clApprovalProgress: { sectAccounting: false, deptAccounting: false },
+      closedPaid: false,
+      debitNoteCount: 0,
+      reminderCount: 1
     }
   ]);
 
@@ -151,13 +282,55 @@ export default function Home() {
       dateSent: new Date().toISOString().split("T")[0],
       amount: cleanAmount,
       status: "PENDING",
+      requiredRole: "Sect Accounting",
       memoStatus: "SENT_AOP",
       reminderSentCount: 1,
-      sentToVendor: false, // Needs to be sent by Purchasing!
-      items: items || []
+      sentToVendor: false,
+      items: items || [],
+      clApprovalProgress: { sectAccounting: false, deptAccounting: false },
+      closedPaid: false,
+      debitNoteCount: 0,
+      reminderCount: 1
     };
     setConfirmationLetters(prev => [newCl, ...prev]);
     setPendingQprs(prev => prev.map(q => q.qprNumber === qpr.qprNumber ? { ...q, status: "CLOSED", requiredRole: "Closed" } : q));
+  };
+
+  // Handler: Approve CL per level accounting (sect → dept)
+  const handleApproveCL = (clId: string, level: "sect" | "dept" | "div") => {
+    setConfirmationLetters(prev => prev.map(cl => {
+      if (cl.id !== clId) return cl;
+      const progress = { ...cl.clApprovalProgress };
+      let newStatus = cl.status;
+      let nextRole = cl.requiredRole;
+
+      if (level === "sect" && !progress.sectAccounting) {
+        progress.sectAccounting = true;
+        newStatus = "APPROVED_SECT";
+        nextRole = "Dept Accounting";
+        alert(`Sukses: CL ${cl.clNumber} disetujui oleh Sect Accounting dan diteruskan ke Dept Accounting!`);
+      } else if (level === "dept" && progress.sectAccounting && !progress.deptAccounting) {
+        progress.deptAccounting = true;
+        newStatus = "FULLY_APPROVED";
+        nextRole = "Closed";
+        alert(`Sukses: CL ${cl.clNumber} disetujui sepenuhnya oleh Dept Accounting!`);
+      }
+      return { ...cl, clApprovalProgress: progress, status: newStatus, requiredRole: nextRole };
+    }));
+  };
+
+  // Handler: Mark CL as Close Paid
+  const handleMarkClosedPaid = (clId: string) => {
+    setConfirmationLetters(prev => prev.map(cl =>
+      cl.id === clId ? { ...cl, closedPaid: true, status: "CLOSED_PAID" } : cl
+    ));
+  };
+
+  // Handler: Increment debit note / potong tagih count
+  const handleDebitNote = (clId: string) => {
+    setConfirmationLetters(prev => prev.map(cl =>
+      cl.id === clId ? { ...cl, debitNoteCount: (cl.debitNoteCount || 0) + 1 } : cl
+    ));
   };
 
   const [parts, setParts] = useState(mockParts);
@@ -496,6 +669,23 @@ export default function Home() {
               <BuatQprView
                 pendingQprs={pendingQprs}
                 setPendingQprs={setPendingQprs}
+                pendingNcrs={pendingNcrs}
+              />
+            )}
+
+            {activeTab === "draft-qpr" && (username === "operator" || username === "admin") && (
+              <DraftQprView
+                pendingQprs={pendingQprs}
+                setPendingQprs={setPendingQprs}
+                setActiveTab={setActiveTab}
+              />
+            )}
+
+            {activeTab === "draft-cl" && (username === "accounting" || username === "admin") && (
+              <DraftClView
+                confirmationLetters={confirmationLetters}
+                setConfirmationLetters={setConfirmationLetters}
+                setActiveTab={setActiveTab}
               />
             )}
 
@@ -504,8 +694,21 @@ export default function Home() {
                 confirmationLetters={confirmationLetters}
                 setConfirmationLetters={setConfirmationLetters}
                 handleGenerateCL={handleGenerateCL}
+                handleApproveCL={handleApproveCL}
+                handleMarkClosedPaid={handleMarkClosedPaid}
+                handleDebitNote={handleDebitNote}
                 pendingQprs={pendingQprs}
                 setPendingQprs={setPendingQprs}
+              />
+            )}
+
+            {activeTab === "approve-cl" && (username === "accounting" || username === "admin") && (
+              <ApproveClDashboard
+                confirmationLetters={confirmationLetters}
+                handleApproveCL={handleApproveCL}
+                handleMarkClosedPaid={handleMarkClosedPaid}
+                handleDebitNote={handleDebitNote}
+                username={username}
               />
             )}
 
@@ -517,7 +720,11 @@ export default function Home() {
             )}
 
             {activeTab === "list-qpr" && (username === "admin" || username === "operator" || username === "accounting" || username === "purchasing") && (
-              <ListQprDashboard />
+              <ListQprDashboard
+                pendingNcrs={pendingNcrs}
+                pendingQprs={pendingQprs}
+                confirmationLetters={confirmationLetters}
+              />
             )}
 
             {activeTab === "calendar" && (

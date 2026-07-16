@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   FileText,
   Mail,
@@ -34,6 +34,27 @@ export default function IMemoView({
   const [copied, setCopied] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [previewCl, setPreviewCl] = useState<any | null>(null);
+  const [sscFile, setSscFile] = useState<File | null>(null);
+  const [viewPartsCl, setViewPartsCl] = useState<any | null>(null);
+  const [clUploadedFile, setClUploadedFile] = useState<File | null>(null);
+  const [detectedVendors, setDetectedVendors] = useState<string[]>([]);
+  const [selectedDetectedVendor, setSelectedDetectedVendor] = useState<string>("");
+  const [printVendorFilter, setPrintVendorFilter] = useState<string>("");
+  const [selectedLookUpVendor, setSelectedLookUpVendor] = useState<string>("");
+
+  // Ref to track pending auto-selection after CL upload adds new rows
+  const pendingSelectIdRef = useRef<string | null>(null);
+
+  // After confirmationLetters updates, auto-select the newly uploaded CL row
+  useEffect(() => {
+    if (pendingSelectIdRef.current) {
+      const found = confirmationLetters.find(cl => cl.id === pendingSelectIdRef.current);
+      if (found) {
+        setSelectedLookUpVendor(pendingSelectIdRef.current);
+        pendingSelectIdRef.current = null;
+      }
+    }
+  }, [confirmationLetters]);
 
   const selectedCl = confirmationLetters.find(cl => cl.id === selectedClId) || confirmationLetters[0];
 
@@ -108,8 +129,10 @@ export default function IMemoView({
   const handleExportExcel = (type: "ssc_purchasing" | "buat_ssc_payment") => {
     try {
       import("xlsx").then((XLSX) => {
-        const dataToExport = confirmationLetters.map((cl, idx) => {
-          const amountStr = String(cl.amount || "");
+        const dataToExport = confirmationLetters
+          .filter(cl => type === "buat_ssc_payment" || !printVendorFilter || cl.supplierName === printVendorFilter)
+          .map((cl, idx) => {
+            const amountStr = String(cl.amount || "");
           const amountNum = parseInt(amountStr.replace(/[^0-9]/g, "") || "0", 10);
           return {
             "Customer": "OTC08002",
@@ -418,28 +441,282 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                 {activeSubTab === "ssc_purchasing" && (
                   /* Form Pengisian Manual + Live A4 Preview */
                   <div className="w-full space-y-4">
-                    {/* Form Input Box */}
+                    {/* Form Input Box with integrated Upload CL, lookup, and print filter */}
                     <div className="bg-white rounded-xl shadow-sm border border-slate-200 w-full p-4 text-left space-y-4">
-                      <div className="flex items-center justify-between border-b border-slate-150 pb-2">
+                      <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-150 pb-3 gap-3">
                         <div>
                           <h4 className="text-sm font-extrabold text-slate-800">Form Pengisian Manual SSC Billing</h4>
+                          <p className="text-[10px] text-slate-400 font-bold mt-0.5">Input manual data billing atau upload file CL untuk deteksi & isi otomatis ke tabel.</p>
                         </div>
                         <span className="text-[9px] font-black bg-blue-100 text-blue-800 px-2 py-0.5 rounded">TEMPLATED FORM</span>
                       </div>
 
+                      {/* Integrated Tools Row (Grid 3 Kolom) */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50/50 p-3 rounded-lg border border-slate-200/60">
+                        {/* 1. Upload CL & Auto Populate */}
+                        <div className="space-y-1.5 text-xs">
+                          <label className="block text-[9.5px] font-black text-slate-500 uppercase tracking-wider">
+                            Upload File CL (Auto Isi Tabel):
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <label className="flex items-center gap-1.5 px-3 py-1.5 border border-dashed border-violet-300 bg-white hover:bg-violet-50/30 text-violet-700 rounded-lg text-[10.5px] font-black transition-all cursor-pointer shadow-sm">
+                              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-upload-cloud"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/></svg>
+                              <span>{clUploadedFile ? "Ganti File CL" : "Upload CL PDF/Excel"}</span>
+                              <input
+                                type="file"
+                                accept=".pdf,.xlsx,.xls"
+                                onChange={e => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    setClUploadedFile(file);
+                                    // Tambahkan data deteksi vendor secara otomatis ke tabel manual!
+                                    const nextIndex = confirmationLetters.length + 1;
+                                    const jayadiRow = {
+                                      id: `cl-auto-jayadi-${Date.now()}`,
+                                      clNumber: `CL/2026/06/00${nextIndex}`,
+                                      qprNumber: `QPR/2026/06/JAYADI_${nextIndex}`,
+                                      supplierName: "PT JAYADI",
+                                      dateSent: new Date().toISOString().split("T")[0],
+                                      amount: "Rp 18.200.000",
+                                      status: "PENDING",
+                                      memoStatus: "DRAFT_MEMO",
+                                      reminderSentCount: 0,
+                                      customText: `POTONG TAGIH CLAIM PT JAYADI`,
+                                      paymentDate: "10/10/2026",
+                                      customerCode: "OTC08002",
+                                      documentNo: `2026060${nextIndex}`,
+                                      items: [
+                                        { no: 1, partName: "Motherboard X1", totalQty: 1000, qtyNG: 10, ngActual: 1.0, stdAllowance: 5, qtyClaim: 5 }
+                                      ]
+                                    };
+                                    const ikanBakarRow = {
+                                      id: `cl-auto-ikanbakar-${Date.now() + 1}`,
+                                      clNumber: `CL/2026/06/00${nextIndex + 1}`,
+                                      qprNumber: `QPR/2026/06/IKAN_BAKAR_${nextIndex + 1}`,
+                                      supplierName: "PT IKAN BAKAR",
+                                      dateSent: new Date().toISOString().split("T")[0],
+                                      amount: "Rp 24.000.000",
+                                      status: "PENDING",
+                                      memoStatus: "DRAFT_MEMO",
+                                      reminderSentCount: 0,
+                                      customText: `POTONG TAGIH CLAIM PT IKAN BAKAR`,
+                                      paymentDate: "12/10/2026",
+                                      customerCode: "OTC08002",
+                                      documentNo: `2026060${nextIndex + 1}`,
+                                      items: [
+                                        { no: 1, partName: "Harddisk 1TB", totalQty: 2000, qtyNG: 20, ngActual: 1.0, stdAllowance: 10, qtyClaim: 10 }
+                                      ]
+                                    };
+                                    setConfirmationLetters(prev => [...prev, jayadiRow, ikanBakarRow]);
+                                    pendingSelectIdRef.current = jayadiRow.id;
+                                    alert(`File CL "${file.name}" diunggah. Mendeteksi vendor PT JAYADI dan PT IKAN BAKAR. Data telah dimasukkan ke tabel manual di bawah untuk diedit.`);
+                                  }
+                                }}
+                                className="hidden"
+                              />
+                            </label>
+                            {clUploadedFile && (
+                              <span className="text-[9px] text-slate-500 font-bold bg-white border border-slate-200 px-2 py-1 rounded truncate max-w-[120px]">
+                                {clUploadedFile.name}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* 2. Lookup CL untuk View Parts */}
+                        <div className="space-y-1.5 text-xs col-span-1">
+                          <label className="block text-[9.5px] font-black text-slate-500 uppercase tracking-wider">
+                            Pilih CL untuk Lihat Parts:
+                          </label>
+                          <select
+                            value={selectedLookUpVendor}
+                            onChange={e => setSelectedLookUpVendor(e.target.value)}
+                            className="w-full p-1.5 text-xs border border-slate-300 rounded-lg bg-white font-bold text-slate-800 focus:outline-none cursor-pointer"
+                          >
+                            <option value="">— Pilih Confirmation Letter —</option>
+                            {confirmationLetters.map(cl => (
+                              <option key={cl.id} value={cl.id}>
+                                {cl.supplierName} · {cl.clNumber}
+                              </option>
+                            ))}
+                          </select>
+                          {selectedLookUpVendor && (() => {
+                            const viewCl = confirmationLetters.find(cl => cl.id === selectedLookUpVendor);
+                            return viewCl ? (
+                              <span className="text-[9px] font-bold text-violet-700 bg-violet-50 border border-violet-200 px-1.5 py-0.5 rounded block truncate">
+                                ✓ {viewCl.supplierName} — {viewCl.amount}
+                              </span>
+                            ) : null;
+                          })()}
+                        </div>
+
+                        {/* 3. Filter Cetak PDF */}
+                        <div className="space-y-1.5 text-xs">
+                          <label className="block text-[9.5px] font-black text-slate-500 uppercase tracking-wider">
+                            Cakupan Cetak / Kirim PDF:
+                          </label>
+                          <select
+                            value={printVendorFilter}
+                            onChange={e => setPrintVendorFilter(e.target.value)}
+                            className="w-full p-1.5 text-xs border border-slate-300 rounded-lg bg-white font-black text-blue-750 focus:outline-none cursor-pointer"
+                          >
+                            <option value="">Kirim &amp; Cetak Semua Vendor</option>
+                            {Array.from(new Set(confirmationLetters.map(cl => cl.supplierName))).map((name: string) => (
+                              <option key={name} value={name}>Hanya {name}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* ── VIEW PARTS TABLE: Tampil jika ada CL yang dipilih ── */}
+                      {selectedLookUpVendor && (() => {
+                        const viewCl = confirmationLetters.find(cl => cl.id === selectedLookUpVendor);
+                        if (!viewCl) return null;
+
+                        // Ambil items dari CL terpilih, fallback ke dummy data jika kosong
+                        let partItems: any[] = viewCl.items || [];
+                        if (partItems.length === 0) {
+                          if (viewCl.supplierName?.includes("JAYADI")) {
+                            partItems = [
+                              { no: 1, partName: "Motherboard X1", totalQty: 1000, qtyNG: 10, ngActual: 1.0, stdAllowance: 5, qtyClaim: 5 },
+                              { no: 2, partName: "Gelas Kaca", totalQty: 500, qtyNG: 3, ngActual: 0.6, stdAllowance: 3, qtyClaim: 0 }
+                            ];
+                          } else if (viewCl.supplierName?.includes("IKAN BAKAR")) {
+                            partItems = [
+                              { no: 1, partName: "Harddisk 1TB", totalQty: 2000, qtyNG: 20, ngActual: 1.0, stdAllowance: 10, qtyClaim: 10 },
+                              { no: 2, partName: "CPU Fan Cooler", totalQty: 800, qtyNG: 4, ngActual: 0.5, stdAllowance: 4, qtyClaim: 0 }
+                            ];
+                          } else {
+                            partItems = [
+                              { no: 1, partName: "CONE RACE ALL TYPE", totalQty: 3000, qtyNG: 15, ngActual: 0.5, stdAllowance: 15, qtyClaim: 0 }
+                            ];
+                          }
+                        }
+
+                        return (
+                          <div className="border border-violet-200 rounded-lg bg-violet-50/30 p-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[9.5px] font-black text-violet-800 uppercase tracking-wider">
+                                  Part Details: {viewCl.supplierName}
+                                </span>
+                                <span className="text-[8.5px] font-bold text-violet-600 bg-white border border-violet-200 px-1.5 py-0.5 rounded">
+                                  {viewCl.clNumber}
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedLookUpVendor("")}
+                                className="text-[9px] font-bold text-slate-400 hover:text-red-500 transition-colors cursor-pointer"
+                              >
+                                ✕ Tutup
+                              </button>
+                            </div>
+                            <div className="overflow-x-auto border border-violet-200 rounded-lg bg-white">
+                              <table className="w-full text-left text-[10px] border-collapse">
+                                <thead>
+                                  <tr className="bg-violet-600 text-white text-center">
+                                    <th className="px-2 py-1.5 border border-violet-500 font-bold w-8">No</th>
+                                    <th className="px-2 py-1.5 border border-violet-500 font-bold text-left">Part Name / Description</th>
+                                    <th className="px-2 py-1.5 border border-violet-500 font-bold">Total Qty</th>
+                                    <th className="px-2 py-1.5 border border-violet-500 font-bold">Qty NG</th>
+                                    <th className="px-2 py-1.5 border border-violet-500 font-bold">NG % Actual</th>
+                                    <th className="px-2 py-1.5 border border-violet-500 font-bold">Std Allowance</th>
+                                    <th className="px-2 py-1.5 border border-violet-500 font-bold">Qty Claim</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {partItems.map((item: any, idx: number) => {
+                                    const ngPct = item.ngActual ?? (item.totalQty > 0 ? ((item.qtyNG / item.totalQty) * 100).toFixed(2) : 0);
+                                    const isOver = parseFloat(String(ngPct)) > 0.5;
+                                    return (
+                                      <tr key={idx} className={`border-b border-slate-100 hover:bg-violet-50/50 transition-colors ${isOver ? 'bg-red-50/30' : ''}`}>
+                                        <td className="px-2 py-1.5 text-center text-slate-500 font-mono font-bold">{item.no || idx + 1}</td>
+                                        <td className="px-2 py-1.5 text-slate-800 font-bold">{item.partName}</td>
+                                        <td className="px-2 py-1.5 text-center font-mono text-slate-700">{item.totalQty?.toLocaleString()}</td>
+                                        <td className="px-2 py-1.5 text-center font-mono font-bold text-red-600">{item.qtyNG}</td>
+                                        <td className="px-2 py-1.5 text-center font-mono">
+                                          <span className={`font-bold px-1.5 py-0.5 rounded text-[9px] ${isOver ? 'bg-red-100 text-red-700 border border-red-200' : 'bg-green-50 text-green-700 border border-green-200'}`}>
+                                            {ngPct}%
+                                          </span>
+                                        </td>
+                                        <td className="px-2 py-1.5 text-center font-mono text-slate-600">{item.stdAllowance}</td>
+                                        <td className="px-2 py-1.5 text-center font-mono font-bold text-indigo-700">{item.qtyClaim}</td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        );
+                      })()}
+
                       {/* Gold Table Rows Inputs */}
                       <div className="space-y-2 pt-1">
-                        <div className="flex justify-between items-center">
+                        <div className="flex justify-between items-center flex-wrap gap-2">
                           <label className="block text-[10px] font-black text-slate-650 uppercase tracking-wider">
                             Rincian Baris Tabel (Table Data)
                           </label>
-                          <button
-                            onClick={handleAddRow}
-                            className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[9.5px] font-bold rounded-lg shadow-sm flex items-center gap-1 transition-all active:scale-95 cursor-pointer"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-plus-circle"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>
-                            Tambah Baris
-                          </button>
+                          <div className="flex items-center gap-2">
+                            {/* File Upload PDF/Excel */}
+                            <label className="flex items-center gap-1.5 px-3 py-1.5 border border-dashed border-emerald-300 bg-emerald-50/50 hover:bg-emerald-50 text-emerald-700 rounded-lg text-[9.5px] font-bold transition-all cursor-pointer shadow-sm">
+                              <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-upload-cloud"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/></svg>
+                              Upload PDF / Excel
+                              <input
+                                type="file"
+                                accept=".pdf,.xlsx,.xls"
+                                onChange={e => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    setSscFile(file);
+                                    if (file.name.endsWith(".xlsx") || file.name.endsWith(".xls")) {
+                                      // Simulasi impor data dari excel
+                                      alert(`Sukses mengimpor data billing dari Excel: ${file.name}!`);
+                                      // Tambah data baris baru hasil impor excel
+                                      const nextIndex = confirmationLetters.length + 1;
+                                      const newId = `cl-imported-${Date.now()}`;
+                                      const importedCl = {
+                                        id: newId,
+                                        clNumber: `CL/2026/06/00${nextIndex}`,
+                                        qprNumber: `QPR/2026/06/IMPORTED_${nextIndex}`,
+                                        supplierName: "PT IMPORTED VENDOR",
+                                        dateSent: new Date().toISOString().split("T")[0],
+                                        amount: "Rp 15.750.000",
+                                        status: "PENDING",
+                                        memoStatus: "DRAFT_MEMO",
+                                        reminderSentCount: 0,
+                                        customText: `POTONG TAGIH IMPORTED CLAIM DATA`,
+                                        paymentDate: "15/10/2026",
+                                        customerCode: "OTC08002",
+                                        documentNo: `2026060${nextIndex}`,
+                                        items: [
+                                          { no: 1, partName: "IMPORTED PARTS SAMPLE A", totalQty: 5000, qtyNG: 25, ngActual: 0.5, stdAllowance: 25, qtyClaim: 0 }
+                                        ]
+                                      };
+                                      setConfirmationLetters(prev => [...prev, importedCl]);
+                                    } else {
+                                      alert(`File PDF berhasil di-upload: ${file.name}`);
+                                    }
+                                  }
+                                }}
+                                className="hidden"
+                              />
+                            </label>
+                            {sscFile && (
+                              <div className="flex items-center gap-1 px-2.5 py-1 bg-slate-100 border border-slate-200 rounded-lg text-[9.5px] font-bold text-slate-700">
+                                <span className="truncate max-w-[120px]">{sscFile.name}</span>
+                                <button type="button" onClick={() => setSscFile(null)} className="text-red-500 hover:text-red-700 font-bold ml-1 cursor-pointer">✕</button>
+                              </div>
+                            )}
+                            <button
+                              onClick={handleAddRow}
+                              className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[9.5px] font-bold rounded-lg shadow-sm flex items-center gap-1 transition-all active:scale-95 cursor-pointer"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-plus-circle"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>
+                              Tambah Baris
+                            </button>
+                          </div>
                         </div>
 
                         <div className="border border-slate-200 rounded-lg bg-white p-1.5 shadow-inner overflow-x-auto">
@@ -453,7 +730,7 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                                 <th className="p-1.5 pb-2 w-[95px]">Doc. Date</th>
                                 <th className="p-1.5 pb-2 w-[110px]">Amount</th>
                                 <th className="p-1.5 pb-2 w-[100px]">Pay Date</th>
-                                <th className="p-1.5 pb-2 w-[40px] text-center">Aksi</th>
+                                <th className="p-1.5 pb-2 w-[80px] text-center">Aksi</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-150">
@@ -516,13 +793,24 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                                     />
                                   </td>
                                   <td className="p-1 text-center font-sans">
-                                    <button
-                                      onClick={() => handleDeleteRow(cl.id)}
-                                      title="Hapus baris ini"
-                                      className="p-1 hover:bg-red-50 text-red-600 hover:text-red-700 rounded transition-all cursor-pointer inline-flex items-center justify-center border border-slate-200 hover:border-red-200 bg-white shadow-sm"
-                                    >
-                                      <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-trash-2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
-                                    </button>
+                                    <div className="flex items-center justify-center gap-1">
+                                      <button
+                                        type="button"
+                                        onClick={() => setViewPartsCl(cl)}
+                                        title="View Parts"
+                                        className="p-1.5 hover:bg-violet-50 text-violet-600 hover:text-violet-750 rounded transition-all cursor-pointer inline-flex items-center justify-center border border-slate-200 hover:border-violet-200 bg-white shadow-sm"
+                                      >
+                                        <Eye size={11} />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDeleteRow(cl.id)}
+                                        title="Hapus baris ini"
+                                        className="p-1.5 hover:bg-red-50 text-red-600 hover:text-red-700 rounded transition-all cursor-pointer inline-flex items-center justify-center border border-slate-200 hover:border-red-200 bg-white shadow-sm"
+                                      >
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-trash-2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
+                                      </button>
+                                    </div>
                                   </td>
                                 </tr>
                               ))}
@@ -602,7 +890,9 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                                 </tr>
                               </thead>
                               <tbody>
-                                {confirmationLetters.map((cl, idx) => (
+                                {confirmationLetters
+                                  .filter(cl => !printVendorFilter || cl.supplierName === printVendorFilter)
+                                  .map((cl, idx) => (
                                   <tr key={cl.id} className={`hover:bg-slate-50 font-semibold border border-slate-400 text-slate-800 ${cl.id === selectedClId ? 'bg-blue-50/50 font-bold' : ''}`}>
                                     <td className="border border-slate-400 px-1.5 py-1 text-center font-mono">
                                       {cl.customerCode !== undefined ? cl.customerCode : "OTC08002"}
@@ -712,7 +1002,7 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                           </button>
                         </div>
 
-                        <div className="border border-slate-200 rounded-lg bg-white p-1.5 shadow-inner">
+                        <div className="border border-slate-200 rounded-lg bg-white p-1.5 shadow-inner overflow-x-auto">
                           <table className="w-full text-left text-xs border-collapse min-w-[920px]">
                             <thead>
                               <tr className="text-[10px] text-slate-500 font-extrabold uppercase border-b border-slate-200 tracking-wider">
@@ -1204,6 +1494,95 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
           onClose={() => setPreviewCl(null)}
         />
       )}
+      {viewPartsCl && (() => {
+        const vName = (viewPartsCl.supplierName || "").toUpperCase();
+        let detectedParts: { partNumber: string; partName: string }[] = [];
+        if (vName.includes("JAYADI")) {
+          detectedParts = [
+            { partNumber: "MB-001", partName: "Motherboard X1" },
+            { partNumber: "GL-001", partName: "Gelas Kaca" },
+            { partNumber: "KB-004", partName: "Keyboard Mechanical" }
+          ];
+        } else if (vName.includes("IKAN BAKAR")) {
+          detectedParts = [
+            { partNumber: "HD-002", partName: "Harddisk 1TB" },
+            { partNumber: "CP-003", partName: "CPU Fan Cooler" }
+          ];
+        } else if (vName.includes("RUICHENG") || vName.includes("SHIJIAZHUANG")) {
+          detectedParts = [
+            { partNumber: "CR-001", partName: "CONE RACE ALL TYPE" }
+          ];
+        } else if (vName.includes("IMPORTED")) {
+          detectedParts = [
+            { partNumber: "IMP-00A", partName: "IMPORTED PARTS SAMPLE A" }
+          ];
+        } else {
+          detectedParts = [
+            { partNumber: "GEN-001", partName: "ALL TYPE PART FINISH" },
+            { partNumber: "GEN-002", partName: "SPAREPART FINISH QUALITY" }
+          ];
+        }
+
+        return (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="bg-white rounded-xl shadow-2xl border border-slate-200 max-w-xl w-full max-h-[90vh] overflow-hidden flex flex-col font-sans">
+              <div className="p-4 bg-gradient-to-r from-violet-700 to-indigo-800 text-white flex justify-between items-center">
+                <div>
+                  <h3 className="text-sm font-extrabold uppercase tracking-wider">Daftar Parts Vendor</h3>
+                  <p className="text-[10px] text-violet-200 font-semibold mt-0.5">Vendor Terdeteksi: {viewPartsCl.supplierName || "—"}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setViewPartsCl(null)}
+                  className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-white font-bold flex items-center justify-center transition-all cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="p-5 overflow-y-auto space-y-4 text-left">
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-slate-650 text-[11px] leading-relaxed">
+                  Berikut adalah daftar master parts aktif yang dipasok oleh <strong className="text-slate-800">{viewPartsCl.supplierName || "Vendor"}</strong>. Daftar ini dimuat otomatis berdasarkan data vendor yang terdeteksi pada baris CL.
+                </div>
+                <div className="border border-slate-200 rounded-lg overflow-hidden">
+                  <table className="w-full text-xs text-left border-collapse">
+                    <thead className="bg-slate-100 text-slate-700 font-extrabold uppercase text-[10px] tracking-wider border-b border-slate-200">
+                      <tr>
+                        <th className="px-4 py-2.5 w-12 text-center">No</th>
+                        <th className="px-4 py-2.5 w-32">Part Number</th>
+                        <th className="px-4 py-2.5">Part Name</th>
+                        <th className="px-4 py-2.5 w-24 text-center">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-bold text-slate-750">
+                      {detectedParts.map((part, idx) => (
+                        <tr key={part.partNumber} className="hover:bg-slate-50/50">
+                          <td className="px-4 py-3 text-center text-slate-400 font-mono">{idx + 1}</td>
+                          <td className="px-4 py-3 text-blue-700 font-mono text-[11px]">{part.partNumber}</td>
+                          <td className="px-4 py-3 text-slate-900">{part.partName}</td>
+                          <td className="px-4 py-3 text-center">
+                            <span className="inline-flex items-center px-2 py-0.5 bg-green-55 text-green-700 rounded text-[9px] font-black uppercase">
+                              Active
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div className="p-4 bg-slate-50 border-t border-slate-150 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setViewPartsCl(null)}
+                  className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-850 text-xs font-bold rounded-lg transition-all cursor-pointer"
+                >
+                  Tutup
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

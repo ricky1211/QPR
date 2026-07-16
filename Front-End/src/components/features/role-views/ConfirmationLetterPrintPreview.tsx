@@ -16,6 +16,8 @@ interface ClPreviewProps {
     reject?: number;
     allowanceRatio?: string;
     reminderSentCount?: number;
+    items?: any[];
+    clApprovalProgress?: { sectAccounting?: boolean; deptAccounting?: boolean };
   };
   onClose: () => void;
 }
@@ -93,7 +95,7 @@ export default function ConfirmationLetterPrintPreview({ cl, onClose }: ClPrevie
           className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-bold shadow-lg border border-slate-200 transition-colors cursor-pointer"
         >
           <X size={14} />
-          Tutup
+          Batal
         </button>
       </div>
 
@@ -221,31 +223,31 @@ export default function ConfirmationLetterPrintPreview({ cl, onClose }: ClPrevie
             </div>
           </div>
 
-          {/* Signature blocks */}
-          <div className="flex justify-between text-xs leading-relaxed font-bold mt-12 font-serif">
-            {/* MTM side */}
-            <div className="flex flex-col min-h-[140px] justify-between">
-              <div>
-                <span>Yours Faithfully,</span>
-                <strong className="block mt-1">MenaraTerusMakmur, PT</strong>
-                <span className="block font-normal">Accounting & Finance Departement</span>
-              </div>
-              <div className="pt-6">
-                <span className="block underline font-bold">Anindita Irnilaningtyas</span>
-                <span className="block font-normal text-slate-550 text-[11px]">Dep. Head Accounting & Finance</span>
-              </div>
-            </div>
-
-            {/* Approved side */}
-            <div className="flex flex-col min-h-[140px] justify-between items-end text-right pr-6">
-              <div className="w-full text-right">
-                <span className="font-bold">Approved</span>
-              </div>
-              <div className="text-left w-40">
-                <div className="border-b border-dashed border-slate-400 w-36 h-12 flex items-center justify-center bg-slate-50 rounded">
-                  <span className="text-[9px] text-slate-400 italic">Representative Signature</span>
+          {/* Signature & Approval blocks */}
+          <div className="mt-10 font-serif text-[12px] relative" style={{ minHeight: "155px" }}>
+            <div className="flex justify-between items-start">
+              {/* Yours Faithfully signature block (Left) */}
+              <div className="space-y-1 w-full relative">
+                <span className="block">Yours Faithfully,</span>
+                <strong className="block font-serif font-bold text-black mt-1">MenaraTerusMakmur, PT</strong>
+                <div className="flex items-center justify-between text-slate-700 text-[11px] w-full">
+                  <span>Accounting &amp; Finance Departement</span>
+                  {(cl.clApprovalProgress?.deptAccounting || cl.status === "FULLY_APPROVED" || cl.status === "CLOSED_PAID") && (
+                    <div className="font-serif text-black flex items-center gap-14 text-[12px] pr-10">
+                      <span className="italic font-normal font-serif text-[13px] lowercase">p</span>
+                      <span className="font-bold text-[12px] text-[#0f766e]">Approved</span>
+                    </div>
+                  )}
                 </div>
-                <span className="block mt-1 font-bold text-center w-36">Representative</span>
+                
+                {/* Space for signature */}
+                <div style={{ height: "45px" }} />
+
+                {/* Person details */}
+                <div className="pt-2">
+                  <span className="underline font-bold block text-[13px] text-black">Anindita Imilaningtyas</span>
+                  <span className="block text-[11px] text-slate-700 font-normal">Dep. Head Accounting &amp; Finance</span>
+                </div>
               </div>
             </div>
           </div>
@@ -256,26 +258,29 @@ export default function ConfirmationLetterPrintPreview({ cl, onClose }: ClPrevie
       <style>{`
         @media print {
           @page {
-            size: A4;
-            margin: 0;
+            size: A4 portrait;
+            margin: 10mm;
           }
           html, body {
-            height: 100%;
-            overflow: hidden;
+            height: auto;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #fff !important;
           }
           body * { visibility: hidden; }
           #cl-print-area, #cl-print-area * { visibility: visible; }
           #cl-print-area {
-            position: absolute !important;
+            position: relative !important;
             left: 0 !important;
             top: 0 !important;
-            width: 100% !important;
-            height: 100% !important;
+            width: 190mm !important;
+            height: 277mm !important;
             min-height: 0 !important;
-            margin: 0 !important;
-            padding: 20mm !important;
-            border: none !important;
+            margin: 0 auto !important;
+            padding: 10mm !important;
+            border: 1.5px solid #000 !important;
             box-shadow: none !important;
+            box-sizing: border-box !important;
             page-break-inside: avoid !important;
           }
         }

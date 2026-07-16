@@ -7,7 +7,10 @@ import {
   Trash2,
   Send,
   CheckCircle2,
-  FileText
+  FileText,
+  ChevronDown,
+  ChevronUp,
+  AlertTriangle
 } from "lucide-react";
 import QprPrintPreview from "./QprPrintPreview";
 
@@ -43,9 +46,10 @@ interface PartRow {
 interface BuatQprViewProps {
   pendingQprs?: any[];
   setPendingQprs?: React.Dispatch<React.SetStateAction<any[]>>;
+  pendingNcrs?: any[];
 }
 
-export default function BuatQprView({ pendingQprs, setPendingQprs }: BuatQprViewProps) {
+export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs = [] }: BuatQprViewProps) {
   const [supplierId, setSupplierId] = useState<number | "">("");
   const [period, setPeriod] = useState("");
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
@@ -56,8 +60,67 @@ export default function BuatQprView({ pendingQprs, setPendingQprs }: BuatQprView
     { id: Date.now(), partId: "", totalQty: "", qtyNg: "", stdAllowance: "0" }
   ]);
   const [previewQpr, setPreviewQpr] = useState<any>(null);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [submittedNum, setSubmittedNum] = useState("");
+
+  // NCR slide-down panel state
+  const [ncrPanelOpen, setNcrPanelOpen] = useState(false);
+  const [selectedNcrId, setSelectedNcrId] = useState<number | null>(null);
+
+  // Filter approved/closed NCRs
+  const approvedNcrs = (pendingNcrs || []).filter(n => {
+    return n.status === "APPROVED" || n.status === "CLOSED";
+  });
+
+  // Auto-fill form from selected NCR
+  const handleSelectNcr = (ncr: any) => {
+    setSelectedNcrId(ncr.id);
+    // Find matching supplier
+    const matchedSupplier = suppliers.find(
+      s => s.name.toLowerCase() === (ncr.supplierName || "").toLowerCase()
+    );
+    if (matchedSupplier) {
+      setSupplierId(matchedSupplier.id);
+      const supParts = partsBySupplier[matchedSupplier.id] || [];
+
+      if (ncr.partsDetail && ncr.partsDetail.length > 0) {
+        const rows = ncr.partsDetail.map((p: any, index: number) => {
+          const matchedPart = supParts.find(
+            sp => sp.partNumber === p.partNumber || sp.partName.toLowerCase() === p.partName.toLowerCase()
+          );
+          return {
+            id: Date.now() + index,
+            partId: matchedPart ? String(matchedPart.id) : "",
+            totalQty: String(p.qtyNG * 20 || 10000), // Default total Qty matching standard delivery sizing
+            qtyNg: String(p.qtyNG || 0),
+            stdAllowance: String(Math.round((p.qtyNG * 20 || 10000) * 0.005))
+          };
+        });
+        setPartRows(rows);
+      } else {
+        const matchedPart = supParts.find(
+          p => p.partNumber === ncr.partNumber || p.partName.toLowerCase() === (ncr.partName || "").toLowerCase()
+        );
+        setPartRows([{
+          id: Date.now(),
+          partId: matchedPart ? String(matchedPart.id) : "",
+          totalQty: String(ncr.qty * 20 || 10000),
+          qtyNg: String(ncr.reject || ncr.qty || 0),
+          stdAllowance: String(Math.round((ncr.qty * 20 || 10000) * 0.005))
+        }]);
+      }
+    }
+    setRefNcrNumber(ncr.ncrNumber || "");
+    // Auto-set period from NCR date (month name)
+    if (ncr.date) {
+      const d = new Date(ncr.date);
+      const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni",
+        "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+      setPeriod(`${monthNames[d.getMonth()]} ${d.getFullYear()}`);
+    }
+    setNcrPanelOpen(false);
+  };
 
   const selectedSupplier = suppliers.find(s => s.id === supplierId);
   const availableParts = supplierId ? (partsBySupplier[supplierId] || []) : [];
@@ -105,6 +168,38 @@ export default function BuatQprView({ pendingQprs, setPendingQprs }: BuatQprView
       alert("Harap lengkapi semua field wajib (Supplier, Periode, Tanggal, dan data Part).");
       return;
     }
+
+    // Part price map
+    const partPrices: Record<string, number> = {
+      "1": 250000, // MB-001
+      "2": 25000,  // GL-001
+      "3": 300000, // HD-002
+      "4": 120000, // CP-003
+      "5": 150000, // KB-004
+      "6": 80000   // CR-001
+    };
+
+    let calculatedClaimVal = 0;
+    const partsData = partRows.map((row, idx) => {
+      const matchedPart = availableParts.find(p => String(p.id) === String(row.partId));
+      const totalVal = parseInt(row.totalQty) || 0;
+      const ngVal = parseInt(row.qtyNg) || 0;
+      const stdVal = Math.round(totalVal * 0.005);
+      const qtyClaim = Math.max(0, ngVal - stdVal);
+      const price = partPrices[row.partId] || 50000;
+      calculatedClaimVal += qtyClaim * price;
+
+      return {
+        no: idx + 1,
+        partName: matchedPart ? matchedPart.partName : "ALL TYPE PART FINISH",
+        totalQty: totalVal,
+        qtyNG: ngVal,
+        ngActual: totalVal > 0 ? (ngVal / totalVal) * 100 : 0.0,
+        stdAllowance: stdVal,
+        qtyClaim
+      };
+    });
+
     const qprNum = `QPR/${date.slice(0, 7).replace("-", "/")}/${selectedSupplier?.name.replace("PT ", "").replace(/ /g, "_").toUpperCase()}`;
     const newQpr = {
       id: Date.now(),
@@ -115,28 +210,16 @@ export default function BuatQprView({ pendingQprs, setPendingQprs }: BuatQprView
       totalItems: totalQty,
       rejectItems: totalQtyNg,
       allowanceRatio: `${((totalStdAllowance / (totalQty || 1)) * 100).toFixed(1)}%`,
-      claimAmount: "-",
+      claimAmount: `Rp ${calculatedClaimVal.toLocaleString("id-ID")}`,
       status: "WAITING_APPROVAL",
       requiredRole: "Section Head",
-      parts: partRows.map((row, idx) => {
-        const matchedPart = availableParts.find(p => String(p.id) === String(row.partId));
-        const totalVal = parseInt(row.totalQty) || 0;
-        const ngVal = parseInt(row.qtyNg) || 0;
-        const stdVal = Math.round(totalVal * 0.005);
-        return {
-          no: idx + 1,
-          partName: matchedPart ? matchedPart.partName : "ALL TYPE PART FINISH",
-          totalQty: totalVal,
-          qtyNG: ngVal,
-          ngActual: totalVal > 0 ? (ngVal / totalVal) * 100 : 0.0,
-          stdAllowance: stdVal,
-          qtyClaim: ngVal - stdVal
-        };
-      }),
+      parts: partsData,
       refNcrNumber,
       problem,
-      claimType
+      claimType,
+      pdfFileName: pdfFile ? pdfFile.name : null
     };
+
     if (setPendingQprs) {
       setPendingQprs((prev: any[]) => [newQpr, ...prev]);
     }
@@ -152,6 +235,7 @@ export default function BuatQprView({ pendingQprs, setPendingQprs }: BuatQprView
     setProblem("VISUAL NG");
     setClaimType(["PROSES PACKING", "PROSES CHECK"]);
     setPartRows([{ id: Date.now(), partId: "", totalQty: "", qtyNg: "", stdAllowance: "0" }]);
+    setPdfFile(null);
     setSubmitted(false);
     setSubmittedNum("");
   };
@@ -200,6 +284,80 @@ export default function BuatQprView({ pendingQprs, setPendingQprs }: BuatQprView
 
         {/* LEFT: Main Form */}
         <div className="lg:col-span-2 space-y-5">
+
+          {/* NCR Slide-Down Panel */}
+          <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setNcrPanelOpen(prev => !prev)}
+              className="w-full flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-amber-50 to-orange-50 hover:from-amber-100 hover:to-orange-100 transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-2">
+                <AlertTriangle size={15} className="text-amber-600" />
+                <span className="text-[11px] font-black text-amber-800 uppercase tracking-wider">
+                  Pilih NCR Selesai Disetujui sebagai Dasar QPR
+                </span>
+                {approvedNcrs.length > 0 && (
+                  <span className="px-2 py-0.5 bg-amber-600 text-white text-[9px] font-black rounded-full">
+                    {approvedNcrs.length} tersedia
+                  </span>
+                )}
+              </div>
+              {ncrPanelOpen ? <ChevronUp size={16} className="text-amber-600" /> : <ChevronDown size={16} className="text-amber-600" />}
+            </button>
+
+            {ncrPanelOpen && (
+              <div className="p-4 border-t border-slate-100">
+                {approvedNcrs.length === 0 ? (
+                  <div className="text-center py-6 text-slate-400">
+                    <FileText size={28} className="mx-auto mb-2 text-slate-300" />
+                    <p className="text-xs font-semibold">Belum ada NCR yang fully approved dan melewati batas 0.5%.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Klik salah satu NCR untuk mengisi form otomatis:</p>
+                    {approvedNcrs.map(ncr => {
+                      const ngRatio = ((ncr.reject || 0) / (ncr.qty || 1) * 100).toFixed(2);
+                      const isSelected = selectedNcrId === ncr.id;
+                      return (
+                        <button
+                          key={ncr.id}
+                          type="button"
+                          onClick={() => handleSelectNcr(ncr)}
+                          className={`w-full text-left px-4 py-3 rounded-lg border transition-all cursor-pointer ${
+                            isSelected
+                              ? 'border-violet-400 bg-violet-50 shadow-sm'
+                              : 'border-slate-200 bg-slate-50 hover:bg-slate-100 hover:border-slate-300'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <span className="text-[10px] font-black text-slate-800 font-mono">{ncr.ncrNumber}</span>
+                              <span className="mx-2 text-slate-300">|</span>
+                              <span className="text-[10px] font-bold text-slate-600">{ncr.supplierName}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[9px] font-black text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded">
+                                NG {ngRatio}%
+                              </span>
+                              {isSelected && (
+                                <span className="text-[9px] font-black text-violet-700 bg-violet-100 px-2 py-0.5 rounded">
+                                  ✓ Dipilih
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="mt-1 text-[9px] text-slate-500 font-semibold">
+                            {ncr.partName} &nbsp;•&nbsp; {ncr.reject || 0} NG dari {ncr.qty || 0} pcs &nbsp;•&nbsp; {ncr.defectType || '-'}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Section 1: Header Info */}
           <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
@@ -284,6 +442,47 @@ export default function BuatQprView({ pendingQprs, setPendingQprs }: BuatQprView
                   placeholder="VISUAL NG"
                   className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent text-slate-800 font-semibold bg-white"
                 />
+              </div>
+
+              {/* Upload PDF */}
+              <div className="space-y-1.5 sm:col-span-2">
+                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  Upload File PDF Lampiran
+                </label>
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-2 px-4 py-2 border border-dashed border-violet-300 bg-violet-50/50 hover:bg-violet-50 text-violet-700 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-sm">
+                    <FileText size={14} />
+                    Pilih File PDF
+                    <input
+                      type="file"
+                      accept="application/pdf"
+                      onChange={e => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          if (file.type !== "application/pdf") {
+                            alert("Hanya diperbolehkan mengupload file PDF!");
+                            return;
+                          }
+                          setPdfFile(file);
+                        }
+                      }}
+                      className="hidden"
+                    />
+                  </label>
+                  {pdfFile && (
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 border border-slate-200 rounded-lg text-xs font-bold text-slate-700">
+                      <span className="truncate max-w-[200px]">{pdfFile.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => setPdfFile(null)}
+                        className="text-red-500 hover:text-red-700 font-bold ml-1 cursor-pointer"
+                        title="Hapus file"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>

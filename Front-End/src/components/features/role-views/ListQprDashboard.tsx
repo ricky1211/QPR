@@ -16,18 +16,27 @@ import {
   ArrowRight,
   TrendingUp,
   Download,
-  AlertCircle
+  AlertCircle,
+  ShieldAlert
 } from "lucide-react";
 
 import ClPrintPreview from "./ClPrintPreview";
 import QprPrintPreview from "./QprPrintPreview";
+import NcrPrintPreview from "./NcrPrintPreview";
 
 // Helper to map requiredRole -> human-readable stage label
 const stageLabel = (type: string, requiredRole?: string, status?: string): string => {
-  if (status === "APPROVED") return "Disetujui";
+  if (status === "DRAFT") return "Draf";
+  if (status === "APPROVED" || status === "CLOSED") return "Disetujui";
   if (type === "CL") {
     if (requiredRole === "Vendor") return "Menunggu Vendor";
     if (requiredRole === "Accounting Approval") return "Menunggu Accounting";
+    return "Disetujui";
+  }
+  if (type === "NCR") {
+    if (requiredRole === "Foreman") return "Menunggu Foreman";
+    if (requiredRole === "Section Head") return "Menunggu Section Head";
+    if (requiredRole === "Dept Head") return "Menunggu Dept Head";
     return "Disetujui";
   }
   // QPR
@@ -41,7 +50,7 @@ const stageLabel = (type: string, requiredRole?: string, status?: string): strin
 
 interface ApprovalStage {
   name: string;
-  status: "APPROVED" | "PENDING" | "UPCOMING";
+  status: "APPROVED" | "PENDING" | "UPCOMING" | "DRAFT";
 }
 
 const getApprovalStages = (
@@ -50,10 +59,17 @@ const getApprovalStages = (
   approvedBy: string[] = [],
   status?: string
 ): ApprovalStage[] => {
-  if (status === "APPROVED") {
+  if (status === "DRAFT") {
+    const chain = type === "CL" ? ["Vendor", "Accounting"] : type === "NCR" ? ["Foreman", "Section Head", "Dept Head"] : ["Section Head", "Dept Head", "Div Head", "Accounting"];
+    return chain.map((name, idx) => ({ name, status: idx === 0 ? "DRAFT" : "UPCOMING" }));
+  }
+
+  if (status === "APPROVED" || status === "CLOSED") {
     const defaultChain =
       type === "CL"
         ? ["Vendor", "Accounting"]
+        : type === "NCR"
+        ? ["Foreman", "Section Head", "Dept Head"]
         : ["Section Head", "Dept Head", "Div Head", "Accounting"];
     return defaultChain.map((name) => ({ name, status: "APPROVED" }));
   }
@@ -65,6 +81,21 @@ const getApprovalStages = (
 
     return chain.map((name, idx) => {
       if (idx < currentIndex || (idx === 0 && approvedBy.includes("Vendor"))) {
+        return { name, status: "APPROVED" };
+      } else if (idx === currentIndex) {
+        return { name, status: "PENDING" };
+      } else {
+        return { name, status: "UPCOMING" };
+      }
+    });
+  } else if (type === "NCR") {
+    const chain = ["Foreman", "Section Head", "Dept Head"];
+    let currentIndex = 0;
+    if (requiredRole === "Section Head") currentIndex = 1;
+    if (requiredRole === "Dept Head") currentIndex = 2;
+
+    return chain.map((name, idx) => {
+      if (idx < currentIndex) {
         return { name, status: "APPROVED" };
       } else if (idx === currentIndex) {
         return { name, status: "PENDING" };
@@ -92,432 +123,136 @@ const getApprovalStages = (
 };
 
 
-// All NCR + QPR documents (approved + in-progress)
-const allDocuments = [
-  // --- IN-PROGRESS CLs ---
-  {
-    id: "cl-pending-1",
-    type: "CL",
-    docNumber: "CL/2026/06/031",
-    date: "2026-07-10",
-    vendorName: "PT JAYADI",
-    partNumber: "MB-001",
-    partName: "Motherboard X1",
-    period: "Juni 2026",
-    qty: 180,
-    reject: 4,
-    allowanceRatio: "0.5%",
-    claimAmount: "Rp 1.000.000",
-    defectType: "Dent / Scratch",
-    disposition: "-",
-    status: "WAITING_APPROVAL",
-    requiredRole: "Accounting Approval",
-    approvedBy: []
-  },
-  {
-    id: "cl-pending-2",
-    type: "CL",
-    docNumber: "CL/2026/06/032",
-    date: "2026-07-09",
-    vendorName: "PT IKAN BAKAR",
-    partNumber: "HD-002",
-    partName: "Harddisk 1TB",
-    period: "Juni 2026",
-    qty: 240,
-    reject: 8,
-    allowanceRatio: "0.8%",
-    claimAmount: "Rp 2.000.000",
-    defectType: "Bad Sector / Noise",
-    disposition: "-",
-    status: "WAITING_APPROVAL",
-    requiredRole: "Accounting Approval",
-    approvedBy: ["Vendor"]
-  },
-  // --- IN-PROGRESS QPRs ---
-  {
-    id: "qpr-pending-1",
-    type: "QPR",
-    docNumber: "QPR/2026/05/JAYADI",
-    date: "2026-07-10",
-    vendorName: "PT JAYADI",
-    partNumber: "MB-001",
-    partName: "Motherboard X1",
-    period: "Mei 2026",
-    qty: 500,
-    reject: 15,
-    allowanceRatio: "0.5%",
-    claimAmount: "Rp 12.500.000",
-    defectType: "-",
-    disposition: "-",
-    status: "WAITING_APPROVAL",
-    requiredRole: "Section Head",
-    approvedBy: []
-  },
-  {
-    id: "qpr-pending-2",
-    type: "QPR",
-    docNumber: "QPR/2026/05/IKAN_BAKAR",
-    date: "2026-07-09",
-    vendorName: "PT IKAN BAKAR",
-    partNumber: "HD-002",
-    partName: "Harddisk 1TB",
-    period: "Mei 2026",
-    qty: 800,
-    reject: 25,
-    allowanceRatio: "0.8%",
-    claimAmount: "Rp 24.000.000",
-    defectType: "-",
-    disposition: "-",
-    status: "WAITING_APPROVAL",
-    requiredRole: "Dept Head",
-    approvedBy: ["Section Head"]
-  },
-  {
-    id: "qpr-pending-3",
-    type: "QPR",
-    docNumber: "QPR/2026/05/RUICHENG",
-    date: "2026-07-08",
-    vendorName: "SHIJIAZHUANG RUICHENG TRADE CO., LTD",
-    partNumber: "CR-001",
-    partName: "CONE RACE ALL TYPE",
-    period: "Mei 2026",
-    qty: 1200,
-    reject: 40,
-    allowanceRatio: "0.6%",
-    claimAmount: "Rp 32.000.000",
-    defectType: "-",
-    disposition: "-",
-    status: "WAITING_APPROVAL",
-    requiredRole: "Purchasing",
-    approvedBy: ["Section Head", "Dept Head"]
-  },
-  // --- APPROVED documents (June 2026) ---
-  {
-    id: "qpr-30",
-    type: "QPR",
-    docNumber: "QPR/2026/06/030",
-    date: "2026-06-30",
-    vendorName: "SHIJIAZHUANG RUICHENG TRADE CO., LTD",
-    partNumber: "CR-001",
-    partName: "CONE RACE ALL TYPE",
-    period: "Juni 2026",
-    qty: 1150,
-    reject: 23,
-    allowanceRatio: "1.0%",
-    claimAmount: "Rp 31.000.000",
-    defectType: "-",
-    disposition: "-",
-    status: "APPROVED",
-    requiredRole: "Closed",
-    approvedBy: ["Quality Dept", "Dept Head", "Purchasing", "Accounting"]
-  },
-  {
-    id: "cl-29",
-    type: "CL",
-    docNumber: "CL/2026/06/029",
-    date: "2026-06-29",
-    vendorName: "SHIJIAZHUANG RUICHENG TRADE CO., LTD",
-    partNumber: "CR-001",
-    partName: "CONE RACE ALL TYPE",
-    period: "Juni 2026",
-    qty: 950,
-    reject: 14,
-    allowanceRatio: "1.0%",
-    claimAmount: "Rp 14.000.000",
-    defectType: "Coating Peel",
-    disposition: "-",
-    status: "APPROVED",
-    requiredRole: "Closed",
-    approvedBy: ["Vendor", "Accounting"]
-  },
-  {
-    id: "qpr-28",
-    type: "QPR",
-    docNumber: "QPR/2026/06/028",
-    date: "2026-06-28",
-    vendorName: "PT JAYADI",
-    partNumber: "KB-004",
-    partName: "Keyboard Mechanical",
-    period: "Juni 2026",
-    qty: 620,
-    reject: 12,
-    allowanceRatio: "0.5%",
-    claimAmount: "Rp 24.800.000",
-    defectType: "-",
-    disposition: "-",
-    status: "APPROVED",
-    requiredRole: "Closed",
-    approvedBy: ["Quality Dept", "Dept Head", "Purchasing", "Accounting"]
-  },
-  {
-    id: "cl-27",
-    type: "CL",
-    docNumber: "CL/2026/06/027",
-    date: "2026-06-27",
-    vendorName: "PT IKAN BAKAR",
-    partNumber: "HD-002",
-    partName: "Harddisk 1TB",
-    period: "Juni 2026",
-    qty: 310,
-    reject: 7,
-    allowanceRatio: "0.8%",
-    claimAmount: "Rp 7.000.000",
-    defectType: "Firmware Error",
-    disposition: "-",
-    status: "APPROVED",
-    requiredRole: "Closed",
-    approvedBy: ["Vendor", "Accounting"]
-  },
-  {
-    id: "qpr-26",
-    type: "QPR",
-    docNumber: "QPR/2026/06/026",
-    date: "2026-06-26",
-    vendorName: "PT IKAN BAKAR",
-    partNumber: "HD-002",
-    partName: "Harddisk 1TB",
-    period: "Juni 2026",
-    qty: 500,
-    reject: 10,
-    allowanceRatio: "0.8%",
-    claimAmount: "Rp 20.000.000",
-    defectType: "-",
-    disposition: "-",
-    status: "APPROVED",
-    requiredRole: "Closed",
-    approvedBy: ["Quality Dept", "Dept Head", "Purchasing", "Accounting"]
-  },
-  {
-    id: "cl-25",
-    type: "CL",
-    docNumber: "CL/2026/06/025",
-    date: "2026-06-25",
-    vendorName: "PT JAYADI",
-    partNumber: "KB-004",
-    partName: "Keyboard Mechanical",
-    period: "Juni 2026",
-    qty: 220,
-    reject: 8,
-    allowanceRatio: "0.5%",
-    claimAmount: "Rp 8.000.000",
-    defectType: "LED Broken",
-    disposition: "-",
-    status: "APPROVED",
-    requiredRole: "Closed",
-    approvedBy: ["Vendor", "Accounting"]
-  },
-  {
-    id: "qpr-24",
-    type: "QPR",
-    docNumber: "QPR/2026/06/024",
-    date: "2026-06-24",
-    vendorName: "SHIJIAZHUANG RUICHENG TRADE CO., LTD",
-    partNumber: "CR-001",
-    partName: "CONE RACE ALL TYPE",
-    period: "Juni 2026",
-    qty: 1050,
-    reject: 21,
-    allowanceRatio: "1.0%",
-    claimAmount: "Rp 29.400.000",
-    defectType: "-",
-    disposition: "-",
-    status: "APPROVED",
-    requiredRole: "Closed",
-    approvedBy: ["Quality Dept", "Dept Head", "Purchasing", "Accounting"]
-  },
-  {
-    id: "cl-23",
-    type: "CL",
-    docNumber: "CL/2026/06/023",
-    date: "2026-06-23",
-    vendorName: "SHIJIAZHUANG RUICHENG TRADE CO., LTD",
-    partNumber: "CR-001",
-    partName: "CONE RACE ALL TYPE",
-    period: "Juni 2026",
-    qty: 900,
-    reject: 16,
-    allowanceRatio: "1.0%",
-    claimAmount: "Rp 16.000.000",
-    defectType: "Thread Damage",
-    disposition: "-",
-    status: "APPROVED",
-    requiredRole: "Closed",
-    approvedBy: ["Vendor", "Accounting"]
-  },
-  {
-    id: "qpr-22",
-    type: "QPR",
-    docNumber: "QPR/2026/06/022",
-    date: "2026-06-22",
-    vendorName: "PT JAYADI",
-    partNumber: "MB-001",
-    partName: "Motherboard X1",
-    period: "Juni 2026",
-    qty: 550,
-    reject: 11,
-    allowanceRatio: "0.5%",
-    claimAmount: "Rp 18.500.000",
-    defectType: "-",
-    disposition: "-",
-    status: "APPROVED",
-    requiredRole: "Closed",
-    approvedBy: ["Quality Dept", "Dept Head", "Purchasing", "Accounting"]
-  },
-  {
-    id: "cl-21",
-    type: "CL",
-    docNumber: "CL/2026/06/021",
-    date: "2026-06-21",
-    vendorName: "PT IKAN BAKAR",
-    partNumber: "HD-002",
-    partName: "Harddisk 1TB",
-    period: "Juni 2026",
-    qty: 280,
-    reject: 9,
-    allowanceRatio: "0.8%",
-    claimAmount: "Rp 9.000.000",
-    defectType: "Connector Damaged",
-    disposition: "-",
-    status: "APPROVED",
-    requiredRole: "Closed",
-    approvedBy: ["Vendor", "Accounting"]
-  },
-  {
-    id: "qpr-20",
-    type: "QPR",
-    docNumber: "QPR/2026/06/020",
-    date: "2026-06-20",
-    vendorName: "PT IKAN BAKAR",
-    partNumber: "HD-002",
-    partName: "Harddisk 1TB",
-    period: "Juni 2026",
-    qty: 420,
-    reject: 8,
-    allowanceRatio: "0.8%",
-    claimAmount: "Rp 16.800.000",
-    defectType: "-",
-    disposition: "-",
-    status: "APPROVED",
-    requiredRole: "Closed",
-    approvedBy: ["Quality Dept", "Dept Head", "Purchasing", "Accounting"]
-  },
-  {
-    id: "cl-19",
-    type: "CL",
-    docNumber: "CL/2026/06/019",
-    date: "2026-06-19",
-    vendorName: "PT JAYADI",
-    partNumber: "GL-001",
-    partName: "Gelas Kaca",
-    period: "Juni 2026",
-    qty: 320,
-    reject: 5,
-    allowanceRatio: "0.5%",
-    claimAmount: "Rp 5.000.000",
-    defectType: "Scratch",
-    disposition: "-",
-    status: "APPROVED",
-    requiredRole: "Closed",
-    approvedBy: ["Vendor", "Accounting"]
-  },
-  {
-    id: "qpr-18",
-    type: "QPR",
-    docNumber: "QPR/2026/06/018",
-    date: "2026-06-18",
-    vendorName: "SHIJIAZHUANG RUICHENG TRADE CO., LTD",
-    partNumber: "CR-001",
-    partName: "CONE RACE ALL TYPE",
-    period: "Juni 2026",
-    qty: 1300,
-    reject: 25,
-    allowanceRatio: "1.0%",
-    claimAmount: "Rp 32.500.000",
-    defectType: "-",
-    disposition: "-",
-    status: "APPROVED",
-    requiredRole: "Closed",
-    approvedBy: ["Quality Dept", "Dept Head", "Purchasing", "Accounting"]
-  },
-  {
-    id: "cl-17",
-    type: "CL",
-    docNumber: "CL/2026/06/017",
-    date: "2026-06-17",
-    vendorName: "SHIJIAZHUANG RUICHENG TRADE CO., LTD",
-    partNumber: "CR-001",
-    partName: "CONE RACE ALL TYPE",
-    period: "Juni 2026",
-    qty: 1100,
-    reject: 22,
-    allowanceRatio: "1.0%",
-    claimAmount: "Rp 22.000.000",
-    defectType: "Crack",
-    disposition: "-",
-    status: "APPROVED",
-    requiredRole: "Closed",
-    approvedBy: ["Vendor", "Accounting"]
-  },
-  {
-    id: "qpr-16",
-    type: "QPR",
-    docNumber: "QPR/2026/06/016",
-    date: "2026-06-16",
-    vendorName: "PT JAYADI",
-    partNumber: "MB-001",
-    partName: "Motherboard X1",
-    period: "Juni 2026",
-    qty: 480,
-    reject: 10,
-    allowanceRatio: "0.5%",
-    claimAmount: "Rp 16.000.000",
-    defectType: "-",
-    disposition: "-",
-    status: "APPROVED",
-    requiredRole: "Closed",
-    approvedBy: ["Quality Dept", "Dept Head", "Purchasing", "Accounting"]
-  },
-  {
-    id: "cl-15",
-    type: "CL",
-    docNumber: "CL/2026/06/015",
-    date: "2026-06-15",
-    vendorName: "PT IKAN BAKAR",
-    partNumber: "HD-002",
-    partName: "Harddisk 1TB",
-    period: "Juni 2026",
-    qty: 210,
-    reject: 6,
-    allowanceRatio: "0.8%",
-    claimAmount: "Rp 6.000.000",
-    defectType: "No Power",
-    disposition: "-",
-    status: "APPROVED",
-    requiredRole: "Closed",
-    approvedBy: ["Vendor", "Accounting"]
-  },
-  {
-    id: "cl-01",
-    type: "CL",
-    docNumber: "CL/2026/06/001",
-    date: "2026-06-01",
-    vendorName: "PT JAYADI",
-    partNumber: "MB-001",
-    partName: "Motherboard X1",
-    period: "Juni 2026",
-    qty: 200,
-    reject: 4,
-    allowanceRatio: "0.5%",
-    claimAmount: "Rp 4.000.000",
-    defectType: "Dent / Scratch",
-    disposition: "-",
-    status: "APPROVED",
-    requiredRole: "Closed",
-    approvedBy: ["Vendor", "Accounting"]
-  }
-];
+interface ListQprDashboardProps {
+  pendingNcrs?: any[];
+  pendingQprs?: any[];
+  confirmationLetters?: any[];
+}
 
-export default function ListQprDashboard() {
+export default function ListQprDashboard({
+  pendingNcrs = [],
+  pendingQprs = [],
+  confirmationLetters = []
+}: ListQprDashboardProps) {
+  // Combine all NCR, QPR, and CL documents dynamically from active state (drafts & in-progress) + fallback baseline data
+  const allDocuments = React.useMemo(() => {
+    const list: any[] = [];
+
+    // 1. Add NCRs
+    pendingNcrs.forEach((ncr) => {
+      list.push({
+        id: `ncr-${ncr.id}`,
+        type: "NCR",
+        docNumber: ncr.ncrNumber,
+        date: ncr.date,
+        vendorName: ncr.supplierName,
+        partNumber: ncr.partNumber || "-",
+        partName: ncr.partName || "-",
+        period: "Juni 2026",
+        qty: ncr.qty || 1,
+        reject: ncr.reject || 0,
+        allowanceRatio: "0.5%",
+        claimAmount: "-",
+        defectType: ncr.defectType || "-",
+        disposition: ncr.disposition || "-",
+        status: ncr.status,
+        requiredRole: ncr.requiredRole,
+        approvedBy: ncr.status === "APPROVED" || ncr.status === "CLOSED" ? ["QC Staff", "Section Head", "Dept Head"] : []
+      });
+    });
+
+    // 2. Add QPRs
+    pendingQprs.forEach((qpr) => {
+      list.push({
+        id: `qpr-${qpr.id}`,
+        type: "QPR",
+        docNumber: qpr.qprNumber,
+        date: qpr.date,
+        vendorName: qpr.supplierName,
+        partNumber: qpr.partNumber || "MB-001",
+        partName: qpr.partName || "Motherboard X1",
+        period: qpr.period || "Juni 2026",
+        qty: qpr.totalItems || 1000,
+        reject: qpr.rejectItems || 30,
+        allowanceRatio: qpr.allowanceRatio || "0.5%",
+        claimAmount: qpr.claimAmount || "Rp 0",
+        defectType: "-",
+        disposition: "-",
+        status: qpr.status,
+        requiredRole: qpr.requiredRole,
+        approvedBy: qpr.status === "APPROVED" || qpr.status === "CLOSED" || qpr.status === "APPROVED_INTERNAL" ? ["Section Head", "Dept Head", "Div Head", "Accounting"] : []
+      });
+    });
+
+    // 3. Add CLs
+    confirmationLetters.forEach((cl) => {
+      list.push({
+        id: `cl-${cl.id}`,
+        type: "CL",
+        docNumber: cl.clNumber,
+        date: cl.dateSent,
+        vendorName: cl.supplierName,
+        partNumber: cl.partNumber || "MB-001",
+        partName: cl.partName || "Motherboard X1",
+        period: "Juni 2026",
+        qty: cl.qty || 1000,
+        reject: cl.reject || 10,
+        allowanceRatio: "0.5%",
+        claimAmount: cl.amount || "Rp 0",
+        defectType: cl.defectType || "-",
+        disposition: "-",
+        status: cl.status,
+        requiredRole: cl.requiredRole,
+        approvedBy: cl.status === "FULLY_APPROVED" || cl.status === "CLOSED_PAID" ? ["Vendor", "Accounting"] : []
+      });
+    });
+
+    // Add baseline closed items if list is empty, just for UX preview
+    if (list.length === 0) {
+      list.push(
+        {
+          id: "hist-qpr-1",
+          type: "QPR",
+          docNumber: "QPR/2026/04/JAYADI",
+          date: "2026-04-10",
+          vendorName: "PT JAYADI",
+          partNumber: "MB-001",
+          partName: "Motherboard X1",
+          period: "April 2026",
+          qty: 10000,
+          reject: 50,
+          allowanceRatio: "0.5%",
+          claimAmount: "Rp 18.200.000",
+          defectType: "-",
+          disposition: "-",
+          status: "APPROVED",
+          requiredRole: "Closed",
+          approvedBy: ["Section Head", "Dept Head", "Div Head", "Accounting"]
+        },
+        {
+          id: "hist-cl-1",
+          type: "CL",
+          docNumber: "CL/2026/06/001",
+          date: "2026-06-10",
+          vendorName: "PT JAYADI",
+          partNumber: "MB-001",
+          partName: "Motherboard X1",
+          period: "Juni 2026",
+          qty: 1000,
+          reject: 10,
+          allowanceRatio: "0.5%",
+          claimAmount: "Rp 18.200.000",
+          defectType: "Dent / Scratch",
+          disposition: "-",
+          status: "APPROVED",
+          requiredRole: "Closed",
+          approvedBy: ["Vendor", "Accounting"]
+        }
+      );
+    }
+
+    return list;
+  }, [pendingNcrs, pendingQprs, confirmationLetters]);
   // Filter states
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("qpr"); // 'cl' or 'qpr'
@@ -744,8 +479,9 @@ export default function ListQprDashboard() {
               className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-800 font-semibold bg-slate-50"
             >
               <option value="">Semua Status</option>
+              <option value="DRAFT">Draf (Belum Dikirim)</option>
               <option value="WAITING_APPROVAL">Proses Approval</option>
-              <option value="APPROVED">Disetujui</option>
+              <option value="APPROVED">Disetujui / Selesai</option>
             </select>
           </div>
 
@@ -754,6 +490,20 @@ export default function ListQprDashboard() {
 
       {/* Tab Selector */}
       <div className="flex border-b border-slate-200">
+        <button
+          onClick={() => {
+            setActiveTab("ncr");
+            setSelectedDoc(null);
+          }}
+          className={`flex-1 sm:flex-initial px-6 py-3 font-bold text-xs border-b-2 transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            activeTab === "ncr"
+              ? "border-blue-600 text-blue-650 bg-white"
+              : "border-transparent text-slate-500 hover:text-slate-900 bg-slate-50/50"
+          }`}
+        >
+          <ShieldAlert size={14} className="text-red-500" />
+          ARSIP DRAF & LAPORAN NCR
+        </button>
         <button
           onClick={() => {
             setActiveTab("qpr");
@@ -788,7 +538,7 @@ export default function ListQprDashboard() {
       <div className="bg-white border border-slate-350 rounded-xl shadow-sm overflow-hidden">
         <div className="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
           <h4 className="text-xs font-bold text-slate-800 text-left uppercase tracking-wide">
-            {activeTab === "qpr" ? "Daftar Semua Klaim QPR" : "Daftar Semua Confirmation Letter"}
+            {activeTab === "ncr" ? "Daftar Semua Draf & Laporan NCR" : activeTab === "qpr" ? "Daftar Semua Klaim QPR" : "Daftar Semua Confirmation Letter"}
           </h4>
           <span className="px-2.5 py-1 bg-indigo-50 text-indigo-700 text-[10px] font-bold rounded shadow-sm">
             Ditemukan: {filteredData.length} Dokumen
@@ -831,10 +581,14 @@ export default function ListQprDashboard() {
                       <td className="px-4 py-3 text-right font-bold text-slate-600">{doc.allowanceRatio}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2.5 justify-center">
-                          {doc.status === "APPROVED" ? (
+                          {doc.status === "APPROVED" || doc.status === "CLOSED" ? (
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-green-50 text-green-700 border border-green-200 rounded-full text-[10px] font-bold shadow-sm shrink-0">
                               <CheckCircle2 size={10} className="text-green-600" />
                               Disetujui
+                            </span>
+                          ) : doc.status === "DRAFT" || doc.status === "PENDING" ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-slate-100 text-slate-650 border border-slate-200 rounded-full text-[10px] font-bold shadow-sm shrink-0">
+                              Draf
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-[10px] font-bold shadow-sm shrink-0">
@@ -856,6 +610,8 @@ export default function ListQprDashboard() {
                                       ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                                       : stage.status === "PENDING"
                                       ? "bg-amber-50 text-amber-800 border-amber-350 ring-1 ring-amber-100"
+                                      : stage.status === "DRAFT"
+                                      ? "bg-slate-50 text-slate-500 border-slate-250 border-dashed"
                                       : "bg-slate-50 text-slate-400 border-slate-200 border-dashed"
                                   }`}
                                 >
@@ -913,6 +669,23 @@ export default function ListQprDashboard() {
         />
       )}
 
+      {selectedDoc && selectedDoc.type === "NCR" && (
+        <NcrPrintPreview
+          ncr={{
+            ncrNumber: selectedDoc.docNumber,
+            supplierName: selectedDoc.vendorName,
+            partNumber: selectedDoc.partNumber,
+            partName: selectedDoc.partName,
+            qty: selectedDoc.qty,
+            reject: selectedDoc.reject,
+            defectType: selectedDoc.defectType,
+            disposition: selectedDoc.disposition,
+            status: selectedDoc.status,
+            date: selectedDoc.date
+          }}
+          onClose={() => setSelectedDoc(null)}
+        />
+      )}
     </div>
   );
 }
