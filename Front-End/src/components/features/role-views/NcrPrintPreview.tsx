@@ -363,131 +363,114 @@ export default function NcrPrintPreview({ ncr, onClose, inline = false }: NcrPre
           </div>
         </div>
 
-        {/* 3-Column Complex Signatures & Reviews layout */}
-        <table className="w-full border-collapse font-sans text-left text-[8px]" style={{ border: "1px solid #000", borderTop: "none", borderBottom: "none" }}>
-          <tbody>
-            <tr>
-              {/* Quality Dept Column (Left) */}
-              <td rowSpan={2} className="align-top p-0" style={{ width: "15%", borderRight: "1px solid #000", borderBottom: "1px solid #000" }}>
-                <table className="w-full h-full text-center" style={{ borderCollapse: "collapse" }}>
-                  <tbody>
-                    <tr>
-                      <td style={{ borderBottom: "1px solid #000", padding: "3px 2px", fontSize: "7px", fontWeight: "bold" }}>
-                        DATE : {ncr.date || "28-7-2025"}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td style={{ borderBottom: "1px solid #000", padding: "4px 2px", fontSize: "7.5px", fontWeight: "900", background: "#f8fafc", letterSpacing: "0.5px" }}>
-                        QUALITY DEPT
-                      </td>
-                    </tr>
-                    <tr>
-                      <td style={{ borderBottom: "1px solid #000", height: "46px", position: "relative", padding: "2px" }}>
-                        {isPreparedSigned ? (
-                          <div className="absolute inset-0 flex items-center justify-center pb-2">
-                            <svg width="45" height="18" viewBox="0 0 100 40">
-                              <path d="M10,25 C30,10 50,35 70,15 C80,5 90,30 95,20" fill="none" stroke="#2563eb" strokeWidth="2.5" />
-                            </svg>
-                          </div>
-                        ) : (
-                          <span className="text-slate-350 italic text-[7px] text-center block pt-3">(Pending)</span>
-                        )}
-                        <div className="absolute bottom-0 right-1 text-[6.5px] text-slate-500 font-extrabold">(STAFF)</div>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td style={{ borderBottom: "1px solid #000", height: "46px", position: "relative", padding: "2px" }}>
-                        {isCheckedSigned ? (
-                          <div className="absolute inset-0 flex items-center justify-center pb-2">
-                            <svg width="45" height="18" viewBox="0 0 100 40">
-                              <path d="M15,30 Q35,5 55,25 T85,10" fill="none" stroke="#2563eb" strokeWidth="2.5" />
-                            </svg>
-                          </div>
-                        ) : (
-                          <span className="text-slate-350 italic text-[7px] text-center block pt-3">(Pending)</span>
-                        )}
-                        <div className="absolute bottom-0 right-1 text-[6.5px] text-slate-500 font-extrabold">(SPV)</div>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td style={{ height: "46px", position: "relative", padding: "2px" }}>
-                        {isApprovedSigned ? (
-                          <div className="absolute inset-0 flex items-center justify-center pb-2">
-                            <svg width="45" height="18" viewBox="0 0 100 40">
-                              <path d="M5,15 C20,35 45,5 65,30 C75,10 85,35 95,15" fill="none" stroke="#2563eb" strokeWidth="2.5" />
-                            </svg>
-                          </div>
-                        ) : (
-                          <span className="text-slate-350 italic text-[7px] text-center block pt-3">(Pending)</span>
-                        )}
-                        <div className="absolute bottom-0 right-1 text-[6.5px] text-slate-500 font-extrabold">(MNG)</div>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </td>
+        {/* Container Utama Bagian Bawah DISPOSITION (CSS Grid) */}
+        <div className="w-full border border-black grid grid-cols-[1.5fr_2fr_3.5fr_2.5fr] print:grid-cols-[1.5fr_2fr_3.5fr_2.5fr] text-[8.5px] border-t-0 border-b-0">
+          
+          {/* KOLOM 1: QUALITY DEPT (Tanda Tangan Kiri) */}
+          <div className="border-r border-black flex flex-col justify-between font-sans">
+            <div className="border-b border-black p-1 text-center font-bold bg-gray-100 print:bg-gray-100">
+              QUALITY DEPT
+            </div>
+            {/* Slot Tanda Tangan STAFF */}
+            <div className="h-16 border-b border-black relative flex items-center justify-center p-1">
+              {isPreparedSigned ? (
+                <svg width="45" height="18" viewBox="0 0 100 40">
+                  <path d="M10,25 C30,10 50,35 70,15 C80,5 90,30 95,20" fill="none" stroke="#2563eb" strokeWidth="2.5" />
+                </svg>
+              ) : (
+                <span className="text-slate-300 italic text-[7px]">(Pending)</span>
+              )}
+              <span className="absolute bottom-0 right-1 text-[6.5px] text-gray-500 font-extrabold">(STAFF)</span>
+            </div>
+            {/* Slot Tanda Tangan SPV */}
+            <div className="h-16 border-b border-black relative flex items-center justify-center p-1">
+              {isCheckedSigned ? (
+                <svg width="45" height="18" viewBox="0 0 100 40">
+                  <path d="M15,30 Q35,5 55,25 T85,10" fill="none" stroke="#2563eb" strokeWidth="2.5" />
+                </svg>
+              ) : (
+                <span className="text-slate-300 italic text-[7px]">(Pending)</span>
+              )}
+              <span className="absolute bottom-0 right-1 text-[6.5px] text-gray-500 font-extrabold">(SPV)</span>
+            </div>
+            {/* Slot Tanda Tangan MNG */}
+            <div className="h-16 relative flex items-center justify-center p-1">
+              {isApprovedSigned ? (
+                <svg width="45" height="18" viewBox="0 0 100 40">
+                  <path d="M5,15 C20,35 45,5 65,30 C75,10 85,35 95,15" fill="none" stroke="#2563eb" strokeWidth="2.5" />
+                </svg>
+              ) : (
+                <span className="text-slate-300 italic text-[7px]">(Pending)</span>
+              )}
+              <span className="absolute bottom-0 right-1 text-[6.5px] text-gray-500 font-extrabold">(MNG)</span>
+            </div>
+          </div>
 
-              {/* Cause Column (Center Left) */}
-              <td rowSpan={2} className="align-top p-2.5 font-bold" style={{ width: "29%", borderRight: "1px solid #000", borderBottom: "1px solid #000" }}>
-                <div style={{ fontSize: "8px", fontWeight: "900", marginBottom: "4px" }}>CAUSE :</div>
-                <div style={{ fontSize: "8px", lineHeight: "1.4", color: "#1e293b", fontWeight: "bold" }}>
-                  {ncr.cause || ""}
-                </div>
-              </td>
+          {/* KOLOM 2: CAUSE */}
+          <div className="border-r border-black p-2 flex flex-col font-sans">
+            <span className="font-bold block mb-1">CAUSE :</span>
+            <div className="text-[8px] leading-tight break-words text-slate-800">
+              {ncr.cause || ""}
+            </div>
+          </div>
 
-              {/* Corrective Action Block (Center Right) */}
-              <td className="align-top p-2.5 font-bold" style={{ width: "46%", borderRight: "1px solid #000", borderBottom: "1px solid #000", height: "92px" }}>
-                <span style={{ fontSize: "8px", fontWeight: "900" }}>CORRECTIVE ACTION :</span>
-                <div style={{ fontSize: "8px", lineHeight: "1.4", color: "#1e293b", fontWeight: "bold", marginTop: "4px" }}>
-                  {ncr.correctiveAction || ""}
-                </div>
-              </td>
+          {/* KOLOM 3: CORRECTIVE & PREVENTIVE ACTION */}
+          <div className="border-r border-black flex flex-col font-sans">
+            {/* Sub-Kolom Atas: Corrective Action */}
+            <div className="border-b border-black p-2 h-1/2 flex flex-col">
+              <span className="font-bold block mb-1">CORRECTIVE ACTION :</span>
+              <div className="text-[8px] leading-tight break-words text-slate-800">
+                {ncr.correctiveAction || ""}
+              </div>
+            </div>
+            {/* Sub-Kolom Bawah: Preventive Action */}
+            <div className="p-2 h-1/2 flex flex-col">
+              <span className="font-bold block mb-1">PREVENTIVE ACTION :</span>
+              <div className="text-[8px] leading-tight break-words text-slate-800">
+                {ncr.preventiveAction || ""}
+              </div>
+            </div>
+          </div>
 
-              {/* Prod Dept / Vendor Column (Right) - structured identical to Quality Dept */}
-              <td rowSpan={2} className="align-top p-0 font-bold" style={{ width: "10%", borderBottom: "1px solid #000" }}>
-                <table className="w-full h-full text-center" style={{ borderCollapse: "collapse" }}>
-                  <tbody>
-                    <tr>
-                      <td style={{ borderBottom: "1px solid #000", padding: "3px 2px", fontSize: "7px", fontWeight: "bold" }}>
-                        &nbsp;
-                      </td>
-                    </tr>
-                    <tr>
-                      <td style={{ borderBottom: "1px solid #000", padding: "4px 2px", fontSize: "7.5px", fontWeight: "900", background: "#f8fafc", letterSpacing: "0.5px", lineHeight: "1.2" }}>
-                        PROD DEPT /<br/>VENDOR
-                      </td>
-                    </tr>
-                    <tr>
-                      <td style={{ borderBottom: "1px solid #000", height: "46px", position: "relative", padding: "2px" }}>
-                        <div className="absolute bottom-0 right-1 text-[6.5px] text-slate-400 font-extrabold">(STAFF)</div>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td style={{ borderBottom: "1px solid #000", height: "46px", position: "relative", padding: "2px" }}>
-                        <div className="absolute bottom-0 right-1 text-[6.5px] text-slate-400 font-extrabold">(SPV)</div>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td style={{ height: "46px", position: "relative", padding: "2px" }}>
-                        <div className="absolute bottom-0 right-1 text-[6.5px] text-slate-400 font-extrabold">(MNG)</div>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </td>
-            </tr>
+          {/* KOLOM 4: PIC, DATE & PROD DEPT / VENDOR */}
+          <div className="grid grid-cols-[1fr_1.1fr_2.2fr] print:grid-cols-[1fr_1.1fr_2.2fr] font-sans">
+            {/* Sub-Kolom PIC */}
+            <div className="border-r border-black flex flex-col text-center justify-between">
+              <div className="border-b border-black p-1 font-bold">PIC</div>
+              <div className="h-16 border-b border-black"></div>
+              <div className="border-b border-black p-1 font-bold">PIC</div>
+              <div className="h-16"></div>
+            </div>
+            
+            {/* Sub-Kolom Date */}
+            <div className="border-r border-black flex flex-col text-center justify-between">
+              <div className="border-b border-black p-1 font-bold">Date</div>
+              <div className="h-16 border-b border-black"></div>
+              <div className="border-b border-black p-1 font-bold">Date</div>
+              <div className="h-16"></div>
+            </div>
 
-            <tr>
-              {/* Preventive Action Block */}
-              <td className="align-top p-2.5 font-bold" style={{ width: "46%", borderRight: "1px solid #000", borderBottom: "1px solid #000", height: "92px" }}>
-                <span style={{ fontSize: "8px", fontWeight: "900" }}>PREVENTIVE ACTION :</span>
-                <div style={{ fontSize: "8px", lineHeight: "1.4", color: "#1e293b", fontWeight: "bold", marginTop: "4px" }}>
-                  {ncr.preventiveAction || ""}
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+            {/* Sub-Kolom PROD DEPT / VENDOR */}
+            <div className="flex flex-col text-center justify-between">
+              <div className="border-b border-black p-1 font-bold bg-gray-100 print:bg-gray-100 text-[7px] leading-tight flex items-center justify-center min-h-[22px]">
+                PROD DEPT / VENDOR
+              </div>
+              {/* Tanda tangan vendor/prod staff */}
+              <div className="h-16 border-b border-black relative flex items-end justify-center p-1">
+                <span className="absolute bottom-0 right-1 text-[6.5px] text-gray-500 font-extrabold">(STAFF)</span>
+              </div>
+              {/* Tanda tangan vendor/prod spv */}
+              <div className="h-16 border-b border-black relative flex items-end justify-center p-1">
+                <span className="absolute bottom-0 right-1 text-[6.5px] text-gray-500 font-extrabold">(SPV)</span>
+              </div>
+              {/* Tanda tangan vendor/prod mng */}
+              <div className="h-16 relative flex items-end justify-center p-1">
+                <span className="absolute bottom-0 right-1 text-[6.5px] text-gray-500 font-extrabold">(MNG)</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
 
 
         {/* Footer Notes & Document Checkboxes */}

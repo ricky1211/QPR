@@ -543,30 +543,35 @@ export default function QprPrintPreview({ qpr, onClose, inline = false }: QprPre
         <style>{`
           @media print {
             @page {
-              size: A4;
-              margin: 0;
+              size: A4 portrait;
+              margin: 6mm !important;
             }
             html, body {
-              height: 100%;
-              overflow: hidden;
+              height: auto;
+              margin: 0 !important;
+              padding: 0 !important;
+              background: #fff !important;
             }
             body * { visibility: hidden; }
             #qpr-print-area, #qpr-print-area * { visibility: visible; }
-              #qpr-print-area {
-                position: absolute !important;
-                left: 0 !important;
-                top: 0 !important;
-                width: 100% !important;
-                height: 100% !important;
-                min-height: 0 !important;
-                margin: 0 !important;
-                padding: 8mm !important;
-                border: none !important;
-                box-shadow: none !important;
-                page-break-inside: avoid !important;
-              }
+            #qpr-print-area {
+              position: absolute !important;
+              left: 0 !important;
+              top: 0 !important;
+              width: 198mm !important;
+              height: 285mm !important;
+              min-height: 0 !important;
+              margin: 0 auto !important;
+              padding: 6mm !important;
+              border: none !important;
+              box-shadow: none !important;
+              box-sizing: border-box !important;
+              page-break-inside: avoid !important;
+              transform: scale(0.83) !important;
+              transform-origin: top center !important;
             }
-          `}</style>
+          }
+        `}</style>
         </>
       );
     }
@@ -599,7 +604,7 @@ export default function QprPrintPreview({ qpr, onClose, inline = false }: QprPre
           @media print {
             @page {
               size: A4 portrait;
-              margin: 10mm;
+              margin: 6mm !important;
             }
             html, body {
               height: auto;
@@ -613,16 +618,16 @@ export default function QprPrintPreview({ qpr, onClose, inline = false }: QprPre
               position: relative !important;
               left: 0 !important;
               top: 0 !important;
-              width: 190mm !important;
-              height: 277mm !important;
+              width: 198mm !important;
+              height: 285mm !important;
               min-height: 0 !important;
               margin: 0 auto !important;
-              padding: 8mm !important;
-              border: 1.5px solid #000 !important;
+              padding: 6mm !important;
+              border: 1px solid #000 !important;
               box-shadow: none !important;
               box-sizing: border-box !important;
               page-break-inside: avoid !important;
-              transform: scale(0.91) !important;
+              transform: scale(0.83) !important;
               transform-origin: top center !important;
             }
           }
