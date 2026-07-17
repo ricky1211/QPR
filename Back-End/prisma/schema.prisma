@@ -46,15 +46,18 @@ model Ncr {
   id                         String               @id @default(cuid())
   code                       String               @unique
   date                       DateTime             @default(now())
-  partId                     String
-  part                       Part                 @relation(fields: [partId], references: [id])
+  partId                     String?
+  part                       Part?                @relation(fields: [partId], references: [id])
   vendorId                   String
   vendor                     Vendor               @relation(fields: [vendorId], references: [id])
-  location                   Location?
-  problemType                ProblemType?
+  location                   Json?
+  problemType                Json?
   description                String?
-  disposition                Disposition?
+  disposition                Json?
   isRequiredCustomerApproval Boolean?
+  customerApproval           String?
+  docsToRevise               Json?
+  images                     Json?
   details                    Json?
   
   // Relasi 1-to-1 ke Progres Approval (Checksum tanda tangan digital)

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Briefcase, FileCheck, CheckCircle2, X, FileText, Search, Filter, ChevronLeft, ChevronRight, AlertTriangle, Clock, Shield } from "lucide-react";
 import QprPrintPreview from "./QprPrintPreview";
 import NcrPrintPreview from "./NcrPrintPreview";
+import { ncrService, mapNcrFromDb } from "@/services/ncrService";
 
 export default function DeptHeadView({
   pendingNcrs,
@@ -18,6 +19,21 @@ export default function DeptHeadView({
   const [selectedQpr, setSelectedQpr] = useState(null);
   const [previewQpr, setPreviewQpr] = useState(null);
   const [reviewComment, setReviewComment] = useState("");
+
+  const handleViewDetail = (ncr: any) => {
+    if (typeof ncr.id === "string" && ncr.id.length > 10) {
+      ncrService.getById(ncr.id)
+        .then((realNcr) => {
+          setSelectedNcr(mapNcrFromDb(realNcr));
+        })
+        .catch(err => {
+          console.error("Failed to load NCR details:", err);
+          alert("Gagal memuat detail NCR.");
+        });
+    } else {
+      setSelectedNcr(ncr);
+    }
+  };
   
   // Search & Pagination states for NCR
   const [ncrSearchQuery, setNcrSearchQuery] = useState("");
@@ -340,7 +356,7 @@ export default function DeptHeadView({
                               <button
                                 type="button"
                                 onClick={() => {
-                                  setSelectedNcr(ncr);
+                                  handleViewDetail(ncr);
                                   setReviewComment("");
                                 }}
                                 className="px-4 py-1.5 bg-blue-600 hover:bg-blue-750 text-white rounded-md text-xs font-black transition-all flex items-center gap-1 mx-auto cursor-pointer active:scale-95 shadow-sm shadow-blue-500/5"

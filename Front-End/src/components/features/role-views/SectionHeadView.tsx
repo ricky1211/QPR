@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { Shield, FileCheck, CheckCircle2, X, Search, Filter, ChevronLeft, ChevronRight, AlertTriangle, Clock, Printer } from "lucide-react";
 import NcrPrintPreview from "./NcrPrintPreview";
+import { ncrService, mapNcrFromDb } from "@/services/ncrService";
+
 
 export default function SectionHeadView({ pendingNcrs, handleApproveNcrAction, role = "Section Head" }) {
   const sectionHeadNcrs = pendingNcrs.filter((n) => n.requiredRole === role);
@@ -9,6 +11,22 @@ export default function SectionHeadView({ pendingNcrs, handleApproveNcrAction, r
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [printNcr, setPrintNcr] = useState(null);
+
+  const handleViewDetail = (ncr: any) => {
+    if (typeof ncr.id === "string" && ncr.id.length > 10) {
+      ncrService.getById(ncr.id)
+        .then((realNcr) => {
+          setSelectedNcr(mapNcrFromDb(realNcr));
+        })
+        .catch(err => {
+          console.error("Failed to load NCR details:", err);
+          alert("Gagal memuat detail NCR.");
+        });
+    } else {
+      setSelectedNcr(ncr);
+    }
+  };
+
 
   // Advanced Filter states
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -322,7 +340,7 @@ export default function SectionHeadView({ pendingNcrs, handleApproveNcrAction, r
                         <button
                           type="button"
                           onClick={() => {
-                            setSelectedNcr(ncr);
+                            handleViewDetail(ncr);
                             setReviewComment("");
                           }}
                           className="px-4 py-1.5 bg-blue-600 hover:bg-blue-750 text-white rounded-md text-xs font-black transition-all flex items-center gap-1 mx-auto cursor-pointer active:scale-95 shadow-sm shadow-blue-500/5"

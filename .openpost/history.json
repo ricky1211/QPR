@@ -1,0 +1,194 @@
+[
+  {
+    "id": "1784206346866",
+    "timestamp": 1784206346866,
+    "request": {
+      "id": "1784206346672",
+      "name": "New Request",
+      "method": "POST",
+      "url": "http://localhost:3001/api/sync/all",
+      "params": [],
+      "headers": [
+        {
+          "key": "Accept",
+          "value": "application/json",
+          "enabled": true
+        },
+        {
+          "key": "Content-Type",
+          "value": "application/json",
+          "enabled": true
+        }
+      ],
+      "body": {
+        "type": "none"
+      },
+      "auth": {
+        "type": "none"
+      },
+      "inheritAuth": true
+    },
+    "response": {
+      "status": 404,
+      "statusText": "Not Found",
+      "headers": {
+        "access-control-allow-origin": "*",
+        "connection": "keep-alive",
+        "content-length": "76",
+        "content-type": "application/json; charset=utf-8",
+        "date": "Thu, 16 Jul 2026 12:52:26 GMT",
+        "etag": "W/\"4c-Tl9pTDOatXab6sBEbUFJpRDMyls\"",
+        "keep-alive": "timeout=5",
+        "x-powered-by": "Express"
+      },
+      "body": "{\"message\":\"Cannot POST /api/sync/all\",\"error\":\"Not Found\",\"statusCode\":404}",
+      "time": 178,
+      "size": 76,
+      "cookies": []
+    }
+  },
+  {
+    "id": "1784206360409",
+    "timestamp": 1784206360409,
+    "request": {
+      "id": "1784206360397",
+      "name": "New Request",
+      "method": "POST",
+      "url": "http://localhost:3001/sync/all",
+      "params": [],
+      "headers": [
+        {
+          "key": "Accept",
+          "value": "application/json",
+          "enabled": true
+        },
+        {
+          "key": "Content-Type",
+          "value": "application/json",
+          "enabled": true
+        }
+      ],
+      "body": {
+        "type": "none"
+      },
+      "auth": {
+        "type": "none"
+      },
+      "inheritAuth": true
+    },
+    "response": {
+      "status": 404,
+      "statusText": "Not Found",
+      "headers": {
+        "access-control-allow-origin": "*",
+        "connection": "keep-alive",
+        "content-length": "72",
+        "content-type": "application/json; charset=utf-8",
+        "date": "Thu, 16 Jul 2026 12:52:40 GMT",
+        "etag": "W/\"48-US8MN1yeTqLOrihgpsKK9XGwAXE\"",
+        "keep-alive": "timeout=5",
+        "x-powered-by": "Express"
+      },
+      "body": "{\"message\":\"Cannot POST /sync/all\",\"error\":\"Not Found\",\"statusCode\":404}",
+      "time": 8,
+      "size": 72,
+      "cookies": []
+    }
+  },
+  {
+    "id": "1784206385348",
+    "timestamp": 1784206385348,
+    "request": {
+      "id": "1784206385336",
+      "name": "New Request",
+      "method": "POST",
+      "url": "http://localhost:3001/api/webhooks/sync/all",
+      "params": [],
+      "headers": [
+        {
+          "key": "Accept",
+          "value": "application/json",
+          "enabled": true
+        },
+        {
+          "key": "Content-Type",
+          "value": "application/json",
+          "enabled": true
+        }
+      ],
+      "body": {
+        "type": "none"
+      },
+      "auth": {
+        "type": "none"
+      },
+      "inheritAuth": true
+    },
+    "response": {
+      "status": 404,
+      "statusText": "Not Found",
+      "headers": {
+        "access-control-allow-origin": "*",
+        "connection": "keep-alive",
+        "content-length": "85",
+        "content-type": "application/json; charset=utf-8",
+        "date": "Thu, 16 Jul 2026 12:53:05 GMT",
+        "etag": "W/\"55-mN5bKWI8NZ+Hpsc7mJ1ziAXMPHA\"",
+        "keep-alive": "timeout=5",
+        "x-powered-by": "Express"
+      },
+      "body": "{\"message\":\"Cannot POST /api/webhooks/sync/all\",\"error\":\"Not Found\",\"statusCode\":404}",
+      "time": 7,
+      "size": 85,
+      "cookies": []
+    }
+  },
+  {
+    "id": "1784206422346",
+    "timestamp": 1784206422346,
+    "request": {
+      "id": "1784206394086",
+      "name": "New Request",
+      "method": "POST",
+      "url": "http://localhost:3001/webhooks/sync/all",
+      "params": [],
+      "headers": [
+        {
+          "key": "Accept",
+          "value": "application/json",
+          "enabled": true
+        },
+        {
+          "key": "Content-Type",
+          "value": "application/json",
+          "enabled": true
+        }
+      ],
+      "body": {
+        "type": "none"
+      },
+      "auth": {
+        "type": "none"
+      },
+      "inheritAuth": true
+    },
+    "response": {
+      "status": 200,
+      "statusText": "OK",
+      "headers": {
+        "access-control-allow-origin": "*",
+        "connection": "keep-alive",
+        "content-length": "137",
+        "content-type": "application/json; charset=utf-8",
+        "date": "Thu, 16 Jul 2026 12:53:42 GMT",
+        "etag": "W/\"89-ysxIh/TCK1OjyBRZ+iQeIkqYNB0\"",
+        "keep-alive": "timeout=5",
+        "x-powered-by": "Express"
+      },
+      "body": "{\"vendorSync\":{\"processed\":89,\"failed\":0,\"errors\":[]},\"partsSync\":{\"vendorsChecked\":89,\"partsProcessed\":982,\"partsFailed\":0,\"errors\":[]}}",
+      "time": 28258,
+      "size": 137,
+      "cookies": []
+    }
+  }
+]

@@ -1,8 +1,10 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { CheckCircle2, AlertTriangle, X, FileSignature, ChevronDown, Calendar, Eye } from "lucide-react";
 import NcrPrintPreview from "./NcrPrintPreview";
+import { vendorService } from "@/services/vendorService";
+import { ncrService } from "@/services/ncrService";
 
 interface OperatorViewProps {
   pendingNcrs: any[];
@@ -19,26 +21,54 @@ export default function OperatorView({
   setNotifications,
   parts: propParts
 }: OperatorViewProps) {
-  // References for Form Dropdowns
-  const suppliers = [
-    { id: 1, name: "PT JAYADI", code: "SPL-JAY" },
-    { id: 2, name: "PT IKAN BAKAR", code: "SPL-IBK" },
-    { id: 3, name: "SHIJIAZHUANG RUICHENG TRADE CO., LTD", code: "SPL-SRC" }
-  ];
+  const [suppliers, setSuppliers] = useState<any[]>([]);
+  const [parts, setParts] = useState<any[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(true);
 
-  const [parts, setParts] = useState(propParts || [
-    { id: 1, partNumber: "MB-001", partName: "Motherboard X1", supplierId: 1 },
-    { id: 2, partNumber: "GL-001", partName: "Gelas Kaca", supplierId: 1 },
-    { id: 3, partNumber: "HD-002", partName: "Harddisk 1TB", supplierId: 2 },
-    { id: 4, partNumber: "CP-003", partName: "CPU Fan Cooler", supplierId: 2 },
-    { id: 5, partNumber: "CR-001", partName: "CONE RACE ALL TYPE", supplierId: 3 }
-  ]);
+  useEffect(() => {
+    async function loadData() {
+      try {
+        setIsLoadingData(true);
+        const vendorsList = await vendorService.getAll();
+        
+        const mappedSuppliers = vendorsList.map((v: any) => ({
+          id: v.id,
+          code: v.vendorCode,
+          name: v.vendorName || `Vendor ${v.vendorCode}`,
+        }));
+        setSuppliers(mappedSuppliers);
+
+        const mappedParts: any[] = [];
+        vendorsList.forEach((v: any) => {
+          if (v.vendorParts && Array.isArray(v.vendorParts)) {
+            v.vendorParts.forEach((vp: any) => {
+              if (vp.part) {
+                mappedParts.push({
+                  id: vp.part.id,
+                  partNumber: vp.part.partNumber,
+                  partName: vp.part.partDesc || vp.part.partNumber,
+                  supplierId: v.id,
+                });
+              }
+            });
+          }
+        });
+        setParts(mappedParts);
+      } catch (err) {
+        console.error("Failed to load vendors/parts master data:", err);
+      } finally {
+        setIsLoadingData(false);
+      }
+    }
+
+    loadData();
+  }, []);
 
   // Step 1: Pre-selection States (Date - global for batch)
   const [selectedDate, setSelectedDate] = useState("");
   
   // Step 2: Form States (Supplier, Part inputRows)
-  const [supplierId, setSupplierId] = useState<number | "">("");
+  const [supplierId, setSupplierId] = useState<string | "">("");
   const [inputRows, setInputRows] = useState<Array<{ id: number; partId: string | number; qtyNG: string; ngTypes: string; isManualNg?: boolean }>>([
     { id: Date.now(), partId: "", qtyNG: "", ngTypes: "", isManualNg: false }
   ]);
@@ -53,17 +83,70 @@ export default function OperatorView({
   const [docsToRevise, setDocsToRevise] = useState<string[]>([]);
   const [customDoc, setCustomDoc] = useState("");
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const compressImage = (file: File): Promise<File> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const MAX_WIDTH = 1200;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > MAX_WIDTH) {
+            height = Math.round((height * MAX_WIDTH) / width);
+            width = MAX_WIDTH;
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          ctx?.drawImage(img, 0, 0, width, height);
+          
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                const compressedFile = new File([blob], file.name, {
+                  type: "image/jpeg",
+                  lastModified: Date.now(),
+                });
+                resolve(compressedFile);
+              } else {
+                resolve(file);
+              }
+            },
+            "image/jpeg",
+            0.7
+          );
+        };
+        img.onerror = () => resolve(file);
+      };
+      reader.onerror = () => resolve(file);
+    });
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const filesArray = Array.from(e.target.files);
-      filesArray.forEach((file) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setUploadedImages((prev) => [...prev, reader.result as string]);
-        };
-        reader.readAsDataURL(file);
-      });
+      for (const file of filesArray) {
+        try {
+          const compressed = await compressImage(file);
+          
+          const localUrl = URL.createObjectURL(compressed);
+          setImagePreviews((prev) => [...prev, localUrl]);
+          
+          const { relativePath } = await ncrService.uploadImage(compressed);
+          setUploadedImages((prev) => [...prev, relativePath]);
+        } catch (err: any) {
+          console.error("Image upload failed:", err);
+          setQtyError(`Gagal mengupload gambar: ${err.message || err}`);
+        }
+      }
     }
   };
 
@@ -72,12 +155,19 @@ export default function OperatorView({
 
   // Filter parts based on selected supplier
   const filteredParts = supplierId
-    ? parts.filter((p) => p.supplierId === supplierId)
+    ? parts.filter((p) => String(p.supplierId) === String(supplierId))
     : [];
 
   const getFilteredPartsForRow = (currentRowId: number) => {
     return filteredParts.filter(
-      (p) => !inputRows.some((row) => row.id !== currentRowId && String(row.partId) === String(p.id))
+      (p) => !inputRows.some((row) => {
+        if (row.id === currentRowId || !row.partId) return false;
+        return (
+          String(row.partId) === String(p.id) ||
+          String(row.partId) === String(p.partNumber) ||
+          String(row.partId) === String(p.partName)
+        );
+      })
     );
   };
 
@@ -92,7 +182,7 @@ export default function OperatorView({
   const isSpvApproved = selectedReviewNcr && (selectedReviewNcr.requiredRole === "Dept Head" || selectedReviewNcr.requiredRole === "Closed" || selectedReviewNcr.status === "APPROVED");
   const isMngApproved = selectedReviewNcr && (selectedReviewNcr.requiredRole === "Closed" || selectedReviewNcr.status === "APPROVED");
 
-  const selectedSupplier = suppliers.find(s => s.id === supplierId);
+  const selectedSupplier = suppliers.find(s => String(s.id) === String(supplierId));
 
   const addNewRow = () => {
     setInputRows([
@@ -186,7 +276,7 @@ export default function OperatorView({
     for (const row of activeRows) {
       const qty = parseInt(row.qtyNG) || 0;
       if (qty <= 0) {
-        setQtyError(`Qty NG untuk part ${parts.find(p => p.id === parseInt(String(row.partId)))?.partName || ""} harus lebih besar dari 0`);
+        setQtyError(`Qty NG untuk part ${parts.find(p => String(p.id) === String(row.partId))?.partName || ""} harus lebih besar dari 0`);
         return;
       }
     }
@@ -197,7 +287,7 @@ export default function OperatorView({
 
   const executeSubmission = () => {
     const activeRows = inputRows.filter(row => row.partId && row.qtyNG && row.ngTypes);
-    const currentSupplier = suppliers.find((s) => s.id === parseInt(String(supplierId)));
+    const currentSupplier = suppliers.find((s) => String(s.id) === String(supplierId));
     if (!currentSupplier) return;
 
     setIsSubmitting(true);
@@ -209,71 +299,101 @@ export default function OperatorView({
       finalDocs.push(customDoc.trim());
     }
 
-    // Simulate API submission
-    setTimeout(() => {
-      const currentPartIds = activeRows.map(r => parseInt(String(r.partId)));
-      const supplierParts = parts.filter(p => p.supplierId === currentSupplier.id);
-      const isAllPartsSelected = supplierParts.every(p => currentPartIds.includes(p.id));
+    const currentPartIds = activeRows.map(r => String(r.partId));
+    const supplierParts = parts.filter(p => String(p.supplierId) === String(currentSupplier.id));
+    const isAllPartsSelected = supplierParts.every(p => currentPartIds.includes(String(p.id)));
 
-      const partsDetail = activeRows.map((row, index) => {
-        const currentPart = parts.find((p) => p.id === parseInt(String(row.partId)));
-        return {
-          no: index + 1,
-          partNumber: currentPart?.partNumber || "-",
-          partName: currentPart?.partName || "-",
-          qtyNG: parseInt(row.qtyNG) || 0,
-          ngType: row.ngTypes.trim().toUpperCase()
-        };
-      });
+    const partsDetail = activeRows.map((row, index) => {
+      const currentPart = parts.find((p) => String(p.id) === String(row.partId));
+      return {
+        no: index + 1,
+        partNumber: currentPart?.partNumber || "-",
+        partName: currentPart?.partName || "-",
+        qtyNG: parseInt(row.qtyNG) || 0,
+        ngType: row.ngTypes.trim().toUpperCase()
+      };
+    });
 
-      const totalQtyNG = partsDetail.reduce((sum, p) => sum + p.qtyNG, 0);
-      const ncrNum = `NCR/2026/06/SIM-${Math.floor(100 + Math.random() * 900)}`;
+    const totalQtyNG = partsDetail.reduce((sum, p) => sum + p.qtyNG, 0);
+    const ncrNum = `NCR/2026/06/SIM-${Math.floor(100 + Math.random() * 900)}`;
 
-      let mainPartName = "";
-      let mainPartNumber = "";
-      if (isAllPartsSelected) {
-        mainPartName = "CONE RACE ALL TYPE";
-        mainPartNumber = "ALL-TYPE-001";
-      } else {
-        mainPartName = partsDetail.map(p => p.partName).join(", ");
-        mainPartNumber = partsDetail.map(p => p.partNumber).join(", ");
-      }
+    let mainPartName = "";
+    let mainPartNumber = "";
+    if (isAllPartsSelected) {
+      mainPartName = "CONE RACE ALL TYPE";
+      mainPartNumber = "ALL-TYPE-001";
+    } else {
+      mainPartName = partsDetail.map(p => p.partName).join(", ");
+      mainPartNumber = partsDetail.map(p => p.partNumber).join(", ");
+    }
 
-      const newNcr = {
-        id: Date.now(),
-        ncrNumber: ncrNum,
-        date: selectedDate || new Date().toISOString().split("T")[0],
-        partNumber: mainPartNumber,
-        partName: mainPartName,
-        supplierName: currentSupplier.name,
-        qty: totalQtyNG, // Total Qty NG
-        reject: partsDetail.map(p => p.ngType).join(", "),
-        locationFound: Array.isArray(locationFound) ? locationFound.join(", ") : locationFound,
-        problemType: Array.isArray(problemType) ? problemType.join(", ") : problemType,
-        foundBy: foundBy.join(", "),
-        defectType: description || "Quality defect found",
-        disposition: Array.isArray(disposition) ? disposition.join(", ") : disposition,
-        customerApproval: customerApproval || "-",
-        docsToRevise: finalDocs.join(", "),
-        images: uploadedImages,
-        status: "WAITING_APPROVAL",
-        requiredRole: "Section Head",
-        partsDetail: partsDetail,
+    const newNcr = {
+      ncrNumber: ncrNum,
+      date: selectedDate || new Date().toISOString().split("T")[0],
+      partNumber: mainPartNumber,
+      partName: mainPartName,
+      supplierName: currentSupplier.name,
+      qty: totalQtyNG, // Total Qty NG
+      reject: partsDetail.map(p => p.ngType).join(", "),
+      locationFound: Array.isArray(locationFound) ? locationFound.join(", ") : locationFound,
+      problemType: Array.isArray(problemType) ? problemType.join(", ") : problemType,
+      foundBy: foundBy.join(", "),
+      defectType: description || "Quality defect found",
+      disposition: Array.isArray(disposition) ? disposition.join(", ") : disposition,
+      customerApproval: customerApproval || "-",
+      docsToRevise: finalDocs.join(", "),
+      images: uploadedImages,
+      status: "WAITING_APPROVAL",
+      requiredRole: "Section Head",
+      partsDetail: partsDetail,
+      isAllParts: isAllPartsSelected
+    };
+
+    // Call the real backend API to persist NCR in PostgreSQL
+    ncrService.create({
+      code: ncrNum,
+      date: newNcr.date,
+      vendorId: currentSupplier.id,
+      vendorCode: currentSupplier.code,
+      vendorName: currentSupplier.name,
+      location: locationFound,
+      problemType: problemType,
+      description: description || "Quality defect found",
+      disposition: disposition,
+      customerApproval: customerApproval || "-",
+      isRequiredCustomerApproval: customerApproval === "YES",
+      docsToRevise: finalDocs,
+      images: uploadedImages,
+      details: {
+        partsDetail,
         isAllParts: isAllPartsSelected
+      },
+      partsDetail: partsDetail.map(p => ({
+        partNumber: p.partNumber,
+        partName: p.partName,
+        qtyNG: p.qtyNG,
+        ngType: p.ngType
+      }))
+    })
+    .then((createdNcr) => {
+      const realNcrCode = createdNcr.code;
+      const formattedNcr = {
+        ...newNcr,
+        id: createdNcr.id, // Save real DB ID
+        ncrNumber: realNcrCode, // Override placeholder with real DB code
       };
 
-      const newNcrs = [newNcr];
       const newNotifs = [
         {
           id: Date.now() + 100,
-          message: `NCR Baru ${ncrNum} berhasil dibuat secara manual oleh Operator untuk ${mainPartName} (${currentSupplier.name}).`,
+          message: `NCR Baru ${realNcrCode} berhasil dibuat secara manual oleh Operator untuk ${mainPartName} (${currentSupplier.name}).`,
           time: "Baru saja",
           type: "success",
           unread: true
         },
         {
           id: Date.now() + 200,
-          message: `[CC PPIC/Purchase] Dokumen NCR Baru ${ncrNum} untuk supplier ${currentSupplier.name} telah otomatis diteruskan ke PPIC & Purchasing.`,
+          message: `[CC PPIC/Purchase] Dokumen NCR Baru ${realNcrCode} untuk supplier ${currentSupplier.name} telah otomatis diteruskan ke PPIC & Purchasing.`,
           time: "Baru saja",
           type: "info",
           unread: true
@@ -281,21 +401,21 @@ export default function OperatorView({
       ];
 
       // 1. Send directly to pending Ncrs (Approval)
-      setPendingNcrs((prev) => [...newNcrs, ...prev]);
+      setPendingNcrs((prev) => [formattedNcr, ...prev]);
 
       // 2. Generate notifications
       setNotifications((prev) => [...newNotifs, ...prev]);
 
       // 3. Add to items history for review
       setItems((prev) => [
-        ...newNcrs.map(ncr => ({
-          ...ncr,
+        {
+          ...formattedNcr,
           locationFound: locationFound,
           problemType: problemType,
           disposition: disposition,
           docsToRevise: finalDocs,
           images: uploadedImages
-        })),
+        },
         ...prev
       ]);
 
@@ -310,12 +430,17 @@ export default function OperatorView({
       setDocsToRevise([]);
       setCustomDoc("");
       setUploadedImages([]);
+      setImagePreviews([]);
       setQtyError(null);
 
       // Show success alert toast
       setIsSubmitting(false);
-      setSuccessNcrNumber(newNcrs[0]?.ncrNumber || "BATCH-SUCCESS");
-    }, 800);
+      setSuccessNcrNumber(realNcrCode);
+    })
+    .catch((error) => {
+      setIsSubmitting(false);
+      setQtyError(`Gagal mengirim NCR: ${error.message}`);
+    });
   };
 
   const handleSaveDraft = () => {
@@ -330,7 +455,7 @@ export default function OperatorView({
       return;
     }
 
-    const currentSupplier = suppliers.find((s) => s.id === parseInt(String(supplierId)));
+    const currentSupplier = suppliers.find((s) => String(s.id) === String(supplierId));
     if (!currentSupplier) return;
 
     setIsSubmitting(true);
@@ -342,12 +467,12 @@ export default function OperatorView({
     }
 
     setTimeout(() => {
-      const currentPartIds = activeRows.map(r => parseInt(String(r.partId)));
-      const supplierParts = parts.filter(p => p.supplierId === currentSupplier.id);
-      const isAllPartsSelected = supplierParts.every(p => currentPartIds.includes(p.id));
+      const currentPartIds = activeRows.map(r => String(r.partId));
+      const supplierParts = parts.filter(p => String(p.supplierId) === String(currentSupplier.id));
+      const isAllPartsSelected = supplierParts.every(p => currentPartIds.includes(String(p.id)));
 
       const partsDetail = activeRows.map((row, index) => {
-        const currentPart = parts.find((p) => p.id === parseInt(String(row.partId)));
+        const currentPart = parts.find((p) => String(p.id) === String(row.partId));
         return {
           no: index + 1,
           partNumber: currentPart?.partNumber || "-",
@@ -404,6 +529,7 @@ export default function OperatorView({
       setDocsToRevise([]);
       setCustomDoc("");
       setUploadedImages([]);
+      setImagePreviews([]);
       
       alert("Draf NCR berhasil disimpan! Anda dapat melihatnya di sub-menu Draf NCR.");
     }, 800);
@@ -445,7 +571,7 @@ export default function OperatorView({
         <div className="w-full bg-white border border-slate-100 rounded-xl p-5 shadow-sm flex justify-between items-center transition-all hover:border-slate-200 hover:bg-slate-50/50 cursor-pointer">
           <div className="overflow-hidden flex-1">
             <span className="text-sm font-extrabold text-slate-800 block truncate">
-              {selectedSupplier ? `${selectedSupplier.name} (${selectedSupplier.code})` : "PILIH SUPPLIER"}
+              {selectedSupplier ? selectedSupplier.name : "PILIH SUPPLIER"}
             </span>
             <span className="text-[10px] font-bold text-slate-400 block mt-1 uppercase tracking-wider">
               Supplier / Vendor
@@ -453,11 +579,10 @@ export default function OperatorView({
           </div>
           <ChevronDown size={18} className="text-slate-400 shrink-0 ml-2" />
 
-          {/* Invisible select covering the entire card to trigger dropdown */}
           <select
             value={supplierId}
             onChange={(e) => {
-              setSupplierId(e.target.value ? parseInt(e.target.value) : "");
+              setSupplierId(e.target.value || "");
               setInputRows([{ id: Date.now(), partId: "", qtyNG: "", ngTypes: "", isManualNg: false }]);
             }}
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
@@ -465,7 +590,7 @@ export default function OperatorView({
             <option value="">PILIH SUPPLIER</option>
             {suppliers.map((s) => (
               <option key={s.id} value={s.id}>
-                {s.name} ({s.code})
+                {s.name}
               </option>
             ))}
           </select>
@@ -588,7 +713,7 @@ export default function OperatorView({
                                 <option value="">-- PILIH PART / BARANG --</option>
                                 {rowFilteredParts.map((p) => (
                                   <option key={p.id} value={p.id}>
-                                    [{p.partNumber}] {p.partName}
+                                    {p.partName}
                                   </option>
                                 ))}
                               </select>
@@ -1056,7 +1181,7 @@ export default function OperatorView({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <label className="border-2 border-dashed border-slate-200 hover:border-slate-350 rounded-lg p-4 flex flex-col items-center justify-center cursor-pointer transition-colors bg-slate-50/50">
                     <span className="text-xs font-bold text-blue-600">Pilih Foto Defect</span>
-                    {uploadedImages.length === 0 && (
+                    {imagePreviews.length === 0 && (
                       <span className="text-[9px] text-slate-400 mt-0.5">Mendukung PNG, JPG up to 5MB</span>
                     )}
                     <input
@@ -1067,14 +1192,17 @@ export default function OperatorView({
                       onChange={handleImageUpload}
                     />
                   </label>
-                  {uploadedImages.length > 0 && (
+                  {imagePreviews.length > 0 && (
                     <div className="grid grid-cols-3 gap-2">
-                      {uploadedImages.map((src, idx) => (
+                      {imagePreviews.map((src, idx) => (
                         <div key={idx} className="relative rounded-lg overflow-hidden border border-slate-205 aspect-square bg-slate-50">
                           <img src={src} className="w-full h-full object-cover" />
                           <button
                             type="button"
-                            onClick={() => setUploadedImages(prev => prev.filter((_, i) => i !== idx))}
+                            onClick={() => {
+                              setImagePreviews((prev) => prev.filter((_, i) => i !== idx));
+                              setUploadedImages((prev) => prev.filter((_, i) => i !== idx));
+                            }}
                             className="absolute top-0.5 right-0.5 bg-red-500 hover:bg-red-700 text-white rounded-full p-0.5 cursor-pointer flex items-center justify-center w-4 h-4 shadow-sm"
                           >
                             <X size={10} />
@@ -1137,56 +1265,102 @@ export default function OperatorView({
                     <table className="w-full table-fixed text-left text-xs border-collapse">
                       <thead>
                         <tr className="bg-slate-100 border-b border-slate-400 text-slate-900 font-extrabold text-center">
-                          <th className="px-2 py-2 border-r border-slate-400 w-[45%] text-center uppercase tracking-wider text-[10px]">
-                            Pilih Part
+                          <th className="px-2 py-2 border-r border-slate-400 w-[15%] text-center uppercase tracking-wider text-[10px]">
+                            Tanggal
+                          </th>
+                          <th className="px-2 py-2 border-r border-slate-400 w-[30%] text-center uppercase tracking-wider text-[10px]">
+                            No NCR
+                          </th>
+                          <th className="px-2 py-2 border-r border-slate-400 w-[25%] text-center uppercase tracking-wider text-[10px]">
+                            Vendor
                           </th>
                           <th className="px-2 py-2 border-r border-slate-400 w-[15%] text-center uppercase tracking-wider text-[10px]">
-                            Qty NG
+                            Status
                           </th>
-                          <th className="px-2 py-2 border-r border-slate-400 w-[22%] text-center uppercase tracking-wider text-[10px]">
-                            NG Type
-                          </th>
-                          <th className="px-2 py-2 w-[18%] text-center uppercase tracking-wider text-[10px]">
-                            Status &amp; Review
+                          <th className="px-2 py-2 w-[15%] text-center uppercase tracking-wider text-[10px]">
+                            Details
                           </th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-350 font-semibold text-slate-700">
                         {items.map((item) => {
+                          const formattedDate = (() => {
+                            try {
+                              const d = new Date(item.date);
+                              return d.toLocaleDateString("id-ID", {
+                                day: "2-digit",
+                                month: "2-digit",
+                                year: "numeric",
+                              });
+                            } catch (e) {
+                              return item.date;
+                            }
+                          })();
+
+                          const getStatusBadge = (status: string) => {
+                            if (status === "APPROVED") {
+                              return (
+                                <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-250 text-[9px] font-extrabold rounded uppercase tracking-wider block">
+                                  Approved
+                                </span>
+                              );
+                            }
+                            if (status === "REJECTED") {
+                              return (
+                                <span className="px-2 py-0.5 bg-rose-50 text-rose-700 border border-rose-250 text-[9px] font-extrabold rounded uppercase tracking-wider block">
+                                  Rejected
+                                </span>
+                              );
+                            }
+                            if (status === "DRAFT") {
+                              return (
+                                <span className="px-2 py-0.5 bg-slate-50 text-slate-700 border border-slate-250 text-[9px] font-extrabold rounded uppercase tracking-wider block">
+                                  Draft
+                                </span>
+                              );
+                            }
+                            return (
+                              <span className="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-250 text-[9px] font-extrabold rounded uppercase tracking-wider block">
+                                Waiting SPV
+                              </span>
+                            );
+                          };
+
                           return (
                             <tr key={item.id} className="transition-colors hover:bg-slate-50 text-center">
-                              {/* 1. Pilih Part */}
-                              <td className="px-2 py-2 border-r border-slate-350 text-left leading-tight">
-                                <span className="font-bold text-slate-900 block text-[11px] leading-snug break-all">{item.ncrNumber}<br/>[{item.partNumber}] {item.partName}</span>
-                                <span className="text-blue-600 text-[10px] font-black uppercase tracking-wider block mt-0.5">Supplier: {item.supplierName}</span>
+                              {/* 1. Tanggal */}
+                              <td className="px-2 py-3 border-r border-slate-350 text-center text-[10px] font-bold text-slate-800 whitespace-nowrap">
+                                {formattedDate}
                               </td>
 
-                              {/* 2. Qty NG */}
-                              <td className="px-2 py-2 border-r border-slate-350 text-center font-mono text-slate-900 font-bold text-[10px] whitespace-nowrap">
-                                {item.qty} pcs
+                              {/* 2. No NCR */}
+                              <td className="px-2 py-3 border-r border-slate-350 text-center text-[10px] font-extrabold text-slate-900 break-all leading-normal">
+                                {item.ncrNumber || item.code}
                               </td>
 
-                              {/* 3. NG Type */}
-                              <td className="px-2 py-2 border-r border-slate-350 text-center font-mono text-red-650 font-bold uppercase text-[10px] leading-tight">
-                                {item.reject}
+                              {/* 3. Vendor */}
+                              <td className="px-2 py-3 border-r border-slate-350 text-left text-[10px] font-bold text-slate-800 leading-normal">
+                                {item.supplierName || item.vendorName}
                               </td>
 
-                              {/* 4. Status & Review Button */}
-                              <td className="px-2 py-2 text-center">
-                                <div className="flex flex-col items-center gap-1.5 justify-center">
-                                  <span className="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-250 text-[9px] font-extrabold rounded uppercase tracking-wider block">
-                                    Waiting SPV
-                                  </span>
-                                  <button
-                                    type="button"
-                                    onClick={() => setSelectedReviewNcr(item)}
-                                    className="px-2.5 py-1.5 rounded bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] flex items-center gap-1 shadow-sm transition-all cursor-pointer hover:scale-105"
-                                    title="Review detail laporan terkirim"
-                                  >
-                                    <Eye size={12} strokeWidth={2.5} />
-                                    Review
-                                  </button>
+                              {/* 4. Status */}
+                              <td className="px-2 py-3 border-r border-slate-350 text-center">
+                                <div className="flex justify-center items-center">
+                                  {getStatusBadge(item.status)}
                                 </div>
+                              </td>
+
+                              {/* 5. Details (Preview Button) */}
+                              <td className="px-2 py-3 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedReviewNcr(item)}
+                                  className="px-2.5 py-1.5 rounded bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] flex items-center gap-1 shadow-sm transition-all cursor-pointer hover:scale-105 justify-center mx-auto"
+                                  title="Review detail laporan terkirim"
+                                >
+                                  <Eye size={12} strokeWidth={2.5} />
+                                  Preview
+                                </button>
                               </td>
                             </tr>
                           );

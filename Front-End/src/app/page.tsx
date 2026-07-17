@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Calendar as CalendarIcon, ChevronDown, ShieldAlert, CheckCircle2, AlertTriangle } from "lucide-react";
 
 // Layout components
@@ -20,6 +21,7 @@ import BuatQprView from "@/components/features/role-views/BuatQprView";
 import DraftNcrView from "@/components/features/role-views/DraftNcrView";
 import DraftQprView from "@/components/features/role-views/DraftQprView";
 import DraftClView from "@/components/features/role-views/DraftClView";
+import { ncrService, mapNcrFromDb } from "@/services/ncrService";
 
 
 // Global tracking views & modals
@@ -37,10 +39,36 @@ import {
   mockPendingQprs
 } from "@/utils/mockData";
 
-export default function Home() {
+export default function Home({ initialTab = "" }: { initialTab?: string }) {
+  const router = useRouter();
   // Tabs: 'dashboard', 'buat-ncr', 'approve-ncr', 'approve-qpr', 'confirmation-letter', 'list-qpr', 'calendar', 'parts'
-  const [activeTab, setActiveTab] = useState("");
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [username, setUsername] = useState<string>("");
+
+  // Intercept tab changes to push routes to Next.js router
+  const handleTabChange = (tab: string) => {
+    const routes = [
+      "dashboard",
+      "buat-ncr",
+      "approve-ncr",
+      "buat-qpr",
+      "approve-qpr",
+      "confirmation-letter",
+      "approve-cl",
+      "i-memo",
+      "list-qpr",
+      "calendar",
+      "parts",
+      "draft-ncr",
+      "draft-qpr",
+      "draft-cl"
+    ];
+    if (routes.includes(tab)) {
+      router.push(`/${tab}`);
+    } else {
+      setActiveTab(tab);
+    }
+  };
 
   // State for custom alert modal
   const [customAlert, setCustomAlert] = useState<{ isOpen: boolean; message: string }>({
@@ -68,27 +96,45 @@ export default function Home() {
     const user = getUsername();
     setUsername(user);
 
-    // Initial default tab routing based on role
-    if (user === "operator") {
-      setActiveTab("buat-ncr");
-    } else if (user === "sectionhead") {
-      setActiveTab("approve-ncr");
-    } else if (user === "depthead") {
-      setActiveTab("approve-ncr");
-    } else if (user === "divhead") {
-      setActiveTab("approve-qpr");
-    } else if (user === "purchasing") {
-      setActiveTab("i-memo");
-    } else if (user === "accounting") {
-      setActiveTab("approve-cl");
+    // Initial default tab routing based on role if no tab is selected
+    if (!initialTab) {
+      let defaultTab = "dashboard";
+      if (user === "operator") {
+        defaultTab = "buat-ncr";
+      } else if (user === "sectionhead" || user === "depthead") {
+        defaultTab = "approve-ncr";
+      } else if (user === "divhead") {
+        defaultTab = "approve-qpr";
+      } else if (user === "purchasing") {
+        defaultTab = "i-memo";
+      } else if (user === "accounting") {
+        defaultTab = "approve-cl";
+      }
+      router.replace(`/${defaultTab}`);
     } else {
-      setActiveTab("dashboard");
+      setActiveTab(initialTab);
     }
 
     return () => {
       window.alert = originalAlert;
     };
+  }, [initialTab, router]);
+
+  // Fetch real NCRs from backend PostgreSQL database on mount
+  useEffect(() => {
+    ncrService.getAll()
+      .then((data) => {
+        if (Array.isArray(data)) {
+          const mapped = data.map((dbNcr: any) => mapNcrFromDb(dbNcr));
+          setPendingNcrs(mapped);
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to fetch real NCRs:", err);
+      });
   }, []);
+
+
 
   // Sidebar mobile toggle
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -428,39 +474,69 @@ export default function Home() {
     let alertMsg = "";
     let notifMsg = "";
     
-    setPendingNcrs(prev => {
-      const updated = prev.map((n: any) => {
-        if (n.id === id) {
-          if (n.requiredRole === "Foreman") {
-            alertMsg = `Sukses: NCR ${ncrNum} disetujui oleh Foreman dan diteruskan ke Section Head!`;
-            notifMsg = `NCR ${ncrNum} disetujui oleh Foreman dan diteruskan ke Section Head.`;
-            return { ...n, requiredRole: "Section Head", staffReview: reviewComment || n.staffReview };
-          } else if (n.requiredRole === "Section Head") {
-            alertMsg = `Sukses: NCR ${ncrNum} disetujui oleh Section Head dan diteruskan ke Dept Head!`;
-            notifMsg = `NCR ${ncrNum} disetujui oleh Section Head dan diteruskan ke Dept Head.`;
-            return { ...n, requiredRole: "Dept Head", spvReview: reviewComment || n.spvReview };
-          } else if (n.requiredRole === "Dept Head") {
-            alertMsg = `Sukses: NCR ${ncrNum} disetujui sepenuhnya oleh Dept Head!`;
-            notifMsg = `NCR ${ncrNum} telah disetujui sepenuhnya oleh Dept Head.`;
-            return { ...n, requiredRole: "Closed", status: "APPROVED", mngReview: reviewComment || n.mngReview };
+    // Find current requiredRole from existing state
+    const targetNcr = pendingNcrs.find(n => n.id === id);
+    if (!targetNcr) return;
+
+    const currentRole = targetNcr.requiredRole;
+
+    const proceedWithStateUpdate = () => {
+      setPendingNcrs(prev => {
+        const updated = prev.map((n: any) => {
+          if (n.id === id) {
+            if (currentRole === "Foreman") {
+              alertMsg = `Sukses: NCR ${ncrNum} disetujui oleh Foreman dan diteruskan ke Section Head!`;
+              notifMsg = `NCR ${ncrNum} disetujui oleh Foreman dan diteruskan ke Section Head.`;
+              return { ...n, requiredRole: "Section Head", staffReview: reviewComment || n.staffReview };
+            } else if (currentRole === "Section Head") {
+              alertMsg = `Sukses: NCR ${ncrNum} disetujui oleh Section Head dan diteruskan ke Dept Head!`;
+              notifMsg = `NCR ${ncrNum} disetujui oleh Section Head dan diteruskan ke Dept Head.`;
+              return { ...n, requiredRole: "Dept Head", spvReview: reviewComment || n.spvReview };
+            } else if (currentRole === "Dept Head") {
+              alertMsg = `Sukses: NCR ${ncrNum} disetujui sepenuhnya oleh Dept Head!`;
+              notifMsg = `NCR ${ncrNum} telah disetujui sepenuhnya oleh Dept Head.`;
+              return { ...n, requiredRole: "Closed", status: "APPROVED", mngReview: reviewComment || n.mngReview };
+            }
           }
-        }
-        return n;
-      }).filter(Boolean);
-      
-      const newNotif = {
-        id: Date.now(),
-        message: notifMsg || `NCR ${ncrNum} berhasil disetujui digital.`,
-        time: "Baru saja",
-        type: "success",
-        unread: true
-      };
-      setNotifications(prevNotifs => [newNotif, ...prevNotifs]);
-      if (alertMsg) alert(alertMsg);
- 
-      return updated;
-    });
+          return n;
+        });
+
+        const newNotif = {
+          id: Date.now(),
+          message: notifMsg || `NCR ${ncrNum} berhasil disetujui digital.`,
+          time: "Baru saja",
+          type: "success" as const,
+          unread: true
+        };
+        setNotifications(prevNotifs => [newNotif, ...prevNotifs]);
+        if (alertMsg) alert(alertMsg);
+
+        return updated;
+      });
+    };
+
+    // Check if ID is string (e.g. database ID)
+    if (typeof id === "string" && id.length > 10) {
+      const payload: any = {};
+      if (currentRole === "Section Head") {
+        payload.checksumApprovalSectionHead = `APPROVED_BY_SECTION_HEAD_${Date.now()}`;
+      } else if (currentRole === "Dept Head") {
+        payload.checksumApprovalDeptHead = `APPROVED_BY_DEPT_HEAD_${Date.now()}`;
+      }
+
+      ncrService.updateApprovalProgress(id, payload)
+        .then(() => {
+          proceedWithStateUpdate();
+        })
+        .catch(err => {
+          console.error("Failed to approve NCR in DB:", err);
+          alert(`Gagal menyimpan approval ke database: ${err.message}`);
+        });
+    } else {
+      proceedWithStateUpdate();
+    }
   };
+
 
   // Perform QPR Approval Action
   const handleApproveQprAction = (id, qprNum) => {
@@ -537,7 +613,7 @@ export default function Home() {
       {/* SIDEBAR PANEL */}
       <Sidebar
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={handleTabChange}
         sidebarOpen={sidebarOpen}
         setSidebarOpen={setSidebarOpen}
         username={username}
@@ -625,7 +701,7 @@ export default function Home() {
                 pendingNcrs={pendingNcrs}
                 pendingQprs={pendingQprs}
                 parts={parts}
-                setActiveTab={setActiveTab}
+                setActiveTab={handleTabChange}
                 confirmationLetters={confirmationLetters}
                 setConfirmationLetters={setConfirmationLetters}
               />
@@ -645,7 +721,7 @@ export default function Home() {
               <DraftNcrView
                 pendingNcrs={pendingNcrs}
                 setPendingNcrs={setPendingNcrs}
-                setActiveTab={setActiveTab}
+                setActiveTab={handleTabChange}
               />
             )}
 
@@ -677,7 +753,7 @@ export default function Home() {
               <DraftQprView
                 pendingQprs={pendingQprs}
                 setPendingQprs={setPendingQprs}
-                setActiveTab={setActiveTab}
+                setActiveTab={handleTabChange}
               />
             )}
 
@@ -685,7 +761,7 @@ export default function Home() {
               <DraftClView
                 confirmationLetters={confirmationLetters}
                 setConfirmationLetters={setConfirmationLetters}
-                setActiveTab={setActiveTab}
+                setActiveTab={handleTabChange}
               />
             )}
 

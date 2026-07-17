@@ -15,6 +15,8 @@ import {
   AlertCircle
 } from "lucide-react";
 import NcrPrintPreview from "./NcrPrintPreview";
+import { ncrService, mapNcrFromDb } from "@/services/ncrService";
+
 
 interface DraftNcrViewProps {
   pendingNcrs: any[];
@@ -31,6 +33,22 @@ export default function DraftNcrView({
   const [filterSupplier, setFilterSupplier] = useState("ALL");
   const [filterStatus, setFilterStatus] = useState("ALL");
   const [selectedNcr, setSelectedNcr] = useState<any | null>(null);
+
+  const handleViewDetail = (ncr: any) => {
+    if (typeof ncr.id === "string" && ncr.id.length > 10) {
+      ncrService.getById(ncr.id)
+        .then((realNcr) => {
+          setSelectedNcr(mapNcrFromDb(realNcr));
+        })
+        .catch(err => {
+          console.error("Failed to load NCR details:", err);
+          alert("Gagal memuat detail NCR.");
+        });
+    } else {
+      setSelectedNcr(ncr);
+    }
+  };
+
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
 
@@ -302,7 +320,7 @@ export default function DraftNcrView({
                         <div className="flex justify-end gap-1.5">
                           {/* Preview / Print PDF — always visible, esp. for APPROVED */}
                           <button
-                            onClick={() => setSelectedNcr(ncr)}
+                            onClick={() => handleViewDetail(ncr)}
                             className={`px-2.5 py-1.5 border rounded text-[10px] font-bold cursor-pointer transition-colors flex items-center gap-1 ${
                               ncr.status === "APPROVED" || ncr.status === "CLOSED"
                                 ? "bg-blue-600 hover:bg-blue-700 text-white border-blue-700 shadow-sm"

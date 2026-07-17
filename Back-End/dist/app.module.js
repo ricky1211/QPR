@@ -10,16 +10,18 @@ exports.AppModule = void 0;
 const common_1 = require("@nestjs/common");
 const app_controller_1 = require("./app.controller");
 const app_service_1 = require("./app.service");
-const users_module_1 = require("./users/users.module");
-const parts_module_1 = require("./parts/parts.module");
-const vendors_module_1 = require("./vendors/vendors.module");
-const ncrs_module_1 = require("./ncrs/ncrs.module");
+const users_module_1 = require("./modules/users/users.module");
+const parts_module_1 = require("./modules/parts/parts.module");
+const vendors_module_1 = require("./modules/vendors/vendors.module");
+const ncrs_module_1 = require("./modules/ncrs/ncrs.module");
+const webhooks_module_1 = require("./modules/webhooks/webhooks.module");
+const minio_module_1 = require("./infrastructure/minio/minio.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
 exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
-        imports: [users_module_1.UsersModule, parts_module_1.PartsModule, vendors_module_1.VendorsModule, ncrs_module_1.NcrsModule],
+        imports: [users_module_1.UsersModule, parts_module_1.PartsModule, vendors_module_1.VendorsModule, ncrs_module_1.NcrsModule, webhooks_module_1.WebhooksModule, minio_module_1.MinioModule],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService],
     })

@@ -23,6 +23,8 @@ import {
 import ClPrintPreview from "./ClPrintPreview";
 import QprPrintPreview from "./QprPrintPreview";
 import NcrPrintPreview from "./NcrPrintPreview";
+import { ncrService, mapNcrFromDb } from "@/services/ncrService";
+
 
 // Helper to map requiredRole -> human-readable stage label
 const stageLabel = (type: string, requiredRole?: string, status?: string): string => {
@@ -157,9 +159,15 @@ export default function ListQprDashboard({
         disposition: ncr.disposition || "-",
         status: ncr.status,
         requiredRole: ncr.requiredRole,
-        approvedBy: ncr.status === "APPROVED" || ncr.status === "CLOSED" ? ["QC Staff", "Section Head", "Dept Head"] : []
+        approvedBy: ncr.status === "APPROVED" || ncr.status === "CLOSED" ? ["QC Staff", "Section Head", "Dept Head"] : [],
+        locationFound: ncr.locationFound || "-",
+        problemType: ncr.problemType || "-",
+        foundBy: ncr.foundBy || "-",
+        docsToRevise: ncr.docsToRevise || "-",
+        images: ncr.images || []
       });
     });
+
 
     // 2. Add QPRs
     pendingQprs.forEach((qpr) => {
@@ -262,6 +270,43 @@ export default function ListQprDashboard({
 
   // Details modal state
   const [selectedDoc, setSelectedDoc] = useState<any | null>(null);
+
+  const handleViewDetail = (doc: any) => {
+    if (doc.type === "NCR" && typeof doc.id === "string" && doc.id.includes("-")) {
+      const dbId = doc.id.split("-")[1];
+      ncrService.getById(dbId)
+        .then((realNcr) => {
+          const mapped = mapNcrFromDb(realNcr);
+          setSelectedDoc({
+            id: `ncr-${mapped.id}`,
+            type: "NCR",
+            docNumber: mapped.ncrNumber,
+            date: mapped.date,
+            vendorName: mapped.supplierName,
+            partNumber: mapped.partNumber,
+            partName: mapped.partName,
+            qty: mapped.qty,
+            reject: mapped.reject,
+            defectType: mapped.defectType,
+            disposition: mapped.disposition,
+            status: mapped.status,
+            requiredRole: mapped.requiredRole,
+            locationFound: mapped.locationFound,
+            problemType: mapped.problemType,
+            foundBy: mapped.foundBy,
+            docsToRevise: mapped.docsToRevise,
+            images: mapped.images
+          });
+        })
+        .catch(err => {
+          console.error("Failed to load NCR details:", err);
+          alert("Gagal memuat detail NCR.");
+        });
+    } else {
+      setSelectedDoc(doc);
+    }
+  };
+
 
   // Unique vendors for the dropdown
   const vendors = Array.from(new Set(allDocuments.map(doc => doc.vendorName)));
@@ -629,12 +674,13 @@ export default function ListQprDashboard({
                       </td>
                       <td className="px-4 py-3 text-center">
                         <button
-                          onClick={() => setSelectedDoc(doc)}
+                          onClick={() => handleViewDetail(doc)}
                           className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-750 text-white rounded-md transition-all cursor-pointer flex items-center justify-center gap-1.5 mx-auto text-[10px] font-bold shadow-sm"
                         >
                           <Eye size={12} />
                           Detail
                         </button>
+
                       </td>
                     </tr>
                   );
@@ -681,11 +727,17 @@ export default function ListQprDashboard({
             defectType: selectedDoc.defectType,
             disposition: selectedDoc.disposition,
             status: selectedDoc.status,
-            date: selectedDoc.date
+            date: selectedDoc.date,
+            locationFound: selectedDoc.locationFound,
+            problemType: selectedDoc.problemType,
+            foundBy: selectedDoc.foundBy,
+            docsToRevise: selectedDoc.docsToRevise,
+            images: selectedDoc.images
           }}
           onClose={() => setSelectedDoc(null)}
         />
       )}
+
     </div>
   );
 }
