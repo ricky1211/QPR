@@ -130,7 +130,7 @@ export default function QprPrintPreview({ qpr, onClose, inline = false }: QprPre
         {/* Company Header */}
         <div className="flex items-center" style={{ borderBottom: "1px solid #000", padding: "6px 10px" }}>
           <div style={{ width: "170px", minWidth: "170px", marginRight: "12px", display: "flex", alignItems: "center" }}>
-            <img src="/logo-mtm.jpg" alt="PT MTM Logo" style={{ height: "26px", objectFit: "contain", display: "block" }} />
+            <img src="/qpr/logo-mtm.jpg" alt="PT MTM Logo" style={{ height: "26px", objectFit: "contain", display: "block" }} />
           </div>
           <div className="flex-1 text-center text-slate-700" style={{ fontSize: "7.5px", lineHeight: "1.6" }}>
             <div className="font-bold" style={{ fontSize: "9px" }}>PT MENARA TERUS MAKMUR</div>

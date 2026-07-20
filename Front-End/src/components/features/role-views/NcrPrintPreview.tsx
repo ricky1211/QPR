@@ -93,7 +93,7 @@ export default function NcrPrintPreview({ ncr, onClose, inline = false }: NcrPre
         <div style={{ display: "grid", gridTemplateColumns: "170px 1fr 130px", borderBottom: "2px solid #000", boxSizing: "border-box" }}>
           {/* Column 1: Logo Image only (image already has logo text) */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "6px 10px", borderRight: "1px solid #000" }}>
-            <img src="/logo-mtm.jpg" alt="PT MTM Logo" style={{ height: "26px", objectFit: "contain", display: "block" }} />
+            <img src="/qpr/logo-mtm.jpg" alt="PT MTM Logo" style={{ height: "26px", objectFit: "contain", display: "block" }} />
           </div>
 
           {/* Column 2: Title */}

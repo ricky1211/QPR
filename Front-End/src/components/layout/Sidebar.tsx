@@ -103,7 +103,7 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
             {sidebarOpen ? (
               <div className="flex flex-col items-start gap-1">
                 <img
-                  src="/logo-mtm.png"
+                  src="/qpr/logo-mtm.png"
                   alt="MTM Logo"
                   className="h-[40px] w-auto object-contain transition-all duration-300"
                 />
@@ -114,7 +114,7 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
             ) : (
               <>
                 <img
-                  src="/logo-mtm.png"
+                  src="/qpr/logo-mtm.png"
                   alt="MTM Logo"
                   className="h-[40px] w-auto object-contain xl:hidden"
                 />

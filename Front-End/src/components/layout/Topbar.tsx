@@ -123,7 +123,7 @@ export default function Topbar({
 
         {/* Safety First Badge */}
         <img
-          src="/safety-first.jpg"
+          src="/qpr/safety-first.jpg"
           alt="Safety First Logo"
           className="h-[40px] sm:h-[48px] w-auto object-contain rounded-md hidden sm:block"
         />

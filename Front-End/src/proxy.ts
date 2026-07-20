@@ -21,7 +21,7 @@ export function proxy(request: NextRequest) {
 
   // Unauthenticated user trying to access a protected route → redirect to login
   if (!isPublicRoute && !sessionCookie) {
-    const loginUrl = new URL('/login', request.url)
+    const loginUrl = new URL('/qpr/login', request.url)
     // Preserve the original destination so we can redirect back after login
     loginUrl.searchParams.set('callbackUrl', pathname)
     return NextResponse.redirect(loginUrl)
@@ -29,7 +29,7 @@ export function proxy(request: NextRequest) {
 
   // Authenticated user visiting /login → redirect to dashboard
   if (isPublicRoute && sessionCookie) {
-    return NextResponse.redirect(new URL('/', request.url))
+    return NextResponse.redirect(new URL('/qpr', request.url))
   }
 
   return NextResponse.next()

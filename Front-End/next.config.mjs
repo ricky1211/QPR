@@ -6,6 +6,7 @@ const __dirname = path.dirname(__filename);
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  basePath: '/qpr',
   outputFileTracingRoot: path.join(__dirname, '..', '..'),
   images: {
     qualities: [75, 90],
