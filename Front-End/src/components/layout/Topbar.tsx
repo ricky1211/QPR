@@ -1,9 +1,10 @@
 "use client";
-
-import React, { useTransition } from "react";
+ 
+import React, { useTransition, useState } from "react";
 import { RefreshCw, Bell, ShieldAlert, CheckCircle2, FileText, Menu, LogOut } from "lucide-react";
 import { logoutAction } from "@/app/actions/auth";
-
+import { webhookService } from "@/services/webhookService";
+ 
 export default function Topbar({
   sidebarOpen,
   setSidebarOpen,
@@ -13,6 +14,22 @@ export default function Topbar({
   handleClearNotifications,
   activeTab
 }) {
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const handleSync = async () => {
+    if (isSyncing) return;
+    setIsSyncing(true);
+    try {
+      await webhookService.syncAll();
+      alert("Sinkronisasi master data (Supplier & Parts) dari Gateway berhasil!");
+    } catch (err: any) {
+      console.error("Sync error:", err);
+      alert(`Gagal sinkronisasi data: ${err.message || err}`);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   return (
     <header className="sticky top-0 z-10 flex items-center justify-between px-4 sm:px-6 h-[64px] sm:h-[72px] bg-white/90 backdrop-blur-md border-b border-slate-200">
       
@@ -50,11 +67,12 @@ export default function Topbar({
         
         {/* Refresh Button */}
         <button
-          onClick={() => alert("Menyegarkan data dari server...")}
-          className="p-2 sm:p-2.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-md border border-slate-200 transition-all touch-manipulation cursor-pointer"
-          title="Refresh Data"
+          onClick={handleSync}
+          disabled={isSyncing}
+          className="p-2 sm:p-2.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-md border border-slate-200 transition-all touch-manipulation cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Sinkronisasi Data"
         >
-          <RefreshCw size={15} />
+          <RefreshCw size={15} className={isSyncing ? "animate-spin text-blue-600" : ""} />
         </button>
 
         {/* Notification Bell Panel */}
