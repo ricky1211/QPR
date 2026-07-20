@@ -31,7 +31,7 @@ __decorate([
     __metadata("design:returntype", Object)
 ], AppController.prototype, "getWelcome", null);
 __decorate([
-    (0, common_1.Get)('api/status'),
+    (0, common_1.Get)('status'),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", Object)

@@ -5,6 +5,7 @@ const app_module_1 = require("./app.module");
 async function bootstrap() {
     const app = await core_1.NestFactory.create(app_module_1.AppModule);
     app.enableCors();
+    app.setGlobalPrefix('api');
     const port = process.env.PORT || 3001;
     await app.listen(port);
     console.log(`QPR NestJS Back-End running on: http://localhost:${port}`);

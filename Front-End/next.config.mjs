@@ -16,7 +16,7 @@ const nextConfig = {
     return [
       {
         source: '/qpr/api/:path*',
-        destination: 'http://localhost:3001/:path*',
+        destination: 'http://localhost:3001/api/:path*',
         basePath: false,
       },
     ];
