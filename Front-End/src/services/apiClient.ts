@@ -1,4 +1,6 @@
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/qpr/api';
+const BASE_URL = typeof window !== 'undefined' 
+  ? '/qpr/api' 
+  : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001');
 
 export async function apiRequest<T = any>(
   path: string,
