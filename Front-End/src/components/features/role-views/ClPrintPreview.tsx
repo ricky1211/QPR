@@ -47,8 +47,15 @@ export default function ClPrintPreview({ cl, onClose, inline = false }: ClPrevie
   const documentContent = (
     <div
       id="cl-print-area"
-      className={`bg-white text-slate-900 border border-black mx-auto p-8 ${inline ? "w-full shadow-sm" : "shadow-2xl w-full max-w-3xl my-16"}`}
-      style={{ fontFamily: "Arial, sans-serif", fontSize: "11px" }}
+      className={`bg-white text-slate-900 border border-black mx-auto ${inline ? "w-full shadow-sm" : "shadow-2xl my-4"}`}
+      style={{
+        fontFamily: "Arial, sans-serif",
+        fontSize: "11px",
+        width: inline ? "100%" : "210mm",
+        minHeight: inline ? "auto" : "297mm",
+        padding: inline ? "8px" : "15mm",
+        boxSizing: "border-box"
+      }}
     >
       {/* MTM Header */}
       <div className="flex justify-between items-start border-b border-black pb-4 text-left">
@@ -202,7 +209,7 @@ export default function ClPrintPreview({ cl, onClose, inline = false }: ClPrevie
         @media print {
           @page {
             size: A4 portrait;
-            margin: 10mm;
+            margin: 6mm !important;
           }
           html, body {
             height: auto;
@@ -216,15 +223,17 @@ export default function ClPrintPreview({ cl, onClose, inline = false }: ClPrevie
             position: relative !important;
             left: 0 !important;
             top: 0 !important;
-            width: 190mm !important;
-            height: auto !important;
+            width: 198mm !important;
+            height: 285mm !important;
             min-height: 0 !important;
             margin: 0 auto !important;
-            padding: 8mm !important;
+            padding: 6mm !important;
             border: 1px solid #000 !important;
             box-shadow: none !important;
             box-sizing: border-box !important;
             page-break-inside: avoid !important;
+            transform: scale(0.83) !important;
+            transform-origin: top center !important;
           }
         }
       `}</style>

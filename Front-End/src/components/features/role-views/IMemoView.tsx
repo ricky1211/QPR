@@ -21,16 +21,18 @@ import ConfirmationLetterPrintPreview from "./ConfirmationLetterPrintPreview";
 interface IMemoViewProps {
   confirmationLetters: any[];
   setConfirmationLetters: React.Dispatch<React.SetStateAction<any[]>>;
+  parts?: any[];
 }
 
 export default function IMemoView({
   confirmationLetters,
-  setConfirmationLetters
+  setConfirmationLetters,
+  parts = []
 }: IMemoViewProps) {
   const [selectedClId, setSelectedClId] = useState<string>(
     confirmationLetters.length > 0 ? confirmationLetters[0].id : ""
   );
-  const [activeSubTab, setActiveSubTab] = useState<"ssc_purchasing" | "buat_ssc_payment" | "reminder" | "kirim_cl">("ssc_purchasing");
+  const [activeSubTab, setActiveSubTab] = useState<"ssc_purchasing" | "buat_ssc_payment" | "reminder" | "kirim_cl" | "parts_per_vendor">("ssc_purchasing");
   const [copied, setCopied] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [previewCl, setPreviewCl] = useState<any | null>(null);
@@ -41,6 +43,7 @@ export default function IMemoView({
   const [selectedDetectedVendor, setSelectedDetectedVendor] = useState<string>("");
   const [printVendorFilter, setPrintVendorFilter] = useState<string>("");
   const [selectedLookUpVendor, setSelectedLookUpVendor] = useState<string>("");
+  const [selectedVendorForParts, setSelectedVendorForParts] = useState<string>("");
 
   // Ref to track pending auto-selection after CL upload adds new rows
   const pendingSelectIdRef = useRef<string | null>(null);
@@ -327,7 +330,29 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                 <Send size={13} />
                 KIRIM CL KE VENDOR
               </button>
+              <button
+                onClick={() => setActiveSubTab("parts_per_vendor")}
+                className={`w-full py-2 px-3 rounded-lg font-bold text-xs transition-all flex items-center gap-2 cursor-pointer ${
+                  activeSubTab === "parts_per_vendor"
+                    ? "bg-white text-blue-750 shadow-sm border border-slate-200/50"
+                    : "text-slate-500 hover:text-slate-800 hover:bg-slate-50/50"
+                }`}
+              >
+                <Building size={13} />
+                PARTS PER VENDOR
+              </button>
             </div>
+
+            {activeSubTab === "parts_per_vendor" && (
+              <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-sm space-y-2 text-left">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block border-b border-slate-100 pb-1">
+                  Info Parts Vendor
+                </span>
+                <p className="text-[10.5px] text-slate-550 font-bold leading-relaxed">
+                  Gunakan tab ini untuk melihat daftar komponen part dan allowance ratio untuk masing-masing Vendor.
+                </p>
+              </div>
+            )}
 
             {activeSubTab === "kirim_cl" && (
               <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-sm space-y-2 text-left">
@@ -390,12 +415,12 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
               {/* Toolbar */}
               <div className="px-6 py-3 border-b border-slate-200 bg-slate-50 flex justify-between items-center print:hidden">
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                  {activeSubTab === "buat_ssc_payment" ? "Form Input Memo SSC" : activeSubTab === "kirim_cl" ? "Otorisasi Pengiriman CL ke Vendor" : "Preview Template Sheet"}
+                  {activeSubTab === "buat_ssc_payment" ? "Form Input Memo SSC" : activeSubTab === "kirim_cl" ? "Otorisasi Pengiriman CL ke Vendor" : activeSubTab === "parts_per_vendor" ? "Daftar Komponen & Allowance Ratio per Vendor" : "Preview Template Sheet"}
                 </span>
                 <div className="flex gap-2">
-                  {activeSubTab === "buat_ssc_payment" ? (
+                  {activeSubTab === "buat_ssc_payment" || activeSubTab === "parts_per_vendor" ? (
                     <span className="text-[10px] text-slate-500 font-bold bg-slate-200 px-2.5 py-1 rounded">
-                      Mode Edit & Preview Aktif
+                      {activeSubTab === "parts_per_vendor" ? "Direktori Komponen Aktif" : "Mode Edit & Preview Aktif"}
                     </span>
                   ) : (
                     <>
@@ -437,6 +462,92 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                   : "p-6 md:p-10 items-center min-h-[600px]"
               }`}>
 
+
+                {activeSubTab === "parts_per_vendor" && (
+                  (() => {
+                    const vendorNames = Array.from(new Set(parts.map((p: any) => p.supplierName)));
+                    const activeVendorForParts = selectedVendorForParts || vendorNames[0] || "";
+                    const vendorParts = parts.filter((p: any) => p.supplierName === activeVendorForParts);
+                    return (
+                      <div className="w-full bg-white rounded-xl shadow-sm border border-slate-200 p-6 text-left space-y-5">
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-150 pb-4 gap-3">
+                          <div>
+                            <h4 className="text-base font-extrabold text-slate-800">Daftar Komponen Part per Vendor</h4>
+                            <p className="text-xs text-slate-400 font-bold mt-0.5">Filter dan lihat allowance ratio untuk masing-masing part yang disuplai oleh vendor.</p>
+                          </div>
+                          
+                          {/* Vendor Selector Dropdown */}
+                          <div className="space-y-1.5 text-xs w-full sm:w-72 shrink-0">
+                            <label className="block text-[9.5px] font-black text-slate-500 uppercase tracking-wider">
+                              Pilih Vendor / Supplier:
+                            </label>
+                            <select
+                              value={activeVendorForParts}
+                              onChange={(e) => setSelectedVendorForParts(e.target.value)}
+                              className="w-full p-2 text-xs border border-slate-300 rounded-lg bg-slate-50 font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer"
+                            >
+                              {vendorNames.map(name => (
+                                <option key={name} value={name}>{name}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+
+                        {/* Parts Table */}
+                        {activeVendorForParts ? (
+                          <div className="overflow-x-auto border border-slate-200 rounded-lg">
+                            <table className="w-full text-left text-xs border-collapse">
+                              <thead>
+                                <tr className="bg-slate-100 text-slate-700 font-extrabold border-b border-slate-200">
+                                  <th className="px-4 py-3 w-12 text-center">No</th>
+                                  <th className="px-4 py-3">No. Part Item</th>
+                                  <th className="px-4 py-3">Deskripsi / Nama Part</th>
+                                  <th className="px-4 py-3 text-center">Allowance Ratio</th>
+                                  <th className="px-4 py-3 text-center">Status QPR</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-200 font-semibold">
+                                {vendorParts.length === 0 ? (
+                                  <tr>
+                                    <td colSpan={5} className="px-4 py-8 text-center text-slate-400 italic">
+                                      Tidak ada part terdaftar untuk vendor ini.
+                                    </td>
+                                  </tr>
+                                ) : (
+                                  vendorParts.map((part: any, idx: number) => (
+                                    <tr key={part.id || idx} className="hover:bg-slate-50 transition-colors">
+                                      <td className="px-4 py-3 text-center text-slate-400 font-mono font-bold">{idx + 1}</td>
+                                      <td className="px-4 py-3 font-mono font-bold text-slate-800">{part.partNumber}</td>
+                                      <td className="px-4 py-3 text-slate-700">{part.partName}</td>
+                                      <td className="px-4 py-3 text-center">
+                                        <span className="bg-blue-50 text-blue-750 border border-blue-200 px-2 py-0.5 rounded font-mono font-black text-[11px] shadow-2xs">
+                                          {part.allowanceRatio}%
+                                        </span>
+                                      </td>
+                                      <td className="px-4 py-3 text-center">
+                                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                                          part.hasNcrActive
+                                            ? "bg-rose-50 text-rose-700 border-rose-250 animate-pulse"
+                                            : "bg-emerald-50 text-emerald-700 border-emerald-250"
+                                        }`}>
+                                          {part.hasNcrActive ? "NCR Active" : "Ready"}
+                                        </span>
+                                      </td>
+                                    </tr>
+                                  ))
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        ) : (
+                          <div className="text-center p-8 text-slate-400 italic">
+                            Pilih vendor terlebih dahulu untuk memuat data.
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()
+                )}
 
                 {activeSubTab === "ssc_purchasing" && (
                   /* Form Pengisian Manual + Live A4 Preview */
@@ -529,8 +640,16 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                             Pilih CL untuk Lihat Parts:
                           </label>
                           <select
-                            value={selectedLookUpVendor}
-                            onChange={e => setSelectedLookUpVendor(e.target.value)}
+                            value=""
+                            onChange={e => {
+                              const selectedId = e.target.value;
+                              if (selectedId) {
+                                const found = confirmationLetters.find(cl => cl.id === selectedId);
+                                if (found) {
+                                  setViewPartsCl(found);
+                                }
+                              }
+                            }}
                             className="w-full p-1.5 text-xs border border-slate-300 rounded-lg bg-white font-bold text-slate-800 focus:outline-none cursor-pointer"
                           >
                             <option value="">— Pilih Confirmation Letter —</option>
@@ -540,117 +659,8 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                               </option>
                             ))}
                           </select>
-                          {selectedLookUpVendor && (() => {
-                            const viewCl = confirmationLetters.find(cl => cl.id === selectedLookUpVendor);
-                            return viewCl ? (
-                              <span className="text-[9px] font-bold text-violet-700 bg-violet-50 border border-violet-200 px-1.5 py-0.5 rounded block truncate">
-                                ✓ {viewCl.supplierName} — {viewCl.amount}
-                              </span>
-                            ) : null;
-                          })()}
-                        </div>
-
-                        {/* 3. Filter Cetak PDF */}
-                        <div className="space-y-1.5 text-xs">
-                          <label className="block text-[9.5px] font-black text-slate-500 uppercase tracking-wider">
-                            Cakupan Cetak / Kirim PDF:
-                          </label>
-                          <select
-                            value={printVendorFilter}
-                            onChange={e => setPrintVendorFilter(e.target.value)}
-                            className="w-full p-1.5 text-xs border border-slate-300 rounded-lg bg-white font-black text-blue-750 focus:outline-none cursor-pointer"
-                          >
-                            <option value="">Kirim &amp; Cetak Semua Vendor</option>
-                            {Array.from(new Set(confirmationLetters.map(cl => cl.supplierName))).map((name: string) => (
-                              <option key={name} value={name}>Hanya {name}</option>
-                            ))}
-                          </select>
                         </div>
                       </div>
-
-                      {/* ── VIEW PARTS TABLE: Tampil jika ada CL yang dipilih ── */}
-                      {selectedLookUpVendor && (() => {
-                        const viewCl = confirmationLetters.find(cl => cl.id === selectedLookUpVendor);
-                        if (!viewCl) return null;
-
-                        // Ambil items dari CL terpilih, fallback ke dummy data jika kosong
-                        let partItems: any[] = viewCl.items || [];
-                        if (partItems.length === 0) {
-                          if (viewCl.supplierName?.includes("JAYADI")) {
-                            partItems = [
-                              { no: 1, partName: "Motherboard X1", totalQty: 1000, qtyNG: 10, ngActual: 1.0, stdAllowance: 5, qtyClaim: 5 },
-                              { no: 2, partName: "Gelas Kaca", totalQty: 500, qtyNG: 3, ngActual: 0.6, stdAllowance: 3, qtyClaim: 0 }
-                            ];
-                          } else if (viewCl.supplierName?.includes("IKAN BAKAR")) {
-                            partItems = [
-                              { no: 1, partName: "Harddisk 1TB", totalQty: 2000, qtyNG: 20, ngActual: 1.0, stdAllowance: 10, qtyClaim: 10 },
-                              { no: 2, partName: "CPU Fan Cooler", totalQty: 800, qtyNG: 4, ngActual: 0.5, stdAllowance: 4, qtyClaim: 0 }
-                            ];
-                          } else {
-                            partItems = [
-                              { no: 1, partName: "CONE RACE ALL TYPE", totalQty: 3000, qtyNG: 15, ngActual: 0.5, stdAllowance: 15, qtyClaim: 0 }
-                            ];
-                          }
-                        }
-
-                        return (
-                          <div className="border border-violet-200 rounded-lg bg-violet-50/30 p-3 space-y-2">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <span className="text-[9.5px] font-black text-violet-800 uppercase tracking-wider">
-                                  Part Details: {viewCl.supplierName}
-                                </span>
-                                <span className="text-[8.5px] font-bold text-violet-600 bg-white border border-violet-200 px-1.5 py-0.5 rounded">
-                                  {viewCl.clNumber}
-                                </span>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => setSelectedLookUpVendor("")}
-                                className="text-[9px] font-bold text-slate-400 hover:text-red-500 transition-colors cursor-pointer"
-                              >
-                                ✕ Tutup
-                              </button>
-                            </div>
-                            <div className="overflow-x-auto border border-violet-200 rounded-lg bg-white">
-                              <table className="w-full text-left text-[10px] border-collapse">
-                                <thead>
-                                  <tr className="bg-violet-600 text-white text-center">
-                                    <th className="px-2 py-1.5 border border-violet-500 font-bold w-8">No</th>
-                                    <th className="px-2 py-1.5 border border-violet-500 font-bold text-left">Part Name / Description</th>
-                                    <th className="px-2 py-1.5 border border-violet-500 font-bold">Total Qty</th>
-                                    <th className="px-2 py-1.5 border border-violet-500 font-bold">Qty NG</th>
-                                    <th className="px-2 py-1.5 border border-violet-500 font-bold">NG % Actual</th>
-                                    <th className="px-2 py-1.5 border border-violet-500 font-bold">Std Allowance</th>
-                                    <th className="px-2 py-1.5 border border-violet-500 font-bold">Qty Claim</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {partItems.map((item: any, idx: number) => {
-                                    const ngPct = item.ngActual ?? (item.totalQty > 0 ? ((item.qtyNG / item.totalQty) * 100).toFixed(2) : 0);
-                                    const isOver = parseFloat(String(ngPct)) > 0.5;
-                                    return (
-                                      <tr key={idx} className={`border-b border-slate-100 hover:bg-violet-50/50 transition-colors ${isOver ? 'bg-red-50/30' : ''}`}>
-                                        <td className="px-2 py-1.5 text-center text-slate-500 font-mono font-bold">{item.no || idx + 1}</td>
-                                        <td className="px-2 py-1.5 text-slate-800 font-bold">{item.partName}</td>
-                                        <td className="px-2 py-1.5 text-center font-mono text-slate-700">{item.totalQty?.toLocaleString()}</td>
-                                        <td className="px-2 py-1.5 text-center font-mono font-bold text-red-600">{item.qtyNG}</td>
-                                        <td className="px-2 py-1.5 text-center font-mono">
-                                          <span className={`font-bold px-1.5 py-0.5 rounded text-[9px] ${isOver ? 'bg-red-100 text-red-700 border border-red-200' : 'bg-green-50 text-green-700 border border-green-200'}`}>
-                                            {ngPct}%
-                                          </span>
-                                        </td>
-                                        <td className="px-2 py-1.5 text-center font-mono text-slate-600">{item.stdAllowance}</td>
-                                        <td className="px-2 py-1.5 text-center font-mono font-bold text-indigo-700">{item.qtyClaim}</td>
-                                      </tr>
-                                    );
-                                  })}
-                                </tbody>
-                              </table>
-                            </div>
-                          </div>
-                        );
-                      })()}
 
                       {/* Gold Table Rows Inputs */}
                       <div className="space-y-2 pt-1">
@@ -1286,7 +1296,7 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                               </div>
 
                               {/* Signatures Section */}
-                              <div className="mt-8">
+                              <div className="mt-4">
                                 <table className="w-full border-collapse border border-black text-center text-[10px] font-bold">
                                   <thead>
                                     <tr className="bg-[#e5a93b] text-black border border-black">
@@ -1341,7 +1351,7 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                               </div>
 
                               {/* Remarks Footer */}
-                              <div className="mt-4 text-[9px] text-black italic leading-normal">
+                              <div className="mt-2 text-[9px] text-black italic leading-normal">
                                 <div className="font-bold">Remark:</div>
                                 <div><sup>1)</sup> Every signing person must write down his / her full name in the grey box and his/her function in the blue box</div>
                               </div>
@@ -1483,9 +1493,34 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
       )}
       <style>{`
         @media print {
+          @page {
+            size: A4 portrait;
+            margin: 6mm !important;
+          }
+          html, body {
+            height: auto;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #fff !important;
+          }
           body * { visibility: hidden; }
           #internal-memo-sheet, #internal-memo-sheet * { visibility: visible; }
-          #internal-memo-sheet { position: absolute; left: 0; top: 0; width: 100%; margin: 0; padding: 0; border: none; box-shadow: none; }
+          #internal-memo-sheet {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 198mm !important;
+            height: 280mm !important;
+            min-height: 0 !important;
+            margin: 0 auto !important;
+            padding: 4mm !important;
+            border: 1px solid #000 !important;
+            box-shadow: none !important;
+            box-sizing: border-box !important;
+            page-break-inside: avoid !important;
+            transform: scale(0.74) !important;
+            transform-origin: top center !important;
+          }
         }
       `}</style>
       {previewCl && (
@@ -1495,41 +1530,33 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
         />
       )}
       {viewPartsCl && (() => {
-        const vName = (viewPartsCl.supplierName || "").toUpperCase();
-        let detectedParts: { partNumber: string; partName: string }[] = [];
-        if (vName.includes("JAYADI")) {
-          detectedParts = [
-            { partNumber: "MB-001", partName: "Motherboard X1" },
-            { partNumber: "GL-001", partName: "Gelas Kaca" },
-            { partNumber: "KB-004", partName: "Keyboard Mechanical" }
-          ];
-        } else if (vName.includes("IKAN BAKAR")) {
-          detectedParts = [
-            { partNumber: "HD-002", partName: "Harddisk 1TB" },
-            { partNumber: "CP-003", partName: "CPU Fan Cooler" }
-          ];
-        } else if (vName.includes("RUICHENG") || vName.includes("SHIJIAZHUANG")) {
-          detectedParts = [
-            { partNumber: "CR-001", partName: "CONE RACE ALL TYPE" }
-          ];
-        } else if (vName.includes("IMPORTED")) {
-          detectedParts = [
-            { partNumber: "IMP-00A", partName: "IMPORTED PARTS SAMPLE A" }
-          ];
-        } else {
-          detectedParts = [
-            { partNumber: "GEN-001", partName: "ALL TYPE PART FINISH" },
-            { partNumber: "GEN-002", partName: "SPAREPART FINISH QUALITY" }
-          ];
+        const viewCl = viewPartsCl;
+        let partItems: any[] = viewCl.items || [];
+        if (partItems.length === 0) {
+          if (viewCl.supplierName?.includes("JAYADI")) {
+            partItems = [
+              { no: 1, partName: "Motherboard X1", totalQty: 1000, qtyNG: 10, ngActual: 1.0, stdAllowance: 5, qtyClaim: 5 },
+              { no: 2, partName: "Gelas Kaca", totalQty: 500, qtyNG: 3, ngActual: 0.6, stdAllowance: 3, qtyClaim: 0 }
+            ];
+          } else if (viewCl.supplierName?.includes("IKAN BAKAR")) {
+            partItems = [
+              { no: 1, partName: "Harddisk 1TB", totalQty: 2000, qtyNG: 20, ngActual: 1.0, stdAllowance: 10, qtyClaim: 10 },
+              { no: 2, partName: "CPU Fan Cooler", totalQty: 800, qtyNG: 4, ngActual: 0.5, stdAllowance: 4, qtyClaim: 0 }
+            ];
+          } else {
+            partItems = [
+              { no: 1, partName: "CONE RACE ALL TYPE", totalQty: 3000, qtyNG: 15, ngActual: 0.5, stdAllowance: 15, qtyClaim: 0 }
+            ];
+          }
         }
 
         return (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in zoom-in-95 duration-150">
-            <div className="bg-white rounded-xl shadow-2xl border border-slate-200 max-w-xl w-full max-h-[90vh] overflow-hidden flex flex-col font-sans">
-              <div className="p-4 bg-gradient-to-r from-violet-700 to-indigo-800 text-white flex justify-between items-center">
+            <div className="bg-white rounded-xl shadow-2xl border border-slate-200 max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col font-sans">
+              <div className="p-4 bg-gradient-to-r from-blue-700 via-indigo-700 to-indigo-800 text-white flex justify-between items-center">
                 <div>
-                  <h3 className="text-sm font-extrabold uppercase tracking-wider">Daftar Parts Vendor</h3>
-                  <p className="text-[10px] text-violet-200 font-semibold mt-0.5">Vendor Terdeteksi: {viewPartsCl.supplierName || "—"}</p>
+                  <h3 className="text-sm font-extrabold uppercase tracking-wider">Rincian Part Kualitas Vendor</h3>
+                  <p className="text-[10px] text-indigo-200 font-semibold mt-0.5">Vendor: {viewCl.supplierName || "—"} | CL: {viewCl.clNumber || "—"}</p>
                 </div>
                 <button
                   type="button"
@@ -1540,32 +1567,63 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                 </button>
               </div>
               <div className="p-5 overflow-y-auto space-y-4 text-left">
-                <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-slate-650 text-[11px] leading-relaxed">
-                  Berikut adalah daftar master parts aktif yang dipasok oleh <strong className="text-slate-800">{viewPartsCl.supplierName || "Vendor"}</strong>. Daftar ini dimuat otomatis berdasarkan data vendor yang terdeteksi pada baris CL.
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-slate-655 text-[11px] font-semibold leading-relaxed">
+                  Berikut adalah daftar rincian part reject/NG dan allowance ratio untuk denda kualitas <strong className="text-slate-800">{viewCl.clNumber}</strong>.
                 </div>
-                <div className="border border-slate-200 rounded-lg overflow-hidden">
-                  <table className="w-full text-xs text-left border-collapse">
-                    <thead className="bg-slate-100 text-slate-700 font-extrabold uppercase text-[10px] tracking-wider border-b border-slate-200">
-                      <tr>
-                        <th className="px-4 py-2.5 w-12 text-center">No</th>
-                        <th className="px-4 py-2.5 w-32">Part Number</th>
-                        <th className="px-4 py-2.5">Part Name</th>
-                        <th className="px-4 py-2.5 w-24 text-center">Status</th>
+                
+                <div className="border border-slate-200 rounded-lg overflow-x-auto bg-white p-1.5 shadow-inner">
+                  <table className="w-full text-xs text-left border-collapse min-w-[700px]">
+                    <thead>
+                      <tr className="text-[10px] text-slate-500 font-extrabold uppercase border-b border-slate-200 tracking-wider">
+                        <th className="p-2 w-12 text-center">No</th>
+                        <th className="p-2">Part Name / Description</th>
+                        <th className="p-2 text-center w-24">Total Qty</th>
+                        <th className="p-2 text-center w-24">Qty NG</th>
+                        <th className="p-2 text-center w-24">NG % Actual</th>
+                        <th className="p-2 text-center w-28">Std Allowance</th>
+                        <th className="p-2 text-center w-24">Qty Claim</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 font-bold text-slate-750">
-                      {detectedParts.map((part, idx) => (
-                        <tr key={part.partNumber} className="hover:bg-slate-50/50">
-                          <td className="px-4 py-3 text-center text-slate-400 font-mono">{idx + 1}</td>
-                          <td className="px-4 py-3 text-blue-700 font-mono text-[11px]">{part.partNumber}</td>
-                          <td className="px-4 py-3 text-slate-900">{part.partName}</td>
-                          <td className="px-4 py-3 text-center">
-                            <span className="inline-flex items-center px-2 py-0.5 bg-green-55 text-green-700 rounded text-[9px] font-black uppercase">
-                              Active
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
+                    <tbody className="divide-y divide-slate-150">
+                      {partItems.map((item: any, idx: number) => {
+                        const ngPct = item.ngActual ?? (item.totalQty > 0 ? ((item.qtyNG / item.totalQty) * 100).toFixed(2) : 0);
+                        const isOver = parseFloat(String(ngPct)) > 0.5;
+                        return (
+                          <tr key={idx} className={`hover:bg-slate-50/50 transition-colors ${isOver ? 'bg-red-50/20' : ''}`}>
+                            <td className="p-2 text-center font-mono font-bold text-slate-400">{item.no || idx + 1}</td>
+                            <td className="p-2 font-bold text-slate-800">
+                              <div className="w-full px-2.5 py-1 border border-slate-300 bg-slate-50 text-slate-800 rounded font-sans text-[11px]">
+                                {item.partName}
+                              </div>
+                            </td>
+                            <td className="p-2">
+                              <div className="w-full px-2 py-1 border border-slate-350 bg-slate-50 text-center font-mono text-[11px] text-slate-700 rounded">
+                                {item.totalQty?.toLocaleString()}
+                              </div>
+                            </td>
+                            <td className="p-2">
+                              <div className="w-full px-2 py-1 border border-slate-350 bg-slate-50 text-center font-mono font-bold text-red-650 rounded">
+                                {item.qtyNG}
+                              </div>
+                            </td>
+                            <td className="p-2 text-center">
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded font-mono font-bold text-[10px] ${isOver ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-green-50 text-green-700 border border-green-200'}`}>
+                                {ngPct}%
+                              </span>
+                            </td>
+                            <td className="p-2">
+                              <div className="w-full px-2 py-1 border border-slate-350 bg-slate-50 text-center font-mono text-[11px] text-slate-600 rounded">
+                                {item.stdAllowance}%
+                              </div>
+                            </td>
+                            <td className="p-2">
+                              <div className="w-full px-2 py-1 border border-slate-350 bg-slate-50 text-center font-mono font-bold text-indigo-700 rounded">
+                                {item.qtyClaim}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -1574,9 +1632,9 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                 <button
                   type="button"
                   onClick={() => setViewPartsCl(null)}
-                  className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-850 text-xs font-bold rounded-lg transition-all cursor-pointer"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg transition-all cursor-pointer shadow-sm active:scale-95"
                 >
-                  Tutup
+                  Tutup Rincian
                 </button>
               </div>
             </div>

@@ -640,16 +640,47 @@ export default function Dashboard({
             <span className="text-[10px] font-black bg-violet-50 text-violet-700 border border-violet-150 px-2 py-0.5 rounded uppercase">Stuck Queue</span>
           </div>
 
-          <div className="space-y-3 pt-2 text-xs">
+          <div className="space-y-3.5 pt-2 text-xs">
             {[
-              { label: "Sec. Head", value: currentActiveQprs.filter((q: any) => q.requiredRole === "Section Head").length, days: secHeadDays, max: 5, color: "from-blue-500 to-blue-600" },
-              { label: "Dept. Head", value: currentActiveQprs.filter((q: any) => q.requiredRole === "Dept Head").length, days: deptHeadDays, max: 5, color: "from-blue-500 to-blue-600" },
-              { label: "Div. Head", value: currentActiveQprs.filter((q: any) => q.requiredRole === "Div Head").length, days: divHeadDays, max: 5, color: "from-blue-500 to-blue-600" },
-              { label: "Accounting", value: currentActiveQprs.filter((q: any) => q.requiredRole === "Accounting" || q.status === "WAITING_VENDOR" || q.status === "APPROVED_BY_VENDOR").length + currentActiveConfirmationLetters.filter((cl: any) => cl.status === "PENDING").length, days: accountingDays, max: 5, color: "from-blue-500 to-blue-600" }
+              { 
+                label: "Sec. Head", 
+                value: currentActiveQprs.filter((q: any) => q.requiredRole === "Section Head").length, 
+                days: secHeadDays, 
+                max: 5, 
+                color: "from-blue-500 to-blue-600",
+                docs: currentActiveQprs.filter((q: any) => q.requiredRole === "Section Head").map((q: any) => `${q.qprNumber} (${q.supplierName})`)
+              },
+              { 
+                label: "Dept. Head", 
+                value: currentActiveQprs.filter((q: any) => q.requiredRole === "Dept Head").length, 
+                days: deptHeadDays, 
+                max: 5, 
+                color: "from-blue-500 to-blue-600",
+                docs: currentActiveQprs.filter((q: any) => q.requiredRole === "Dept Head").map((q: any) => `${q.qprNumber} (${q.supplierName})`)
+              },
+              { 
+                label: "Div. Head", 
+                value: currentActiveQprs.filter((q: any) => q.requiredRole === "Div Head").length, 
+                days: divHeadDays, 
+                max: 5, 
+                color: "from-blue-500 to-blue-600",
+                docs: currentActiveQprs.filter((q: any) => q.requiredRole === "Div Head").map((q: any) => `${q.qprNumber} (${q.supplierName})`)
+              },
+              { 
+                label: "Accounting", 
+                value: currentActiveQprs.filter((q: any) => q.requiredRole === "Accounting" || q.status === "WAITING_VENDOR" || q.status === "APPROVED_BY_VENDOR").length + currentActiveConfirmationLetters.filter((cl: any) => cl.status === "PENDING").length, 
+                days: accountingDays, 
+                max: 5, 
+                color: "from-blue-500 to-blue-600",
+                docs: [
+                  ...currentActiveQprs.filter((q: any) => q.requiredRole === "Accounting" || q.status === "WAITING_VENDOR" || q.status === "APPROVED_BY_VENDOR").map((q: any) => `${q.qprNumber} (${q.supplierName})`),
+                  ...currentActiveConfirmationLetters.filter((cl: any) => cl.status === "PENDING").map((cl: any) => `${cl.clNumber} (${cl.supplierName})`)
+                ]
+              }
             ].map((bar, idx) => {
               const widthPct = bar.value === 0 ? 0 : Math.min(100, Math.max(10, (bar.value / bar.max) * 100));
               return (
-                <div key={idx} className="space-y-1.5">
+                <div key={idx} className="space-y-2 border-b border-slate-100 pb-3 last:border-b-0 last:pb-0">
                   <div className="flex justify-between font-bold text-slate-700 text-[11px]">
                     <span>{bar.label}</span>
                     <div className="flex gap-2 items-center font-mono">
@@ -665,6 +696,21 @@ export default function Dashboard({
                       style={{ width: `${widthPct}%` }}
                     />
                   </div>
+                  {/* Detailed list of stuck documents */}
+                  {bar.docs.length > 0 ? (
+                    <div className="text-[10px] text-slate-500 flex flex-wrap gap-1.5 items-center mt-1">
+                      <span className="font-extrabold text-slate-400 uppercase tracking-wider shrink-0 text-[8.5px]">Dokumen Stuck:</span>
+                      {bar.docs.map((docName, dIdx) => (
+                        <span key={dIdx} className="bg-slate-100 border border-slate-200 text-slate-800 px-1.5 py-0.5 rounded font-mono font-black text-[9px] shadow-2xs hover:bg-violet-50 hover:text-violet-700 hover:border-violet-200 transition-colors">
+                          {docName}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-[9px] text-slate-400 italic mt-0.5">
+                      Tidak ada dokumen mengendap (Clear)
+                    </div>
+                  )}
                 </div>
               );
             })}

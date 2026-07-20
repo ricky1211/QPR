@@ -314,6 +314,40 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
       closedPaid: false,
       debitNoteCount: 0,
       reminderCount: 1
+    },
+    {
+      id: "cl-4",
+      clNumber: "CL/2026/06/004",
+      qprNumber: "QPR/2026/05/RUA_BIASA",
+      supplierName: "SHIJIAZHUANG RUICHENG TRADE CO., LTD",
+      dateSent: "2026-06-28",
+      amount: "Rp 32.000.000",
+      status: "APPROVED_BY_VENDOR",
+      requiredRole: "Sect Accounting",
+      memoStatus: "SENT_AOP",
+      reminderSentCount: 1,
+      sentToVendor: true,
+      clApprovalProgress: { sectAccounting: false, deptAccounting: false },
+      closedPaid: false,
+      debitNoteCount: 0,
+      reminderCount: 1
+    },
+    {
+      id: "cl-5",
+      clNumber: "CL/2026/06/005",
+      qprNumber: "QPR/2026/04/JAYADI",
+      supplierName: "PT JAYADI",
+      dateSent: "2026-06-05",
+      amount: "Rp 10.000.000",
+      status: "FULLY_APPROVED",
+      requiredRole: "Closed",
+      memoStatus: "SENT_AOP",
+      reminderSentCount: 1,
+      sentToVendor: true,
+      clApprovalProgress: { sectAccounting: true, deptAccounting: true },
+      closedPaid: false,
+      debitNoteCount: 0,
+      reminderCount: 1
     }
   ]);
 
@@ -792,6 +826,7 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
               <IMemoView
                 confirmationLetters={confirmationLetters}
                 setConfirmationLetters={setConfirmationLetters}
+                parts={parts}
               />
             )}
 

@@ -73,6 +73,44 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
     return n.status === "APPROVED" || n.status === "CLOSED";
   });
 
+  // Group NCRs by Vendor -> Part
+  const groupedNcrs = React.useMemo(() => {
+    const groups: Record<string, Record<string, any[]>> = {};
+
+    approvedNcrs.forEach(ncr => {
+      const vendor = ncr.supplierName || "Unknown Vendor";
+      const partKey = `${ncr.partName || "Unknown Part"} (${ncr.partNumber || "-"})`;
+
+      if (!groups[vendor]) {
+        groups[vendor] = {};
+      }
+      if (!groups[vendor][partKey]) {
+        groups[vendor][partKey] = [];
+      }
+      groups[vendor][partKey].push(ncr);
+    });
+
+    return groups;
+  }, [approvedNcrs]);
+
+  const formatDateIndo = (dateStr: string) => {
+    if (!dateStr) return "-";
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      const day = String(d.getDate()).padStart(2, "0");
+      const months = [
+        "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+        "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+      ];
+      const month = months[d.getMonth()];
+      const year = d.getFullYear();
+      return `${day} ${month} ${year}`;
+    } catch (e) {
+      return dateStr;
+    }
+  };
+
   // Auto-fill form from selected NCR
   const handleSelectNcr = (ncr: any) => {
     setSelectedNcrId(ncr.id);
@@ -307,52 +345,76 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
             </button>
 
             {ncrPanelOpen && (
-              <div className="p-4 border-t border-slate-100">
+              <div className="p-4 border-t border-slate-100 max-h-[400px] overflow-y-auto">
                 {approvedNcrs.length === 0 ? (
                   <div className="text-center py-6 text-slate-400">
                     <FileText size={28} className="mx-auto mb-2 text-slate-300" />
                     <p className="text-xs font-semibold">Belum ada NCR yang fully approved dan melewati batas 0.5%.</p>
                   </div>
                 ) : (
-                  <div className="space-y-2">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Klik salah satu NCR untuk mengisi form otomatis:</p>
-                    {approvedNcrs.map(ncr => {
-                      const ngRatio = ((ncr.reject || 0) / (ncr.qty || 1) * 100).toFixed(2);
-                      const isSelected = selectedNcrId === ncr.id;
-                      return (
-                        <button
-                          key={ncr.id}
-                          type="button"
-                          onClick={() => handleSelectNcr(ncr)}
-                          className={`w-full text-left px-4 py-3 rounded-lg border transition-all cursor-pointer ${
-                            isSelected
-                              ? 'border-violet-400 bg-violet-50 shadow-sm'
-                              : 'border-slate-200 bg-slate-50 hover:bg-slate-100 hover:border-slate-300'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <span className="text-[10px] font-black text-slate-800 font-mono">{ncr.ncrNumber}</span>
-                              <span className="mx-2 text-slate-300">|</span>
-                              <span className="text-[10px] font-bold text-slate-600">{ncr.supplierName}</span>
+                  <div className="space-y-4">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                      Klik salah satu NCR di bawah untuk mengisi form otomatis secara detail:
+                    </p>
+                    {Object.entries(groupedNcrs).map(([vendor, partsGroup]) => (
+                      <div key={vendor} className="border border-slate-200 rounded-xl p-3 bg-slate-55/40 space-y-3 shadow-xs">
+                        <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-violet-650 animate-pulse" />
+                          <h5 className="text-[11px] font-black text-slate-900 uppercase tracking-wider">{vendor}</h5>
+                        </div>
+                        <div className="space-y-3.5 pl-1">
+                          {Object.entries(partsGroup).map(([partKey, ncrsList]) => (
+                            <div key={partKey} className="space-y-2">
+                              <h6 className="text-[10px] font-black text-violet-700 bg-violet-50/50 px-2 py-0.5 rounded border border-violet-100/50 inline-block">
+                                {partKey}
+                              </h6>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                {ncrsList.map(ncr => {
+                                  const ngRatio = (typeof ncr.reject === 'number' && typeof ncr.qty === 'number') 
+                                    ? ((ncr.reject / ncr.qty) * 100).toFixed(2) 
+                                    : "0.00";
+                                  const isSelected = selectedNcrId === ncr.id;
+                                  return (
+                                    <button
+                                      key={ncr.id}
+                                      type="button"
+                                      onClick={() => handleSelectNcr(ncr)}
+                                      className={`w-full text-left px-3 py-2.5 rounded-lg border transition-all cursor-pointer relative overflow-hidden group/item ${
+                                        isSelected
+                                          ? 'border-violet-500 bg-violet-50 shadow-sm ring-1 ring-violet-500'
+                                          : 'border-slate-200 bg-white hover:bg-violet-50/20 hover:border-violet-300 hover:shadow-xs'
+                                      }`}
+                                    >
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-[9px] font-black text-slate-800 font-mono group-hover/item:text-violet-750 transition-colors">
+                                          {ncr.ncrNumber}
+                                        </span>
+                                        <span className="text-[9px] font-black text-red-650 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded">
+                                          NG {ngRatio}%
+                                        </span>
+                                      </div>
+                                      <div className="mt-1.5 flex flex-wrap gap-x-2 gap-y-0.5 text-[9px] text-slate-650 font-bold">
+                                        <span className="text-slate-800 font-extrabold">{formatDateIndo(ncr.date)}</span>
+                                        <span>•</span>
+                                        <span>{ncr.reject || 0} NG dari {ncr.qty || 0} pcs</span>
+                                      </div>
+                                      {ncr.defectType && (
+                                        <div className="mt-1 text-[8px] text-slate-400 italic font-medium truncate">
+                                          Defect: {ncr.defectType}
+                                        </div>
+                                      )}
+                                      {isSelected && (
+                                        <div className="absolute top-0 right-0 h-full w-1.5 bg-violet-650" />
+                                      )}
+                                    </button>
+                                  );
+                                })}
+                              </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-[9px] font-black text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded">
-                                NG {ngRatio}%
-                              </span>
-                              {isSelected && (
-                                <span className="text-[9px] font-black text-violet-700 bg-violet-100 px-2 py-0.5 rounded">
-                                  ✓ Dipilih
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="mt-1 text-[9px] text-slate-500 font-semibold">
-                            {ncr.partName} &nbsp;•&nbsp; {ncr.reject || 0} NG dari {ncr.qty || 0} pcs &nbsp;•&nbsp; {ncr.defectType || '-'}
-                          </div>
-                        </button>
-                      );
-                    })}
+                          ))}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>

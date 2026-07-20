@@ -19,10 +19,11 @@ interface ClPreviewProps {
     items?: any[];
     clApprovalProgress?: { sectAccounting?: boolean; deptAccounting?: boolean };
   };
-  onClose: () => void;
+  onClose?: () => void;
+  inline?: boolean;
 }
 
-export default function ConfirmationLetterPrintPreview({ cl, onClose }: ClPreviewProps) {
+export default function ConfirmationLetterPrintPreview({ cl, onClose, inline = false }: ClPreviewProps) {
   const handlePrint = () => {
     window.print();
   };
@@ -103,13 +104,13 @@ export default function ConfirmationLetterPrintPreview({ cl, onClose }: ClPrevie
         {/* Confirmation Letter PDF Document Layout */}
         <div
           id="cl-print-area"
-          className="bg-white shadow-2xl my-4 text-black p-12 text-left"
+          className={`bg-white mx-auto ${inline ? "w-full shadow-sm" : "shadow-2xl my-4 text-black border border-black"}`}
           style={{
             fontFamily: '"Times New Roman", Times, serif',
             fontSize: "12px",
-            width: "210mm",
-            minHeight: "297mm",
-            padding: "20mm",
+            width: inline ? "100%" : "210mm",
+            minHeight: inline ? "auto" : "297mm",
+            padding: inline ? "8px" : "20mm",
             boxSizing: "border-box"
           }}
         >
@@ -259,7 +260,7 @@ export default function ConfirmationLetterPrintPreview({ cl, onClose }: ClPrevie
         @media print {
           @page {
             size: A4 portrait;
-            margin: 10mm;
+            margin: 6mm !important;
           }
           html, body {
             height: auto;
@@ -273,15 +274,17 @@ export default function ConfirmationLetterPrintPreview({ cl, onClose }: ClPrevie
             position: relative !important;
             left: 0 !important;
             top: 0 !important;
-            width: 190mm !important;
-            height: 277mm !important;
+            width: 198mm !important;
+            height: 285mm !important;
             min-height: 0 !important;
             margin: 0 auto !important;
-            padding: 10mm !important;
-            border: 1.5px solid #000 !important;
+            padding: 6mm !important;
+            border: 1px solid #000 !important;
             box-shadow: none !important;
             box-sizing: border-box !important;
             page-break-inside: avoid !important;
+            transform: scale(0.83) !important;
+            transform-origin: top center !important;
           }
         }
       `}</style>

@@ -54,8 +54,15 @@ export default function AopMemoPrintPreview({ memo, onClose, onSend }: AopMemoPr
       {/* Internal Memorandum PDF Document Layout */}
       <div
         id="aop-memo-print-area"
-        className="bg-white shadow-2xl w-full max-w-2xl my-16 text-slate-900 p-12 text-left"
-        style={{ fontFamily: "Arial, sans-serif", fontSize: "11px", minHeight: "842px" }}
+        className="bg-white shadow-2xl my-4 text-slate-900 text-left border border-black mx-auto"
+        style={{
+          fontFamily: "Arial, sans-serif",
+          fontSize: "11px",
+          width: "210mm",
+          minHeight: "297mm",
+          padding: "15mm",
+          boxSizing: "border-box"
+        }}
       >
         {/* MTM Astra Otoparts Letterhead */}
         <div className="flex justify-between items-center border-b-2 border-slate-900 pb-3 mb-6">
@@ -197,9 +204,34 @@ export default function AopMemoPrintPreview({ memo, onClose, onSend }: AopMemoPr
 
       <style>{`
         @media print {
+          @page {
+            size: A4 portrait;
+            margin: 6mm !important;
+          }
+          html, body {
+            height: auto;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #fff !important;
+          }
           body * { visibility: hidden; }
           #aop-memo-print-area, #aop-memo-print-area * { visibility: visible; }
-          #aop-memo-print-area { position: fixed; left: 0; top: 0; width: 100%; margin: 0; padding: 24px; box-shadow: none; }
+          #aop-memo-print-area {
+            position: relative !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 198mm !important;
+            height: 285mm !important;
+            min-height: 0 !important;
+            margin: 0 auto !important;
+            padding: 6mm !important;
+            border: 1px solid #000 !important;
+            box-shadow: none !important;
+            box-sizing: border-box !important;
+            page-break-inside: avoid !important;
+            transform: scale(0.83) !important;
+            transform-origin: top center !important;
+          }
         }
       `}</style>
     </div>
