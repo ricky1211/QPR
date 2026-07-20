@@ -7,9 +7,18 @@ const __dirname = path.dirname(__filename);
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   basePath: '/qpr',
+  trailingSlash: true,
   outputFileTracingRoot: path.join(__dirname, '..', '..'),
   images: {
     qualities: [75, 90],
+  },
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: 'http://localhost:3001/:path*',
+      },
+    ];
   },
 };
 
