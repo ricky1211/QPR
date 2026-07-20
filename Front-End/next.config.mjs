@@ -15,8 +15,9 @@ const nextConfig = {
   async rewrites() {
     return [
       {
-        source: '/api/:path*',
+        source: '/qpr/api/:path*',
         destination: 'http://localhost:3001/:path*',
+        basePath: false,
       },
     ];
   },
