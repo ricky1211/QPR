@@ -79,7 +79,7 @@ export async function createSession(username: string): Promise<void> {
   const cookieStore = await cookies()
   cookieStore.set(COOKIE_NAME, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: false,
     expires: new Date(expiresAt),
     sameSite: 'lax',
     path: '/',
@@ -88,7 +88,7 @@ export async function createSession(username: string): Promise<void> {
   // Also set a client-readable cookie for the username (used by client components for RBAC)
   cookieStore.set('mtm_user', username, {
     httpOnly: false,
-    secure: process.env.NODE_ENV === 'production',
+    secure: false,
     expires: new Date(expiresAt),
     sameSite: 'lax',
     path: '/',
