@@ -580,47 +580,76 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                                   const file = e.target.files?.[0];
                                   if (file) {
                                     setClUploadedFile(file);
-                                    // Tambahkan data deteksi vendor secara otomatis ke tabel manual!
                                     const nextIndex = confirmationLetters.length + 1;
-                                    const jayadiRow = {
-                                      id: `cl-auto-jayadi-${Date.now()}`,
-                                      clNumber: `CL/2026/06/00${nextIndex}`,
-                                      qprNumber: `QPR/2026/06/JAYADI_${nextIndex}`,
-                                      supplierName: "PT JAYADI",
-                                      dateSent: new Date().toISOString().split("T")[0],
-                                      amount: "Rp 18.200.000",
-                                      status: "PENDING",
-                                      memoStatus: "DRAFT_MEMO",
-                                      reminderSentCount: 0,
-                                      customText: `POTONG TAGIH CLAIM PT JAYADI`,
-                                      paymentDate: "10/10/2026",
-                                      customerCode: "OTC08002",
-                                      documentNo: `2026060${nextIndex}`,
-                                      items: [
-                                        { no: 1, partName: "Motherboard X1", totalQty: 1000, qtyNG: 10, ngActual: 1.0, stdAllowance: 5, qtyClaim: 5 }
-                                      ]
-                                    };
-                                    const ikanBakarRow = {
-                                      id: `cl-auto-ikanbakar-${Date.now() + 1}`,
-                                      clNumber: `CL/2026/06/00${nextIndex + 1}`,
-                                      qprNumber: `QPR/2026/06/IKAN_BAKAR_${nextIndex + 1}`,
-                                      supplierName: "PT IKAN BAKAR",
-                                      dateSent: new Date().toISOString().split("T")[0],
-                                      amount: "Rp 24.000.000",
-                                      status: "PENDING",
-                                      memoStatus: "DRAFT_MEMO",
-                                      reminderSentCount: 0,
-                                      customText: `POTONG TAGIH CLAIM PT IKAN BAKAR`,
-                                      paymentDate: "12/10/2026",
-                                      customerCode: "OTC08002",
-                                      documentNo: `2026060${nextIndex + 1}`,
-                                      items: [
-                                        { no: 1, partName: "Harddisk 1TB", totalQty: 2000, qtyNG: 20, ngActual: 1.0, stdAllowance: 10, qtyClaim: 10 }
-                                      ]
-                                    };
-                                    setConfirmationLetters(prev => [...prev, jayadiRow, ikanBakarRow]);
-                                    pendingSelectIdRef.current = jayadiRow.id;
-                                    alert(`File CL "${file.name}" diunggah. Mendeteksi vendor PT JAYADI dan PT IKAN BAKAR. Data telah dimasukkan ke tabel manual di bawah untuk diedit.`);
+                                    
+                                    // Check if the uploaded file is the user's confirmation letter or references Anugerah
+                                    if (file.name.toLowerCase().includes("confirmation_letter") || file.name.toLowerCase().includes("anugerah")) {
+                                      const anugerahRow = {
+                                        id: `cl-auto-anugerah-${Date.now()}`,
+                                        clNumber: "CL/2025/12/006",
+                                        qprNumber: "QPR/2025/12/ANUGERAH_06",
+                                        supplierName: "Anugerah Daya Industri Komponen Utama, PT.",
+                                        dateSent: "2025-12-02",
+                                        amount: "Rp 1.144.283",
+                                        status: "APPROVED_BY_VENDOR",
+                                        memoStatus: "DRAFT_MEMO",
+                                        reminderSentCount: 0,
+                                        customText: "POTONG TAGIH CLAIM HUB CLUTCH",
+                                        paymentDate: "10/02/2026",
+                                        customerCode: "OTC08002",
+                                        documentNo: "202512006",
+                                        items: [
+                                          { no: 1, partName: "HUB CLUTCH, IMV 683N", totalQty: 1000, qtyNG: 14, ngActual: 1.4, stdAllowance: 5, qtyClaim: 9 },
+                                          { no: 2, partName: "HUB CLUTCH, RZN", totalQty: 500, qtyNG: 6, ngActual: 1.2, stdAllowance: 5, qtyClaim: 1 }
+                                        ]
+                                      };
+                                      setConfirmationLetters([anugerahRow]);
+                                      setSelectedClId(anugerahRow.id);
+                                      pendingSelectIdRef.current = anugerahRow.id;
+                                      alert(`File CL "${file.name}" diunggah. Mendeteksi vendor "Anugerah Daya Industri Komponen Utama, PT." dengan total klaim Rp 1.144.283. Data telah dimasukkan ke tabel manual di bawah untuk diedit.`);
+                                    } else {
+                                      // Fallback to default mock detection
+                                      const jayadiRow = {
+                                        id: `cl-auto-jayadi-${Date.now()}`,
+                                        clNumber: `CL/2026/06/00${nextIndex}`,
+                                        qprNumber: `QPR/2026/06/JAYADI_${nextIndex}`,
+                                        supplierName: "PT JAYADI",
+                                        dateSent: new Date().toISOString().split("T")[0],
+                                        amount: "Rp 18.200.000",
+                                        status: "PENDING",
+                                        memoStatus: "DRAFT_MEMO",
+                                        reminderSentCount: 0,
+                                        customText: `POTONG TAGIH CLAIM PT JAYADI`,
+                                        paymentDate: "10/10/2026",
+                                        customerCode: "OTC08002",
+                                        documentNo: `2026060${nextIndex}`,
+                                        items: [
+                                          { no: 1, partName: "Motherboard X1", totalQty: 1000, qtyNG: 10, ngActual: 1.0, stdAllowance: 5, qtyClaim: 5 }
+                                        ]
+                                      };
+                                      const ikanBakarRow = {
+                                        id: `cl-auto-ikanbakar-${Date.now() + 1}`,
+                                        clNumber: `CL/2026/06/00${nextIndex + 1}`,
+                                        qprNumber: `QPR/2026/06/IKAN_BAKAR_${nextIndex + 1}`,
+                                        supplierName: "PT IKAN BAKAR",
+                                        dateSent: new Date().toISOString().split("T")[0],
+                                        amount: "Rp 24.000.000",
+                                        status: "PENDING",
+                                        memoStatus: "DRAFT_MEMO",
+                                        reminderSentCount: 0,
+                                        customText: `POTONG TAGIH CLAIM PT IKAN BAKAR`,
+                                        paymentDate: "12/10/2026",
+                                        customerCode: "OTC08002",
+                                        documentNo: `2026060${nextIndex + 1}`,
+                                        items: [
+                                          { no: 1, partName: "Harddisk 1TB", totalQty: 2000, qtyNG: 20, ngActual: 1.0, stdAllowance: 10, qtyClaim: 10 }
+                                        ]
+                                      };
+                                      setConfirmationLetters([jayadiRow, ikanBakarRow]);
+                                      setSelectedClId(jayadiRow.id);
+                                      pendingSelectIdRef.current = jayadiRow.id;
+                                      alert(`File CL "${file.name}" diunggah. Mendeteksi vendor PT JAYADI dan PT IKAN BAKAR. Data telah dimasukkan ke tabel manual di bawah untuk diedit.`);
+                                    }
                                   }
                                 }}
                                 className="hidden"
@@ -744,20 +773,22 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-150">
-                              {confirmationLetters.map((cl, idx) => (
-                                <tr key={cl.id} className="hover:bg-slate-50/50 transition-colors">
-                                  <td className="p-1">
-                                    <input
-                                      type="text"
-                                      value={cl.customerCode !== undefined ? cl.customerCode : "OTC08002"}
-                                      onChange={e => handleUpdateClField(cl.id, "customerCode", e.target.value)}
-                                      className="w-full px-2 py-1 border border-slate-300 rounded font-mono text-[11px] text-slate-800 bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-center font-bold"
-                                    />
-                                  </td>
-                                  <td className="p-1">
-                                    <input
-                                      type="text"
-                                      value={cl.documentNo !== undefined ? cl.documentNo : (cl.clNumber.replace(/[^0-9]/g, "").slice(-11) || `180000000${53 + idx}`)}
+                              {confirmationLetters.filter(cl => cl.id === selectedClId).map((cl) => {
+                                const origIdx = confirmationLetters.findIndex(c => c.id === cl.id);
+                                return (
+                                  <tr key={cl.id} className="hover:bg-slate-50/50 transition-colors">
+                                    <td className="p-1">
+                                      <input
+                                        type="text"
+                                        value={cl.customerCode !== undefined ? cl.customerCode : "OTC08002"}
+                                        onChange={e => handleUpdateClField(cl.id, "customerCode", e.target.value)}
+                                        className="w-full px-2 py-1 border border-slate-300 rounded font-mono text-[11px] text-slate-800 bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-center font-bold"
+                                      />
+                                    </td>
+                                    <td className="p-1">
+                                      <input
+                                        type="text"
+                                        value={cl.documentNo !== undefined ? cl.documentNo : (cl.clNumber.replace(/[^0-9]/g, "").slice(-11) || `180000000${53 + origIdx}`)}
                                       onChange={e => handleUpdateClField(cl.id, "documentNo", e.target.value)}
                                       className="w-full px-2 py-1 border border-slate-300 rounded font-mono text-[11px] text-slate-800 bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-center font-bold"
                                     />
@@ -823,7 +854,8 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                                     </div>
                                   </td>
                                 </tr>
-                              ))}
+                              );
+                              })}
                             </tbody>
                           </table>
                         </div>
@@ -1240,14 +1272,14 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                                   <div className="pl-28 w-full overflow-x-auto my-3">
                                     <table className="w-full text-[9px] border-collapse border border-black font-sans">
                                       <thead>
-                                        <tr className="bg-[#e5a93b] text-black border border-black text-[8.5px] text-center font-bold">
-                                          <th className="border border-black px-2 py-1">Customer</th>
-                                          <th className="border border-black px-2 py-1">DocumentNo</th>
-                                          <th className="border border-black px-2 py-1">Text</th>
-                                          <th className="border border-black px-2 py-1">Vendor</th>
-                                          <th className="border border-black px-2 py-1">Doc. Date</th>
-                                          <th className="border border-black px-2 py-1 text-right">Local Crcy Amt</th>
-                                          <th className="border border-black px-2 py-1">Potong tagih payment date</th>
+                                        <tr className="text-black border border-black text-[8.5px] text-center font-bold">
+                                          <th className="border border-black px-2 py-1" style={{ backgroundColor: '#ffa500' }}>Customer</th>
+                                          <th className="border border-black px-2 py-1" style={{ backgroundColor: '#ffa500' }}>DocumentNo</th>
+                                          <th className="border border-black px-2 py-1" style={{ backgroundColor: '#ffa500' }}>Text</th>
+                                          <th className="border border-black px-2 py-1" style={{ backgroundColor: '#ffa500' }}>Vendor</th>
+                                          <th className="border border-black px-2 py-1" style={{ backgroundColor: '#ffa500' }}>Doc. Date</th>
+                                          <th className="border border-black px-2 py-1 text-right" style={{ backgroundColor: '#ffa500' }}>Local Crcy Amt</th>
+                                          <th className="border border-black px-2 py-1" style={{ backgroundColor: '#ffa500' }}>Potong tagih payment date</th>
                                         </tr>
                                       </thead>
                                       <tbody>
@@ -1299,10 +1331,10 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                               <div className="mt-4">
                                 <table className="w-full border-collapse border border-black text-center text-[10px] font-bold">
                                   <thead>
-                                    <tr className="bg-[#e5a93b] text-black border border-black">
-                                      <th className="border border-black py-1.5 w-1/4">Prepared by <sup>1)</sup></th>
-                                      <th className="border border-black py-1.5 w-2/4" colSpan={2}>Approved by <sup>1)</sup></th>
-                                      <th className="border border-black py-1.5 w-1/4">Entry by <sup>1)</sup></th>
+                                    <tr className="text-black border border-black">
+                                      <th className="border border-black py-1.5 w-1/4" style={{ backgroundColor: '#fcd5b4' }}>Prepared by <sup>1)</sup></th>
+                                      <th className="border border-black py-1.5 w-2/4" colSpan={2} style={{ backgroundColor: '#fcd5b4' }}>Approved by <sup>1)</sup></th>
+                                      <th className="border border-black py-1.5 w-1/4" style={{ backgroundColor: '#fcd5b4' }}>Entry by <sup>1)</sup></th>
                                     </tr>
                                   </thead>
                                   <tbody>
@@ -1520,6 +1552,12 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
             page-break-inside: avoid !important;
             transform: scale(0.74) !important;
             transform-origin: top center !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          #internal-memo-sheet * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
         }
       `}</style>
