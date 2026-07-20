@@ -4,7 +4,8 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.enableCors();
-  await app.listen(3001);
-  console.log('QPR NestJS Back-End running on: http://localhost:3001');
+  const port = process.env.PORT || 3001;
+  await app.listen(port);
+  console.log(`QPR NestJS Back-End running on: http://localhost:${port}`);
 }
 bootstrap();
