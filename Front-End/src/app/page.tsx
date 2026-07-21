@@ -279,7 +279,10 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
       clApprovalProgress: { sectAccounting: true, deptAccounting: true },
       closedPaid: true,
       debitNoteCount: 0,
-      reminderCount: 1
+      reminderCount: 1,
+      items: [
+        { no: 1, partName: "Motherboard X1", totalQty: 1000, qtyNG: 10, stdAllowance: 0, qtyClaim: 10, qty: 10, claimCost: 1639640, unitPrice: 1639640, amount: 16396400, subtotal: 16396400 }
+      ]
     },
     {
       id: "cl-2",
@@ -296,7 +299,10 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
       clApprovalProgress: { sectAccounting: true, deptAccounting: false },
       closedPaid: false,
       debitNoteCount: 1,
-      reminderCount: 2
+      reminderCount: 2,
+      items: [
+        { no: 1, partName: "Harddisk 1TB", totalQty: 2000, qtyNG: 20, stdAllowance: 0, qtyClaim: 20, qty: 20, claimCost: 1081081, unitPrice: 1081081, amount: 21621620, subtotal: 21621620 }
+      ]
     },
     {
       id: "cl-3",
@@ -313,7 +319,10 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
       clApprovalProgress: { sectAccounting: false, deptAccounting: false },
       closedPaid: false,
       debitNoteCount: 0,
-      reminderCount: 1
+      reminderCount: 1,
+      items: [
+        { no: 1, partName: "Motherboard X1", totalQty: 1000, qtyNG: 10, stdAllowance: 0, qtyClaim: 10, qty: 10, claimCost: 1126126, unitPrice: 1126126, amount: 11261260, subtotal: 11261260 }
+      ]
     },
     {
       id: "cl-4",
@@ -330,7 +339,10 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
       clApprovalProgress: { sectAccounting: false, deptAccounting: false },
       closedPaid: false,
       debitNoteCount: 0,
-      reminderCount: 1
+      reminderCount: 1,
+      items: [
+        { no: 1, partName: "CONE RACE ALL TYPE", totalQty: 3000, qtyNG: 25, stdAllowance: 0, qtyClaim: 25, qty: 25, claimCost: 1153153, unitPrice: 1153153, amount: 28828825, subtotal: 28828825 }
+      ]
     },
     {
       id: "cl-5",
@@ -347,7 +359,10 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
       clApprovalProgress: { sectAccounting: true, deptAccounting: true },
       closedPaid: false,
       debitNoteCount: 0,
-      reminderCount: 1
+      reminderCount: 1,
+      items: [
+        { no: 1, partName: "Motherboard X1", totalQty: 1000, qtyNG: 8, stdAllowance: 0, qtyClaim: 8, qty: 8, claimCost: 1126126, unitPrice: 1126126, amount: 9009008, subtotal: 9009008 }
+      ]
     }
   ]);
 

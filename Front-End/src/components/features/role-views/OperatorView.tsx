@@ -69,6 +69,25 @@ export default function OperatorView({
   
   // Step 2: Form States (Supplier, Part inputRows)
   const [supplierId, setSupplierId] = useState<string | "">("");
+  const [isSupplierDropdownOpen, setIsSupplierDropdownOpen] = useState(false);
+  const [supplierSearch, setSupplierSearch] = useState("");
+  const supplierDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        supplierDropdownRef.current &&
+        !supplierDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsSupplierDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
   const [inputRows, setInputRows] = useState<Array<{ id: number; partId: string | number; qtyNG: string; ngTypes: string; isManualNg?: boolean }>>([
     { id: Date.now(), partId: "", qtyNG: "", ngTypes: "", isManualNg: false }
   ]);
@@ -566,10 +585,13 @@ export default function OperatorView({
         />
       </div>
 
-      {/* Supplier Card Selector */}
-      <div className="relative w-full">
-        <div className="w-full bg-white border border-slate-100 rounded-xl p-5 shadow-sm flex justify-between items-center transition-all hover:border-slate-200 hover:bg-slate-50/50 cursor-pointer">
-          <div className="overflow-hidden flex-1">
+      {/* Searchable Supplier Dropdown Selector */}
+      <div className="relative w-full" ref={supplierDropdownRef}>
+        <div
+          onClick={() => setIsSupplierDropdownOpen(!isSupplierDropdownOpen)}
+          className="w-full bg-white border border-slate-100 rounded-xl p-5 shadow-sm flex justify-between items-center transition-all hover:border-slate-200 hover:bg-slate-50/50 cursor-pointer"
+        >
+          <div className="overflow-hidden flex-1 text-left">
             <span className="text-sm font-extrabold text-slate-800 block truncate">
               {selectedSupplier ? selectedSupplier.name : "PILIH SUPPLIER"}
             </span>
@@ -578,23 +600,79 @@ export default function OperatorView({
             </span>
           </div>
           <ChevronDown size={18} className="text-slate-400 shrink-0 ml-2" />
-
-          <select
-            value={supplierId}
-            onChange={(e) => {
-              setSupplierId(e.target.value || "");
-              setInputRows([{ id: Date.now(), partId: "", qtyNG: "", ngTypes: "", isManualNg: false }]);
-            }}
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-          >
-            <option value="">PILIH SUPPLIER</option>
-            {suppliers.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
         </div>
+
+        {isSupplierDropdownOpen && (
+          <div className="absolute left-0 right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-xl z-50 max-h-72 overflow-hidden flex flex-col">
+            {/* Search Input */}
+            <div className="p-3 border-b border-slate-100 bg-slate-50/50">
+              <input
+                type="text"
+                value={supplierSearch}
+                onChange={(e) => setSupplierSearch(e.target.value)}
+                placeholder="Cari Supplier / Vendor..."
+                className="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 transition-all font-medium text-slate-700"
+                onClick={(e) => e.stopPropagation()} // Prevent closing dropdown on input click
+                autoFocus
+              />
+            </div>
+            
+            {/* Options List */}
+            <div className="overflow-y-auto max-h-48 text-left py-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setSupplierId("");
+                  setInputRows([{ id: Date.now(), partId: "", qtyNG: "", ngTypes: "", isManualNg: false }]);
+                  setSupplierSearch("");
+                  setIsSupplierDropdownOpen(false);
+                }}
+                className={`w-full px-4 py-2.5 text-sm text-left font-bold transition-colors hover:bg-slate-50 flex items-center gap-2 ${
+                  !supplierId ? 'text-blue-600 bg-blue-50/20' : 'text-slate-400'
+                }`}
+              >
+                PILIH SUPPLIER
+              </button>
+              {suppliers
+                .filter((s) =>
+                  s.name.toLowerCase().includes(supplierSearch.toLowerCase()) ||
+                  (s.code && s.code.toLowerCase().includes(supplierSearch.toLowerCase()))
+                )
+                .map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => {
+                      setSupplierId(s.id);
+                      setInputRows([{ id: Date.now(), partId: "", qtyNG: "", ngTypes: "", isManualNg: false }]);
+                      setSupplierSearch("");
+                      setIsSupplierDropdownOpen(false);
+                    }}
+                    className={`w-full px-4 py-2.5 text-sm text-left transition-colors hover:bg-slate-50 flex flex-col ${
+                      String(supplierId) === String(s.id)
+                        ? 'bg-blue-50/40 text-blue-600 font-extrabold'
+                        : 'text-slate-700 font-medium'
+                    }`}
+                  >
+                    <span>{s.name}</span>
+                    {s.code && (
+                      <span className="text-[10px] text-slate-400 font-bold tracking-wider mt-0.5">
+                        CODE: {s.code}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              {suppliers.filter((s) =>
+                s.name.toLowerCase().includes(supplierSearch.toLowerCase()) ||
+                (s.code && s.code.toLowerCase().includes(supplierSearch.toLowerCase()))
+              ).length === 0 && (
+                <div className="px-4 py-4 text-sm text-slate-400 text-center font-semibold">
+                  Supplier tidak ditemukan
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

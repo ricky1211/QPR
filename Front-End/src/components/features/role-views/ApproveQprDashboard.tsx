@@ -293,52 +293,6 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
         </div>
       )}
 
-      {/* Metrics Cards Grid (3 cards matching screenshot) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Card 1: Pending Approvals */}
-        <div className="bg-white border border-slate-150 rounded-xl p-5 shadow-sm flex flex-col justify-between h-32 relative overflow-hidden text-left">
-          <div>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Pending Approvals</span>
-            <span className="text-3xl font-black text-slate-900 mt-2 block">
-              {String(rolePendingQprs.length).padStart(2, "0")}
-            </span>
-          </div>
-          <div className="flex justify-between items-center mt-2 z-10">
-            <span className="px-2 py-0.5 bg-green-50 text-green-600 rounded flex items-center gap-1 text-[9px] font-extrabold">
-              <TrendingDown size={10} /> -12% vs last week
-            </span>
-          </div>
-          <div className="absolute right-4 top-4 p-2 bg-blue-50 text-blue-600 rounded-lg">
-            <ListTodo size={18} />
-          </div>
-        </div>
-
-        {/* Card 2: Critical Problems */}
-        <div className="bg-white border border-slate-150 rounded-xl p-5 shadow-sm flex flex-col justify-between h-32 relative overflow-hidden text-left">
-          <div>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Critical Problems</span>
-            <span className="text-3xl font-black text-red-600 mt-2 block">08</span>
-          </div>
-          <div className="flex justify-between items-center mt-2 z-10">
-            <span className="px-2 py-0.5 bg-red-50 text-red-600 rounded text-[9px] font-extrabold">High Priority</span>
-          </div>
-          <div className="absolute right-4 top-4 p-2 bg-red-50 text-red-600 rounded-lg">
-            <AlertTriangle size={18} />
-          </div>
-        </div>
-
-        {/* Card 3: Approved This Month (Blue full-bleed theme) */}
-        <div className="bg-blue-900 border border-blue-950 rounded-xl p-5 shadow-sm flex flex-col justify-between h-32 relative overflow-hidden text-left text-white">
-          <div>
-            <span className="text-3xl font-black block">142</span>
-            <span className="text-[10px] font-black text-blue-200 uppercase tracking-widest block mt-0.5">Approved This Month</span>
-          </div>
-          <div className="mt-2 text-[10px] text-blue-100 font-bold z-10">
-            Average Approval Time: 4.2h
-          </div>
-          <Shield size={65} className="absolute right-0 bottom-0 text-blue-800/30 stroke-[1] -mr-3 -mb-3" />
-        </div>
-      </div>
 
       {/* Tabs Filter & Search Bar */}
       <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 border-b border-slate-200 pb-2">

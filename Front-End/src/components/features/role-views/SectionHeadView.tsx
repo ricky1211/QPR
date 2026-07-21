@@ -97,55 +97,7 @@ export default function SectionHeadView({ pendingNcrs, handleApproveNcrAction, r
   return (
     <div className="space-y-6 text-left">
       
-      {/* Metrics Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1: Awaiting Approval */}
-        <div className="bg-white border border-slate-150 rounded-xl p-5 shadow-sm flex flex-col justify-between h-32 relative overflow-hidden">
-          <div>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Awaiting Approval</span>
-            <span className="text-3xl font-black text-slate-900 mt-2 block">{awaitingStr}</span>
-          </div>
-          <div className="flex justify-between items-center mt-2 z-10">
-            <span className="px-2 py-0.5 bg-red-50 text-red-500 rounded text-[9px] font-extrabold">+3 New</span>
-          </div>
-        </div>
 
-        {/* Card 2: Critical NCRs */}
-        <div className="bg-white border border-slate-150 rounded-xl p-5 shadow-sm flex flex-col justify-between h-32 relative overflow-hidden">
-          <div>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Critical NCRs</span>
-            <span className="text-3xl font-black text-red-600 mt-2 block">{criticalStr}</span>
-          </div>
-          <div className="flex justify-between items-center mt-2 z-10">
-            <span className="px-2 py-0.5 bg-red-50 text-red-600 rounded flex items-center gap-1 text-[9px] font-extrabold">
-              <AlertTriangle size={10} /> Alert
-            </span>
-          </div>
-        </div>
-
-        {/* Card 3: Avg. Review Time */}
-        <div className="bg-white border border-slate-150 rounded-xl p-5 shadow-sm flex flex-col justify-between h-32 relative overflow-hidden">
-          <div>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Avg. Review Time</span>
-            <span className="text-3xl font-black text-slate-900 mt-2 block">4.2h</span>
-          </div>
-          <div className="flex justify-between items-center mt-2 z-10">
-            <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded text-[9px] font-extrabold">On Track</span>
-          </div>
-          <Clock size={40} className="absolute right-2 bottom-2 text-slate-50/50 stroke-[1.5] -mr-2 -mb-2" />
-        </div>
-
-        {/* Card 4: Safety Compliance */}
-        <div className="bg-white border border-slate-150 rounded-xl p-5 shadow-sm flex flex-col justify-between h-32 relative overflow-hidden">
-          <div>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Safety Compliance</span>
-            <span className="text-3xl font-black text-slate-900 mt-2 block">100%</span>
-          </div>
-          <div className="flex justify-between items-center mt-2 z-10">
-            <Shield size={16} className="text-slate-200" />
-          </div>
-        </div>
-      </div>
       {/* Filter & Search Bar */}
       <div className="flex flex-col sm:flex-row gap-3 justify-between items-stretch sm:items-center">
         {/* Search input */}

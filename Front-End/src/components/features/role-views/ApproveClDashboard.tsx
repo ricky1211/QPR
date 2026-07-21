@@ -17,7 +17,8 @@ import {
   ArrowRight,
   Shield,
   Clock,
-  Banknote
+  Banknote,
+  Printer
 } from "lucide-react";
 import ConfirmationLetterPrintPreview from "./ConfirmationLetterPrintPreview";
 
@@ -61,6 +62,7 @@ export default function ApproveClDashboard({
   // Modal states
   const [selectedCl, setSelectedCl] = useState<any>(null);
   const [previewCl, setPreviewCl] = useState<any>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState<any>(null);
 
   // Filter pending CLs by role
   const getRoleName = (tab: string) => {
@@ -270,54 +272,6 @@ export default function ApproveClDashboard({
         </div>
       )}
 
-      {/* Metrics Cards Grid (3 cards matching QPR screenshot layout) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Card 1: Pending Approvals */}
-        <div className="bg-white border border-slate-150 rounded-xl p-5 shadow-sm flex flex-col justify-between h-32 relative overflow-hidden text-left">
-          <div>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Pending Approvals</span>
-            <span className="text-3xl font-black text-slate-900 mt-2 block">
-              {String(totalPendingCount).padStart(2, "0")}
-            </span>
-          </div>
-          <div className="flex justify-between items-center mt-2 z-10">
-            <span className="px-2 py-0.5 bg-green-50 text-green-600 rounded flex items-center gap-1 text-[9px] font-extrabold">
-              <TrendingDown size={10} /> -8% vs last week
-            </span>
-          </div>
-          <div className="absolute right-4 top-4 p-2 bg-blue-50 text-blue-650 rounded-lg">
-            <ListTodo size={18} />
-          </div>
-        </div>
-
-        {/* Card 2: Close Paid CLs */}
-        <div className="bg-white border border-slate-150 rounded-xl p-5 shadow-sm flex flex-col justify-between h-32 relative overflow-hidden text-left">
-          <div>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Close Paid (Lunas)</span>
-            <span className="text-3xl font-black text-emerald-600 mt-2 block">
-              {String(totalClosedPaidCount).padStart(2, "0")}
-            </span>
-          </div>
-          <div className="flex justify-between items-center mt-2 z-10">
-            <span className="px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded text-[9px] font-extrabold">Completed Payment</span>
-          </div>
-          <div className="absolute right-4 top-4 p-2 bg-emerald-50 text-emerald-600 rounded-lg">
-            <CheckCircle2 size={18} />
-          </div>
-        </div>
-
-        {/* Card 3: Fully Approved / Closed Paid (Blue theme) */}
-        <div className="bg-blue-900 border border-blue-950 rounded-xl p-5 shadow-sm flex flex-col justify-between h-32 relative overflow-hidden text-left text-white">
-          <div>
-            <span className="text-3xl font-black block">{totalApprovedThisMonth}</span>
-            <span className="text-[10px] font-black text-blue-200 uppercase tracking-widest block mt-0.5">Approved CLs</span>
-          </div>
-          <div className="mt-2 text-[10px] text-blue-100 font-bold z-10">
-            Internal Accounting Target: 100%
-          </div>
-          <Shield size={65} className="absolute right-0 bottom-0 text-blue-800/30 stroke-[1] -mr-3 -mb-3" />
-        </div>
-      </div>
 
       {/* Tabs Filter & Search Bar */}
       <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 border-b border-slate-200 pb-2">
@@ -617,6 +571,24 @@ export default function ApproveClDashboard({
                   onClick={() => {
                     const level = levelTab === "sect-accounting" ? "sect" : "dept";
                     handleApproveCL(selectedCl.id, level);
+                    
+                    const clCopy = { ...selectedCl };
+                    const nextProgress = { ...clCopy.clApprovalProgress };
+                    if (level === "sect") nextProgress.sectAccounting = true;
+                    if (level === "dept") nextProgress.deptAccounting = true;
+                    
+                    const isNowFullyApproved = (level === "dept" || nextProgress.deptAccounting);
+                    
+                    if (isNowFullyApproved) {
+                      setShowSuccessModal({
+                        clNumber: clCopy.clNumber,
+                        supplierName: clCopy.supplierName,
+                        amount: clCopy.amount,
+                        cl: { ...clCopy, clApprovalProgress: nextProgress, status: "FULLY_APPROVED" }
+                      });
+                    } else {
+                      alert(`Dokumen CL ${clCopy.clNumber} berhasil di-approve untuk level ${roleName}.`);
+                    }
                     setSelectedCl(null);
                   }}
                   className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-bold text-xs shadow-md shadow-blue-500/10 transition-colors cursor-pointer"
@@ -624,6 +596,86 @@ export default function ApproveClDashboard({
                   Approve CL ({roleName})
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showSuccessModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-[2px] z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl w-full max-w-md shadow-2xl p-6 border border-slate-100 text-center space-y-4">
+            <div className="w-12 h-12 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto text-xl font-bold">
+              ✓
+            </div>
+            <div>
+              <h3 className="text-sm font-black text-slate-800 uppercase tracking-wide">Approval Selesai!</h3>
+              <p className="text-[11.5px] text-slate-500 font-bold mt-1 leading-normal">
+                Dokumen Confirmation Letter <span className="font-mono text-slate-700">{showSuccessModal.clNumber}</span> untuk <span className="text-slate-700">{showSuccessModal.supplierName}</span> telah sepenuhnya disetujui.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-2 pt-2">
+              <button
+                onClick={() => {
+                  setPreviewCl(showSuccessModal.cl);
+                  setShowSuccessModal(null);
+                }}
+                className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Printer size={12} />
+                Cetak / Print PDF
+              </button>
+              <button
+                onClick={() => {
+                  import("xlsx").then((XLSX) => {
+                    const items = showSuccessModal.cl.items || [
+                      { no: 1, partName: "HUB CLUTCH, IMV 683N", qty: 14, claimCost: 49516, amount: 693224 },
+                      { no: 2, partName: "HUB CLUTCH, RZN", qty: 6, claimCost: 56277, amount: 337662 }
+                    ];
+
+                    const headers = ["No", "Part Name / Description", "Quantity", "Unit Claim Cost (IDR)", "Subtotal Amount (IDR)"];
+                    
+                    const excelRows = [
+                      { "Col1": "CONFIRMATION LETTER", "Col2": showSuccessModal.clNumber },
+                      { "Col1": "Vendor / Supplier", "Col2": showSuccessModal.supplierName },
+                      { "Col1": "Tanggal Sent", "Col2": showSuccessModal.cl.dateSent },
+                      {}, // Empty row
+                      { "Col1": headers[0], "Col2": headers[1], "Col3": headers[2], "Col4": headers[3], "Col5": headers[4] },
+                      ...items.map((item: any, idx: number) => ({
+                        "Col1": idx + 1,
+                        "Col2": item.partName || item.description || "",
+                        "Col3": item.qty || item.qtyClaim || 0,
+                        "Col4": item.claimCost || item.unitPrice || 0,
+                        "Col5": item.amount || item.subtotal || 0
+                      })),
+                      {}, // Empty row
+                      { "Col1": "Total Claim (Exc. VAT)", "Col5": Math.round((parseInt(showSuccessModal.amount.replace(/[^0-9]/g, "")) || 0) / 1.11) },
+                      { "Col1": "VAT (11%)", "Col5": (parseInt(showSuccessModal.amount.replace(/[^0-9]/g, "")) || 0) - Math.round((parseInt(showSuccessModal.amount.replace(/[^0-9]/g, "")) || 0) / 1.11) },
+                      { "Col1": "Grand Total Claim (IDR)", "Col5": parseInt(showSuccessModal.amount.replace(/[^0-9]/g, "")) || 0 }
+                    ];
+
+                    const worksheet = XLSX.utils.json_to_sheet(excelRows, { skipHeader: true });
+                    const workbook = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(workbook, worksheet, "Confirmation_Letter");
+                    XLSX.writeFile(workbook, `Confirmation_Letter_${showSuccessModal.clNumber.replace(/\//g, "_")}.xlsx`);
+                    
+                    setShowSuccessModal(null);
+                    alert("Berkas Excel (.xlsx) untuk Confirmation Letter berhasil diunduh.");
+                  }).catch(err => {
+                    alert("Gagal mengekspor berkas Excel: " + err);
+                  });
+                }}
+                className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Download size={12} />
+                Download Excel (.xlsx)
+              </button>
+              <button
+                onClick={() => setShowSuccessModal(null)}
+                className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg transition-all cursor-pointer"
+              >
+                Tutup
+              </button>
             </div>
           </div>
         </div>

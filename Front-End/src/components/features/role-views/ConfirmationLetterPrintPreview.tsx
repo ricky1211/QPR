@@ -160,15 +160,15 @@ export default function ConfirmationLetterPrintPreview({ cl, onClose, inline = f
                 </tr>
               </thead>
               <tbody>
-                {hasCustomItems ? (
+                 {hasCustomItems ? (
                   cl.items.map((item: any, idx: number) => {
                     const totalQty = parseFloat(String(item.totalQty)) || 0;
-                    const rejectCount = parseFloat(String(item.rejectCount)) || 0;
-                    const allowanceRatio = parseFloat(String(item.allowanceRatio)) || 0;
-                    const unitPriceVal = parseFloat(String(item.unitPrice)) || 0;
-                    const stdAllowance = Math.round(totalQty * (allowanceRatio / 100));
-                    const billableQty = Math.max(0, rejectCount - stdAllowance);
-                    const subtotal = billableQty * unitPriceVal;
+                    const rejectCount = parseFloat(String(item.qtyNG ?? item.rejectCount)) || 0;
+                    const allowanceRatio = parseFloat(String(item.allowanceRatio ?? item.stdAllowance)) || 0;
+                    const billableQty = item.qtyClaim ?? item.qty ?? item.billableQty ?? Math.max(0, rejectCount - Math.round(totalQty * (allowanceRatio / 100)));
+                    const unitPriceVal = parseFloat(String(item.unitPrice ?? item.claimCost)) || 0;
+                    const subtotal = item.amount ?? item.subtotal ?? (billableQty * unitPriceVal);
+
                     return (
                       <tr key={item.id || idx}>
                         <td className="border border-black px-2 py-1 text-center">{idx + 1}</td>

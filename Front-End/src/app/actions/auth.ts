@@ -43,7 +43,7 @@ export async function loginAction(
 
   // Redirect to main dashboard — redirect() throws internally, so it must be
   // outside of a try/catch block.
-  redirect('/')
+  redirect('/dashboard')
 }
 
 export async function logoutAction(): Promise<void> {
