@@ -73,7 +73,7 @@ export default function CalendarView({
                   statusIndicator = <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-amber-500"></span>;
                 }
               } else {
-                cellBg = "bg-emerald-600 hover:bg-emerald-700 text-white transition-colors";
+                cellBg = "bg-blue-600 hover:bg-blue-700 text-white transition-colors";
                 dateColor = "text-white";
                 statusIndicator = <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-white"></span>;
               }

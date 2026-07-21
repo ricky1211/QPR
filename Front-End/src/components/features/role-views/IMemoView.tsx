@@ -501,7 +501,7 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                   <div className="w-full space-y-4 text-left">
                     {sscBillingRows.length === 0 ? (
                       <div className="bg-white border border-slate-200 border-dashed rounded-xl p-12 text-center shadow-sm flex flex-col items-center justify-center space-y-3 w-full">
-                        <div className="p-3 bg-emerald-50 text-emerald-600 rounded-full">
+                        <div className="p-3 bg-blue-50 text-blue-600 rounded-full">
                           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-upload-cloud"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/></svg>
                         </div>
                         <div>
@@ -513,7 +513,7 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                           </p>
                         </div>
                         <div className="pt-2">
-                          <label className="flex items-center gap-1.5 px-4 py-2 border border-dashed border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-xs active:scale-95">
+                          <label className="flex items-center gap-1.5 px-4 py-2 border border-dashed border-blue-300 bg-blue-50 hover:bg-blue-100 text-blue-800 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-xs active:scale-95">
                             Upload PDF / Excel
                             <input
                               type="file"
@@ -540,7 +540,7 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                           </span>
                           <div className="flex items-center gap-2">
                             {/* File Upload PDF/Excel */}
-                            <label className="flex items-center gap-1.5 px-3 py-1.5 border border-dashed border-emerald-300 bg-emerald-50/50 hover:bg-emerald-50 text-emerald-700 rounded-lg text-[9.5px] font-bold transition-all cursor-pointer shadow-sm">
+                            <label className="flex items-center gap-1.5 px-3 py-1.5 border border-dashed border-blue-300 bg-blue-50/50 hover:bg-blue-50 text-blue-700 rounded-lg text-[9.5px] font-bold transition-all cursor-pointer shadow-sm">
                               <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-upload-cloud"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/></svg>
                               Upload PDF / Excel
                               <input
@@ -566,7 +566,7 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                             ))}
                             <button
                               onClick={handleAddRow}
-                              className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[9.5px] font-bold rounded-lg shadow-sm flex items-center gap-1 transition-all active:scale-95 cursor-pointer"
+                              className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-[9.5px] font-bold rounded-lg shadow-sm flex items-center gap-1 transition-all active:scale-95 cursor-pointer"
                             >
                               <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-plus-circle"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>
                               Tambah Baris
@@ -655,7 +655,7 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                                         type="button"
                                         onClick={() => setViewPartsCl(cl)}
                                         title="View Parts"
-                                        className="p-1.5 hover:bg-violet-50 text-violet-600 hover:text-violet-750 rounded transition-all cursor-pointer inline-flex items-center justify-center border border-slate-200 hover:border-violet-200 bg-white shadow-sm"
+                                        className="p-1.5 hover:bg-blue-50 text-blue-600 hover:text-blue-700 rounded transition-all cursor-pointer inline-flex items-center justify-center border border-slate-200 hover:border-blue-200 bg-white shadow-sm"
                                       >
                                         <Eye size={11} />
                                       </button>
@@ -684,7 +684,7 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                       <div className="flex gap-2">
                         <button
                           onClick={() => handleExportExcel("ssc_purchasing")}
-                          className="px-2.5 py-1.5 bg-emerald-650 hover:bg-emerald-700 text-white font-bold text-[9.5px] rounded-lg shadow-sm flex items-center gap-1 transition-all cursor-pointer active:scale-95"
+                          className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-[9.5px] rounded-lg shadow-sm flex items-center gap-1 transition-all cursor-pointer active:scale-95"
                         >
                           <FileText size={11} />
                           Export Excel
@@ -853,7 +853,7 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                           </label>
                           <button
                             onClick={handleAddRow}
-                            className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[9.5px] font-bold rounded-lg shadow-sm flex items-center gap-1 transition-all active:scale-95 cursor-pointer"
+                            className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white text-[9.5px] font-bold rounded-lg shadow-sm flex items-center gap-1 transition-all active:scale-95 cursor-pointer"
                           >
                             <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-plus-circle"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>
                             Tambah Baris
@@ -957,7 +957,7 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                       <div className="flex gap-2">
                         <button
                           onClick={() => handleExportExcel("buat_ssc_payment")}
-                          className="px-2.5 py-1.5 bg-emerald-650 hover:bg-emerald-700 text-white font-bold text-[9.5px] rounded-lg shadow-sm flex items-center gap-1 transition-all cursor-pointer active:scale-95"
+                          className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-[9.5px] rounded-lg shadow-sm flex items-center gap-1 transition-all cursor-pointer active:scale-95"
                         >
                           <FileText size={11} />
                           Export Excel

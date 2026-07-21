@@ -7,58 +7,73 @@ export class NcrsService {
   constructor(private prisma: PrismaService) {}
 
   async findOne(id: string): Promise<any> {
-    return this.prisma.ncr.findUnique({
-      where: { id },
-      include: {
-        ncrApprovalProgress: true,
-        part: true,
-        vendor: true,
-        inspectors: true,
-      },
-    });
+    try {
+      return await this.prisma.ncr.findUnique({
+        where: { id },
+        include: {
+          ncrApprovalProgress: true,
+          part: true,
+          vendor: true,
+          inspectors: true,
+        },
+      });
+    } catch (error) {
+      console.error(`[NcrsService] Error finding NCR by id (${id}):`, error);
+      return null;
+    }
   }
 
   async findByCode(code: string): Promise<Ncr | null> {
-    return this.prisma.ncr.findUnique({
-      where: { code },
-    });
+    try {
+      return await this.prisma.ncr.findUnique({
+        where: { code },
+      });
+    } catch (error) {
+      console.error(`[NcrsService] Error finding NCR by code (${code}):`, error);
+      return null;
+    }
   }
 
   async findAll(): Promise<any[]> {
-    return this.prisma.ncr.findMany({
-      select: {
-        id: true,
-        code: true,
-        date: true,
-        partId: true,
-        vendorId: true,
-        description: true,
-        isRequiredCustomerApproval: true,
-        customerApproval: true,
-        part: {
-          select: {
-            id: true,
-            partNumber: true,
-            partDesc: true,
-          }
-        },
-        vendor: {
-          select: {
-            id: true,
-            vendorCode: true,
-            vendorName: true,
-          }
-        },
-        ncrApprovalProgress: {
-          select: {
-            id: true,
-            ncrId: true,
-            checksumApprovalSectionHead: true,
-            checksumApprovalDeptHead: true,
+    try {
+      return await this.prisma.ncr.findMany({
+        select: {
+          id: true,
+          code: true,
+          date: true,
+          partId: true,
+          vendorId: true,
+          description: true,
+          isRequiredCustomerApproval: true,
+          customerApproval: true,
+          part: {
+            select: {
+              id: true,
+              partNumber: true,
+              partDesc: true,
+            }
+          },
+          vendor: {
+            select: {
+              id: true,
+              vendorCode: true,
+              vendorName: true,
+            }
+          },
+          ncrApprovalProgress: {
+            select: {
+              id: true,
+              ncrId: true,
+              checksumApprovalSectionHead: true,
+              checksumApprovalDeptHead: true,
+            }
           }
         }
-      }
-    });
+      });
+    } catch (error) {
+      console.error("[NcrsService] Error in findAll(), returning empty list:", error);
+      return [];
+    }
   }
 
 

@@ -379,29 +379,17 @@ export default function ListQprDashboard({
             <h3 className="text-base font-black uppercase tracking-wider">Arsip Laporan QPR &amp; Confirmation Letter</h3>
           </div>
         </div>
-        <button
-          onClick={handleResetFilters}
-          disabled={!searchQuery && !filterVendor && !filterDate && !filterStatus}
-          className={`px-4 py-2 text-xs font-bold rounded-lg border transition-all flex items-center gap-1.5 shadow-sm shrink-0 cursor-pointer ${
-            !searchQuery && !filterVendor && !filterDate && !filterStatus
-              ? "bg-white/5 border-white/10 text-white/40 cursor-not-allowed"
-              : "bg-white text-indigo-800 border-white hover:bg-indigo-50 active:scale-95"
-          }`}
-        >
-          <RefreshCw size={12} className={searchQuery || filterVendor || filterDate || filterStatus ? "animate-spin-slow" : ""} />
-          Reset Filter
-        </button>
       </div>
 
       {/* KPI Counters Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Documents */}
         <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex items-center justify-between group hover:shadow-md transition-all">
-          <div className="space-y-1 text-left">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Arsip Dokumen</span>
+          <div className="space-y-1.5 text-left">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Total Arsip Dokumen</span>
             <h4 className="text-2xl font-black text-slate-800">{totalCount}</h4>
-            <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full inline-block">
-              QPR & CL
+            <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-full inline-block">
+              QPR &amp; CL
             </span>
           </div>
           <div className="w-10 h-10 bg-indigo-50 text-indigo-600 group-hover:bg-indigo-650 group-hover:text-white rounded-xl flex items-center justify-center transition-all duration-300">
@@ -411,10 +399,10 @@ export default function ListQprDashboard({
 
         {/* Total CL */}
         <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex items-center justify-between group hover:shadow-md transition-all">
-          <div className="space-y-1 text-left">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Laporan CL</span>
+          <div className="space-y-1.5 text-left">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Total Laporan CL</span>
             <h4 className="text-2xl font-black text-slate-800">{clCount}</h4>
-            <span className="text-[10px] font-semibold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full inline-block">
+            <span className="text-xs font-bold text-orange-600 bg-orange-50 px-2.5 py-1 rounded-full inline-block">
               Confirmation Letter
             </span>
           </div>
@@ -425,10 +413,10 @@ export default function ListQprDashboard({
 
         {/* Total QPR */}
         <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex items-center justify-between group hover:shadow-md transition-all">
-          <div className="space-y-1 text-left">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Klaim QPR</span>
+          <div className="space-y-1.5 text-left">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Total Klaim QPR</span>
             <h4 className="text-2xl font-black text-slate-800">{qprCount}</h4>
-            <span className="text-[10px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full inline-block">
+            <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full inline-block">
               Semua Status
             </span>
           </div>
@@ -439,10 +427,10 @@ export default function ListQprDashboard({
 
         {/* Proses Approval */}
         <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex items-center justify-between group hover:shadow-md transition-all">
-          <div className="space-y-1 text-left">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Proses Approval</span>
+          <div className="space-y-1.5 text-left">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Proses Approval</span>
             <h4 className="text-2xl font-black text-amber-600">{pendingCount}</h4>
-            <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full inline-block">
+            <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full inline-block">
               Menunggu Tanda Tangan
             </span>
           </div>
@@ -454,9 +442,23 @@ export default function ListQprDashboard({
 
       {/* Advanced Filters Block */}
       <div className="bg-white border border-slate-300 rounded-xl p-5 shadow-sm space-y-4">
-        <span className="text-xs font-bold text-slate-400 uppercase tracking-widest block text-left">
-          Filter Arsip Dokumen
-        </span>
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-bold text-slate-500 uppercase tracking-widest block text-left">
+            Filter Arsip Dokumen
+          </span>
+          <button
+            onClick={handleResetFilters}
+            disabled={!searchQuery && !filterVendor && !filterDate && !filterStatus}
+            className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-all flex items-center gap-1.5 shadow-sm shrink-0 cursor-pointer ${
+              !searchQuery && !filterVendor && !filterDate && !filterStatus
+                ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed opacity-60"
+                : "bg-blue-600 text-white border-blue-600 hover:bg-blue-700 active:scale-95 shadow-sm"
+            }`}
+          >
+            <RefreshCw size={12} className={searchQuery || filterVendor || filterDate || filterStatus ? "animate-spin-slow" : ""} />
+            Reset Filter
+          </button>
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
           
           {/* Search filter */}
@@ -625,51 +627,51 @@ export default function ListQprDashboard({
                       </td>
                       <td className="px-4 py-3 text-right font-bold text-slate-600">{doc.allowanceRatio}</td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-2.5 justify-center">
-                          {doc.status === "APPROVED" || doc.status === "CLOSED" ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-green-50 text-green-700 border border-green-200 rounded-full text-[10px] font-bold shadow-sm shrink-0">
-                              <CheckCircle2 size={10} className="text-green-600" />
-                              Disetujui
-                            </span>
-                          ) : doc.status === "DRAFT" || doc.status === "PENDING" ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-slate-100 text-slate-650 border border-slate-200 rounded-full text-[10px] font-bold shadow-sm shrink-0">
-                              Draf
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-[10px] font-bold shadow-sm shrink-0">
-                              <Clock size={10} className="text-amber-600 animate-pulse" />
-                              Proses
-                            </span>
-                          )}
+                        <div className="flex items-center gap-1.5 justify-center py-1">
+                          {(() => {
+                            const stages = getApprovalStages(doc.type, doc.requiredRole, doc.approvedBy, doc.status);
+                            let totalDaysSum = 0;
+                            const stageElements = stages.map((stage, i, arr) => {
+                              const stepDaysNum = stage.status === "APPROVED" ? 1 : (stage.status === "PENDING" ? (i + 1) * 2 : 0);
+                              totalDaysSum += stepDaysNum;
+                              const stepDaysText = stage.status === "APPROVED" ? "1 Hari" : (stage.status === "PENDING" ? `${stepDaysNum} Hari` : "-");
+                              return (
+                                <React.Fragment key={i}>
+                                  <span
+                                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded text-[10px] font-bold transition-all border shrink-0 ${
+                                      stage.status === "APPROVED"
+                                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                        : stage.status === "PENDING"
+                                        ? "bg-amber-50 text-amber-800 border-amber-300 ring-1 ring-amber-100 font-extrabold"
+                                        : "bg-slate-50 text-slate-400 border-slate-200 opacity-60"
+                                    }`}
+                                  >
+                                    {stage.status === "APPROVED" && <CheckCircle2 size={10} className="text-emerald-600 shrink-0" />}
+                                    {stage.status === "PENDING" && <Clock size={10} className="text-amber-500 shrink-0" />}
+                                    {stage.name}
+                                  </span>
+                                  {i < arr.length - 1 && (
+                                    <div className="flex flex-col items-center justify-center shrink-0 px-1 select-none">
+                                      <span className="text-slate-400 text-xs font-black leading-none">→</span>
+                                      <span className="text-[8px] font-bold text-slate-500 bg-slate-100 px-1 py-0.2 rounded mt-0.5 leading-none">
+                                        {stepDaysText}
+                                      </span>
+                                    </div>
+                                  )}
+                                </React.Fragment>
+                              );
+                            });
 
-                          {/* Divider */}
-                          <span className="text-slate-300 font-bold shrink-0">|</span>
-
-                          {/* Approval Stages Timeline Flow */}
-                          <div className="flex items-center gap-1 text-[8.5px] shrink-0">
-                            {getApprovalStages(doc.type, doc.requiredRole, doc.approvedBy, doc.status).map((stage, i, arr) => (
-                              <React.Fragment key={i}>
-                                <span
-                                  className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded font-bold transition-all border shrink-0 ${
-                                    stage.status === "APPROVED"
-                                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                      : stage.status === "PENDING"
-                                      ? "bg-amber-50 text-amber-800 border-amber-350 ring-1 ring-amber-100"
-                                      : stage.status === "DRAFT"
-                                      ? "bg-slate-50 text-slate-500 border-slate-250 border-dashed"
-                                      : "bg-slate-50 text-slate-400 border-slate-200 border-dashed"
-                                  }`}
-                                >
-                                  {stage.status === "APPROVED" && <CheckCircle2 size={7} className="text-emerald-500" />}
-                                  {stage.status === "PENDING" && <Clock size={7} className="text-amber-500" />}
-                                  {stage.name}
+                            return (
+                              <>
+                                {stageElements}
+                                <span className="text-slate-300 font-bold ml-1 shrink-0">|</span>
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-800 border border-blue-200 rounded-md text-[10px] font-extrabold shadow-sm shrink-0 ml-0.5">
+                                  ⏳ Total: {totalDaysSum} Hari
                                 </span>
-                                {i < arr.length - 1 && (
-                                  <span className="text-slate-350 font-black text-[9px] select-none shrink-0">→</span>
-                                )}
-                              </React.Fragment>
-                            ))}
-                          </div>
+                              </>
+                            );
+                          })()}
                         </div>
                       </td>
                       <td className="px-4 py-3 text-center">

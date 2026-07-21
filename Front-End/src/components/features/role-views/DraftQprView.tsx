@@ -148,7 +148,7 @@ export default function DraftQprView({ pendingQprs, setPendingQprs, setActiveTab
                           <>
                             <button
                               onClick={() => handleSendToApproval(qpr.id)}
-                              className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-bold cursor-pointer transition-all flex items-center gap-1"
+                              className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-[10px] font-bold cursor-pointer transition-all flex items-center gap-1"
                             >
                               <Send size={11} /> Kirim
                             </button>

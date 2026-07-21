@@ -307,7 +307,7 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
   return (
     <div className="space-y-6 text-left">
       {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center p-6 bg-gradient-to-r from-violet-700 via-purple-700 to-indigo-800 text-white border border-indigo-900 rounded-xl shadow-md gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center p-6 bg-gradient-to-r from-blue-700 via-indigo-700 to-indigo-800 text-white border border-indigo-900 rounded-xl shadow-md gap-4">
         <div>
           <div className="flex items-center gap-2">
             <span className="p-1.5 bg-white/10 text-white rounded-lg">
@@ -328,20 +328,20 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
             <button
               type="button"
               onClick={() => setNcrPanelOpen(prev => !prev)}
-              className="w-full flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-amber-50 to-orange-50 hover:from-amber-100 hover:to-orange-100 transition-colors cursor-pointer"
+              className="w-full flex items-center justify-between px-5 py-3.5 bg-white hover:bg-blue-50/70 transition-all cursor-pointer group border-b border-slate-100"
             >
               <div className="flex items-center gap-2">
-                <AlertTriangle size={15} className="text-amber-600" />
-                <span className="text-[11px] font-black text-amber-800 uppercase tracking-wider">
-                  Pilih NCR Selesai Disetujui sebagai Dasar QPR
+                <AlertTriangle size={15} className="text-blue-600 transition-colors" />
+                <span className="text-[11px] font-black text-slate-800 group-hover:text-blue-700 uppercase tracking-wider transition-colors">
+                  List NCR
                 </span>
                 {approvedNcrs.length > 0 && (
-                  <span className="px-2 py-0.5 bg-amber-600 text-white text-[9px] font-black rounded-full">
+                  <span className="px-2 py-0.5 bg-blue-600 text-white text-[9px] font-black rounded-full shadow-xs">
                     {approvedNcrs.length} tersedia
                   </span>
                 )}
               </div>
-              {ncrPanelOpen ? <ChevronUp size={16} className="text-amber-600" /> : <ChevronDown size={16} className="text-amber-600" />}
+              {ncrPanelOpen ? <ChevronUp size={16} className="text-blue-600 transition-colors" /> : <ChevronDown size={16} className="text-slate-400 group-hover:text-blue-600 transition-colors" />}
             </button>
 
             {ncrPanelOpen && (
@@ -359,13 +359,13 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
                     {Object.entries(groupedNcrs).map(([vendor, partsGroup]) => (
                       <div key={vendor} className="border border-slate-200 rounded-xl p-3 bg-slate-55/40 space-y-3 shadow-xs">
                         <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
-                          <span className="w-2.5 h-2.5 rounded-full bg-violet-650 animate-pulse" />
+                          <span className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-pulse" />
                           <h5 className="text-[11px] font-black text-slate-900 uppercase tracking-wider">{vendor}</h5>
                         </div>
                         <div className="space-y-3.5 pl-1">
                           {Object.entries(partsGroup).map(([partKey, ncrsList]) => (
                             <div key={partKey} className="space-y-2">
-                              <h6 className="text-[10px] font-black text-violet-700 bg-violet-50/50 px-2 py-0.5 rounded border border-violet-100/50 inline-block">
+                              <h6 className="text-[10px] font-black text-blue-700 bg-blue-50/50 px-2 py-0.5 rounded border border-blue-100/50 inline-block">
                                 {partKey}
                               </h6>
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -381,12 +381,12 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
                                       onClick={() => handleSelectNcr(ncr)}
                                       className={`w-full text-left px-3 py-2.5 rounded-lg border transition-all cursor-pointer relative overflow-hidden group/item ${
                                         isSelected
-                                          ? 'border-violet-500 bg-violet-50 shadow-sm ring-1 ring-violet-500'
-                                          : 'border-slate-200 bg-white hover:bg-violet-50/20 hover:border-violet-300 hover:shadow-xs'
+                                          ? 'border-blue-500 bg-blue-50 shadow-sm ring-1 ring-blue-500'
+                                          : 'border-slate-200 bg-white hover:bg-blue-50/20 hover:border-blue-300 hover:shadow-xs'
                                       }`}
                                     >
                                       <div className="flex items-center justify-between">
-                                        <span className="text-[9px] font-black text-slate-800 font-mono group-hover/item:text-violet-750 transition-colors">
+                                        <span className="text-[9px] font-black text-slate-800 font-mono group-hover/item:text-blue-700 transition-colors">
                                           {ncr.ncrNumber}
                                         </span>
                                         <span className="text-[9px] font-black text-red-650 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded">
@@ -404,7 +404,7 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
                                         </div>
                                       )}
                                       {isSelected && (
-                                        <div className="absolute top-0 right-0 h-full w-1.5 bg-violet-650" />
+                                        <div className="absolute top-0 right-0 h-full w-1.5 bg-blue-600" />
                                       )}
                                     </button>
                                   );
@@ -435,7 +435,7 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
                 <select
                   value={supplierId}
                   onChange={e => { setSupplierId(Number(e.target.value) || ""); setPartRows([{ id: Date.now(), partId: "", totalQty: "", qtyNg: "", stdAllowance: "0" }]); }}
-                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent text-slate-800 font-semibold bg-white cursor-pointer"
+                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-800 font-semibold bg-white cursor-pointer"
                 >
                   <option value="">— Pilih Supplier —</option>
                   {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -456,7 +456,7 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
                     const months = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
                     setPeriod(`${months[parseInt(mo) - 1]} ${yr}`);
                   }}
-                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent text-slate-800 font-semibold bg-white cursor-pointer"
+                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-800 font-semibold bg-white cursor-pointer"
                 />
               </div>
 
@@ -474,7 +474,7 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
                       e.currentTarget.showPicker();
                     } catch (err) {}
                   }}
-                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent text-slate-800 font-semibold bg-white cursor-pointer"
+                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-800 font-semibold bg-white cursor-pointer"
                 />
               </div>
 
@@ -488,7 +488,7 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
                   value={refNcrNumber}
                   onChange={e => setRefNcrNumber(e.target.value)}
                   placeholder="NCR/2026/06/012"
-                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent text-slate-800 font-semibold bg-white placeholder-slate-400"
+                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-800 font-semibold bg-white placeholder-slate-400"
                 />
               </div>
 
@@ -502,7 +502,7 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
                   value={problem}
                   onChange={e => setProblem(e.target.value)}
                   placeholder="VISUAL NG"
-                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent text-slate-800 font-semibold bg-white"
+                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-800 font-semibold bg-white"
                 />
               </div>
 
@@ -512,7 +512,7 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
                   Upload File PDF Lampiran
                 </label>
                 <div className="flex items-center gap-3">
-                  <label className="flex items-center gap-2 px-4 py-2 border border-dashed border-violet-300 bg-violet-50/50 hover:bg-violet-50 text-violet-700 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-sm">
+                  <label className="flex items-center gap-2 px-4 py-2 border border-dashed border-blue-300 bg-blue-50/50 hover:bg-blue-50 text-blue-700 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-sm">
                     <FileText size={14} />
                     Pilih File PDF
                     <input
@@ -558,7 +558,7 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
               <button
                 onClick={addRow}
                 disabled={!supplierId}
-                className="flex items-center gap-1 px-2.5 py-1.5 bg-violet-600 hover:bg-violet-700 disabled:bg-slate-200 disabled:cursor-not-allowed text-white text-[10px] font-bold rounded-lg transition-all cursor-pointer"
+                className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:cursor-not-allowed text-white text-[10px] font-bold rounded-lg transition-all cursor-pointer"
               >
                 <Plus size={11} /> Tambah Part
               </button>
@@ -670,9 +670,9 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
                       if (e.target.checked) setClaimType(prev => [...prev, opt]);
                       else setClaimType(prev => prev.filter(c => c !== opt));
                     }}
-                    className="w-3.5 h-3.5 border border-slate-300 rounded text-violet-600 cursor-pointer"
+                    className="w-3.5 h-3.5 border border-slate-300 rounded text-blue-600 cursor-pointer"
                   />
-                  <span className="text-[11px] font-semibold text-slate-700 group-hover:text-violet-700 transition-colors">{opt}</span>
+                  <span className="text-[11px] font-semibold text-slate-700 group-hover:text-blue-700 transition-colors">{opt}</span>
                 </label>
               ))}
             </div>
@@ -752,14 +752,14 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
                   claimType
                 });
               }}
-              className="w-full py-2 border border-violet-200 bg-violet-50 hover:bg-violet-100 text-violet-700 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+              className="w-full py-2 border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <FileText size={13} />
               Preview Form QPR
             </button>
             <button
               onClick={handleSubmit}
-              className="w-full py-2.5 bg-violet-600 hover:bg-violet-700 active:scale-95 text-white text-xs font-black rounded-lg shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+              className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-xs font-black rounded-lg shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <Send size={13} />
               Submit QPR ke Section Head

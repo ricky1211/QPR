@@ -128,25 +128,25 @@ export default function QprPrintPreview({ qpr, onClose, inline = false }: QprPre
       }}
     >
         {/* Company Header */}
-        <div className="flex items-center" style={{ borderBottom: "1px solid #000", padding: "6px 10px" }}>
+        <div className="flex items-center" style={{ borderBottom: "1.5px solid #000000", padding: "6px 10px", color: "#000000" }}>
           <div style={{ width: "170px", minWidth: "170px", marginRight: "12px", display: "flex", alignItems: "center" }}>
             <img src="/qpr/logo-mtm.jpg" alt="PT MTM Logo" style={{ height: "26px", objectFit: "contain", display: "block" }} />
           </div>
-          <div className="flex-1 text-center text-slate-700" style={{ fontSize: "7.5px", lineHeight: "1.6" }}>
-            <div className="font-bold" style={{ fontSize: "9px" }}>PT MENARA TERUS MAKMUR</div>
-            <div>Jl. Jababeka XI Blok H 1 No. 12, Jababeka Industrial Estate</div>
-            <div>17530 CIKARANG BEKASI INDONESIA</div>
-            <div>TELP: (62-21) 8934504, FAX: (62-21) 8934505</div>
+          <div className="flex-1 text-center font-bold text-black" style={{ fontSize: "7.5px", lineHeight: "1.6", color: "#000000" }}>
+            <div className="font-black text-black" style={{ fontSize: "9px", color: "#000000" }}>PT MENARA TERUS MAKMUR</div>
+            <div style={{ color: "#000000" }}>Jl. Jababeka XI Blok H 1 No. 12, Jababeka Industrial Estate</div>
+            <div style={{ color: "#000000" }}>17530 CIKARANG BEKASI INDONESIA</div>
+            <div style={{ color: "#000000" }}>TELP: (62-21) 8934504, FAX: (62-21) 8934505</div>
           </div>
-          <div className="text-right text-slate-600" style={{ width: "100px", minWidth: "100px", fontSize: "7.5px" }}>
-            <div className="font-bold" style={{ fontSize: "8px" }}>(PR4-FRM-08101)</div>
+          <div className="text-right font-bold text-black" style={{ width: "100px", minWidth: "100px", fontSize: "7.5px", color: "#000000" }}>
+            <div className="font-black text-black" style={{ fontSize: "8px", color: "#000000" }}>(PR4-FRM-08101)</div>
           </div>
         </div>
 
         {/* Title */}
-        <div className="text-center" style={{ backgroundColor: "#000", color: "#fff", borderBottom: "1px solid #000", padding: "6px 0" }}>
-          <div className="font-black tracking-wide uppercase" style={{ fontSize: "18px" }}>QUALITY PROBLEM REPORT</div>
-          <div className="font-bold tracking-wider text-slate-350" style={{ fontSize: "9px" }}>( PR4-FRM-08101 )</div>
+        <div className="text-center" style={{ backgroundColor: "#ffffff", color: "#000000", borderTop: "1.5px solid #000000", borderBottom: "1.5px solid #000000", padding: "6px 0" }}>
+          <div className="font-black tracking-wide uppercase text-black" style={{ fontSize: "18px", color: "#000000" }}>QUALITY PROBLEM REPORT</div>
+          <div className="font-black tracking-wider text-black" style={{ fontSize: "9px", color: "#000000" }}>( PR4-FRM-08101 )</div>
         </div>
 
         {/* Supplier Info + Status Section */}

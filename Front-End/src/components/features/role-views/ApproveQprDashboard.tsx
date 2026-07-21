@@ -443,8 +443,8 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
             <button
               onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
               disabled={currentPage === 1}
-              className={`p-1.5 border border-slate-200 rounded-md transition-colors ${
-                currentPage === 1 ? "text-slate-300 bg-slate-50/50 cursor-not-allowed" : "text-slate-600 hover:bg-slate-50 cursor-pointer"
+              className={`p-1.5 border border-slate-200 rounded-md transition-all ${
+                currentPage === 1 ? "text-slate-300 bg-slate-50/50 cursor-not-allowed" : "text-slate-600 hover:bg-blue-50/80 hover:border-blue-400 hover:text-blue-600 hover:ring-2 hover:ring-blue-400/40 hover:shadow-md hover:shadow-blue-500/20 cursor-pointer"
               }`}
             >
               <ChevronLeft size={14} />
@@ -454,10 +454,10 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
               <button
                 key={page}
                 onClick={() => setCurrentPage(page)}
-                className={`w-7.5 h-7.5 border rounded-md transition-colors text-center ${
+                className={`w-7.5 h-7.5 border rounded-md transition-all text-center ${
                   currentPage === page
-                    ? "bg-blue-600 border-blue-600 text-white"
-                    : "border-slate-200 text-slate-600 hover:bg-slate-50 cursor-pointer"
+                    ? "bg-blue-600 border-blue-600 text-white shadow-sm shadow-blue-500/30 font-bold"
+                    : "border-slate-200 text-slate-600 hover:bg-blue-50/80 hover:border-blue-400 hover:text-blue-600 hover:ring-2 hover:ring-blue-400/40 hover:shadow-md hover:shadow-blue-500/20 cursor-pointer"
                 }`}
               >
                 {page}
@@ -467,8 +467,8 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
             <button
               onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
               disabled={currentPage === totalPages}
-              className={`p-1.5 border border-slate-200 rounded-md transition-colors ${
-                currentPage === totalPages ? "text-slate-300 bg-slate-50/50 cursor-not-allowed" : "text-slate-600 hover:bg-slate-50 cursor-pointer"
+              className={`p-1.5 border border-slate-200 rounded-md transition-all ${
+                currentPage === totalPages ? "text-slate-300 bg-slate-50/50 cursor-not-allowed" : "text-slate-600 hover:bg-blue-50/80 hover:border-blue-400 hover:text-blue-600 hover:ring-2 hover:ring-blue-400/40 hover:shadow-md hover:shadow-blue-500/20 cursor-pointer"
               }`}
             >
               <ChevronRight size={14} />
@@ -477,85 +477,8 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
         </div>
       </div>
 
-      {/* Bottom Performance and Alert Cards Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
-        
-        {/* Left Span 2: Approval Performance Tracking Bar Chart */}
-        <div className="lg:col-span-2 bg-white border border-slate-150 rounded-xl p-5 shadow-sm flex flex-col justify-between">
-          <div className="border-b border-slate-50 pb-2">
-            <h4 className="text-sm font-black text-slate-800 uppercase tracking-wider">Approval Performance Tracking</h4>
-          </div>
 
-          <div className="flex items-end justify-between gap-4 h-40 pt-8 pb-2">
-            {[
-              { day: "Mon", height: "25%", active: false },
-              { day: "Tue", height: "55%", active: false },
-              { day: "Wed", height: "40%", active: false },
-              { day: "Thu", height: "65%", active: false },
-              { day: "Today", height: "85%", active: true, value: "4.2h" }
-            ].map((bar, idx) => (
-              <div key={idx} className="flex-1 flex flex-col items-center gap-2 group relative">
-                {bar.active && (
-                  <span className="absolute -top-6 text-[10px] font-black text-slate-850 bg-slate-50 border border-slate-200 px-1.5 py-0.5 rounded shadow-sm">
-                    {bar.value}
-                  </span>
-                )}
-                <div 
-                  style={{ height: bar.height }}
-                  className={`w-full rounded-t-md transition-all duration-300 ${
-                    bar.active 
-                      ? "bg-blue-600 shadow-md shadow-blue-500/10 animate-pulse-ring" 
-                      : "bg-slate-100 group-hover:bg-slate-200"
-                  }`}
-                />
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1">
-                  {bar.day}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Right Span 1: Quality Alert & Need Assistance */}
-        <div className="space-y-4 flex flex-col justify-between">
-          {/* Card A: Quality Alert */}
-          <div className="bg-white border border-slate-150 rounded-xl p-5 shadow-sm text-left space-y-2 flex-1 flex flex-col justify-between">
-            <div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Quality Alert</span>
-              <p className="text-xs text-slate-600 font-bold mt-2 leading-relaxed">
-                Recurring dimensional defect detected in Line A2 for 3 consecutive batches.
-              </p>
-            </div>
-            <div className="pt-2">
-              <button 
-                type="button" 
-                onClick={() => alert("Membuka analisis investigasi defect...")}
-                className="text-red-500 hover:text-red-700 font-bold text-xs flex items-center gap-1 cursor-pointer transition-colors"
-              >
-                View Investigation <ArrowRight size={13} className="stroke-[2.5]" />
-              </button>
-            </div>
-          </div>
-
-          {/* Card B: Need Assistance */}
-          <div className="bg-blue-600 rounded-xl p-5 shadow-sm text-left text-white space-y-3 flex-1 flex flex-col justify-between">
-            <div>
-              <h5 className="text-xs font-black uppercase tracking-wider text-blue-100">Need Assistance?</h5>
-              <p className="text-[11px] text-blue-50 leading-relaxed font-bold mt-2">
-                Contact Quality Control room extension 402 for immediate verification support.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => alert("Membuka Support Ticket...")}
-              className="w-full py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 text-[11px] font-black rounded-lg transition-colors cursor-pointer text-center shadow-sm shadow-blue-700/5 border border-transparent"
-            >
-              Open Support Ticket
-            </button>
-          </div>
-        </div>
-
-      </div>      {/* Unified QPR Details Modal */}
+      {/* Unified QPR Details Modal */}
       {selectedQpr && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-[2px] z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl w-full max-w-[1200px] shadow-2xl overflow-hidden border border-slate-100 flex flex-col">

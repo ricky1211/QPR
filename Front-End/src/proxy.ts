@@ -6,9 +6,6 @@ import type { NextRequest } from 'next/server'
 // Docs: node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/proxy.md
 // ============================================================
 
-import * as fs from 'fs'
-import * as path from 'path'
-
 const COOKIE_NAME = 'mtm_session'
 
 // Routes that do NOT require authentication
@@ -17,13 +14,6 @@ const PUBLIC_ROUTES = ['/login']
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   const sessionCookie = request.cookies.get(COOKIE_NAME)?.value
-
-  try {
-    const logMsg = `[${new Date().toISOString()}] PATHNAME: ${pathname} | URL: ${request.url} | COOKIE: ${sessionCookie}\n`
-    fs.appendFileSync('c:\\Users\\Rickyy\\Documents\\MTM\\QPR\\QPR\\Front-End\\proxy_debug.log', logMsg)
-  } catch (e) {
-    // Ignore logging errors
-  }
 
   const isPublicRoute = PUBLIC_ROUTES.some(
     (route) => pathname === route || pathname.startsWith(route + '/'),

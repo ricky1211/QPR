@@ -173,7 +173,7 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
                     title={!sidebarOpen ? "NCR" : undefined}
                   >
                     <div className="flex items-center gap-3">
-                      <Shield size={20} className={`shrink-0 ${isNcrActive ? "text-blue-600" : "text-slate-400 group-hover:text-blue-600"} transition-colors`} />
+                      <Shield size={20} className="shrink-0 text-blue-600 transition-colors" />
                       <span className={`text-sm font-bold truncate transition-all ${sidebarOpen ? "block animate-in fade-in" : "xl:hidden"}`}>
                         NCR
                       </span>
@@ -190,7 +190,7 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
                         ...(canBuatNcr ? [
                           { id: "buat-ncr", name: "Buat NCR", icon: PlusCircle, color: "text-blue-600" },
                         ] : []),
-                        ...(canApproveNcr ? [{ id: "approve-ncr", name: "Approval NCR", icon: CheckSquare, color: "text-amber-500" }] : []),
+                        ...(canApproveNcr ? [{ id: "approve-ncr", name: "Approval NCR", icon: CheckSquare, color: "text-blue-600" }] : []),
                       ].map((sub) => {
                         const SubIcon = sub.icon;
                         const isSubActive = activeTab === sub.id;
@@ -227,7 +227,7 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
                   }`}
                   title={!sidebarOpen ? "Pengisian QPR" : undefined}
                 >
-                  <ClipboardList size={20} className={activeTab === "buat-qpr" ? "text-white shrink-0" : "text-violet-500 group-hover:text-white transition-colors shrink-0"} />
+                  <ClipboardList size={20} className={activeTab === "buat-qpr" ? "text-white shrink-0" : "text-blue-500 group-hover:text-white transition-colors shrink-0"} />
                   <span className={`text-sm font-bold truncate transition-all ${sidebarOpen ? "block animate-in fade-in" : "xl:hidden"}`}>Pengisian QPR</span>
                 </button>
               )}
@@ -245,7 +245,7 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
                   }`}
                   title={!sidebarOpen ? "Approval QPR" : undefined}
                 >
-                  <FileCheck2 size={20} className={activeTab === "approve-qpr" ? "text-white shrink-0" : "text-indigo-500 group-hover:text-white transition-colors shrink-0"} />
+                  <FileCheck2 size={20} className={activeTab === "approve-qpr" ? "text-white shrink-0" : "text-blue-500 group-hover:text-white transition-colors shrink-0"} />
                   <span className={`text-sm font-bold truncate transition-all ${sidebarOpen ? "block animate-in fade-in" : "xl:hidden"}`}>Approval QPR</span>
                 </button>
               )}
@@ -263,7 +263,7 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
                   }`}
                   title={!sidebarOpen ? "Buat Confirmation Letter" : undefined}
                 >
-                  <PlusCircle size={20} className={activeTab === "confirmation-letter" ? "text-white shrink-0" : "text-rose-500 group-hover:text-white transition-colors shrink-0"} />
+                  <PlusCircle size={20} className={activeTab === "confirmation-letter" ? "text-white shrink-0" : "text-blue-500 group-hover:text-white transition-colors shrink-0"} />
                   <span className={`text-sm font-bold truncate transition-all ${sidebarOpen ? "block animate-in fade-in" : "xl:hidden"}`}>Buat CL</span>
                 </button>
               )}
@@ -281,7 +281,7 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
                   }`}
                   title={!sidebarOpen ? "Approval CL" : undefined}
                 >
-                  <FileText size={20} className={activeTab === "approve-cl" ? "text-white shrink-0" : "text-indigo-500 group-hover:text-white transition-colors shrink-0"} />
+                  <FileText size={20} className={activeTab === "approve-cl" ? "text-white shrink-0" : "text-blue-500 group-hover:text-white transition-colors shrink-0"} />
                   <span className={`text-sm font-bold truncate transition-all ${sidebarOpen ? "block animate-in fade-in" : "xl:hidden"}`}>Approval CL</span>
                 </button>
               )}
@@ -299,7 +299,7 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
                   }`}
                   title={!sidebarOpen ? "SSC Billing & Reminder" : undefined}
                 >
-                  <Mail size={20} className={activeTab === "i-memo" ? "text-white shrink-0" : "text-teal-500 group-hover:text-white transition-colors shrink-0"} />
+                  <Mail size={20} className={activeTab === "i-memo" ? "text-white shrink-0" : "text-blue-500 group-hover:text-white transition-colors shrink-0"} />
                   <span className={`text-sm font-bold truncate transition-all ${sidebarOpen ? "block animate-in fade-in" : "xl:hidden"}`}>SSC Billing &amp; Reminder</span>
                 </button>
               )}
@@ -319,7 +319,7 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
                   }`}
                   title={!sidebarOpen ? "List NCR, QPR & CL" : undefined}
                 >
-                  <ListTodo size={20} className={activeTab === "list-qpr" ? "text-white shrink-0" : "text-emerald-500 group-hover:text-white transition-colors shrink-0"} />
+                  <ListTodo size={20} className={activeTab === "list-qpr" ? "text-white shrink-0" : "text-blue-500 group-hover:text-white transition-colors shrink-0"} />
                   <span className={`text-sm font-bold truncate transition-all ${sidebarOpen ? "block animate-in fade-in" : "xl:hidden"}`}>List NCR, QPR &amp; CL</span>
                 </button>
               )}
@@ -348,7 +348,7 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
                     }`}
                     title={!sidebarOpen ? menu.name : undefined}
                   >
-                    <IconComp size={18} className={isActive ? "text-white shrink-0" : "text-slate-400 group-hover:text-white transition-colors shrink-0"} />
+                    <IconComp size={18} className={isActive ? "text-white shrink-0" : "text-blue-500 group-hover:text-white transition-colors shrink-0"} />
                     <span className={`text-sm font-bold truncate transition-all ${sidebarOpen ? "block animate-in fade-in" : "xl:hidden"}`}>{menu.name}</span>
                   </button>
                 );

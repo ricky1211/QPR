@@ -665,7 +665,7 @@ export default function ApproveClDashboard({
                     alert("Gagal mengekspor berkas Excel: " + err);
                   });
                 }}
-                className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <Download size={12} />
                 Download Excel (.xlsx)

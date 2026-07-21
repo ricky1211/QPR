@@ -495,11 +495,11 @@ export default function Dashboard({
             type="button"
             onClick={() => setPeriodIndex(prev => Math.max(0, prev - 1))}
             disabled={periodIndex === 0}
-            className="p-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg border border-slate-200 text-slate-600 disabled:opacity-40 cursor-pointer transition-all active:scale-90 flex items-center justify-center"
+            className="p-1.5 bg-slate-100 hover:bg-blue-50/80 hover:border-blue-400 hover:text-blue-600 hover:ring-2 hover:ring-blue-400/40 hover:shadow-md hover:shadow-blue-500/20 rounded-lg border border-slate-200 text-slate-600 disabled:opacity-40 cursor-pointer transition-all active:scale-90 flex items-center justify-center group"
           >
-            <ChevronLeft size={13} className="stroke-[2.5] text-slate-500" />
+            <ChevronLeft size={13} className="stroke-[2.5] text-slate-500 group-hover:text-blue-600 transition-colors" />
           </button>
-          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg text-xs font-bold text-blue-800 select-none">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 border border-blue-200 hover:border-blue-400 hover:ring-2 hover:ring-blue-400/40 hover:shadow-md hover:shadow-blue-500/20 rounded-lg text-xs font-bold text-blue-800 select-none transition-all cursor-pointer">
             <Calendar size={13} className="text-blue-600" />
             <span>{activePeriod}</span>
           </div>
@@ -507,9 +507,9 @@ export default function Dashboard({
             type="button"
             onClick={() => setPeriodIndex(prev => Math.min(periods.length - 1, prev + 1))}
             disabled={periodIndex === periods.length - 1}
-            className="p-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg border border-slate-200 text-slate-600 disabled:opacity-40 cursor-pointer transition-all active:scale-90 flex items-center justify-center"
+            className="p-1.5 bg-slate-100 hover:bg-blue-50/80 hover:border-blue-400 hover:text-blue-600 hover:ring-2 hover:ring-blue-400/40 hover:shadow-md hover:shadow-blue-500/20 rounded-lg border border-slate-200 text-slate-600 disabled:opacity-40 cursor-pointer transition-all active:scale-90 flex items-center justify-center group"
           >
-            <ChevronRight size={13} className="stroke-[2.5] text-slate-500" />
+            <ChevronRight size={13} className="stroke-[2.5] text-slate-500 group-hover:text-blue-600 transition-colors" />
           </button>
         </div>
 
@@ -527,24 +527,24 @@ export default function Dashboard({
             <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-3">
               <div className="flex justify-between items-start">
                 <div>
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Non-Conformance Report</span>
-                  <h4 className="text-2xl font-black text-slate-900 mt-0.5 leading-none">{totalNcrs}</h4>
-                  <span className="text-[10px] text-slate-500 font-semibold">Total NCR</span>
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Non-Conformance Report</span>
+                  <h4 className="text-2xl font-black text-slate-900 mt-1 leading-none">{totalNcrs}</h4>
+                  <span className="text-xs text-slate-600 font-bold mt-1 block">Total NCR</span>
                 </div>
                 <div className="p-2 bg-blue-50 rounded-lg border border-blue-100">
-                  <ShieldAlert size={16} className="text-blue-600" />
+                  <ShieldAlert size={18} className="text-blue-600" />
                 </div>
               </div>
               <div className="space-y-1.5">
-                <div className="flex justify-between text-[10px] font-bold text-slate-600">
+                <div className="flex justify-between text-xs font-bold text-slate-700">
                   <span>{ncrClosed} Selesai</span>
                   <span className="text-blue-600">{ncrInProgress} Proses</span>
                 </div>
-                <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
                   <div className="bg-blue-500 h-full rounded-full transition-all duration-500" style={{ width: `${ncrPct}%` }} />
                 </div>
-                <div className="flex items-center gap-1 text-[10px] text-slate-500 font-semibold">
-                  <Clock size={10} className="text-slate-400" />
+                <div className="flex items-center gap-1.5 text-xs text-slate-600 font-semibold pt-0.5">
+                  <Clock size={12} className="text-slate-400" />
                   <span>Avg. Lead Time: <strong className="text-slate-800">~{totalNcrAvgLt > 0 ? Math.ceil(totalNcrAvgLt / Math.max(1, totalNcrs)) : 3} Hari</strong></span>
                 </div>
               </div>
@@ -562,24 +562,24 @@ export default function Dashboard({
             <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-3">
               <div className="flex justify-between items-start">
                 <div>
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Quality Problem Report</span>
-                  <h4 className="text-2xl font-black text-slate-900 mt-0.5 leading-none">{totalQprs}</h4>
-                  <span className="text-[10px] text-slate-500 font-semibold">Total QPR</span>
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Quality Problem Report</span>
+                  <h4 className="text-2xl font-black text-slate-900 mt-1 leading-none">{totalQprs}</h4>
+                  <span className="text-xs text-slate-600 font-bold mt-1 block">Total QPR</span>
                 </div>
                 <div className="p-2 bg-indigo-50 rounded-lg border border-indigo-100">
-                  <FileCheck size={16} className="text-indigo-600" />
+                  <FileCheck size={18} className="text-indigo-600" />
                 </div>
               </div>
               <div className="space-y-1.5">
-                <div className="flex justify-between text-[10px] font-bold text-slate-600">
+                <div className="flex justify-between text-xs font-bold text-slate-700">
                   <span>{qprClosed} Selesai</span>
                   <span className="text-indigo-600">{qprInProgress} Proses</span>
                 </div>
-                <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
                   <div className="bg-indigo-500 h-full rounded-full transition-all duration-500" style={{ width: `${qprPct}%` }} />
                 </div>
-                <div className="flex items-center gap-1 text-[10px] text-slate-500 font-semibold">
-                  <Clock size={10} className="text-slate-400" />
+                <div className="flex items-center gap-1.5 text-xs text-slate-600 font-semibold pt-0.5">
+                  <Clock size={12} className="text-slate-400" />
                   <span>Avg. Lead Time: <strong className={`${avgQprLt > 7 ? 'text-red-600' : 'text-slate-800'}`}>{avgQprLt} Hari</strong></span>
                 </div>
               </div>
@@ -603,24 +603,24 @@ export default function Dashboard({
             <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-3">
               <div className="flex justify-between items-start">
                 <div>
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Confirmation Letter</span>
-                  <h4 className="text-2xl font-black text-slate-900 mt-0.5 leading-none">{totalCl}</h4>
-                  <span className="text-[10px] text-slate-500 font-semibold">Total CL</span>
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Confirmation Letter</span>
+                  <h4 className="text-2xl font-black text-slate-900 mt-1 leading-none">{totalCl}</h4>
+                  <span className="text-xs text-slate-600 font-bold mt-1 block">Total CL</span>
                 </div>
-                <div className="p-2 bg-emerald-50 rounded-lg border border-emerald-100">
-                  <ShieldCheck size={16} className="text-emerald-600" />
+                <div className="p-2 bg-blue-50 rounded-lg border border-blue-100">
+                  <ShieldCheck size={18} className="text-blue-600" />
                 </div>
               </div>
               <div className="space-y-1.5">
-                <div className="flex justify-between text-[10px] font-bold text-slate-600">
+                <div className="flex justify-between text-xs font-bold text-slate-700">
                   <span>{clLunas} Lunas</span>
-                  <span className="text-emerald-600">{clProgress} Proses</span>
+                  <span className="text-blue-600">{clProgress} Proses</span>
                 </div>
-                <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                  <div className="bg-emerald-500 h-full rounded-full transition-all duration-500" style={{ width: `${clPct}%` }} />
+                <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                  <div className="bg-blue-600 h-full rounded-full transition-all duration-500" style={{ width: `${clPct}%` }} />
                 </div>
-                <div className="flex items-center gap-1 text-[10px] text-slate-500 font-semibold">
-                  <Clock size={10} className="text-slate-400" />
+                <div className="flex items-center gap-1.5 text-xs text-slate-600 font-semibold pt-0.5">
+                  <Clock size={12} className="text-slate-400" />
                   <span>Avg. Lead Time: <strong className={`${avgClLt > 7 ? 'text-red-600' : 'text-slate-800'}`}>{avgClLt} Hari</strong></span>
                 </div>
               </div>
@@ -920,24 +920,32 @@ export default function Dashboard({
 
                           {/* Approval Stages Chain */}
                           <div className="flex items-center gap-1.5 py-1">
-                            {getDocPipelineStages(doc.type, doc.requiredRole, doc.status, doc.clApprovalProgress).map((stage, idx, arr) => (
-                              <React.Fragment key={idx}>
-                                <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-[9px] font-bold border transition-all ${
-                                  stage.status === "APPROVED"
-                                    ? "bg-green-50 text-green-700 border-green-200"
-                                    : stage.status === "PENDING"
-                                    ? "bg-amber-50 text-amber-800 border-amber-300 ring-1 ring-amber-100"
-                                    : "bg-slate-50 text-slate-400 border-slate-200 opacity-60"
-                                }`}>
-                                  {stage.status === "APPROVED" && <CheckCircle2 size={8} className="text-green-600 shrink-0" />}
-                                  {stage.status === "PENDING" && <Clock size={8} className="text-amber-500 shrink-0" />}
-                                  {stage.name}
-                                </span>
-                                {idx < arr.length - 1 && (
-                                  <span className="text-slate-350 text-[10px] select-none shrink-0 font-bold">→</span>
-                                )}
-                              </React.Fragment>
-                            ))}
+                            {getDocPipelineStages(doc.type, doc.requiredRole, doc.status, doc.clApprovalProgress).map((stage, idx, arr) => {
+                              const stepDays = stage.status === "APPROVED" ? "1 Hari" : (stage.status === "PENDING" ? `${Math.max(1, Math.ceil((doc.leadTime || 3) / Math.max(1, idx + 1)))} Hari` : "-");
+                              return (
+                                <React.Fragment key={idx}>
+                                  <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-bold border transition-all ${
+                                    stage.status === "APPROVED"
+                                      ? "bg-green-50 text-green-700 border-green-200"
+                                      : stage.status === "PENDING"
+                                      ? "bg-amber-50 text-amber-800 border-amber-300 ring-1 ring-amber-100 font-extrabold"
+                                      : "bg-slate-50 text-slate-400 border-slate-200 opacity-60"
+                                  }`}>
+                                    {stage.status === "APPROVED" && <CheckCircle2 size={10} className="text-green-600 shrink-0" />}
+                                    {stage.status === "PENDING" && <Clock size={10} className="text-amber-500 shrink-0" />}
+                                    {stage.name}
+                                  </span>
+                                  {idx < arr.length - 1 && (
+                                    <div className="flex flex-col items-center justify-center shrink-0 px-1 select-none">
+                                      <span className="text-slate-400 text-xs font-black leading-none">→</span>
+                                      <span className="text-[8px] font-bold text-slate-500 bg-slate-100 px-1 py-0.2 rounded mt-0.5 leading-none">
+                                        {stepDays}
+                                      </span>
+                                    </div>
+                                  )}
+                                </React.Fragment>
+                              );
+                            })}
                           </div>
 
                           <span className="text-slate-300">|</span>

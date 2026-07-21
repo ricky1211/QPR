@@ -140,7 +140,7 @@ export default function LoginPage() {
         {/* Background photo */}
         <div className="absolute inset-0 z-0">
           <Image
-            src="/qpr/mtm-factory.jpg"
+            src="/mtm-factory.jpg"
             alt="PT Menara Terus Makmur Factory"
             fill
             priority
@@ -189,7 +189,7 @@ export default function LoginPage() {
             <div className="flex flex-col items-center mb-6">
               <div className="logo-float mb-3">
                 <Image
-                  src="/qpr/logo-mtm.png"
+                  src="/logo-mtm.png"
                   alt="MTM — Menara Terus Makmur"
                   width={210}
                   height={60}

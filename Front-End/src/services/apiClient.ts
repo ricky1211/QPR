@@ -26,10 +26,17 @@ export async function apiRequest<T = any>(
     let errorMessage = `API Error: ${response.status} ${response.statusText}`;
     try {
       const errorJson = JSON.parse(errorText);
-      errorMessage = errorJson.message || errorMessage;
+      errorMessage = errorJson.message || errorJson.error || errorJson.detail || errorMessage;
     } catch (e) {
-      // Response was not JSON
+      if (errorText && errorText.trim().length > 0) {
+        // Strip HTML tags if HTML error page returned by proxy/server
+        const cleanText = errorText.replace(/<[^>]*>/g, '').trim().slice(0, 150);
+        if (cleanText) {
+          errorMessage = `API Error ${response.status}: ${cleanText}`;
+        }
+      }
     }
+    console.warn(`[apiClient Error ${response.status}] ${path}:`, errorMessage);
     throw new Error(errorMessage);
   }
 

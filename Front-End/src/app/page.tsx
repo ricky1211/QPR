@@ -41,9 +41,8 @@ import {
 
 export default function Home({ initialTab = "" }: { initialTab?: string }) {
   const router = useRouter();
-  // Tabs: 'dashboard', 'buat-ncr', 'approve-ncr', 'approve-qpr', 'confirmation-letter', 'list-qpr', 'calendar', 'parts'
-  const [activeTab, setActiveTab] = useState(initialTab);
-  const [username, setUsername] = useState<string>("");
+  const [activeTab, setActiveTab] = useState(initialTab || "dashboard");
+  const [username, setUsername] = useState<string>("admin");
 
   // Intercept tab changes to push routes to Next.js router
   const handleTabChange = (tab: string) => {
@@ -745,7 +744,7 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
             {/* ===== ROLE-BASED CONTENT GUARDS ===== */}
             {/* Each panel only renders if the logged-in user's role permits it */}
 
-            {activeTab === "dashboard" && username && (
+            {activeTab === "dashboard" && (
               <Dashboard
                 pendingNcrs={pendingNcrs}
                 pendingQprs={pendingQprs}
