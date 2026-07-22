@@ -172,7 +172,7 @@ export default function ConfirmationLetterPrintPreview({ cl, onClose, inline = f
                     return (
                       <tr key={item.id || idx}>
                         <td className="border border-black px-2 py-1 text-center">{idx + 1}</td>
-                        <td className="border border-black px-2 py-1">{item.partName}</td>
+                        <td className="border border-black px-2.5 py-1.5 font-bold text-slate-900" style={{ wordBreak: "break-word", whiteSpace: "normal", lineHeight: "1.35" }}>{item.partName}</td>
                         <td className="border border-black px-2 py-1 text-center font-mono">{billableQty}</td>
                         <td className="border border-black px-2 py-1 text-right font-mono">{unitPriceVal.toLocaleString("en-US")}</td>
                         <td className="border border-black px-2 py-1 text-right font-mono">{subtotal.toLocaleString("en-US")}</td>

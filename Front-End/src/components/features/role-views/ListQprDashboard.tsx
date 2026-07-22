@@ -17,7 +17,8 @@ import {
   TrendingUp,
   Download,
   AlertCircle,
-  ShieldAlert
+  ShieldAlert,
+  Printer
 } from "lucide-react";
 
 import ClPrintPreview from "./ClPrintPreview";
@@ -675,14 +676,24 @@ export default function ListQprDashboard({
                         </div>
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <button
-                          onClick={() => handleViewDetail(doc)}
-                          className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-750 text-white rounded-md transition-all cursor-pointer flex items-center justify-center gap-1.5 mx-auto text-[10px] font-bold shadow-sm"
-                        >
-                          <Eye size={12} />
-                          Detail
-                        </button>
-
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            onClick={() => handleViewDetail(doc)}
+                            className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-all cursor-pointer flex items-center gap-1 text-[10px] font-bold shadow-sm"
+                            title="Lihat Detail Dokumen"
+                          >
+                            <Eye size={12} />
+                            Detail
+                          </button>
+                          <button
+                            onClick={() => handleViewDetail(doc)}
+                            className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md transition-all cursor-pointer flex items-center gap-1 text-[10px] font-bold shadow-sm"
+                            title="Printout PDF Dokumen"
+                          >
+                            <Printer size={12} />
+                            Print PDF
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );

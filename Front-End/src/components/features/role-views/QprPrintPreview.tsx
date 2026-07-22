@@ -278,7 +278,7 @@ export default function QprPrintPreview({ qpr, onClose, inline = false }: QprPre
             <thead>
               <tr style={{ backgroundColor: "transparent" }}>
                 <th style={{ border: "1px solid #000", padding: "2.5px 4px", textAlign: "center", fontWeight: "bold", backgroundColor: "#f1f5f9" }}>NO</th>
-                <th style={{ border: "1px solid #000", padding: "2.5px 4px", textAlign: "center", fontWeight: "bold", backgroundColor: "#f1f5f9" }}>PART NAME</th>
+                <th style={{ border: "1px solid #000", padding: "3px 6px", textAlign: "center", fontWeight: "bold", backgroundColor: "#f1f5f9", minWidth: "120px" }}>PART NAME</th>
                 <th style={{ border: "1px solid #000", padding: "2.5px 4px", textAlign: "center", fontWeight: "bold", backgroundColor: "#f1f5f9" }}>TOTAL QTY (PCS)</th>
                 <th style={{ border: "1px solid #000", padding: "2.5px 4px", textAlign: "center", fontWeight: "bold", backgroundColor: "#f1f5f9" }}>QTY NG (PCS)</th>
                 <th style={{ border: "1px solid #000", padding: "2.5px 4px", textAlign: "center", fontWeight: "bold", backgroundColor: "#ffff00" }}>NG ACTUAL (%)</th>
@@ -295,8 +295,8 @@ export default function QprPrintPreview({ qpr, onClose, inline = false }: QprPre
                 const qtyClaim = item.qtyClaim !== undefined ? item.qtyClaim : qtyNG - stdAllowance;
                 return (
                   <tr key={item.no}>
-                    <td style={{ border: "1px solid #000", padding: "2.5px 4px", textAlign: "center" }}>{item.no}</td>
-                    <td style={{ border: "1px solid #000", padding: "2.5px 6px", fontWeight: "600" }}>{item.partName}</td>
+                    <td style={{ border: "1px solid #000", padding: "3px 4px", textAlign: "center" }}>{item.no}</td>
+                    <td style={{ border: "1px solid #000", padding: "4px 8px", fontWeight: "bold", wordBreak: "break-word", whiteSpace: "normal", lineHeight: "1.35", color: "#0f172a" }}>{item.partName}</td>
                     <td style={{ border: "1px solid #000", padding: "2.5px 4px", textAlign: "center" }}>{totalQty.toLocaleString("id-ID")}</td>
                     <td style={{ border: "1px solid #000", padding: "2.5px 4px", textAlign: "center" }}>{qtyNG.toLocaleString("id-ID")}</td>
                     <td style={{ border: "1px solid #000", padding: "2.5px 4px", textAlign: "center", fontWeight: "bold", color: "#b91c1c" }}>{ngActual.toFixed(2)}%</td>
@@ -330,8 +330,15 @@ export default function QprPrintPreview({ qpr, onClose, inline = false }: QprPre
           </div>
           {/* SVG Bent Arrow pointing up-right to table column */}
           <div style={{ width: "90px", height: "80px", display: "flex", alignItems: "center", justifyContent: "center", paddingRight: "16px" }}>
-            <svg width="80" height="70" viewBox="0 0 80 70" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M5,45 L45,45 L45,28 L35,28 L50,10 L65,28 L55,28 L55,55 L5,55 Z" fill="#ef4444" stroke="#000000" strokeWidth="1.5" strokeLinejoin="round" />
+            <svg width="85" height="75" viewBox="0 0 100 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path
+                d="M 10,60 L 60,60 L 60,32 L 72,32 L 50,8 L 28,32 L 40,32 L 40,48 L 10,48 Z"
+                fill="#ef4444"
+                stroke="#000000"
+                strokeWidth="2.5"
+                strokeLinejoin="miter"
+                strokeLinecap="square"
+              />
             </svg>
           </div>
         </div>

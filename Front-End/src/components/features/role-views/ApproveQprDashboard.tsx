@@ -344,38 +344,23 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
           <table className="w-full table-fixed text-left text-xs border-collapse">
             <thead>
               <tr className="bg-slate-100 border-b border-slate-400 text-slate-800 font-extrabold uppercase text-[10px] tracking-wider text-center">
-                <th className="px-2 py-3 border-r border-slate-400 w-[18%] text-center font-bold">ID Report</th>
-                <th className="px-2 py-3 border-r border-slate-400 w-[22%] text-center font-bold">Detail Produk</th>
-                <th className="px-2 py-3 border-r border-slate-400 w-[22%] text-center font-bold">Kategori Masalah</th>
-                <th className="px-2 py-3 border-r border-slate-400 w-[12%] text-center font-bold">Tanggal Laporan</th>
-                <th className="px-2 py-3 border-r border-slate-400 w-[18%] text-center font-bold">Status Verifikasi</th>
-                <th className="px-2 py-3 w-[8%] text-center font-bold">Aksi</th>
+                <th className="px-2 py-3 border-r border-slate-400 w-[22%] text-center font-bold">ID Report</th>
+                <th className="px-2 py-3 border-r border-slate-400 w-[32%] text-center font-bold">Detail Produk</th>
+                <th className="px-2 py-3 border-r border-slate-400 w-[16%] text-center font-bold">Tanggal Laporan</th>
+                <th className="px-2 py-3 border-r border-slate-400 w-[20%] text-center font-bold">Status Verifikasi</th>
+                <th className="px-2 py-3 w-[10%] text-center font-bold">Aksi</th>
               </tr>
             </thead>
             <tbody>
               {currentItems.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-16 text-slate-400 font-medium">
+                  <td colSpan={5} className="text-center py-16 text-slate-400 font-medium">
                     <CheckCircle2 size={32} className="text-green-500 mx-auto mb-2 opacity-50" />
                     No reports pending approval.
                   </td>
                 </tr>
               ) : (
                 currentItems.map((qpr) => {
-                  // Determine severity label based on item quantity or reject items
-                  let severityText = "Minor - Low Reject";
-                  let severityDot = "bg-slate-450";
-                  let severityBg = "bg-slate-50 text-slate-500";
-                  if (qpr.rejectItems > 20) {
-                    severityText = "Critical - Allowance Exceeded";
-                    severityDot = "bg-red-500";
-                    severityBg = "bg-red-50 text-red-600 border border-red-100/50";
-                  } else if (qpr.rejectItems > 10) {
-                    severityText = "Major - Moderate Reject";
-                    severityDot = "bg-amber-500";
-                    severityBg = "bg-amber-50 text-amber-600 border border-amber-100/50";
-                  }
-
                   // Verification status text based on active role
                   const statusText = levelTab === "section-head" ? "Menunggu Approval Sec. Head" :
                                      levelTab === "dept-head" ? "Menunggu Approval Dept. Head" :
@@ -392,14 +377,6 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
                       <td className="px-2 py-3 border-r border-slate-400 text-left">
                         <div className="font-bold text-slate-700 text-[11px] whitespace-nowrap overflow-hidden text-ellipsis">{qpr.supplierName}</div>
                         <div className="text-[9px] text-slate-400 font-bold mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">Period: {qpr.period} | Qty: {qpr.totalItems} pcs</div>
-                      </td>
-
-                      {/* Kategori Masalah */}
-                      <td className="px-2 py-3 border-r border-slate-400 text-center">
-                        <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wide ${severityBg}`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${severityDot}`} />
-                          {severityText}
-                        </span>
                       </td>
 
                       {/* Tanggal Laporan */}

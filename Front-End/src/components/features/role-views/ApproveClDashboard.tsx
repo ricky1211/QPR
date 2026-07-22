@@ -323,18 +323,17 @@ export default function ApproveClDashboard({
           <table className="w-full table-fixed text-left text-xs border-collapse min-w-[800px]">
             <thead>
               <tr className="bg-slate-100 border-b border-slate-400 text-slate-800 font-extrabold uppercase text-[10px] tracking-wider text-center">
-                <th className="px-2 py-3 border-r border-slate-400 w-[22%] text-center font-bold">No. Confirmation Letter</th>
-                <th className="px-2 py-3 border-r border-slate-400 w-[20%] text-center font-bold">Detail Vendor</th>
-                <th className="px-2 py-3 border-r border-slate-400 w-[18%] text-center font-bold">Jumlah Claim Denda</th>
-                <th className="px-2 py-3 border-r border-slate-400 w-[12%] text-center font-bold">Tanggal Kirim</th>
+                <th className="px-2 py-3 border-r border-slate-400 w-[28%] text-center font-bold">No. Confirmation Letter</th>
+                <th className="px-2 py-3 border-r border-slate-400 w-[28%] text-center font-bold">Detail Vendor</th>
+                <th className="px-2 py-3 border-r border-slate-400 w-[14%] text-center font-bold">Tanggal Kirim</th>
                 <th className="px-2 py-3 border-r border-slate-400 w-[20%] text-center font-bold">Status Verifikasi</th>
-                <th className="px-2 py-3 w-[8%] text-center font-bold">Aksi</th>
+                <th className="px-2 py-3 w-[10%] text-center font-bold">Aksi</th>
               </tr>
             </thead>
             <tbody>
               {currentItems.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-16 text-slate-400 font-medium">
+                  <td colSpan={5} className="text-center py-16 text-slate-400 font-medium">
                     <CheckCircle2 size={32} className="text-green-500 mx-auto mb-2 opacity-50" />
                     Tidak ada Confirmation Letter yang butuh approval di role ini.
                   </td>
@@ -353,13 +352,6 @@ export default function ApproveClDashboard({
                       <td className="px-2 py-3 border-r border-slate-400 text-left">
                         <div className="font-bold text-slate-700 text-[11px] whitespace-nowrap overflow-hidden text-ellipsis">{cl.supplierName}</div>
                         <div className="text-[9px] text-slate-400 font-bold mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">QPR: {cl.qprNumber || "Custom CL"}</div>
-                      </td>
-
-                      {/* Jumlah Claim Denda */}
-                      <td className="px-2 py-3 border-r border-slate-400 text-center">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-rose-50 text-rose-600 border border-rose-100">
-                          {cl.amount}
-                        </span>
                       </td>
 
                       {/* Tanggal Kirim */}

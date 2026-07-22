@@ -568,7 +568,7 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
               <table className="w-full text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-100 text-slate-700 font-bold uppercase text-[10px] tracking-wider text-center">
-                    <th className="border border-slate-300 px-2 py-2">Part</th>
+                    <th className="border border-slate-300 px-3 py-2 text-left min-w-[200px]">Part Name / Deskripsi</th>
                     <th className="border border-slate-300 px-2 py-2 w-24">Total Qty (pcs)</th>
                     <th className="border border-slate-300 px-2 py-2 w-24">Qty NG (pcs)</th>
                     <th className="border border-slate-300 px-2 py-2 w-24">NG Actual (%)</th>

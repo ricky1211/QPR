@@ -152,7 +152,7 @@ export default function NcrPrintPreview({ ncr, onClose, inline = false }: NcrPre
             <tr>
               <td style={{ borderRight: "1px solid #000", padding: "4px 6px", fontWeight: "bold", verticalAlign: "top" }}>
                 PART NAME :
-                <div style={{ marginTop: "4px", fontSize: "9px", fontWeight: "900", color: "#000" }}>{partName}</div>
+                <div style={{ marginTop: "4px", fontSize: "9.5px", fontWeight: "900", color: "#000", wordBreak: "break-word", whiteSpace: "normal", lineHeight: "1.35" }}>{partName}</div>
               </td>
               <td style={{ borderRight: "1px solid #000", padding: "4px 6px", verticalAlign: "top" }}>
                 <div className="grid grid-cols-2 gap-x-1 gap-y-1 font-bold text-[7.5px]">
