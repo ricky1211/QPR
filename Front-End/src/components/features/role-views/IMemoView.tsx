@@ -105,7 +105,7 @@ export default function IMemoView({
   };
 
   const getClaimText = (cl: any) => {
-    const name = cl.supplierName.toUpperCase();
+    const name = cl?.supplierName?.toUpperCase() || "";
     if (name.includes("JAYADI")) return "CLAIM PART NG CONE RACE ALL TYPE";
     if (name.includes("IKAN BAKAR")) return "CLAIM PART NG HARDDISK 1TB";
     if (name.includes("RUICHENG")) return "CLAIM PART NG CONE RACE ALL TYPE";
@@ -219,21 +219,21 @@ export default function IMemoView({
     setSscBillingRows(prev => prev.filter(cl => cl.id !== id));
   };
 
-  const formattedMemoNumInternal = selectedCl
+  const formattedMemoNumInternal = selectedCl?.clNumber
     ? `MEMO-MTM/AOP/${selectedCl.clNumber.replace(/[^0-9]/g, "") || "20260601"}`
     : "MEMO-MTM/AOP/20260601";
 
-  const formattedMemoNumVendor = selectedCl
+  const formattedMemoNumVendor = selectedCl?.clNumber
     ? `MEMO-MTM/VND/${selectedCl.clNumber.replace(/[^0-9]/g, "") || "20260601"}`
     : "MEMO-MTM/VND/20260601";
 
   // Reminder Email Template text
-  const emailTemplateText = selectedCl
+  const emailTemplateText = (selectedCl && selectedCl.supplierName)
     ? `Kepada Yth. Pimpinan Keuangan / Sales Manager ${selectedCl.supplierName},
 
-Melalui surat ini kami mengingatkan kembali terkait penalti penyesuaian kualitas barang (QPR) dengan nomor Confirmation Letter ${selectedCl.clNumber} yang telah dikirimkan pada tanggal ${selectedCl.dateSent}.
+Melalui surat ini kami mengingatkan kembali terkait penalti penyesuaian kualitas barang (QPR) dengan nomor Confirmation Letter ${selectedCl.clNumber || ""} yang telah dikirimkan pada tanggal ${selectedCl.dateSent || ""}.
 
-Jumlah klaim denda akhir yang disepakati adalah sebesar ${selectedCl.amount}. Harap melakukan konfirmasi persetujuan dalam portal QPR Anda.
+Jumlah klaim denda akhir yang disepakati adalah sebesar ${selectedCl.amount || ""}. Harap melakukan konfirmasi persetujuan dalam portal QPR Anda.
 
 Batas waktu: 5 Hari Kerja. Jika dalam waktu 5 hari kerja sejak surat ini dikirimkan tidak ada konfirmasi lebih lanjut, kami mengasumsikan pihak vendor telah menyetujui rincian denda ini sepenuhnya dan akan mengeksekusi deduction pada tagihan berjalan.
 
@@ -1227,31 +1227,39 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                       <span className="text-[9px] font-bold bg-white/20 px-2 py-0.5 rounded">AUTO-GENERATED</span>
                     </div>
 
-                    <div className="border border-slate-200 rounded-lg p-3 bg-slate-50 text-[10.5px] space-y-1 font-semibold text-slate-600">
-                      <div><span className="text-slate-400">Kepada:</span> management@{selectedCl.supplierName.toLowerCase().replace("pt ", "").replace(/ /g, "")}.co.id</div>
-                      <div><span className="text-slate-400">Subject:</span> [URGENT REMINDER] Lembar Persetujuan Confirmation Letter Kualitas {selectedCl.clNumber}</div>
-                    </div>
+                    {selectedCl ? (
+                      <>
+                        <div className="border border-slate-200 rounded-lg p-3 bg-slate-50 text-[10.5px] space-y-1 font-semibold text-slate-600">
+                          <div><span className="text-slate-400">Kepada:</span> management@{selectedCl.supplierName?.toLowerCase().replace("pt ", "").replace(/ /g, "") || "vendor"}.co.id</div>
+                          <div><span className="text-slate-400">Subject:</span> [URGENT REMINDER] Lembar Persetujuan Confirmation Letter Kualitas {selectedCl.clNumber || ""}</div>
+                        </div>
 
-                    <div className="p-4 bg-slate-50 border border-slate-250 rounded-lg text-slate-700 text-[11px] leading-relaxed font-mono whitespace-pre-wrap">
-                      {emailTemplateText}
-                    </div>
+                        <div className="p-4 bg-slate-50 border border-slate-250 rounded-lg text-slate-700 text-[11px] leading-relaxed font-mono whitespace-pre-wrap">
+                          {emailTemplateText}
+                        </div>
 
-                    <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-lg text-blue-800 flex items-start gap-2">
-                      <AlertCircle size={14} className="shrink-0 text-blue-600 mt-0.5" />
-                      <p className="text-[10px] leading-normal font-semibold">
-                        Email ini dikirimkan otomatis oleh sistem jika dalam 2x24 jam vendor belum menandatangani Confirmation Letter yang diajukan.
-                      </p>
-                    </div>
+                        <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-lg text-blue-800 flex items-start gap-2">
+                          <AlertCircle size={14} className="shrink-0 text-blue-600 mt-0.5" />
+                          <p className="text-[10px] leading-normal font-semibold">
+                            Email ini dikirimkan otomatis oleh sistem jika dalam 2x24 jam vendor belum menandatangani Confirmation Letter yang diajukan.
+                          </p>
+                        </div>
 
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleSendReminder(selectedCl.id)}
-                        className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-xs font-bold rounded-lg shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                      >
-                        <Send size={12} />
-                        Kirim Ulang Email Pengingat
-                      </button>
-                    </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleSendReminder(selectedCl.id)}
+                            className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-xs font-bold rounded-lg shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                          >
+                            <Send size={12} />
+                            Kirim Ulang Email Pengingat
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="p-8 text-center text-slate-400 font-bold italic border border-slate-200 rounded-xl bg-slate-50">
+                        Belum ada data denda kualitas. Silakan tambahkan data di tab SSC Billing terlebih dahulu.
+                      </div>
+                    )}
                   </div>
                 )}
 
