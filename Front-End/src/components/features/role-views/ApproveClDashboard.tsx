@@ -39,9 +39,7 @@ export default function ApproveClDashboard({
 }: ApproveClDashboardProps) {
   
   const getInitialTab = () => {
-    if (username === "sectaccounting" || username === "accounting") return "sect-accounting";
-    if (username === "deptaccounting") return "dept-accounting";
-    return "sect-accounting";
+    return "dept-accounting";
   };
 
   const [levelTab, setLevelTab] = useState(getInitialTab());
@@ -66,20 +64,16 @@ export default function ApproveClDashboard({
 
   // Filter pending CLs by role
   const getRoleName = (tab: string) => {
-    switch (tab) {
-      case "sect-accounting": return "Sect Accounting";
-      case "dept-accounting": return "Dept Accounting";
-      default: return "Sect Accounting";
-    }
+    return "Dept Accounting";
   };
   const roleName = getRoleName(levelTab);
   
   // Pending CLs for the currently active tab
   const rolePendingCls = confirmationLetters.filter((cl) => {
-    if (cl.requiredRole === roleName) return true;
-    if (roleName === "Sect Accounting" && cl.status === "PENDING") return true;
-    if (roleName === "Dept Accounting" && cl.status === "APPROVED_SECT") return true;
-    return false;
+    if (cl.status === "FULLY_APPROVED" || cl.status === "CLOSED_PAID" || cl.requiredRole === "Closed") {
+      return false;
+    }
+    return cl.status === "PENDING" || cl.status === "APPROVED_BY_VENDOR" || cl.requiredRole === "Dept Accounting" || cl.status === "APPROVED_SECT";
   });
 
   // Filter based on search query & advanced filters
@@ -159,32 +153,9 @@ export default function ApproveClDashboard({
         </div>
         
         <div className="flex items-center gap-3 shrink-0">
-          {/* Toggle Switcher — Visible for Admin / Accounting */}
-          {username === "admin" || username === "accounting" ? (
-            <div className="flex bg-slate-100 p-1 rounded-md overflow-x-auto max-w-[400px] sm:max-w-none">
-               {[
-                { id: "sect-accounting", label: "SECT ACC" },
-                { id: "dept-accounting", label: "DEPT ACC" }
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => {
-                    setLevelTab(tab.id);
-                    setCurrentPage(1);
-                  }}
-                  className={`px-3 py-1.5 text-[10px] font-bold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
-                    levelTab === tab.id ? "bg-white text-blue-650 shadow-sm" : "text-slate-500 hover:text-slate-900"
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-          ) : (
-            <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-1.5 rounded font-bold uppercase whitespace-nowrap">
-              Role: {levelTab === "sect-accounting" ? "Sect Acc" : "Dept Acc"}
-            </span>
-          )}
+          <span className="text-[10px] bg-slate-100 text-slate-600 px-2.5 py-1.5 rounded-lg font-bold uppercase whitespace-nowrap">
+            Otorisasi: Dept Accounting
+          </span>
 
           {/* Action buttons matching QPR dashboard */}
           <button
@@ -517,15 +488,7 @@ export default function ApproveClDashboard({
                     </span>
                     <div className="space-y-3 divide-y divide-slate-150">
                       <div className="flex justify-between items-center pt-2.5 first:pt-0">
-                        <span className="font-bold text-slate-700">1. Sect Accounting</span>
-                        <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase ${
-                          selectedCl.clApprovalProgress?.sectAccounting ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
-                        }`}>
-                          {selectedCl.clApprovalProgress?.sectAccounting ? "Signed (Anindita)" : "PENDING"}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center pt-2.5">
-                        <span className="font-bold text-slate-700">2. Dept Accounting</span>
+                        <span className="font-bold text-slate-700">1. Dept Accounting</span>
                         <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase ${
                           selectedCl.clApprovalProgress?.deptAccounting ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
                         }`}>
@@ -561,15 +524,15 @@ export default function ApproveClDashboard({
                 </button>
                 <button
                   onClick={() => {
-                    const level = levelTab === "sect-accounting" ? "sect" : "dept";
+                    const level = "dept";
                     handleApproveCL(selectedCl.id, level);
                     
                     const clCopy = { ...selectedCl };
                     const nextProgress = { ...clCopy.clApprovalProgress };
-                    if (level === "sect") nextProgress.sectAccounting = true;
-                    if (level === "dept") nextProgress.deptAccounting = true;
+                    nextProgress.sectAccounting = true; // Auto-set for compat
+                    nextProgress.deptAccounting = true;
                     
-                    const isNowFullyApproved = (level === "dept" || nextProgress.deptAccounting);
+                    const isNowFullyApproved = true;
                     
                     if (isNowFullyApproved) {
                       setShowSuccessModal({

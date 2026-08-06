@@ -311,7 +311,7 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
       dateSent: "2026-06-25",
       amount: "Rp 12.500.000",
       status: "PENDING",
-      requiredRole: "Sect Accounting",
+      requiredRole: "Dept Accounting",
       memoStatus: "DRAFT_MEMO",
       reminderSentCount: 1,
       sentToVendor: false,
@@ -331,7 +331,7 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
       dateSent: "2026-06-28",
       amount: "Rp 32.000.000",
       status: "APPROVED_BY_VENDOR",
-      requiredRole: "Sect Accounting",
+      requiredRole: "Dept Accounting",
       memoStatus: "SENT_AOP",
       reminderSentCount: 1,
       sentToVendor: true,
@@ -376,7 +376,7 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
       dateSent: new Date().toISOString().split("T")[0],
       amount: cleanAmount,
       status: "PENDING",
-      requiredRole: "Sect Accounting",
+      requiredRole: "Dept Accounting",
       memoStatus: "SENT_AOP",
       reminderSentCount: 1,
       sentToVendor: false,
@@ -390,7 +390,7 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
     setPendingQprs(prev => prev.map(q => q.qprNumber === qpr.qprNumber ? { ...q, status: "CLOSED", requiredRole: "Closed" } : q));
   };
 
-  // Handler: Approve CL per level accounting (sect → dept)
+  // Handler: Approve CL per level accounting (dept only)
   const handleApproveCL = (clId: string, level: "sect" | "dept" | "div") => {
     setConfirmationLetters(prev => prev.map(cl => {
       if (cl.id !== clId) return cl;
@@ -398,16 +398,17 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
       let newStatus = cl.status;
       let nextRole = cl.requiredRole;
 
-      if (level === "sect" && !progress.sectAccounting) {
-        progress.sectAccounting = true;
-        newStatus = "APPROVED_SECT";
-        nextRole = "Dept Accounting";
-        alert(`Sukses: CL ${cl.clNumber} disetujui oleh Sect Accounting dan diteruskan ke Dept Accounting!`);
-      } else if (level === "dept" && progress.sectAccounting && !progress.deptAccounting) {
+      if (level === "dept" && !progress.deptAccounting) {
+        progress.sectAccounting = true; // Auto-set for legacy compatibility
         progress.deptAccounting = true;
         newStatus = "FULLY_APPROVED";
         nextRole = "Closed";
         alert(`Sukses: CL ${cl.clNumber} disetujui sepenuhnya oleh Dept Accounting!`);
+      } else if (level === "sect" && !progress.sectAccounting) {
+        progress.sectAccounting = true;
+        newStatus = "APPROVED_SECT";
+        nextRole = "Dept Accounting";
+        alert(`Sukses: CL ${cl.clNumber} disetujui oleh Sect Accounting!`);
       }
       return { ...cl, clApprovalProgress: progress, status: newStatus, requiredRole: nextRole };
     }));

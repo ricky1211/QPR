@@ -639,15 +639,13 @@ export default function AccountingView({
                 confirmationLetters.map((cl, index) => {
                   const prog = cl.clApprovalProgress || { sectAccounting: false, deptAccounting: false };
                   const currentRole = cl.requiredRole || (
-                    !prog.sectAccounting ? "Sect Accounting" :
                     !prog.deptAccounting ? "Dept Accounting" : "Closed"
                   );
 
                   const approvalSteps = [
-                    { key: "sect", label: "Sect Accounting", done: prog.sectAccounting, roleMatch: "Sect Accounting" },
                     { key: "dept", label: "Dept Accounting", done: prog.deptAccounting, roleMatch: "Dept Accounting" }
                   ];
-                  const fullyApproved = prog.sectAccounting && prog.deptAccounting;
+                  const fullyApproved = prog.deptAccounting;
                   const closedPaid = cl.closedPaid || cl.status === "CLOSED_PAID";
                   const debitCount = cl.debitNoteCount || 0;
 
@@ -728,11 +726,6 @@ export default function AccountingView({
                               <span className="inline-flex items-center gap-1 px-3 py-1 bg-rose-50 text-rose-700 border border-rose-200 rounded-full text-[10px] font-black uppercase">
                                 <Clock size={11} className="text-rose-500 animate-pulse" />
                                 Awaiting Vendor
-                              </span>
-                            ) : !prog.sectAccounting ? (
-                              <span className="inline-flex items-center gap-1 px-3 py-1 bg-amber-50 text-amber-700 border border-amber-250 rounded-full text-[10px] font-black uppercase">
-                                <Clock size={11} className="text-amber-550 animate-pulse" />
-                                Awaiting Sect Approval
                               </span>
                             ) : !prog.deptAccounting ? (
                               <span className="inline-flex items-center gap-1 px-3 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-full text-[10px] font-black uppercase">

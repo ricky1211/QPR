@@ -194,7 +194,12 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
   const totalQtyNg = partRows.reduce((acc, r) => acc + (parseInt(r.qtyNg) || 0), 0);
   const totalQty = partRows.reduce((acc, r) => acc + (parseInt(r.totalQty) || 0), 0);
   const totalStdAllowance = partRows.reduce((acc, r) => acc + Math.round((parseInt(r.totalQty) || 0) * 0.005), 0);
-  const billableQty = totalQtyNg - totalStdAllowance;
+  const billableQty = partRows.reduce((acc, r) => {
+    const qty = parseInt(r.totalQty) || 0;
+    const ng = parseInt(r.qtyNg) || 0;
+    const std = Math.round(qty * 0.005);
+    return acc + Math.max(0, ng - std);
+  }, 0);
 
   const claimTypeOptions = [
     "MATERIAL", "PROSES PACKING", "PROSES CHECK",
@@ -202,6 +207,17 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
   ];
 
   const handleSubmit = () => {
+    const hasNgExceeded = partRows.some(r => {
+      const qty = parseInt(r.totalQty) || 0;
+      const ng = parseInt(r.qtyNg) || 0;
+      return qty > 0 && ng > qty;
+    });
+
+    if (hasNgExceeded) {
+      alert("Peringatan: Qty NG tidak boleh melebihi Total Qty. Harap periksa kembali.");
+      return;
+    }
+
     if (!supplierId || !period || !date || partRows.some(r => !r.partId || !r.totalQty || !r.qtyNg)) {
       alert("Harap lengkapi semua field wajib (Supplier, Periode, Tanggal, dan data Part).");
       return;
@@ -582,8 +598,9 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
                     const qty = parseInt(row.totalQty) || 0;
                     const ng = parseInt(row.qtyNg) || 0;
                     const std = Math.round(qty * 0.005);
-                    const claim = ng - std;
+                    const claim = Math.max(0, ng - std);
                     const ngActual = qty > 0 ? ((ng / qty) * 100).toFixed(2) : "0.00";
+                    const isNgExceeded = qty > 0 && ng > qty;
                     return (
                       <tr key={row.id} className="border border-slate-300 hover:bg-slate-50/50 transition-colors">
                         <td className="border border-slate-300 px-2 py-1.5">
@@ -609,14 +626,16 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
                             className="w-full text-xs border-0 bg-transparent focus:ring-0 text-slate-800 font-semibold text-center"
                           />
                         </td>
-                        <td className="border border-slate-300 px-2 py-1.5">
+                        <td className={`border border-slate-300 px-2 py-1.5 transition-colors ${isNgExceeded ? 'bg-red-50' : ''}`}>
                           <input
                             type="number"
                             value={row.qtyNg}
                             onChange={e => updateRow(row.id, "qtyNg", e.target.value)}
                             placeholder="0"
                             min="0"
-                            className="w-full text-xs border-0 bg-transparent focus:ring-0 text-red-600 font-bold text-center"
+                            className={`w-full text-xs border-0 bg-transparent focus:ring-0 font-bold text-center ${
+                              isNgExceeded ? 'text-red-700 font-extrabold focus:outline-none' : 'text-red-600'
+                            }`}
                           />
                         </td>
                         <td className="border border-slate-300 px-2 py-1.5 text-center font-bold text-slate-700 bg-slate-50/20">
@@ -653,6 +672,16 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
                 </tbody>
               </table>
             </div>
+            {partRows.some(r => {
+              const qty = parseInt(r.totalQty) || 0;
+              const ng = parseInt(r.qtyNg) || 0;
+              return qty > 0 && ng > qty;
+            }) && (
+              <div className="flex items-center gap-2 text-red-700 text-[11px] font-bold bg-red-50 border border-red-200 rounded-lg p-3 mt-2">
+                <AlertTriangle size={14} className="shrink-0 text-red-650" />
+                <span>Peringatan: Qty NG tidak boleh melebihi Total Qty. Harap periksa kembali.</span>
+              </div>
+            )}
           </div>
 
           {/* Section 3: Jenis Claim */}
@@ -717,6 +746,15 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
           <div className="space-y-2">
             <button
               onClick={() => {
+                const hasNgExceeded = partRows.some(r => {
+                  const qty = parseInt(r.totalQty) || 0;
+                  const ng = parseInt(r.qtyNg) || 0;
+                  return qty > 0 && ng > qty;
+                });
+                if (hasNgExceeded) {
+                  alert("Peringatan: Qty NG tidak boleh melebihi Total Qty. Harap periksa kembali.");
+                  return;
+                }
                 if (!supplierId || !period || !date) {
                   alert("Harap isi Supplier, Periode, dan Tanggal terlebih dahulu untuk preview.");
                   return;

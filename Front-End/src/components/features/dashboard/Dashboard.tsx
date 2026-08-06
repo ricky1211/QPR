@@ -63,8 +63,8 @@ const getDocPipelineStages = (
       return { name, status: "UPCOMING" };
     });
   } else {
-    // Confirmation Letter (CL) — 3-step chain with 2 accounting levels
-    const chain = ["Vendor Conf.", "Sect Acc.", "Dept Acc."];
+    // Confirmation Letter (CL) — 2-step chain: Vendor Conf., Dept Acc.
+    const chain = ["Vendor Conf.", "Dept Acc."];
     if (isApproved) return chain.map(name => ({ name, status: "APPROVED" }));
 
     const prog = clApprovalProgress || { sectAccounting: false, deptAccounting: false };
@@ -72,11 +72,10 @@ const getDocPipelineStages = (
     return chain.map((name, idx) => {
       if (idx === 0) {
         // Vendor confirmation — treat as approved once CL is in any approval stage
-        const vendorDone = status === "APPROVED_SECT" || status === "FULLY_APPROVED" || status === "CLOSED_PAID" || status === "APPROVED_BY_VENDOR";
+        const vendorDone = status === "FULLY_APPROVED" || status === "CLOSED_PAID" || status === "APPROVED_BY_VENDOR" || status === "APPROVED_SECT";
         return { name, status: vendorDone ? "APPROVED" : "PENDING" };
       }
-      if (idx === 1) return { name, status: prog.sectAccounting ? "APPROVED" : (status === "PENDING" || status === "APPROVED_BY_VENDOR" ? "PENDING" : "UPCOMING") };
-      if (idx === 2) return { name, status: prog.deptAccounting ? "APPROVED" : (prog.sectAccounting ? "PENDING" : "UPCOMING") };
+      if (idx === 1) return { name, status: prog.deptAccounting ? "APPROVED" : (status === "PENDING" || status === "APPROVED_BY_VENDOR" ? "PENDING" : "UPCOMING") };
       return { name, status: "UPCOMING" };
     });
   }
