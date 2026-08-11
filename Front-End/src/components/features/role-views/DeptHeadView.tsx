@@ -15,6 +15,15 @@ export default function DeptHeadView({
   const deptHeadNcrs = pendingNcrs.filter((n) => n.requiredRole === "Dept Head");
   const deptHeadQprs = pendingQprs.filter((q) => q.requiredRole === "Dept Head");
 
+  const vendorClaimCounts = React.useMemo(() => {
+    const counts: Record<string, number> = {};
+    pendingQprs.forEach((q) => {
+      const name = q.supplierName;
+      if (name) counts[name] = (counts[name] || 0) + 1;
+    });
+    return counts;
+  }, [pendingQprs]);
+
   const [selectedNcr, setSelectedNcr] = useState(null);
   const [selectedQpr, setSelectedQpr] = useState(null);
   const [previewQpr, setPreviewQpr] = useState(null);
@@ -671,7 +680,7 @@ export default function DeptHeadView({
       {/* QPR Print Preview */}
       {previewQpr && (
         <QprPrintPreview
-          qpr={previewQpr}
+          qpr={{ ...previewQpr, vendorClaimCount: vendorClaimCounts[previewQpr.supplierName] || 1 }}
           onClose={() => setPreviewQpr(null)}
         />
       )}

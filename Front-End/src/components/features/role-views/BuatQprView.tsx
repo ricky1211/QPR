@@ -203,7 +203,8 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
 
   const claimTypeOptions = [
     "MATERIAL", "PROSES PACKING", "PROSES CHECK",
-    "PAINTING/PLATING", "PARKEREZING", "HEAT TREATMENT"
+    "PAINTING/PLATING", "PARKEREZING", "HEAT TREATMENT",
+    "PROSES FORGING", "PROSES M/C"
   ];
 
   const handleSubmit = () => {
@@ -218,8 +219,8 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
       return;
     }
 
-    if (!supplierId || !period || !date || partRows.some(r => !r.partId || !r.totalQty || !r.qtyNg)) {
-      alert("Harap lengkapi semua field wajib (Supplier, Periode, Tanggal, dan data Part).");
+    if (!supplierId || !period || !date || !refNcrNumber || !problem || !pdfFile || partRows.some(r => !r.partId || !r.totalQty || !r.qtyNg)) {
+      alert("Harap lengkapi semua field wajib (Supplier, Periode, Tanggal, Ref. No NCR, Problem/Defect, Upload PDF Lampiran, dan data Part).");
       return;
     }
 
@@ -497,7 +498,7 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
               {/* Ref NCR */}
               <div className="space-y-1.5">
                 <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                  Ref. No NCR
+                  Ref. No NCR <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -511,7 +512,7 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
               {/* Problem */}
               <div className="space-y-1.5 sm:col-span-2">
                 <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                  Problem / Defect
+                  Problem / Defect <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -525,7 +526,7 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
               {/* Upload PDF */}
               <div className="space-y-1.5 sm:col-span-2">
                 <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                  Upload File PDF Lampiran
+                  Upload File PDF Lampiran <span className="text-red-500">*</span>
                 </label>
                 <div className="flex items-center gap-3">
                   <label className="flex items-center gap-2 px-4 py-2 border border-dashed border-blue-300 bg-blue-50/50 hover:bg-blue-50 text-blue-700 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-sm">
@@ -755,8 +756,8 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
                   alert("Peringatan: Qty NG tidak boleh melebihi Total Qty. Harap periksa kembali.");
                   return;
                 }
-                if (!supplierId || !period || !date) {
-                  alert("Harap isi Supplier, Periode, dan Tanggal terlebih dahulu untuk preview.");
+                if (!supplierId || !period || !date || !refNcrNumber || !problem || !pdfFile) {
+                  alert("Harap lengkapi semua field wajib (Supplier, Periode, Tanggal, Ref. No NCR, Problem/Defect, dan Upload PDF Lampiran) terlebih dahulu untuk preview.");
                   return;
                 }
                 setPreviewQpr({
@@ -809,7 +810,11 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
       {/* QPR Print Preview Modal */}
       {previewQpr && (
         <QprPrintPreview
-          qpr={previewQpr}
+          qpr={{ ...previewQpr, vendorClaimCount: (() => {
+            const name = previewQpr.supplierName;
+            const existingCount = (pendingQprs || []).filter((q: any) => q.supplierName === name).length;
+            return existingCount + 1;
+          })() }}
           onClose={() => setPreviewQpr(null)}
         />
       )}

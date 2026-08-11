@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect, useRef } from "react";
 import {
@@ -40,6 +40,127 @@ export default function IMemoView({
   const [viewPartsCl, setViewPartsCl] = useState<any | null>(null);
   const [clUploadedFile, setClUploadedFile] = useState<File | null>(null);
 
+  // States for the Manual Billing Internal Memo Form
+  const [memoCompany, setMemoCompany] = useState("PT. MENARA TERUS MAKMUR");
+  const [memoBusinessArea, setMemoBusinessArea] = useState("MT");
+  const [memoRequestDate, setMemoRequestDate] = useState("10/02/2026");
+  const [memoBillingType, setMemoBillingType] = useState("One Time");
+  const [memoPeriod, setMemoPeriod] = useState("02/26");
+  const [memoTitle, setMemoTitle] = useState("Permintaan Pembuatan Invoice Claim NG Part");
+  const [memoRequestTo, setMemoRequestTo] = useState("SSC Billing");
+  const [memoDescription, setMemoDescription] = useState("Mohon dibuatkan invoice untuk Claim Part NG ");
+  const [memoCustomerType, setMemoCustomerType] = useState("PKP");
+  const [memoNpwp, setMemoNpwp] = useState("81.571.024.9-408.000");
+  const [memoSupportingDoc, setMemoSupportingDoc] = useState("");
+  const [memoBillingAddressedTo, setMemoBillingAddressedTo] = useState("");
+  const [memoCustomerName, setMemoCustomerName] = useState("");
+  const [memoCurrency, setMemoCurrency] = useState("IDR");
+  const [memoAmount, setMemoAmount] = useState("");
+  const [memoSays, setMemoSays] = useState("");
+  
+  // Data Accounting
+  const [acctCustomerCode, setAcctCustomerCode] = useState("OTC08002");
+  const [acctCustomerType, setAcctCustomerType] = useState("Non Trade");
+  const [acctTradingPartner, setAcctTradingPartner] = useState("");
+  const [acctExchangeRate, setAcctExchangeRate] = useState("");
+  const [acctJournal, setAcctJournal] = useState("");
+
+  // GL Account Rows
+  const [glRows, setGlRows] = useState([
+    { code: "OTC08002", name: "PT TEMARU ENGINEER", costCenter: "", amountDr: "24.765", amountCr: "", text: "Claim Part NG" },
+    { code: "545-102-0000", name: "FOH Subcont Fee", costCenter: "MT015FOHGE", amountDr: "", amountCr: "22.311", text: "Claim Part NG" },
+    { code: "211-310-0000", name: "Tax Pay VAT Out", costCenter: "", amountDr: "", amountCr: "2.454", text: "ppn 11%" }
+  ]);
+
+  // Signatures
+  const [sigPrepared, setSigPrepared] = useState("Bagas");
+  const [sigPreparedRole, setSigPreparedRole] = useState("Accounting BU");
+  const [sigApproved1, setSigApproved1] = useState("Anindita");
+  const [sigApproved1Role, setSigApproved1Role] = useState("Accounting Dept Head");
+  const [sigApproved2, setSigApproved2] = useState("Evi Sulistyorini");
+  const [sigApproved2Role, setSigApproved2Role] = useState("Admin Div/BOD");
+  const [sigEntry, setSigEntry] = useState("");
+  const [sigEntryRole, setSigEntryRole] = useState("SSC Billing Admin");
+  const [sigChecked, setSigChecked] = useState("");
+  const [sigCheckedRole, setSigCheckedRole] = useState("AR Function Lead");
+
+  // NPWP boxes helper
+  const renderNpwpBoxes = (npwpStr) => {
+    const digits = npwpStr.replace(/[^0-9]/g, "").slice(0, 15).padEnd(15, " ").split("");
+    return (
+      <div className="flex items-center gap-0.5 font-bold font-mono text-xs select-none">
+        {digits.slice(0, 2).map((d, i) => <span key={`npwp-1-${i}`} className="w-3.5 h-5 border border-black flex items-center justify-center bg-white text-black">{d}</span>)}
+        <span className="text-[10px] font-black">.</span>
+        {digits.slice(2, 5).map((d, i) => <span key={`npwp-2-${i}`} className="w-3.5 h-5 border border-black flex items-center justify-center bg-white text-black">{d}</span>)}
+        <span className="text-[10px] font-black">.</span>
+        {digits.slice(5, 8).map((d, i) => <span key={`npwp-3-${i}`} className="w-3.5 h-5 border border-black flex items-center justify-center bg-white text-black">{d}</span>)}
+        <span className="text-[10px] font-black">.</span>
+        {digits.slice(8, 9).map((d, i) => <span key={`npwp-4-${i}`} className="w-3.5 h-5 border border-black flex items-center justify-center bg-white text-black">{d}</span>)}
+        <span className="text-[10px] font-black">-</span>
+        {digits.slice(9, 12).map((d, i) => <span key={`npwp-5-${i}`} className="w-3.5 h-5 border border-black flex items-center justify-center bg-white text-black">{d}</span>)}
+        <span className="text-[10px] font-black">.</span>
+        {digits.slice(12, 15).map((d, i) => <span key={`npwp-6-${i}`} className="w-3.5 h-5 border border-black flex items-center justify-center bg-white text-black">{d}</span>)}
+      </div>
+    );
+  };
+
+  const renderDateBoxes = (dateStr) => {
+    const digits = dateStr.replace(/[^0-9]/g, "").slice(0, 8).padEnd(8, " ").split("");
+    return (
+      <div className="flex items-center gap-0.5 font-bold font-mono text-xs select-none">
+        {digits.slice(0, 2).map((d, i) => <span key={`d-${i}`} className="w-3.5 h-5 border border-black flex items-center justify-center bg-white text-black">{d}</span>)}
+        <span className="mx-0.5">/</span>
+        {digits.slice(2, 4).map((d, i) => <span key={`m-${i}`} className="w-3.5 h-5 border border-black flex items-center justify-center bg-white text-black">{d}</span>)}
+        <span className="mx-0.5">/</span>
+        {digits.slice(4, 8).map((d, i) => <span key={`y-${i}`} className="w-3.5 h-5 border border-black flex items-center justify-center bg-white text-black">{d}</span>)}
+      </div>
+    );
+  };
+
+  const renderPeriodBoxes = (periodStr) => {
+    const digits = periodStr.replace(/[^0-9]/g, "").slice(0, 4).padEnd(4, " ").split("");
+    return (
+      <div className="flex items-center gap-0.5 font-bold font-mono text-xs select-none">
+        {digits.slice(0, 2).map((d, i) => <span key={`pm-${i}`} className="w-3.5 h-5 border border-black flex items-center justify-center bg-white text-black">{d}</span>)}
+        <span className="mx-0.5">/</span>
+        {digits.slice(2, 4).map((d, i) => <span key={`py-${i}`} className="w-3.5 h-5 border border-black flex items-center justify-center bg-white text-black">{d}</span>)}
+      </div>
+    );
+  };
+
+  const renderCustomerCodeBoxes = (codeStr) => {
+    const chars = codeStr.replace(/[^a-zA-Z0-9]/g, "").slice(0, 8).padEnd(8, " ").split("");
+    return (
+      <div className="flex items-center gap-0.5 font-bold font-mono text-xs select-none">
+        {chars.map((c, i) => <span key={i} className="w-3.5 h-5 border border-black flex items-center justify-center bg-white text-black">{c}</span>)}
+      </div>
+    );
+  };
+
+  const renderTradingPartnerBoxes = (partnerStr) => {
+    const chars = partnerStr.replace(/[^a-zA-Z0-9]/g, "").slice(0, 5).padEnd(5, " ").split("");
+    return (
+      <div className="flex items-center gap-0.5 font-bold font-mono text-xs select-none">
+        {chars.map((c, i) => <span key={i} className="w-3.5 h-5 border border-black flex items-center justify-center bg-white text-black">{c}</span>)}
+      </div>
+    );
+  };
+
+  const renderDigitBoxes = (value, length = 8) => {
+    const chars = value.replace(/[^a-zA-Z0-9]/g, "").slice(0, length).padEnd(length, " ").split("");
+    return (
+      <div className="flex gap-0.5 inline-flex select-none">
+        {chars.map((char, idx) => (
+          <span key={idx} className="w-3.5 h-5 border border-black flex items-center justify-center font-mono font-bold text-xs bg-white text-black">
+            {char}
+          </span>
+        ))}
+      </div>
+    );
+  };
+
+
+
   const handleRemoveFile = (index: number) => {
     const fileObj = sscFiles[index];
     if (fileObj) {
@@ -56,6 +177,41 @@ export default function IMemoView({
   // Ref to track pending auto-selection after CL upload adds new rows
   const pendingSelectIdRef = useRef<string | null>(null);
 
+  // Sync confirmationLetters → sscBillingRows whenever global CL state changes.
+  // Merges without duplicates (by id). CL rows with any approval status are included.
+  useEffect(() => {
+    if (confirmationLetters.length === 0) return;
+    setSscBillingRows(prev => {
+      const existingIds = new Set(prev.map((r: any) => r.id));
+      const newFromCl: any[] = confirmationLetters
+        .filter((cl: any) => !existingIds.has(cl.id))
+        .map((cl: any) => ({
+          id: cl.id,
+          clNumber: cl.clNumber,
+          qprNumber: cl.qprNumber,
+          supplierName: cl.supplierName,
+          dateSent: cl.dateSent,
+          amount: cl.amount,
+          status: cl.status,
+          memoStatus: cl.memoStatus || "SENT_AOP",
+          reminderSentCount: cl.reminderSentCount || 0,
+          sentToVendor: cl.sentToVendor || false,
+          items: cl.items || [],
+          customerCode: "OTC08002",
+          documentNo: cl.clNumber?.replace(/[^0-9]/g, "").slice(-11) || "",
+          customText: `POTONG TAGIH CLAIM PART NG`,
+          paymentDate: "",
+        }));
+      // Also update status of existing rows that match a CL that changed
+      const updated = prev.map((row: any) => {
+        const match = confirmationLetters.find((cl: any) => cl.id === row.id);
+        if (match) return { ...row, status: match.status, amount: match.amount, supplierName: match.supplierName };
+        return row;
+      });
+      return [...updated, ...newFromCl];
+    });
+  }, [confirmationLetters]);
+
   // After confirmationLetters updates, auto-select the newly uploaded CL row
   useEffect(() => {
     if (pendingSelectIdRef.current) {
@@ -66,6 +222,9 @@ export default function IMemoView({
       }
     }
   }, [confirmationLetters]);
+
+  // Selected CL for Buat SSC Payment panel
+  const [selectedPaymentClId, setSelectedPaymentClId] = useState<string>("");
 
   const selectedCl = sscBillingRows.find(cl => cl.id === selectedClId) || sscBillingRows[0];
   const activeVendorName = sscBillingRows.length > 0 ? (sscBillingRows[0]?.supplierName || "—") : "—";
@@ -176,8 +335,43 @@ export default function IMemoView({
   const [payInstruction, setPayInstruction] = useState(
     "Sehubungan dengan ditemukannya komponen NG yang bukan disebabkan oleh proses internal kami, mohon dapat dilakukan pemotongan pembayaran terhadap vendor berikut :"
   );
+  const [payRequestDate, setPayRequestDate] = useState("10/04/2026");
+  const [paySigPrepared, setPaySigPrepared] = useState("Bagas Nur P");
+  const [paySigApproved1, setPaySigApproved1] = useState("Anindita I");
+  const [paySigApproved2, setPaySigApproved2] = useState("Evi Sulistyorini");
+  const [paySigEntry, setPaySigEntry] = useState("");
 
-  // SSC email
+  // Auto-populate payment form when user selects a CL from the left panel
+  useEffect(() => {
+    if (!selectedPaymentClId) return;
+    const cl = sscBillingRows.find((r: any) => r.id === selectedPaymentClId);
+    if (!cl) return;
+
+    // Format date from ISO (YYYY-MM-DD) or any format to dd/mm/yyyy
+    const formatToDisplay = (raw: string) => {
+      if (!raw) return "";
+      const d = new Date(raw);
+      if (!isNaN(d.getTime())) {
+        return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+      }
+      return raw;
+    };
+
+    setPayRequestDate(formatToDisplay(cl.dateSent));
+    setPayTitle("Permohonan Pemotongan Invoice Vendor");
+    setPayTo("SSC Invoicing & Payment");
+    setPayInstruction(
+      "Sehubungan dengan ditemukannya komponen NG yang bukan disebabkan oleh proses internal kami, mohon dapat dilakukan pemotongan pembayaran terhadap vendor berikut :"
+    );
+    // Load this CL as the single row in the payment table, preserving any other rows
+    setSscBillingRows(prev => {
+      // Mark this CL as selected by moving it to top and setting selectedClId
+      return prev;
+    });
+    setSelectedClId(selectedPaymentClId);
+  }, [selectedPaymentClId]);
+
+
   const sscEmail = "ssc-billing@astraoparts.co.id";
   const handleEmailSSC = () => {
     const subject = encodeURIComponent(`[SSC BILLING] ${selectedCl?.clNumber || ""} - ${selectedCl?.supplierName || ""}`);
@@ -497,724 +691,1118 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                 )}
 
                 {activeSubTab === "ssc_purchasing" && (
-                  /* Form Pengisian Manual + Live A4 Preview */
-                  <div className="w-full space-y-4 text-left">
-                    {sscBillingRows.length === 0 ? (
-                      <div className="bg-white border border-slate-200 border-dashed rounded-xl p-12 text-center shadow-sm flex flex-col items-center justify-center space-y-3 w-full">
-                        <div className="p-3 bg-blue-50 text-blue-600 rounded-full">
-                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-upload-cloud"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/></svg>
-                        </div>
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 w-full items-start text-left font-sans">
+                    {/* Left Column: Form Editor (5 Columns) */}
+                    <div className="lg:col-span-5 bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4 print:hidden">
+                      <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                         <div>
-                          <p className="text-xs font-black text-slate-700 uppercase tracking-wide">
-                            Unggah File PDF atau Excel
-                          </p>
-                          <p className="text-[11.5px] text-slate-500 font-bold mt-1">
-                            Silakan unggah file denda kualitas (Confirmation Letter) Anda untuk memproses data secara otomatis.
-                          </p>
+                          <h4 className="text-sm font-extrabold text-slate-800 font-sans">Manual Billing Editor</h4>
+                          <p className="text-[10.5px] text-slate-500 font-bold font-sans mt-0.5">Isi data manual untuk memperbarui draf dokumen di kanan secara realtime.</p>
                         </div>
-                        <div className="pt-2">
-                          <label className="flex items-center gap-1.5 px-4 py-2 border border-dashed border-blue-300 bg-blue-50 hover:bg-blue-100 text-blue-800 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-xs active:scale-95">
-                            Upload PDF / Excel
-                            <input
-                              type="file"
-                              accept=".pdf,.xlsx,.xls"
-                              multiple
-                              onChange={e => {
-                                const files = e.target.files;
-                                if (files && files.length > 0) {
-                                  Array.from(files).forEach(file => {
-                                    processUploadedFile(file);
-                                  });
-                                }
-                              }}
-                              className="hidden"
-                            />
-                          </label>
+                        <div className="flex gap-1.5 shrink-0 font-sans">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMemoPeriod("");
+                              setMemoTitle("");
+                              setMemoRequestTo("");
+                              setMemoDescription("");
+                              setMemoNpwp("");
+                              setMemoSupportingDoc("");
+                              setMemoBillingAddressedTo("");
+                              setMemoCustomerName("");
+                              setMemoAmount("");
+                              setMemoSays("");
+                              setAcctCustomerCode("");
+                              setAcctTradingPartner("");
+                              setAcctExchangeRate("");
+                              setAcctJournal("");
+                              setGlRows([
+                                { code: "", name: "", costCenter: "", amountDr: "", amountCr: "", text: "" },
+                                { code: "", name: "", costCenter: "", amountDr: "", amountCr: "", text: "" },
+                                { code: "", name: "", costCenter: "", amountDr: "", amountCr: "", text: "" }
+                              ]);
+                              setSigEntry("");
+                              setSigChecked("");
+                            }}
+                            className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold rounded border border-slate-300 transition-all cursor-pointer active:scale-95"
+                            title="Kosongkan Isian Form"
+                          >
+                            Kosongkan
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMemoCompany("PT. MENARA TERUS MAKMUR");
+                              setMemoBusinessArea("MT");
+                              setMemoRequestDate("10/02/2026");
+                              setMemoBillingType("One Time");
+                              setMemoPeriod("");
+                              setMemoTitle("Permintaan Pembuatan Invoice Claim NG Part");
+                              setMemoRequestTo("SSC Billing");
+                              setMemoDescription("Mohon dibuatkan invoice untuk Claim Part NG INNER TUBE,650 A");
+                              setMemoCustomerType("PKP");
+                              setMemoNpwp("81.571.024.9-408.000");
+                              setMemoSupportingDoc("-");
+                              setMemoBillingAddressedTo("Jalan Galuh Mas Raya No. 28-29, Sukaharja, Telukjambe Barat, Sukaharja, Telukjambe Timur, Kabupaten Karawang");
+                              setMemoCustomerName("PT TEMARU ENGINEERING INDONESIA");
+                              setMemoCurrency("IDR");
+                              setMemoAmount("24765");
+                              setMemoSays("Dua Puluh Empat Ribu Tujuh Ratus Enam Puluh Lima Rupiah");
+                              setAcctCustomerCode("OTC08002");
+                              setAcctCustomerType("Non Trade");
+                              setAcctTradingPartner("");
+                              setAcctExchangeRate("");
+                              setAcctJournal("");
+                              setGlRows([
+                                { code: "OTC08002", name: "PT TEMARU ENGINEER", costCenter: "", amountDr: "24.765", amountCr: "", text: "Claim Part NG" },
+                                { code: "545-102-0000", name: "FOH Subcont Fee", costCenter: "MT015FOHGE", amountDr: "", amountCr: "22.311", text: "Claim Part NG" },
+                                { code: "211-310-0000", name: "Tax Pay VAT Out", costCenter: "", amountDr: "", amountCr: "2.454", text: "ppn 11%" }
+                              ]);
+                              setSigPrepared("Bagas");
+                              setSigApproved1("Anindita");
+                              setSigApproved2("Evi Sulistyorini");
+                              setSigEntry("");
+                              setSigChecked("");
+                            }}
+                            className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 text-[10px] font-bold rounded border border-blue-200 transition-all cursor-pointer active:scale-95"
+                            title="Isi dengan Data Contoh PDF"
+                          >
+                            Isi Contoh
+                          </button>
                         </div>
                       </div>
-                    ) : (
-                      <>
-                        <div className="flex justify-between items-center flex-wrap gap-2 print:hidden">
-                          <span className="text-[11px] text-slate-500 font-bold">
-                            Daftar Rincian Baris Tabel SSC Billing
-                          </span>
-                          <div className="flex items-center gap-2">
-                            {/* File Upload PDF/Excel */}
-                            <label className="flex items-center gap-1.5 px-3 py-1.5 border border-dashed border-blue-300 bg-blue-50/50 hover:bg-blue-50 text-blue-700 rounded-lg text-[9.5px] font-bold transition-all cursor-pointer shadow-sm">
-                              <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-upload-cloud"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/></svg>
-                              Upload PDF / Excel
-                              <input
-                                type="file"
-                                accept=".pdf,.xlsx,.xls"
-                                multiple
-                                onChange={e => {
-                                  const files = e.target.files;
-                                  if (files && files.length > 0) {
-                                    Array.from(files).forEach(file => {
-                                      processUploadedFile(file);
-                                    });
-                                  }
-                                }}
-                                className="hidden"
-                              />
-                            </label>
-                            {sscFiles.map((fileObj, idx) => (
-                              <div key={idx} className="flex items-center gap-1 px-2.5 py-1 bg-slate-100 border border-slate-200 rounded-lg text-[9.5px] font-bold text-slate-700">
-                                <span className="truncate max-w-[120px]" title={fileObj.file.name}>{fileObj.file.name}</span>
-                                <button type="button" onClick={() => handleRemoveFile(idx)} className="text-red-500 hover:text-red-700 font-bold ml-1 cursor-pointer">✕</button>
-                              </div>
-                            ))}
-                            <button
-                              onClick={handleAddRow}
-                              className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-[9.5px] font-bold rounded-lg shadow-sm flex items-center gap-1 transition-all active:scale-95 cursor-pointer"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-plus-circle"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>
-                              Tambah Baris
-                            </button>
+
+                      {/* Section 1: General Info */}
+                      <div className="space-y-3 font-sans">
+                        <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-wider">1. General Metadata</h5>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-600">Company</label>
+                            <input type="text" value={memoCompany} onChange={e => setMemoCompany(e.target.value)} className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 bg-white" />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-600">Business Area</label>
+                            <input type="text" value={memoBusinessArea} onChange={e => setMemoBusinessArea(e.target.value)} className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 bg-white" />
                           </div>
                         </div>
 
-                        <div className="border border-slate-200 rounded-lg bg-white p-1.5 shadow-inner overflow-x-auto">
-                          <table className="w-full text-left text-xs border-collapse min-w-[920px]">
-                            <thead>
-                              <tr className="text-[10px] text-slate-500 font-extrabold uppercase border-b border-slate-200 tracking-wider">
-                                <th className="p-1.5 pb-2 w-[85px]">Customer</th>
-                                <th className="p-1.5 pb-2 w-[110px]">Doc No</th>
-                                <th className="p-1.5 pb-2 w-[220px]">Text / Description</th>
-                                <th className="p-1.5 pb-2 w-[150px]">Vendor</th>
-                                <th className="p-1.5 pb-2 w-[95px]">Doc. Date</th>
-                                <th className="p-1.5 pb-2 w-[110px]">Amount</th>
-                                <th className="p-1.5 pb-2 w-[100px]">Pay Date</th>
-                                <th className="p-1.5 pb-2 w-[80px] text-center">Aksi</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-150">
-                              {sscBillingRows.map((cl) => {
-                                const origIdx = sscBillingRows.findIndex(c => c.id === cl.id);
-                                return (
-                                  <tr key={cl.id} className="hover:bg-slate-50/50 transition-colors">
-                                    <td className="p-1">
-                                      <input
-                                        type="text"
-                                        value={cl.customerCode !== undefined ? cl.customerCode : "OTC08002"}
-                                        onChange={e => handleUpdateClField(cl.id, "customerCode", e.target.value)}
-                                        className="w-full px-2 py-1 border border-slate-300 rounded font-mono text-[11px] text-slate-800 bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-center font-bold"
-                                      />
-                                    </td>
-                                    <td className="p-1">
-                                      <input
-                                        type="text"
-                                        value={cl.documentNo !== undefined ? cl.documentNo : (cl.clNumber.replace(/[^0-9]/g, "").slice(-11) || `180000000${53 + origIdx}`)}
-                                      onChange={e => handleUpdateClField(cl.id, "documentNo", e.target.value)}
-                                      className="w-full px-2 py-1 border border-slate-300 rounded font-mono text-[11px] text-slate-800 bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-center font-bold"
-                                    />
-                                  </td>
-                                  <td className="p-1">
-                                    <input
-                                      type="text"
-                                      value={cl.customText !== undefined ? cl.customText : `POTONG TAGIH ${getClaimText(cl)}`}
-                                      onChange={e => handleUpdateClField(cl.id, "customText", e.target.value)}
-                                      className="w-full px-2 py-1 border border-slate-300 rounded font-mono text-[11px] text-slate-800 bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-black text-[11px]"
-                                    />
-                                  </td>
-                                  <td className="p-1">
-                                    <input
-                                      type="text"
-                                      value={cl.supplierName}
-                                      onChange={e => handleUpdateClField(cl.id, "supplierName", e.target.value)}
-                                      className="w-full px-2 py-1 border border-slate-300 rounded text-[11px] text-slate-800 bg-white font-bold focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
-                                    />
-                                  </td>
-                                  <td className="p-1">
-                                    <input
-                                      type="text"
-                                      value={cl.dateSent}
-                                      onChange={e => handleUpdateClField(cl.id, "dateSent", e.target.value)}
-                                      className="w-full px-2 py-1 border border-slate-300 rounded font-mono text-[11px] text-slate-800 bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-center font-semibold"
-                                    />
-                                  </td>
-                                  <td className="p-1">
-                                    <input
-                                      type="text"
-                                      value={cl.amount}
-                                      onChange={e => handleUpdateClField(cl.id, "amount", e.target.value)}
-                                      className="w-full px-2 py-1 border border-slate-300 rounded font-mono text-[11px] text-slate-850 font-black bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-right"
-                                    />
-                                  </td>
-                                  <td className="p-1">
-                                    <input
-                                      type="text"
-                                      value={cl.paymentDate !== undefined ? cl.paymentDate : getPaymentDate(cl.dateSent)}
-                                      onChange={e => handleUpdateClField(cl.id, "paymentDate", e.target.value)}
-                                      className="w-full px-2 py-1 border border-slate-300 rounded font-mono text-[11px] text-slate-800 bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-center font-bold"
-                                    />
-                                  </td>
-                                  <td className="p-1 text-center font-sans">
-                                    <div className="flex items-center justify-center gap-1">
-                                      <button
-                                        type="button"
-                                        onClick={() => setViewPartsCl(cl)}
-                                        title="View Parts"
-                                        className="p-1.5 hover:bg-blue-50 text-blue-600 hover:text-blue-700 rounded transition-all cursor-pointer inline-flex items-center justify-center border border-slate-200 hover:border-blue-200 bg-white shadow-sm"
-                                      >
-                                        <Eye size={11} />
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleDeleteRow(cl.id)}
-                                        title="Hapus baris ini"
-                                        className="p-1.5 hover:bg-red-50 text-red-600 hover:text-red-700 rounded transition-all cursor-pointer inline-flex items-center justify-center border border-slate-200 hover:border-red-200 bg-white shadow-sm"
-                                      >
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-trash-2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
-                                      </button>
-                                    </div>
-                                  </td>
-                                </tr>
-                              );
-                              })}
-                            </tbody>
-                          </table>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-600">Request Date (dd/mm/yyyy)</label>
+                            <input type="text" value={memoRequestDate} onChange={e => setMemoRequestDate(e.target.value)} className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-mono font-bold text-slate-800 bg-white text-center" placeholder="10/02/2026" />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-600">Period *) (mm/yy)</label>
+                            <input type="text" value={memoPeriod} onChange={e => setMemoPeriod(e.target.value)} className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-mono font-bold text-slate-800 bg-white text-center" placeholder="02/26" />
+                          </div>
                         </div>
 
-                    {/* Toggle Preview Button Container */}
-                    <div className="flex justify-between items-center bg-slate-50 border border-slate-200 rounded-lg p-2 print:hidden">
-                      <span className="text-[11px] text-slate-500 font-bold font-sans">
-                        Vendor aktif: <strong>{activeVendorName}</strong>
-                      </span>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleExportExcel("ssc_purchasing")}
-                          className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-[9.5px] rounded-lg shadow-sm flex items-center gap-1 transition-all cursor-pointer active:scale-95"
-                        >
-                          <FileText size={11} />
-                          Export Excel
-                        </button>
-                        <button
-                          onClick={handlePrint}
-                          className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-[9.5px] rounded-lg shadow-sm flex items-center gap-1 transition-all cursor-pointer active:scale-95"
-                        >
-                          <Printer size={11} />
-                          Cetak PDF
-                        </button>
-                        <button
-                          onClick={() => setShowPreview(!showPreview)}
-                          className={`px-3 py-1.5 font-bold text-[9.5px] rounded-lg border transition-all flex items-center gap-1 cursor-pointer active:scale-95 shadow-sm ${
-                            showPreview 
-                              ? "bg-slate-200 border-slate-350 text-slate-700 hover:bg-slate-300" 
-                              : "bg-blue-50 border-blue-200 text-blue-800 hover:bg-blue-100"
-                          }`}
-                        >
-                          <Eye size={12} />
-                          {showPreview ? "Sembunyikan Pratinjau" : "Tampilkan Pratinjau Sheet"}
-                        </button>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-600">Billing Type</label>
+                            <select value={memoBillingType} onChange={e => setMemoBillingType(e.target.value)} className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 bg-white">
+                              <option value="One Time">One Time</option>
+                              <option value="Recurring">Recurring</option>
+                            </select>
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-600">Request Addressed to</label>
+                            <input type="text" value={memoRequestTo} onChange={e => setMemoRequestTo(e.target.value)} className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 bg-white" />
+                          </div>
+                        </div>
+                      </div>
+
+                      <hr className="border-slate-100" />
+
+                      {/* Section 2: Title & Description */}
+                      <div className="space-y-3 font-sans">
+                        <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-wider">2. Judul & Keterangan</h5>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-600">Title</label>
+                          <input type="text" value={memoTitle} onChange={e => setMemoTitle(e.target.value)} className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 bg-white" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-600">Description</label>
+                          <textarea value={memoDescription} onChange={e => setMemoDescription(e.target.value)} rows={2} className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 bg-white" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-600">Supporting Document</label>
+                          <input type="text" value={memoSupportingDoc} onChange={e => setMemoSupportingDoc(e.target.value)} className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 bg-white" />
+                        </div>
+                      </div>
+
+                      <hr className="border-slate-100" />
+
+                      {/* Section 3: Customer Details */}
+                      <div className="space-y-3 font-sans">
+                        <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-wider">3. Detail Customer</h5>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-600">Customer Name</label>
+                          <input type="text" value={memoCustomerName} onChange={e => setMemoCustomerName(e.target.value)} className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 bg-white font-bold" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-600">Billing Addressed to</label>
+                          <textarea value={memoBillingAddressedTo} onChange={e => setMemoBillingAddressedTo(e.target.value)} rows={2} className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 bg-white" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-600">Customer Type</label>
+                            <select value={memoCustomerType} onChange={e => setMemoCustomerType(e.target.value)} className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 bg-white">
+                              <option value="PKP">PKP</option>
+                              <option value="Non PKP">Non PKP</option>
+                            </select>
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-600">NPWP</label>
+                            <input type="text" value={memoNpwp} onChange={e => setMemoNpwp(e.target.value)} className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-mono font-semibold text-slate-800 bg-white" placeholder="81.571.024.9-408.000" />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-600">Currency</label>
+                            <input type="text" value={memoCurrency} onChange={e => setMemoCurrency(e.target.value)} className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-bold text-slate-800 bg-white text-center font-mono" />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-600">Amount</label>
+                            <input type="text" value={memoAmount} onChange={e => setMemoAmount(e.target.value)} className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-mono font-black text-slate-850 bg-white text-right" placeholder="24765" />
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-600">Says (Terbilang)</label>
+                          <input type="text" value={memoSays} onChange={e => setMemoSays(e.target.value)} className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 bg-white italic" />
+                        </div>
+                      </div>
+
+                      <hr className="border-slate-100" />
+
+                      {/* Section 4: Data Accounting */}
+                      <div className="space-y-3 font-sans">
+                        <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-wider">4. Data Accounting (BU)</h5>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-600">Customer Code</label>
+                            <input type="text" value={acctCustomerCode} onChange={e => setAcctCustomerCode(e.target.value)} className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-mono font-bold text-slate-800 bg-white text-center" placeholder="OTC08002" />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-600">Customer Type</label>
+                            <select value={acctCustomerType} onChange={e => setAcctCustomerType(e.target.value)} className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 bg-white">
+                              <option value="Trade">Trade</option>
+                              <option value="Non Trade">Non Trade</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-slate-600">Trading Partner</label>
+                            <input type="text" value={acctTradingPartner} onChange={e => setAcctTradingPartner(e.target.value)} className="w-full px-2 py-1 border border-slate-300 rounded text-xs text-slate-800 bg-white text-center font-mono" />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-slate-600">Exchange Rate</label>
+                            <input type="text" value={acctExchangeRate} onChange={e => setAcctExchangeRate(e.target.value)} className="w-full px-2 py-1 border border-slate-300 rounded text-xs text-slate-800 bg-white text-center font-mono" />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-slate-600">Journal</label>
+                            <input type="text" value={acctJournal} onChange={e => setAcctJournal(e.target.value)} className="w-full px-2 py-1 border border-slate-300 rounded text-xs text-slate-800 bg-white text-center font-mono" />
+                          </div>
+                        </div>
+                      </div>
+
+                      <hr className="border-slate-100" />
+
+                      {/* Section 5: GL Account Table Editor */}
+                      <div className="space-y-3 font-sans">
+                        <div className="flex justify-between items-center">
+                          <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-wider">5. GL Account Table</h5>
+                          <button
+                            type="button"
+                            onClick={() => setGlRows(prev => [...prev, { code: "", name: "", costCenter: "", amountDr: "", amountCr: "", text: "" }])}
+                            className="px-2 py-0.5 bg-blue-600 hover:bg-blue-700 text-white rounded font-bold text-[10px] transition-all cursor-pointer active:scale-95"
+                          >
+                            + Tambah GL
+                          </button>
+                        </div>
+                        <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                          {glRows.map((row, idx) => (
+                            <div key={idx} className="p-2.5 border border-slate-200 rounded-lg bg-slate-50 relative space-y-1.5 text-[11px]">
+                              <button
+                                type="button"
+                                onClick={() => setGlRows(prev => prev.filter((_, i) => i !== idx))}
+                                className="absolute top-1.5 right-1.5 text-red-500 hover:text-red-700 text-xs font-bold cursor-pointer"
+                              >
+                                ✕
+                              </button>
+                              <div className="grid grid-cols-3 gap-2 pt-1.5">
+                                <div>
+                                  <span className="text-[9px] text-slate-500 font-bold block">GL Code</span>
+                                  <input type="text" value={row.code} onChange={e => {
+                                    const next = [...glRows];
+                                    next[idx].code = e.target.value;
+                                    setGlRows(next);
+                                  }} className="w-full px-1.5 py-0.5 border border-slate-300 rounded font-mono text-xs text-slate-850 bg-white" />
+                                </div>
+                                <div className="col-span-2">
+                                  <span className="text-[9px] text-slate-500 font-bold block">GL Name</span>
+                                  <input type="text" value={row.name} onChange={e => {
+                                    const next = [...glRows];
+                                    next[idx].name = e.target.value;
+                                    setGlRows(next);
+                                  }} className="w-full px-1.5 py-0.5 border border-slate-300 rounded text-xs text-slate-850 bg-white font-semibold" />
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-4 gap-2">
+                                <div>
+                                  <span className="text-[9px] text-slate-500 font-bold block">Cost Center</span>
+                                  <input type="text" value={row.costCenter} onChange={e => {
+                                    const next = [...glRows];
+                                    next[idx].costCenter = e.target.value;
+                                    setGlRows(next);
+                                  }} className="w-full px-1 py-0.5 border border-slate-300 rounded font-mono text-xs text-slate-850 bg-white" />
+                                </div>
+                                <div>
+                                  <span className="text-[9px] text-slate-500 font-bold block">Amt (Dr.)</span>
+                                  <input type="text" value={row.amountDr} onChange={e => {
+                                    const next = [...glRows];
+                                    next[idx].amountDr = e.target.value;
+                                    setGlRows(next);
+                                  }} className="w-full px-1 py-0.5 border border-slate-300 rounded font-mono text-xs text-slate-850 bg-white text-right" />
+                                </div>
+                                <div>
+                                  <span className="text-[9px] text-slate-500 font-bold block">Amt (Cr.)</span>
+                                  <input type="text" value={row.amountCr} onChange={e => {
+                                    const next = [...glRows];
+                                    next[idx].amountCr = e.target.value;
+                                    setGlRows(next);
+                                  }} className="w-full px-1 py-0.5 border border-slate-300 rounded font-mono text-xs text-slate-850 bg-white text-right" />
+                                </div>
+                                <div>
+                                  <span className="text-[9px] text-slate-500 font-bold block">Text</span>
+                                  <input type="text" value={row.text} onChange={e => {
+                                    const next = [...glRows];
+                                    next[idx].text = e.target.value;
+                                    setGlRows(next);
+                                  }} className="w-full px-1 py-0.5 border border-slate-300 rounded text-xs text-slate-850 bg-white" />
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <hr className="border-slate-100" />
+
+                      {/* Section 6: Signatures */}
+                      <div className="space-y-3 font-sans">
+                        <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-wider">6. Tanda Tangan</h5>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-[9px] font-bold text-slate-500">Prepared By</label>
+                            <input type="text" value={sigPrepared} onChange={e => setSigPrepared(e.target.value)} className="w-full px-1.5 py-1 border border-slate-300 rounded text-xs font-semibold text-slate-800 bg-white" />
+                          </div>
+                          <div>
+                            <label className="text-[9px] font-bold text-slate-500">Approved By 1</label>
+                            <input type="text" value={sigApproved1} onChange={e => setSigApproved1(e.target.value)} className="w-full px-1.5 py-1 border border-slate-300 rounded text-xs font-semibold text-slate-800 bg-white" />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div className="col-span-2">
+                            <label className="text-[9px] font-bold text-slate-500">Approved By 2</label>
+                            <input type="text" value={sigApproved2} onChange={e => setSigApproved2(e.target.value)} className="w-full px-1.5 py-1 border border-slate-300 rounded text-xs font-semibold text-slate-800 bg-white" />
+                          </div>
+                          <div>
+                            <label className="text-[9px] font-bold text-slate-500">Entry By</label>
+                            <input type="text" value={sigEntry} onChange={e => setSigEntry(e.target.value)} className="w-full px-1.5 py-1 border border-slate-300 rounded text-xs font-bold text-slate-800 bg-white" />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-[9px] font-bold text-slate-500">Checked By</label>
+                          <input type="text" value={sigChecked} onChange={e => setSigChecked(e.target.value)} className="w-full px-1.5 py-1 border border-slate-300 rounded text-xs font-semibold text-slate-800 bg-white" />
+                        </div>
                       </div>
                     </div>
 
-                    {showPreview && (
-                      /* LIVE PREVIEW AREA */
-                      <div className="bg-slate-100 rounded-xl p-4 border border-slate-250 space-y-3 w-full">
-                        <div className="flex border-b border-slate-200 pb-2 print:hidden">
-                          <strong className="text-xs font-black uppercase tracking-wider text-slate-700 block">
-                            Pratinjau Rekapitulasi Klaim SSC Billing (A4)
-                          </strong>
-                        </div>
+                    {/* Right Column: Live A4 Printable Sheet (7 Columns) */}
+                    <div className="lg:col-span-7 flex flex-col items-center w-full space-y-4 print:w-full print:p-0">
+                      {/* Control Panel */}
+                      <div className="w-full bg-white border border-slate-200 rounded-lg p-2 flex justify-between items-center print:hidden shadow-sm font-sans">
+                        <span className="text-[11px] text-slate-500 font-bold font-sans">
+                          Pratinjau Live: <strong>A4 Portrait Sheet</strong>
+                        </span>
+                        <button
+                          onClick={handlePrint}
+                          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs rounded-lg shadow-md hover:shadow-blue-600/20 flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 font-sans"
+                        >
+                          <Printer size={13} />
+                          Cetak Memo Internal
+                        </button>
+                      </div>
 
-                        {/* Sheet A4 Scroll Frame */}
-                        <div className="max-h-[550px] overflow-y-auto border border-slate-300 rounded-lg shadow-inner bg-white p-3 print:max-h-none print:overflow-visible print:border-none print:p-0 w-full">
-                          <div
-                            id="internal-memo-sheet"
-                            className="bg-white shadow-lg border border-slate-300 w-full text-slate-900 p-6 text-left relative overflow-x-auto mx-auto max-w-[210mm]"
-                            style={{ fontFamily: 'Calibri, "Segoe UI", Arial, sans-serif', minHeight: "297mm" }}
-                          >
-                            {/* Sheet Header Information */}
-                            <div className="mb-4 pb-3 border-b border-slate-200">
-                              <h3 className="text-sm font-bold text-blue-900">REKAPITULASI KLAIM DENDA KUALITAS (QPR) - SSC BILLING</h3>
-                              <p className="text-[11px] text-slate-500">Tujuan: Shared Service Center (SSC) Astra Otoparts Group • Format Penyesuaian Tagihan Purchasing (Deduction Note)</p>
+                      {/* Actual Document Sheet Container */}
+                      <div className="w-full overflow-x-auto p-1 bg-slate-200 border border-slate-300 rounded-xl flex justify-center shadow-inner print:bg-white print:border-none print:p-0 print:shadow-none">
+                        <div
+                          id="manual-billing-sheet"
+                          className="bg-white text-black p-[12mm] shadow-lg border border-slate-450 w-[210mm] min-h-[297mm] text-left mx-auto relative flex flex-col print:shadow-none print:border-none print:w-[198mm] print:h-[280mm] print:p-[8mm] print:m-0"
+                          style={{
+                            fontFamily: 'Arial, sans-serif',
+                            lineHeight: '1.2'
+                          }}
+                        >
+                          {/* Top Section */}
+                          <div className="flex justify-between items-start mb-6">
+                            <div className="space-y-1.5 w-[55%]">
+                              <div className="flex text-xs">
+                                <span className="font-bold w-24 shrink-0 font-sans">Company</span>
+                                <span className="mr-2">:</span>
+                                <span className="font-bold border-b border-black flex-1 min-h-[16px]">{memoCompany}</span>
+                              </div>
+                              <div className="flex text-xs">
+                                <span className="font-bold w-24 shrink-0 font-sans">Business Area</span>
+                                <span className="mr-2">:</span>
+                                <span className="font-bold border-b border-black flex-1 min-h-[16px]">{memoBusinessArea}</span>
+                              </div>
+                              <div className="flex text-xs items-center">
+                                <span className="font-bold w-24 shrink-0 font-sans">Request Date</span>
+                                <span className="mr-2">:</span>
+                                <div className="flex-1">{renderDateBoxes(memoRequestDate)}</div>
+                                <span className="text-[9px] text-slate-500 ml-1 font-mono">(dd/mm/yyyy)</span>
+                              </div>
+                              <div className="flex text-xs items-center gap-2 pt-1 font-sans">
+                                <span className="font-bold w-24 shrink-0 font-sans">Billing Type</span>
+                                <span className="mr-2">:</span>
+                                <div className="flex items-center gap-3">
+                                  <label className="flex items-center gap-1 font-bold text-xs select-none">
+                                    <span className={`w-3.5 h-3.5 border border-black flex items-center justify-center font-black text-[10px] ${memoBillingType === "One Time" ? "bg-black text-white" : "bg-white"}`}>
+                                      {memoBillingType === "One Time" ? "✓" : ""}
+                                    </span>
+                                    One Time
+                                  </label>
+                                  <label className="flex items-center gap-1 font-bold text-xs select-none">
+                                    <span className={`w-3.5 h-3.5 border border-black flex items-center justify-center font-black text-[10px] ${memoBillingType === "Recurring" ? "bg-black text-white" : "bg-white"}`}>
+                                      {memoBillingType === "Recurring" ? "✓" : ""}
+                                    </span>
+                                    Recurring
+                                  </label>
+                                </div>
+                                <div className="flex items-center gap-1.5 ml-2 font-sans">
+                                  <span className="font-bold text-[10px] shrink-0 font-sans">Period *) (mm/yy) :</span>
+                                  {renderPeriodBoxes(memoPeriod)}
+                                </div>
+                              </div>
                             </div>
 
-                            {/* Table Container styled like Excel */}
-                            <table className="w-full text-[10.5px] border-collapse border border-slate-400">
+                            {/* Barcode Dotted Area */}
+                            <div className="w-[185px] h-[52px] border border-dashed border-black/80 flex flex-col items-center justify-center p-2 text-center text-black/75">
+                              <span className="text-[7px] font-bold tracking-widest leading-none font-sans">PLEASE PUT <span className="underline font-black">FA01 BARCODE</span> HERE</span>
+                            </div>
+                          </div>
+
+                          {/* Memo Title */}
+                          <div className="text-center mb-6">
+                            <h2 className="text-sm font-extrabold tracking-wider border-b border-black pb-0.5 inline-block uppercase text-black font-sans">
+                              INTERNAL MEMO - MANUAL BILLING TO CUSTOMER
+                            </h2>
+                          </div>
+
+                          {/* Main Form Fields (Thick border block) */}
+                          <div className="border border-black flex flex-col divide-y divide-black text-[11px] mb-4">
+                            <div className="flex divide-x divide-black">
+                              <div className="w-[180px] p-2 font-bold bg-slate-50/50 shrink-0 font-sans">Title</div>
+                              <div className="flex-1 p-2 font-bold bg-white min-h-[28px] uppercase">{memoTitle}</div>
+                            </div>
+                            <div className="flex divide-x divide-black">
+                              <div className="w-[180px] p-2 font-bold bg-slate-50/50 shrink-0 font-sans">Request Addressed to</div>
+                              <div className="flex-1 p-2 font-semibold bg-white min-h-[28px]">{memoRequestTo}</div>
+                            </div>
+                            <div className="flex divide-x divide-black">
+                              <div className="w-[180px] p-2 font-bold bg-slate-50/50 shrink-0 font-sans">Description</div>
+                              <div className="flex-1 p-2 bg-white leading-relaxed whitespace-pre-wrap min-h-[48px] font-semibold">{memoDescription}</div>
+                            </div>
+                            <div className="flex divide-x divide-black items-center">
+                              <div className="w-[180px] p-2 font-bold bg-slate-50/50 shrink-0 font-sans">Customer Type</div>
+                              <div className="flex-1 p-2 flex items-center justify-between bg-white min-h-[28px]">
+                                <div className="flex items-center gap-4">
+                                  <label className="flex items-center gap-1 font-bold">
+                                    <span className={`w-3.5 h-3.5 border border-black flex items-center justify-center text-[10px] ${memoCustomerType === "PKP" ? "bg-black text-white" : ""}`}>
+                                      {memoCustomerType === "PKP" ? "✓" : ""}
+                                    </span>
+                                    PKP
+                                  </label>
+                                  <label className="flex items-center gap-1 font-bold">
+                                    <span className={`w-3.5 h-3.5 border border-black flex items-center justify-center text-[10px] ${memoCustomerType === "Non PKP" ? "bg-black text-white" : ""}`}>
+                                      {memoCustomerType === "Non PKP" ? "✓" : ""}
+                                    </span>
+                                    Non PKP
+                                  </label>
+                                </div>
+                                <div className="flex items-center gap-1.5 mr-2 font-sans">
+                                  <span className="font-bold">NPWP:</span>
+                                  {renderNpwpBoxes(memoNpwp)}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex py-1 px-2 text-[9px] text-slate-500 font-semibold bg-slate-55/20 italic font-sans">
+                              *lampirkan NPWP u/ customer yg belum terdaftar pada customer master (OTC)
+                            </div>
+                            <div className="flex divide-x divide-black">
+                              <div className="w-[180px] p-2 font-bold bg-slate-50/50 shrink-0 font-sans">Supporting Document</div>
+                              <div className="flex-1 p-2 bg-white font-semibold min-h-[28px]">{memoSupportingDoc || "-"}</div>
+                            </div>
+                            <div className="flex divide-x divide-black">
+                              <div className="w-[180px] p-2 font-bold bg-slate-50/50 shrink-0 font-sans">Billing Addressed to</div>
+                              <div className="flex-1 p-2 bg-white leading-relaxed font-semibold min-h-[40px]">{memoBillingAddressedTo}</div>
+                            </div>
+                            <div className="flex divide-x divide-black">
+                              <div className="w-[180px] p-2 font-bold bg-slate-50/50 shrink-0 font-sans">Customer Name</div>
+                              <div className="flex-1 p-2 bg-white font-extrabold text-[12px] uppercase min-h-[28px]">{memoCustomerName}</div>
+                            </div>
+                            <div className="flex divide-x divide-black items-center">
+                              <div className="w-[180px] p-2 font-bold bg-slate-50/50 shrink-0 font-sans">Currency</div>
+                              <div className="flex-1 p-2 bg-white flex items-center gap-1.5 min-h-[28px]">
+                                {renderDigitBoxes(memoCurrency, 3)}
+                              </div>
+                            </div>
+                            <div className="flex divide-x divide-black">
+                              <div className="w-[180px] p-2 font-bold bg-slate-50/50 shrink-0 font-sans">Amount</div>
+                              <div className="flex-1 p-2 bg-white font-extrabold text-[12px] min-h-[28px]">
+                                {memoAmount ? `Rp ${parseFloat(memoAmount.replace(/[^0-9]/g, "")).toLocaleString("id-ID")}` : ""}
+                              </div>
+                            </div>
+                            <div className="flex divide-x divide-black">
+                              <div className="w-[180px] p-2 font-bold bg-slate-50/50 shrink-0 font-sans">Says</div>
+                              <div className="flex-1 p-2 bg-white font-semibold italic min-h-[28px]">{memoSays}</div>
+                            </div>
+                          </div>
+
+                          {/* Data Accounting Block */}
+                          <div className="border border-black text-[11px] mb-4 font-sans">
+                            <div className="p-1.5 font-extrabold bg-slate-100 border-b border-black uppercase tracking-wider text-[9px] font-sans">
+                              DATA ACCOUNTING (Filled In by Accounting BU)
+                            </div>
+                            <div className="grid grid-cols-2 divide-x divide-black">
+                              <div className="flex flex-col divide-y divide-black">
+                                <div className="flex divide-x divide-black items-center p-1.5">
+                                  <span className="font-bold w-[120px] shrink-0 font-sans">Customer Code</span>
+                                  <span className="mr-1.5 font-sans">:</span>
+                                  {renderCustomerCodeBoxes(acctCustomerCode)}
+                                </div>
+                                <div className="flex divide-x divide-black items-center p-1.5 font-sans">
+                                  <span className="font-bold w-[120px] shrink-0 font-sans">Customer Type</span>
+                                  <span className="mr-1.5 font-sans">:</span>
+                                  <div className="flex items-center gap-3">
+                                    <label className="flex items-center gap-1 font-bold">
+                                      <span className={`w-3.5 h-3.5 border border-black flex items-center justify-center text-[10px] ${acctCustomerType === "Trade" ? "bg-black text-white" : ""}`}>
+                                        {acctCustomerType === "Trade" ? "✓" : ""}
+                                      </span>
+                                      Trade
+                                    </label>
+                                    <label className="flex items-center gap-1 font-bold">
+                                      <span className={`w-3.5 h-3.5 border border-black flex items-center justify-center text-[10px] ${acctCustomerType === "Non Trade" ? "bg-black text-white" : ""}`}>
+                                        {acctCustomerType === "Non Trade" ? "✓" : ""}
+                                      </span>
+                                      Non Trade
+                                    </label>
+                                  </div>
+                                </div>
+                                <div className="flex divide-x divide-black items-center p-1.5 font-sans">
+                                  <span className="font-bold w-[120px] shrink-0 font-sans">Trading Partner</span>
+                                  <span className="mr-1.5 font-sans">:</span>
+                                  {renderTradingPartnerBoxes(acctTradingPartner)}
+                                </div>
+                              </div>
+                              <div className="flex flex-col divide-y divide-black font-sans">
+                                <div className="flex divide-x divide-black items-center p-2 min-h-[32px] font-sans">
+                                  <span className="font-bold w-[120px] shrink-0 font-sans">Exchange Rate*</span>
+                                  <span className="mr-1.5 font-sans">:</span>
+                                  <span className="font-semibold">{acctExchangeRate || "—"}</span>
+                                </div>
+                                <div className="flex divide-x divide-black items-center p-2 min-h-[32px] font-sans">
+                                  <span className="font-bold w-[120px] shrink-0 font-sans">Journal</span>
+                                  <span className="mr-1.5 font-sans">:</span>
+                                  <span className="font-semibold">{acctJournal || "—"}</span>
+                                </div>
+                                <div className="p-1.5 px-2 text-[8px] text-slate-500 italic bg-slate-50/50 flex-1 flex items-center leading-normal font-sans">
+                                  *if foreign currency applied and exchange rate is left blank, then exchange rate at SAP will be used
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* GL Table */}
+                          <div className="border border-black overflow-hidden mb-6 text-[10.5px]">
+                            <table className="w-full text-left border-collapse">
                               <thead>
-                                <tr className="bg-[#f0ac0e] text-black border border-slate-400 text-center font-bold">
-                                  <th className="border border-slate-400 px-1.5 py-1 w-[70px]">Customer</th>
-                                  <th className="border border-slate-400 px-1.5 py-1 w-[90px]">DocumentNo</th>
-                                  <th className="border border-slate-400 px-1.5 py-1">Text</th>
-                                  <th className="border border-slate-400 px-1.5 py-1">Vendor</th>
-                                  <th className="border border-slate-400 px-1.5 py-1 w-[80px]">Doc. Date</th>
-                                  <th className="border border-slate-400 px-1.5 py-1 w-[95px] text-right">Local Crcy Amt</th>
-                                  <th className="border border-slate-400 px-1.5 py-1 w-[120px]">Potong tagih payment date</th>
+                                <tr className="bg-[#f08a00] text-white uppercase font-extrabold border-b border-black text-center text-[8.5px] tracking-wider font-sans">
+                                  <th className="border-r border-black p-1.5 w-[110px]">GL Account Code</th>
+                                  <th className="border-r border-black p-1.5">GL Account Name</th>
+                                  <th className="border-r border-black p-1.5 w-[90px]">Cost Center</th>
+                                  <th className="border-r border-black p-1.5 w-[95px]">Amount (Dr.)</th>
+                                  <th className="border-r border-black p-1.5 w-[95px]">Amount (Cr.)</th>
+                                  <th className="p-1.5 w-[130px]">Text</th>
                                 </tr>
                               </thead>
                               <tbody>
-                                {sscBillingRows
-                                  .filter(cl => !printVendorFilter || cl.supplierName === printVendorFilter)
-                                  .map((cl, idx) => (
-                                  <tr key={cl.id} className={`hover:bg-slate-50 font-semibold border border-slate-400 text-slate-800 ${cl.id === selectedClId ? 'bg-blue-50/50 font-bold' : ''}`}>
-                                    <td className="border border-slate-400 px-1.5 py-1 text-center font-mono">
-                                      {cl.customerCode !== undefined ? cl.customerCode : "OTC08002"}
-                                    </td>
-                                    <td className="border border-slate-400 px-1.5 py-1 text-center font-mono">
-                                      {cl.documentNo !== undefined ? cl.documentNo : (cl.clNumber.replace(/[^0-9]/g, "").slice(-11) || `180000000${53 + idx}`)}
-                                    </td>
-                                    <td className="border border-slate-400 px-1.5 py-1 text-left font-mono text-[9.5px] uppercase font-bold">
-                                      {cl.customText !== undefined ? cl.customText : `POTONG TAGIH ${getClaimText(cl)}`}
-                                    </td>
-                                    <td className="border border-slate-400 px-1.5 py-1 text-left font-sans">
-                                      {cl.supplierName}
-                                    </td>
-                                    <td className="border border-slate-400 px-1.5 py-1 text-center font-mono">
-                                      {formatSscDate(cl.dateSent)}
-                                    </td>
-                                    <td className="border border-slate-400 px-1.5 py-1 text-right font-mono font-bold">
-                                      {cl.amount}
-                                    </td>
-                                    <td className="border border-slate-400 px-1.5 py-1 text-center font-mono text-emerald-700 font-bold text-[10px]">
-                                      {cl.paymentDate !== undefined ? cl.paymentDate : getPaymentDate(cl.dateSent)}
-                                    </td>
-                                  </tr>
-                                ))}
+                                {Array.from({ length: Math.max(5, glRows.length) }).map((_, i) => {
+                                  const row = glRows[i] || { code: "", name: "", costCenter: "", amountDr: "", amountCr: "", text: "" };
+                                  return (
+                                    <tr key={i} className="border-b border-black font-semibold h-[24px] text-black">
+                                      <td className="border-r border-black p-1 text-center font-mono">{row.code}</td>
+                                      <td className="border-r border-black p-1 text-left font-sans">{row.name}</td>
+                                      <td className="border-r border-black p-1 text-center font-mono">{row.costCenter}</td>
+                                      <td className="border-r border-black p-1 text-right font-mono">{row.amountDr}</td>
+                                      <td className="border-r border-black p-1 text-right font-mono">{row.amountCr}</td>
+                                      <td className="p-1 text-left font-sans">{row.text}</td>
+                                    </tr>
+                                  );
+                                })}
                               </tbody>
                             </table>
+                          </div>
 
-                            <div className="mt-8 text-[10px] text-slate-400 leading-normal flex justify-between">
-                              <span>Dibuat oleh: Finance Department MTM</span>
-                              <span>Diunduh/Dicetak pada: {new Date().toLocaleDateString('id-ID')}</span>
+                          {/* Signatures Panel */}
+                          <div className="border border-black overflow-hidden mb-6 text-[10px] mt-auto font-sans">
+                            <div className="grid grid-cols-5 text-center divide-x divide-black font-bold font-sans">
+                              <div className="p-1 border-b border-black bg-slate-50/50">Prepared by <sup>1)</sup></div>
+                              <div className="p-1 border-b border-black bg-slate-50/50 col-span-2">Approved by <sup>1)</sup></div>
+                              <div className="p-1 border-b border-black bg-slate-50/50">Entry by <sup>1)</sup></div>
+                              <div className="p-1 border-b border-black bg-slate-50/50">Checked by <sup>1)</sup></div>
                             </div>
+                            <div className="grid grid-cols-5 text-center divide-x divide-black h-[58px]">
+                              <div className="flex items-end justify-center pb-2 bg-white px-1">
+                                <span className="font-bold border-b border-dashed border-slate-400 pb-0.5 min-h-[14px] w-full truncate text-center font-sans" title={sigPrepared}>{sigPrepared}</span>
+                              </div>
+                              <div className="flex items-end justify-center pb-2 bg-white px-1">
+                                <span className="font-bold border-b border-dashed border-slate-400 pb-0.5 min-h-[14px] w-full truncate text-center font-sans" title={sigApproved1}>{sigApproved1}</span>
+                              </div>
+                              <div className="flex items-end justify-center pb-2 bg-white px-1">
+                                <span className="font-bold border-b border-dashed border-slate-400 pb-0.5 min-h-[14px] w-full truncate text-center font-sans" title={sigApproved2}>{sigApproved2}</span>
+                              </div>
+                              <div className="flex items-end justify-center pb-2 bg-white px-1">
+                                <span className="font-bold border-b border-dashed border-slate-400 pb-0.5 min-h-[14px] w-full truncate text-center font-sans" title={sigEntry}>{sigEntry}</span>
+                              </div>
+                              <div className="flex items-end justify-center pb-2 bg-white px-1">
+                                <span className="font-bold border-b border-dashed border-slate-400 pb-0.5 min-h-[14px] w-full truncate text-center font-sans" title={sigChecked}>{sigChecked}</span>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-5 text-center divide-x divide-black text-[9px] font-bold text-white bg-blue-600/90 border-t border-black font-sans">
+                              <div className="p-1 py-1.5 truncate text-center" title={sigPreparedRole}>{sigPreparedRole}</div>
+                              <div className="p-1 py-1.5 truncate text-center" title={sigApproved1Role}>{sigApproved1Role}</div>
+                              <div className="p-1 py-1.5 truncate text-center" title={sigApproved2Role}>{sigApproved2Role}</div>
+                              <div className="p-1 py-1.5 truncate text-center" title={sigEntryRole}>{sigEntryRole}</div>
+                              <div className="p-1 py-1.5 truncate text-center" title={sigCheckedRole}>{sigCheckedRole}</div>
+                            </div>
+                          </div>
 
-                            {/* Direct email action button inside the SSC Billing sheet view */}
-                            <div className="mt-6 flex justify-end print:hidden">
-                              <button
-                                onClick={handleEmailSSC}
-                                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg transition-all cursor-pointer shadow-sm"
-                              >
-                                <Mail size={12} className="stroke-[2.5]" />
-                                Direct Email ke SSC / AOP
-                              </button>
+                          {/* Footer / Remark */}
+                          <div className="text-[8px] text-slate-500 leading-tight space-y-0.5 font-sans">
+                            <div><strong>Remark:</strong></div>
+                            <div>*) Only filled if billing type is recurring</div>
+                            <div>1) Every signing person must write down his / her full name in the grey box and his/her function in the blue box</div>
+                            <div className="flex justify-between pt-2 border-t border-slate-200 mt-2 text-[7.5px] font-mono text-slate-450 font-sans">
+                              <span>Approved By System {new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} 17:02</span>
+                              <span>Internal Memo - Onetime Billing TEIN1 of 1</span>
                             </div>
                           </div>
                         </div>
                       </div>
-                    )}
-                  </>
+                    </div>
+                  </div>
                 )}
-              </div>
-            )}
                 {activeSubTab === "buat_ssc_payment" && (
-                  /* Form Pengisian Manual + Live A4 Preview */
-                  <div className="w-full space-y-4">
-                    {/* Form Input Box */}
-                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 w-full p-4 text-left space-y-4">
-                      <div className="flex items-center justify-between border-b border-slate-150 pb-2">
-                        <div>
-                          <h4 className="text-sm font-extrabold text-slate-800">Form Pengisian Manual SSC Payment</h4>
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 w-full items-start text-left font-sans">
+                    {/* Left Column: CL Selector + Form Editor (5 Columns) */}
+                    <div className="lg:col-span-5 space-y-4 print:hidden">
+
+                      {/* CL Selector Panel */}
+                      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                        <div className="p-3 border-b border-slate-100 bg-slate-50/70">
+                          <h5 className="text-[10.5px] font-black text-slate-700 uppercase tracking-wider">
+                            📋 Pilih CL untuk Diproses
+                          </h5>
+                          <p className="text-[9.5px] text-slate-400 font-semibold mt-0.5">
+                            {sscBillingRows.length} Confirmation Letter tersedia · Klik untuk auto-isi form
+                          </p>
                         </div>
-                        <span className="text-[9px] font-black bg-blue-100 text-blue-800 px-2 py-0.5 rounded">TEMPLATED FORM</span>
-                      </div>
-
-                      {/* Auto-filled Reference Info */}
-                      <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200 grid grid-cols-2 md:grid-cols-4 gap-4 text-[11px] font-semibold">
-                        <div className="space-y-0.5">
-                          <span className="text-slate-400 font-bold block uppercase tracking-wider text-[8px]">Company Name</span>
-                          <strong className="text-slate-700 block">PT MENARA TERUS MAKMUR</strong>
-                        </div>
-                        <div className="space-y-0.5">
-                          <span className="text-slate-400 font-bold block uppercase tracking-wider text-[8px]">Business Area</span>
-                          <strong className="text-slate-700 block">MT</strong>
-                        </div>
-                        <div className="space-y-0.5">
-                          <span className="text-slate-400 font-bold block uppercase tracking-wider text-[8px]">Document Title</span>
-                          <strong className="text-slate-700 block">Permohonan Pemotongan Invoice Vendor</strong>
-                        </div>
-                        <div className="space-y-0.5">
-                          <span className="text-slate-400 font-bold block uppercase tracking-wider text-[8px]">Destination (To)</span>
-                          <strong className="text-slate-700 font-sans block">{payTo}</strong>
-                        </div>
-                      </div>
-
-                      {/* Instruction Textarea */}
-                      <div className="space-y-1">
-                        <label className="block text-[10px] font-black text-slate-650 uppercase tracking-wider">
-                          Instruksi Pemotongan (Instruction)
-                        </label>
-                        <textarea
-                          value={payInstruction}
-                          onChange={e => setPayInstruction(e.target.value)}
-                          className="w-full p-2 border border-slate-350 rounded-lg text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-semibold text-slate-800 bg-white leading-relaxed font-sans"
-                          rows={2}
-                          placeholder="Ketik instruksi pemotongan disini..."
-                        />
-                      </div>
-
-                      {/* Gold Table Rows Inputs */}
-                      <div className="space-y-2 pt-1">
-                        <div className="flex justify-between items-center">
-                          <label className="block text-[10px] font-black text-slate-650 uppercase tracking-wider">
-                            Rincian Baris Tabel (Table Data)
-                          </label>
-                          <button
-                            onClick={handleAddRow}
-                            className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white text-[9.5px] font-bold rounded-lg shadow-sm flex items-center gap-1 transition-all active:scale-95 cursor-pointer"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-plus-circle"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>
-                            Tambah Baris
-                          </button>
-                        </div>
-
-                        <div className="border border-slate-200 rounded-lg bg-white p-1.5 shadow-inner overflow-x-auto">
-                          <table className="w-full text-left text-xs border-collapse min-w-[920px]">
-                            <thead>
-                              <tr className="text-[10px] text-slate-500 font-extrabold uppercase border-b border-slate-200 tracking-wider">
-                                <th className="p-1.5 pb-2 w-[85px]">Customer</th>
-                                <th className="p-1.5 pb-2 w-[110px]">Doc No</th>
-                                <th className="p-1.5 pb-2 w-[220px]">Text / Description</th>
-                                <th className="p-1.5 pb-2 w-[150px]">Vendor</th>
-                                <th className="p-1.5 pb-2 w-[95px]">Doc. Date</th>
-                                <th className="p-1.5 pb-2 w-[110px]">Amount</th>
-                                <th className="p-1.5 pb-2 w-[100px]">Pay Date</th>
-                                <th className="p-1.5 pb-2 w-[40px] text-center">Aksi</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-150">
-                              {sscBillingRows.map((cl, idx) => (
-                                <tr key={cl.id} className="hover:bg-slate-50/50 transition-colors">
-                                  <td className="p-1">
-                                    <input
-                                      type="text"
-                                      value={cl.customerCode !== undefined ? cl.customerCode : "OTC08002"}
-                                      onChange={e => handleUpdateClField(cl.id, "customerCode", e.target.value)}
-                                      className="w-full px-2 py-1 border border-slate-300 rounded font-mono text-[11px] text-slate-800 bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-center font-bold"
-                                    />
-                                  </td>
-                                  <td className="p-1">
-                                    <input
-                                      type="text"
-                                      value={cl.documentNo !== undefined ? cl.documentNo : (cl.clNumber.replace(/[^0-9]/g, "").slice(-11) || `180000000${53 + idx}`)}
-                                      onChange={e => handleUpdateClField(cl.id, "documentNo", e.target.value)}
-                                      className="w-full px-2 py-1 border border-slate-300 rounded font-mono text-[11px] text-slate-800 bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-center font-bold"
-                                    />
-                                  </td>
-                                  <td className="p-1">
-                                    <input
-                                      type="text"
-                                      value={cl.customText !== undefined ? cl.customText : `POTONG TAGIH ${getClaimText(cl)}`}
-                                      onChange={e => handleUpdateClField(cl.id, "customText", e.target.value)}
-                                      className="w-full px-2 py-1 border border-slate-300 rounded font-mono text-[11px] text-slate-800 bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-black text-[11px]"
-                                    />
-                                  </td>
-                                  <td className="p-1">
-                                    <input
-                                      type="text"
-                                      value={cl.supplierName}
-                                      onChange={e => handleUpdateClField(cl.id, "supplierName", e.target.value)}
-                                      className="w-full px-2 py-1 border border-slate-300 rounded text-[11px] text-slate-800 bg-white font-bold focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
-                                    />
-                                  </td>
-                                  <td className="p-1">
-                                    <input
-                                      type="text"
-                                      value={cl.dateSent}
-                                      onChange={e => handleUpdateClField(cl.id, "dateSent", e.target.value)}
-                                      className="w-full px-2 py-1 border border-slate-300 rounded font-mono text-[11px] text-slate-800 bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-center font-semibold"
-                                    />
-                                  </td>
-                                  <td className="p-1">
-                                    <input
-                                      type="text"
-                                      value={cl.amount}
-                                      onChange={e => handleUpdateClField(cl.id, "amount", e.target.value)}
-                                      className="w-full px-2 py-1 border border-slate-300 rounded font-mono text-[11px] text-slate-850 font-black bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-right"
-                                    />
-                                  </td>
-                                  <td className="p-1">
-                                    <input
-                                      type="text"
-                                      value={cl.paymentDate !== undefined ? cl.paymentDate : getPaymentDate(cl.dateSent)}
-                                      onChange={e => handleUpdateClField(cl.id, "paymentDate", e.target.value)}
-                                      className="w-full px-2 py-1 border border-slate-300 rounded font-mono text-[11px] text-slate-800 bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-center font-bold"
-                                    />
-                                  </td>
-                                  <td className="p-1 text-center font-sans">
-                                    <button
-                                      onClick={() => handleDeleteRow(cl.id)}
-                                      title="Hapus baris ini"
-                                      className="p-1 hover:bg-red-50 text-red-600 hover:text-red-700 rounded transition-all cursor-pointer inline-flex items-center justify-center border border-slate-200 hover:border-red-200 bg-white shadow-sm"
-                                    >
-                                      <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-trash-2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
-                                    </button>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    </div>
-                    {/* Toggle Preview Button Container */}
-                    <div className="flex justify-between items-center bg-slate-50 border border-slate-200 rounded-lg p-2 print:hidden">
-                      <span className="text-[11px] text-slate-500 font-bold font-sans">
-                        Vendor aktif: <strong>{selectedCl?.supplierName || "—"}</strong>
-                      </span>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleExportExcel("buat_ssc_payment")}
-                          className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-[9.5px] rounded-lg shadow-sm flex items-center gap-1 transition-all cursor-pointer active:scale-95"
-                        >
-                          <FileText size={11} />
-                          Export Excel
-                        </button>
-                        <button
-                          onClick={handlePrint}
-                          className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-[9.5px] rounded-lg shadow-sm flex items-center gap-1 transition-all cursor-pointer active:scale-95"
-                        >
-                          <Printer size={11} />
-                          Cetak PDF
-                        </button>
-                        <button
-                          onClick={() => setShowPreview(!showPreview)}
-                          className={`px-3 py-1.5 font-bold text-[9.5px] rounded-lg border transition-all flex items-center gap-1 cursor-pointer active:scale-95 shadow-sm ${
-                            showPreview 
-                              ? "bg-slate-200 border-slate-350 text-slate-700 hover:bg-slate-300" 
-                              : "bg-blue-50 border-blue-200 text-blue-800 hover:bg-blue-100"
-                          }`}
-                        >
-                          <Eye size={12} />
-                          {showPreview ? "Sembunyikan Pratinjau" : "Tampilkan Pratinjau Memo"}
-                        </button>
-                      </div>
-                    </div>
-
-                    {showPreview && (
-                      /* LIVE PREVIEW AREA */
-                      <div className="bg-slate-100 rounded-xl p-4 border border-slate-250 space-y-3">
-                        <div className="flex border-b border-slate-200 pb-2 print:hidden">
-                          <strong className="text-xs font-black uppercase tracking-wider text-slate-700 block">
-                            Pratinjau Lembar Memo Internal SSC Payment (A4)
-                          </strong>
-                        </div>
-
-                        {/* Internal Memo A4 Scroll Frame */}
-                        <div className="max-h-[550px] overflow-y-auto border border-slate-300 rounded-lg shadow-inner bg-white p-3 print:max-h-none print:overflow-visible print:border-none print:p-0">
-                          {/* Internal Memo A4 Sheet */}
-                          {selectedCl ? (
-                            <div
-                              id="internal-memo-sheet"
-                              className="bg-white shadow-lg border border-slate-350 w-full max-w-[210mm] text-black p-10 text-left relative mx-auto"
-                              style={{ fontFamily: '"Arial", sans-serif', fontSize: "11px", minHeight: "297mm", color: "#000000" }}
-                            >
-                              {/* Dashed Barcode Box */}
-                              <div className="flex justify-end mb-6">
-                                <div 
-                                  className="border-[1.5px] border-dashed border-black w-72 h-16 flex flex-col items-center justify-center text-[10px] font-bold text-black italic px-4 text-center"
-                                  style={{ fontFamily: '"Arial", sans-serif' }}
-                                >
-                                  <div>PLEASE PUT <span className="underline font-black">FA BARCODE</span> HERE</div>
-                                </div>
-                              </div>
-
-                              {/* Metadata Header Grid */}
-                              <div className="space-y-3 text-[12px] font-bold mb-6" style={{ color: "#000000" }}>
-                                <div className="flex items-center justify-between w-full">
-                                  <div className="flex items-center gap-1">
-                                    <span className="w-28 text-left">Company</span>
-                                    <span className="mr-2">:</span>
-                                    <span className="font-bold text-black text-[11px] px-1 py-0.5">
-                                      PT MENARA TERUS MAKMUR
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center gap-1 mr-8">
-                                    <span className="font-bold">Business Area</span>
-                                    <span className="mx-2">:</span>
-                                    <span className="font-bold text-black text-[11px] px-2 py-0.5 text-center font-sans">
-                                      MT
-                                    </span>
-                                  </div>
-                                </div>
-                                
-                                <div className="flex items-center gap-1">
-                                  <span className="w-28 text-left">Request Date</span>
-                                  <span className="mr-2">:</span>
-                                  <div className="flex items-center gap-0.5">
-                                    {getRequestDateBoxes(selectedCl.dateSent).map((digit, idx) => (
-                                      <React.Fragment key={idx}>
-                                        {idx === 2 && <span className="mx-1 font-bold text-black">/</span>}
-                                        {idx === 4 && <span className="mx-1 font-bold text-black">/</span>}
-                                        <span className="w-5 h-6 border border-black flex items-center justify-center font-mono font-black bg-white text-black text-[11px]">
-                                          {digit}
-                                        </span>
-                                      </React.Fragment>
-                                    ))}
-                                    <span className="text-[10px] text-slate-500 font-normal ml-2">(dd/mm/yyyy)</span>
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* Title */}
-                              <div className="text-center my-6">
-                                <h1 className="text-lg font-black uppercase tracking-wider underline decoration-1 underline-offset-4" style={{ fontFamily: '"Arial", sans-serif' }}>
-                                  INTERNAL MEMO - OTHERS
-                                </h1>
-                              </div>
-
-                              {/* Main Content Box (thick border) */}
-                              <div className="border-[3px] border-black p-4 mb-6 space-y-4">
-                                {/* Title row */}
-                                <div className="border-b border-black pb-2 flex items-start">
-                                  <span className="w-24 font-bold shrink-0">Title</span>
-                                  <span className="mr-3 font-bold">:</span>
-                                  <span className="flex-1 font-bold text-black text-[11px] px-1 py-0.5">
-                                    Permohonan Pemotongan Invoice Vendor
-                                  </span>
-                                </div>
-                                
-                                {/* To row */}
-                                <div className="border-b border-black pb-2 flex items-start">
-                                  <span className="w-24 font-bold shrink-0">To</span>
-                                  <span className="mr-3 font-bold">:</span>
-                                  <span className="flex-1 font-bold text-black text-[11px] px-1 py-0.5 font-sans">
-                                    SSC Invoicing & Payment
-                                  </span>
-                                </div>
-
-                                {/* Instruction row */}
-                                <div className="space-y-3">
-                                  <div className="flex items-start">
-                                    <span className="w-24 font-bold shrink-0">Instruction</span>
-                                    <span className="mr-3 font-bold">:</span>
-                                    <div className="flex-1 font-medium text-justify text-[11px] leading-relaxed pl-1 font-sans">
-                                      {payInstruction}
-                                    </div>
-                                  </div>
-
-                                  {/* Gold Table Embedded */}
-                                  <div className="pl-28 w-full overflow-x-auto my-3">
-                                    <table className="w-full text-[9px] border-collapse border border-black font-sans">
-                                      <thead>
-                                        <tr className="text-black border border-black text-[8.5px] text-center font-bold">
-                                          <th className="border border-black px-2 py-1" style={{ backgroundColor: '#ffa500' }}>Customer</th>
-                                          <th className="border border-black px-2 py-1" style={{ backgroundColor: '#ffa500' }}>DocumentNo</th>
-                                          <th className="border border-black px-2 py-1" style={{ backgroundColor: '#ffa500' }}>Text</th>
-                                          <th className="border border-black px-2 py-1" style={{ backgroundColor: '#ffa500' }}>Vendor</th>
-                                          <th className="border border-black px-2 py-1" style={{ backgroundColor: '#ffa500' }}>Doc. Date</th>
-                                          <th className="border border-black px-2 py-1 text-right" style={{ backgroundColor: '#ffa500' }}>Local Crcy Amt</th>
-                                          <th className="border border-black px-2 py-1" style={{ backgroundColor: '#ffa500' }}>Potong tagih payment date</th>
-                                        </tr>
-                                      </thead>
-                                      <tbody>
-                                        {sscBillingRows.map((cl, idx) => {
-                                          return (
-                                            <tr key={cl.id} className="bg-white border border-black text-black">
-                                              <td className="border border-black px-2 py-1 text-center font-mono">
-                                                {cl.customerCode !== undefined ? cl.customerCode : "OTC08002"}
-                                              </td>
-                                              <td className="border border-black px-2 py-1 text-center font-mono">
-                                                {cl.documentNo !== undefined ? cl.documentNo : (cl.clNumber.replace(/[^0-9]/g, "").slice(-11) || `180000000${53 + idx}`)}
-                                              </td>
-                                              <td className="border border-black px-2 py-1 text-left font-mono text-[8px] uppercase font-bold">
-                                                {cl.customText !== undefined ? cl.customText : `POTONG TAGIH ${getClaimText(cl)}`}
-                                              </td>
-                                              <td className="border border-black px-2 py-1 text-left font-sans">
-                                                {cl.supplierName}
-                                              </td>
-                                              <td className="border border-black px-2 py-1 text-center font-mono">
-                                                {formatSscDate(cl.dateSent)}
-                                              </td>
-                                              <td className="border border-black px-2 py-1 text-right font-mono font-bold">
-                                                {cl.amount}
-                                              </td>
-                                              <td className="border border-black px-2 py-1 text-center font-mono font-bold">
-                                                {cl.paymentDate !== undefined ? cl.paymentDate : getPaymentDate(cl.dateSent)}
-                                              </td>
-                                            </tr>
-                                          );
-                                        })}
-                                      </tbody>
-                                    </table>
-                                  </div>
-
-                                  {/* Demikian dan Terimakasih */}
-                                  <div className="pl-28 space-y-4">
-                                    <div className="font-bold text-[11px] pt-1">
-                                      Demikian , dan Terimakasih
-                                    </div>
-                                    
-                                    {/* Write-in lines */}
-                                    <div className="border-t border-black w-full pt-1.5"></div>
-                                    <div className="border-t border-black w-full pt-1"></div>
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* Signatures Section */}
-                              <div className="mt-4">
-                                <table className="w-full border-collapse border border-black text-center text-[10px] font-bold">
-                                  <thead>
-                                    <tr className="text-black border border-black">
-                                      <th className="border border-black py-1.5 w-1/4" style={{ backgroundColor: '#fcd5b4' }}>Prepared by <sup>1)</sup></th>
-                                      <th className="border border-black py-1.5 w-2/4" colSpan={2} style={{ backgroundColor: '#fcd5b4' }}>Approved by <sup>1)</sup></th>
-                                      <th className="border border-black py-1.5 w-1/4" style={{ backgroundColor: '#fcd5b4' }}>Entry by <sup>1)</sup></th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {/* Signature signs */}
-                                    <tr className="h-20 bg-white">
-                                      <td className="border border-black p-2 relative vertical-align-middle">
-                                        <span className="font-serif italic text-blue-700 text-lg block select-none">Bagas Nur P</span>
-                                      </td>
-                                      <td className="border border-black p-2 relative vertical-align-middle">
-                                        {selectedCl.status === "APPROVED" && (
-                                          <>
-                                            <div className="text-[9px] text-slate-400 absolute top-1 left-1 font-sans">AIR</div>
-                                            <span className="font-serif italic text-blue-700 text-lg block select-none">Anindita I.</span>
-                                          </>
-                                        )}
-                                      </td>
-                                      <td className="border border-black p-2 relative vertical-align-middle">
-                                        {selectedCl.status === "APPROVED" && (
-                                          <span className="font-serif italic text-blue-700 text-lg block select-none">Evi S.</span>
-                                        )}
-                                      </td>
-                                      <td className="border border-black p-2 bg-white">
-                                        {/* Empty */}
-                                      </td>
-                                    </tr>
-                                    {/* Grey Box (Name) */}
-                                    <tr className="bg-[#b0b0b0] h-6 text-black">
-                                      <td className="border border-black px-2 py-0.5 text-[9.5px]">Bagas Nur P</td>
-                                      <td className="border border-black px-2 py-0.5 text-[9.5px]">
-                                        {selectedCl.status === "APPROVED" ? "Anindita I" : ""}
-                                      </td>
-                                      <td className="border border-black px-2 py-0.5 text-[9.5px]">
-                                        {selectedCl.status === "APPROVED" ? "Evi Sulistyorini" : ""}
-                                      </td>
-                                      <td className="border border-black px-2 py-0.5 text-[9.5px]"></td>
-                                    </tr>
-                                    {/* Blue Box (Function) */}
-                                    <tr className="bg-[#56b4e9] h-6 text-black">
-                                      <td className="border border-black px-2 py-0.5 text-[9px]"></td>
-                                      <td className="border border-black px-2 py-0.5 text-[9px]"></td>
-                                      <td className="border border-black px-2 py-0.5 text-[9px]"></td>
-                                      <td className="border border-black px-2 py-0.5 text-[9px]"></td>
-                                    </tr>
-                                  </tbody>
-                                </table>
-                              </div>
-
-                              {/* Remarks Footer */}
-                              <div className="mt-2 text-[9px] text-black italic leading-normal">
-                                <div className="font-bold">Remark:</div>
-                                <div><sup>1)</sup> Every signing person must write down his / her full name in the grey box and his/her function in the blue box</div>
-                              </div>
+                        <div className="max-h-[230px] overflow-y-auto divide-y divide-slate-100">
+                          {sscBillingRows.length === 0 ? (
+                            <div className="p-6 text-center text-slate-400 italic text-[11px] font-semibold">
+                              Belum ada CL. Buat CL di menu Accounting terlebih dahulu.
                             </div>
                           ) : (
-                            <div className="bg-white p-8 text-center text-slate-400 font-bold italic border border-slate-200 rounded-xl">
-                              Pilih Confirmation Letter di panel kiri untuk menampilkan pratinjau memo.
-                            </div>
+                            sscBillingRows.map((cl: any) => {
+                              const isSelected = selectedPaymentClId === cl.id;
+                              const statusColor = cl.status === "FULLY_APPROVED" || cl.status === "APPROVED"
+                                ? "bg-emerald-100 text-emerald-700"
+                                : cl.status === "CLOSED_PAID"
+                                ? "bg-slate-100 text-slate-500"
+                                : "bg-amber-100 text-amber-700";
+                              const statusLabel = cl.status === "FULLY_APPROVED" || cl.status === "APPROVED"
+                                ? "Approved"
+                                : cl.status === "CLOSED_PAID"
+                                ? "Closed"
+                                : cl.status === "WAITING_VENDOR"
+                                ? "Sent to Vendor"
+                                : "Pending";
+                              return (
+                                <button
+                                  key={cl.id}
+                                  type="button"
+                                  onClick={() => setSelectedPaymentClId(cl.id)}
+                                  className={`w-full text-left p-3 flex items-start gap-3 transition-all cursor-pointer ${
+                                    isSelected
+                                      ? "bg-blue-50 border-l-2 border-blue-500"
+                                      : "hover:bg-slate-50/70 border-l-2 border-transparent"
+                                  }`}
+                                >
+                                  <div className={`mt-0.5 w-1.5 h-1.5 rounded-full shrink-0 ${isSelected ? "bg-blue-500" : "bg-slate-300"}`} />
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <span className="text-[10.5px] font-black text-slate-800 font-mono truncate">{cl.clNumber}</span>
+                                      <span className={`text-[8.5px] font-black px-1.5 py-0.5 rounded shrink-0 ${statusColor}`}>{statusLabel}</span>
+                                    </div>
+                                    <div className="text-[9.5px] text-slate-500 font-semibold mt-0.5 truncate">{cl.supplierName}</div>
+                                    <div className="text-[9px] text-slate-400 font-bold mt-0.5 flex items-center gap-2">
+                                      <span>{cl.dateSent}</span>
+                                      <span className="text-slate-300">·</span>
+                                      <span className="font-black text-slate-600">{cl.amount}</span>
+                                    </div>
+                                  </div>
+                                </button>
+                              );
+                            })
                           )}
                         </div>
                       </div>
-                    )}
+
+                      {/* Form Editor Card */}
+                      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                          <div>
+                            <h4 className="text-sm font-extrabold text-slate-800 font-sans">SSC Payment Editor</h4>
+                            <p className="text-[10.5px] text-slate-500 font-bold font-sans mt-0.5">
+                              {selectedPaymentClId
+                                ? <>✅ CL terpilih: <strong className="text-blue-700">{sscBillingRows.find((r: any) => r.id === selectedPaymentClId)?.clNumber || "—"}</strong></>
+                                : "Pilih CL di atas atau isi data manual."}
+                            </p>
+                          </div>
+                          <div className="flex gap-1.5 shrink-0 font-sans">
+                            <button
+                              type="button"
+                              onClick={() => {
+
+                              setPayCompany("PT Menara Terus Makmur");
+                              setPayBusinessArea("");
+                              setPayRequestDate("");
+                              setPayTitle("");
+                              setPayTo("");
+                              setPayInstruction("");
+                              setPaySigPrepared("");
+                              setPaySigApproved1("");
+                              setPaySigApproved2("");
+                              setPaySigEntry("");
+                              setSscBillingRows([]);
+                            }}
+                            className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold rounded border border-slate-300 transition-all cursor-pointer active:scale-95"
+                            title="Kosongkan Isian Form"
+                          >
+                            Kosongkan
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPayCompany("PT Menara Terus Makmur");
+                              setPayBusinessArea("MT");
+                              setPayRequestDate("10/04/2026");
+                              setPayTitle("Permohonan Pemotongan Invoice Vendor");
+                              setPayTo("SSC Invoicing & Payment");
+                              setPayInstruction("Sehubungan dengan ditemukannya komponen NG yang bukan disebabkan oleh proses internal kami, mohon dapat dilakukan pemotongan pembayaran terhadap vendor berikut :");
+                              setPaySigPrepared("Bagas Nur P");
+                              setPaySigApproved1("Anindita I");
+                              setPaySigApproved2("Evi Sulistyorini");
+                              setPaySigEntry("");
+                              setSscBillingRows([
+                                { id: "ex-1", customerCode: "OTC08002", clNumber: "CL/2026/06/001", qprNumber: "QPR/2026/05/IKAN_BAKAR", supplierName: "PT TEMARU ENGINEERING INDONESIA", dateSent: "21/05/2026", amount: "Rp 2.661.505", status: "PENDING", memoStatus: "DRAFT_MEMO", reminderSentCount: 0, customText: "CLAIM PART NG", paymentDate: "10/07/2026", documentNo: "1800000049" },
+                                { id: "ex-2", customerCode: "OTC08002", clNumber: "CL/2026/06/002", qprNumber: "QPR/2026/05/IKAN_BAKAR", supplierName: "PT SUKSES CIPTA MAKMUR", dateSent: "21/06/2026", amount: "Rp 66.346.268", status: "PENDING", memoStatus: "DRAFT_MEMO", reminderSentCount: 0, customText: "CLAIM PART NG", paymentDate: "10/07/2026", documentNo: "1800000050" },
+                                { id: "ex-3", customerCode: "OTC08002", clNumber: "CL/2026/06/003", qprNumber: "QPR/2026/05/IKAN_BAKAR", supplierName: "PT ANUGERAH DAYA INDUSTRI KOMPONEN UTAMA", dateSent: "21/05/2026", amount: "Rp 606.480", status: "PENDING", memoStatus: "DRAFT_MEMO", reminderSentCount: 0, customText: "CLAIM NG", paymentDate: "10/07/2026", documentNo: "1800000054" }
+                              ]);
+                            }}
+                            className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 text-[10px] font-bold rounded border border-blue-200 transition-all cursor-pointer active:scale-95"
+                            title="Isi dengan Data Contoh PDF"
+                          >
+                            Isi Contoh
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Section 1: General Info */}
+                      <div className="space-y-3 font-sans">
+                        <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-wider">1. General Metadata</h5>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-600">Company</label>
+                            <input type="text" value={payCompany} onChange={e => setPayCompany(e.target.value)} className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 bg-white" />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-600">Business Area</label>
+                            <input type="text" value={payBusinessArea} onChange={e => setPayBusinessArea(e.target.value)} className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 bg-white" />
+                          </div>
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-600">Request Date (dd/mm/yyyy)</label>
+                          <input type="text" value={payRequestDate} onChange={e => setPayRequestDate(e.target.value)} className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-mono font-bold text-slate-800 bg-white text-center" placeholder="10/04/2026" />
+                        </div>
+                      </div>
+
+                      <hr className="border-slate-100" />
+
+                      {/* Section 2: Judul & Penerima */}
+                      <div className="space-y-3 font-sans">
+                        <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-wider">2. Judul & Penerima</h5>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-600">Title</label>
+                          <input type="text" value={payTitle} onChange={e => setPayTitle(e.target.value)} className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 bg-white" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-600">To</label>
+                          <input type="text" value={payTo} onChange={e => setPayTo(e.target.value)} className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 bg-white" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-600">Instruction</label>
+                          <textarea value={payInstruction} onChange={e => setPayInstruction(e.target.value)} rows={3} className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 bg-white" />
+                        </div>
+                      </div>
+
+                      <hr className="border-slate-100" />
+
+                      {/* Section 3: GL Table Rows Inputs */}
+                      <div className="space-y-3 font-sans">
+                        <div className="flex justify-between items-center">
+                          <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-wider">3. Rincian Baris Tabel</h5>
+                          <button
+                            type="button"
+                            onClick={handleAddRow}
+                            className="px-2 py-0.5 bg-blue-600 hover:bg-blue-700 text-white rounded font-bold text-[10px] transition-all cursor-pointer active:scale-95"
+                          >
+                            + Tambah Baris
+                          </button>
+                        </div>
+                        <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1">
+                          {sscBillingRows.map((cl, idx) => (
+                            <div key={cl.id} className="p-2.5 border border-slate-200 rounded-lg bg-slate-50 relative space-y-1.5 text-[11px]">
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteRow(cl.id)}
+                                className="absolute top-1.5 right-1.5 text-red-500 hover:text-red-700 text-xs font-bold cursor-pointer"
+                              >
+                                ✕
+                              </button>
+                              <div className="grid grid-cols-3 gap-2 pt-1.5">
+                                <div>
+                                  <span className="text-[9px] text-slate-500 font-bold block">Customer</span>
+                                  <input type="text" value={cl.customerCode !== undefined ? cl.customerCode : "OTC08002"} onChange={e => handleUpdateClField(cl.id, "customerCode", e.target.value)} className="w-full px-1.5 py-0.5 border border-slate-300 rounded font-mono text-xs text-slate-850 bg-white" />
+                                </div>
+                                <div className="col-span-2">
+                                  <span className="text-[9px] text-slate-500 font-bold block">Document No</span>
+                                  <input type="text" value={cl.documentNo !== undefined ? cl.documentNo : (cl.clNumber.replace(/[^0-9]/g, "").slice(-11) || `180000000${53 + idx}`)} onChange={e => handleUpdateClField(cl.id, "documentNo", e.target.value)} className="w-full px-1.5 py-0.5 border border-slate-300 rounded text-xs text-slate-855 bg-white font-semibold" />
+                                </div>
+                              </div>
+                              <div className="space-y-1">
+                                <span className="text-[9px] text-slate-500 font-bold block">Text / Description</span>
+                                <input type="text" value={cl.customText !== undefined ? cl.customText : `POTONG TAGIH ${getClaimText(cl)}`} onChange={e => handleUpdateClField(cl.id, "customText", e.target.value)} className="w-full px-1.5 py-0.5 border border-slate-300 rounded text-xs text-slate-855 bg-white font-bold" />
+                              </div>
+                              <div className="space-y-1">
+                                <span className="text-[9px] text-slate-500 font-bold block">Vendor</span>
+                                <input type="text" value={cl.supplierName} onChange={e => handleUpdateClField(cl.id, "supplierName", e.target.value)} className="w-full px-1.5 py-0.5 border border-slate-300 rounded text-xs text-slate-855 bg-white font-semibold" />
+                              </div>
+                              <div className="grid grid-cols-3 gap-2">
+                                <div>
+                                  <span className="text-[9px] text-slate-500 font-bold block">Doc. Date</span>
+                                  <input type="text" value={cl.dateSent} onChange={e => handleUpdateClField(cl.id, "dateSent", e.target.value)} className="w-full px-1 py-0.5 border border-slate-300 rounded font-mono text-xs text-slate-855 bg-white" />
+                                </div>
+                                <div>
+                                  <span className="text-[9px] text-slate-500 font-bold block">Amount</span>
+                                  <input type="text" value={cl.amount} onChange={e => handleUpdateClField(cl.id, "amount", e.target.value)} className="w-full px-1 py-0.5 border border-slate-300 rounded font-mono text-xs text-slate-855 bg-white text-right font-black" />
+                                </div>
+                                <div>
+                                  <span className="text-[9px] text-slate-500 font-bold block">Pay Date</span>
+                                  <input type="text" value={cl.paymentDate !== undefined ? cl.paymentDate : getPaymentDate(cl.dateSent)} onChange={e => handleUpdateClField(cl.id, "paymentDate", e.target.value)} className="w-full px-1 py-0.5 border border-slate-300 rounded font-mono text-xs text-slate-855 bg-white text-center" />
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <hr className="border-slate-100" />
+
+                      {/* Section 4: Signatures */}
+                      <div className="space-y-3 font-sans">
+                        <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-wider">4. Tanda Tangan</h5>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-[9px] font-bold text-slate-500">Prepared By</label>
+                            <input type="text" value={paySigPrepared} onChange={e => setPaySigPrepared(e.target.value)} className="w-full px-1.5 py-1 border border-slate-300 rounded text-xs font-semibold text-slate-800 bg-white" />
+                          </div>
+                          <div>
+                            <label className="text-[9px] font-bold text-slate-500">Approved By 1</label>
+                            <input type="text" value={paySigApproved1} onChange={e => setPaySigApproved1(e.target.value)} className="w-full px-1.5 py-1 border border-slate-300 rounded text-xs font-semibold text-slate-800 bg-white" />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-[9px] font-bold text-slate-500">Approved By 2</label>
+                            <input type="text" value={paySigApproved2} onChange={e => setPaySigApproved2(e.target.value)} className="w-full px-1.5 py-1 border border-slate-300 rounded text-xs font-semibold text-slate-800 bg-white" />
+                          </div>
+                          <div>
+                            <label className="text-[9px] font-bold text-slate-555">Entry By</label>
+                            <input type="text" value={paySigEntry} onChange={e => setPaySigEntry(e.target.value)} className="w-full px-1.5 py-1 border border-slate-300 rounded text-xs font-bold text-slate-800 bg-white" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    </div>
+
+                    {/* Right Column: Live A4 Printable Sheet (7 Columns) */}
+                    <div className="lg:col-span-7 flex flex-col items-center w-full space-y-4 print:w-full print:p-0">
+                      {/* Control Panel */}
+                      <div className="w-full bg-white border border-slate-200 rounded-lg p-2 flex justify-between items-center print:hidden shadow-sm font-sans">
+                        <span className="text-[11px] text-slate-500 font-bold font-sans">
+                          Pratinjau Live: <strong>A4 Portrait Sheet</strong>
+                        </span>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleExportExcel("buat_ssc_payment")}
+                            className="px-3 py-2 bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-800 font-extrabold text-xs rounded-lg transition-all cursor-pointer active:scale-95 flex items-center gap-1"
+                          >
+                            <FileText size={12} />
+                            Export Excel
+                          </button>
+                          <button
+                            onClick={handlePrint}
+                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs rounded-lg shadow-md hover:shadow-blue-600/20 flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 font-sans"
+                          >
+                            <Printer size={13} />
+                            Cetak Memo Internal
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Actual Document Sheet Container */}
+                      <div className="w-full overflow-x-auto p-1 bg-slate-200 border border-slate-300 rounded-xl flex justify-center shadow-inner print:bg-white print:border-none print:p-0 print:shadow-none">
+                        <div
+                          id="internal-memo-sheet"
+                          className="bg-white text-black p-[12mm] shadow-lg border border-slate-450 w-[210mm] min-h-[297mm] text-left mx-auto relative flex flex-col print:shadow-none print:border-none print:w-[198mm] print:h-[280mm] print:p-[8mm] print:m-0"
+                          style={{
+                            fontFamily: 'Arial, sans-serif',
+                            lineHeight: '1.2'
+                          }}
+                        >
+                          {/* Top Section */}
+                          <div className="flex justify-between items-start mb-6">
+                            <div className="space-y-1.5 w-[55%]">
+                              <div className="flex text-xs">
+                                <span className="font-bold w-24 shrink-0 font-sans">Company</span>
+                                <span className="mr-2">:</span>
+                                <span className="font-bold border-b border-black flex-1 min-h-[16px]">{payCompany}</span>
+                              </div>
+                              <div className="flex text-xs">
+                                <span className="font-bold w-24 shrink-0 font-sans">Business Area</span>
+                                <span className="mr-2">:</span>
+                                <span className="font-bold border-b border-black flex-1 min-h-[16px]">{payBusinessArea}</span>
+                              </div>
+                              <div className="flex text-xs items-center">
+                                <span className="font-bold w-24 shrink-0 font-sans">Request Date</span>
+                                <span className="mr-2">:</span>
+                                <div className="flex-1">{renderDateBoxes(payRequestDate)}</div>
+                                <span className="text-[9px] text-slate-500 ml-1 font-mono">(dd/mm/yyyy)</span>
+                              </div>
+                            </div>
+
+                            {/* Barcode Dotted Area */}
+                            <div className="w-[185px] h-[52px] border border-dashed border-black/80 flex flex-col items-center justify-center p-2 text-center text-black/75">
+                              <span className="text-[7px] font-bold tracking-widest leading-none font-sans">PLEASE PUT <span className="underline font-black">FA BARCODE</span> HERE</span>
+                            </div>
+                          </div>
+
+                          {/* Memo Title */}
+                          <div className="text-center mb-6">
+                            <h2 className="text-sm font-extrabold tracking-wider border-b border-black pb-0.5 inline-block uppercase text-black font-sans">
+                              INTERNAL MEMO - OTHERS
+                            </h2>
+                          </div>
+
+                          {/* Main Form Fields (Thick border block) */}
+                          <div className="border border-black flex flex-col divide-y divide-black text-[11px] mb-4">
+                            <div className="flex divide-x divide-black">
+                              <div className="w-[180px] p-2 font-bold bg-slate-50/50 shrink-0 font-sans">Title</div>
+                              <div className="flex-1 p-2 font-bold bg-white min-h-[28px] uppercase">{payTitle}</div>
+                            </div>
+                            <div className="flex divide-x divide-black">
+                              <div className="w-[180px] p-2 font-bold bg-slate-50/50 shrink-0 font-sans">To</div>
+                              <div className="flex-1 p-2 font-semibold bg-white min-h-[28px]">{payTo}</div>
+                            </div>
+                            <div className="flex divide-x divide-black">
+                              <div className="w-[180px] p-2 font-bold bg-slate-50/50 shrink-0 font-sans">Instruction</div>
+                              <div className="flex-1 p-2 bg-white leading-relaxed font-sans leading-relaxed text-[11.5px] pr-4">{payInstruction}</div>
+                            </div>
+                            
+                            {/* Gold Table (Embedded inside thick border content, aligned right/indented) */}
+                            <div className="w-full p-2 bg-white flex flex-col">
+                              <div className="pl-24 pr-2 py-2">
+                                <table className="w-full text-[9.5px] border-collapse border border-black font-sans">
+                                  <thead>
+                                    <tr className="text-black border border-black text-[9px] text-center font-bold">
+                                      <th className="border border-black px-1.5 py-1 font-bold" style={{ backgroundColor: '#f2c811' }}>Customer</th>
+                                      <th className="border border-black px-1.5 py-1 font-bold" style={{ backgroundColor: '#f2c811' }}>DocumentNo</th>
+                                      <th className="border border-black px-1.5 py-1 font-bold" style={{ backgroundColor: '#f2c811' }}>Text</th>
+                                      <th className="border border-black px-1.5 py-1 font-bold" style={{ backgroundColor: '#f2c811' }}>Vendor</th>
+                                      <th className="border border-black px-1.5 py-1 font-bold" style={{ backgroundColor: '#f2c811' }}>Doc. Date</th>
+                                      <th className="border border-black px-1.5 py-1 text-right font-bold" style={{ backgroundColor: '#f2c811' }}>Local Crcy Amt</th>
+                                      <th className="border border-black px-1.5 py-1 font-bold" style={{ backgroundColor: '#f2c811' }}>Potong tagih payment date</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {sscBillingRows.map((cl, idx) => {
+                                      const rawAmt = cl.amount ? cl.amount.replace(/[^0-9]/g, "") : "0";
+                                      const numAmt = parseInt(rawAmt, 10);
+                                      const formattedAmt = isNaN(numAmt) ? cl.amount : numAmt.toLocaleString("id-ID");
+                                      return (
+                                        <tr key={cl.id} className="bg-white border border-black text-black">
+                                          <td className="border border-black px-1.5 py-1 text-center font-mono font-bold">
+                                            {cl.customerCode !== undefined ? cl.customerCode : "OTC08002"}
+                                          </td>
+                                          <td className="border border-black px-1.5 py-1 text-center font-mono font-bold">
+                                            {cl.documentNo !== undefined ? cl.documentNo : (cl.clNumber.replace(/[^0-9]/g, "").slice(-11) || `180000000${53 + idx}`)}
+                                          </td>
+                                          <td className="border border-black px-1.5 py-1 text-left font-mono font-bold text-[9px] uppercase">
+                                            {cl.customText !== undefined ? cl.customText : `POTONG TAGIH ${getClaimText(cl)}`}
+                                          </td>
+                                          <td className="border border-black px-1.5 py-1 text-left font-sans font-bold">
+                                            {cl.supplierName}
+                                          </td>
+                                          <td className="border border-black px-1.5 py-1 text-center font-mono font-semibold">
+                                            {formatSscDate(cl.dateSent)}
+                                          </td>
+                                          <td className="border border-black px-1.5 py-1 text-right font-mono font-bold">
+                                            {formattedAmt}
+                                          </td>
+                                          <td className="border border-black px-1.5 py-1 text-center font-mono font-bold text-[9.5px]">
+                                            {cl.paymentDate !== undefined ? cl.paymentDate : getPaymentDate(cl.dateSent)}
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                    {sscBillingRows.length === 0 && (
+                                      <tr>
+                                        <td colSpan={7} className="border border-black px-2 py-4 text-center text-slate-400 italic bg-slate-50">
+                                          Belum ada baris rincian data. Tambah data pada panel form editor di kiri.
+                                        </td>
+                                      </tr>
+                                    )}
+                                  </tbody>
+                                </table>
+
+                                {/* Demikian Terimakasih */}
+                                <div className="mt-4 space-y-2.5 text-left font-sans">
+                                  <div className="font-bold text-[11px] text-black">
+                                    Demikian Terimakasih
+                                  </div>
+                                  {/* 3 Write-in lines */}
+                                  <div className="border-b border-black w-full h-1"></div>
+                                  <div className="border-b border-black w-full h-1"></div>
+                                  <div className="border-b border-black w-full h-1"></div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Signatures Panel */}
+                          <div className="border border-black overflow-hidden mb-6 text-[10px] mt-auto font-sans">
+                            <div className="grid grid-cols-4 text-center divide-x divide-black font-bold font-sans">
+                              <div className="p-1 border-b border-black bg-slate-50/50">Prepared by <sup>1)</sup></div>
+                              <div className="p-1 border-b border-black bg-slate-50/50 col-span-2">Approved by <sup>1)</sup></div>
+                              <div className="p-1 border-b border-black bg-slate-50/50">Entry by <sup>1)</sup></div>
+                            </div>
+                            <div className="grid grid-cols-4 text-center divide-x divide-black h-[58px]">
+                              {/* Prepared Signature */}
+                              <div className="flex items-end justify-center pb-2 bg-white px-1 relative">
+                                {paySigPrepared && (
+                                  <span
+                                    className="block font-serif italic text-blue-700 text-lg select-none pb-1"
+                                    style={{ fontFamily: "'Brush Script MT', 'Reenie Beanie', cursive, sans-serif", fontSize: '20px' }}
+                                  >
+                                    {paySigPrepared.split(" ")[0]}
+                                  </span>
+                                )}
+                              </div>
+                              {/* Approved 1 Signature */}
+                              <div className="flex items-end justify-center pb-2 bg-white px-1 relative">
+                                {paySigApproved1 && (
+                                  <>
+                                    <div className="absolute top-1.5 left-1.5 border border-slate-300 bg-slate-50/50 text-[9px] font-black text-slate-500 rounded px-1 rotate-[-12deg] tracking-wider select-none opacity-80">AIR</div>
+                                    <span
+                                      className="block font-serif italic text-blue-700 text-lg select-none pb-1"
+                                      style={{ fontFamily: "'Brush Script MT', 'Reenie Beanie', cursive, sans-serif", fontSize: '20px' }}
+                                    >
+                                      {paySigApproved1.split(" ")[0]}
+                                    </span>
+                                  </>
+                                )}
+                              </div>
+                              {/* Approved 2 Signature */}
+                              <div className="flex items-end justify-center pb-2 bg-white px-1 relative">
+                                {paySigApproved2 && (
+                                  <span
+                                    className="block font-serif italic text-blue-700 text-lg select-none pb-1"
+                                    style={{ fontFamily: "'Brush Script MT', 'Reenie Beanie', cursive, sans-serif", fontSize: '20px' }}
+                                  >
+                                    {paySigApproved2.split(" ")[0]}
+                                  </span>
+                                )}
+                              </div>
+                              {/* Entry By Signature */}
+                              <div className="flex items-end justify-center pb-2 bg-white px-1 relative">
+                                {paySigEntry && (
+                                  <span
+                                    className="block font-serif italic text-blue-700 text-lg select-none pb-1"
+                                    style={{ fontFamily: "'Brush Script MT', 'Reenie Beanie', cursive, sans-serif", fontSize: '20px' }}
+                                  >
+                                    {paySigEntry.split(" ")[0]}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            {/* Grey box names */}
+                            <div className="grid grid-cols-4 text-center divide-x divide-black text-[9px] font-bold text-black bg-[#d9d9d9] border-t border-black">
+                              <div className="p-0.5 truncate text-center h-[20px] flex items-center justify-center" title={paySigPrepared}>{paySigPrepared}</div>
+                              <div className="p-0.5 truncate text-center h-[20px] flex items-center justify-center" title={paySigApproved1}>{paySigApproved1}</div>
+                              <div className="p-0.5 truncate text-center h-[20px] flex items-center justify-center" title={paySigApproved2}>{paySigApproved2}</div>
+                              <div className="p-0.5 truncate text-center h-[20px] flex items-center justify-center" title={paySigEntry}>{paySigEntry}</div>
+                            </div>
+                            {/* Blue box roles */}
+                            <div className="grid grid-cols-4 text-center divide-x divide-black text-[9px] font-bold text-white bg-blue-600/90 border-t border-black">
+                              <div className="p-0.5 truncate text-center h-[20px] flex items-center justify-center">Accounting BU</div>
+                              <div className="p-0.5 truncate text-center h-[20px] flex items-center justify-center">Accounting Dept Head</div>
+                              <div className="p-0.5 truncate text-center h-[20px] flex items-center justify-center">Admin Div/BOD</div>
+                              <div className="p-0.5 truncate text-center h-[20px] flex items-center justify-center">Entry By Function</div>
+                            </div>
+                          </div>
+
+                          {/* Footer / Remark */}
+                          <div className="text-[8px] text-slate-500 leading-tight space-y-0.5 font-sans">
+                            <div><strong>Remark:</strong></div>
+                            <div>1) Every signing person must write down his / her full name in the grey box and his/her function in the blue box</div>
+                            <div className="flex justify-between pt-2 border-t border-slate-200 mt-2 text-[7.5px] font-mono text-slate-450 font-sans">
+                              <span>F/SOP/SSM/001-FA406(R.01)</span>
+                              <span>memo Internal 1 of 1</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 )}
+
 
                 {activeSubTab === "reminder" && (
                   /* Reminder Email View */

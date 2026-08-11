@@ -134,7 +134,7 @@ export default function AccountingView({
       const unitPriceVal = parseFloat(String(item.unitPrice)) || 0;
 
       const stdAllowance = Math.round(totalQty * (allowanceRatio / 100));
-      const billableQty = Math.max(0, rejectCount - stdAllowance);
+      const billableQty = rejectCount;
       const subtotal = billableQty * unitPriceVal;
       
       grandSubtotal += subtotal;
@@ -725,17 +725,17 @@ export default function AccountingView({
                             ) : cl.status === "PENDING" ? (
                               <span className="inline-flex items-center gap-1 px-3 py-1 bg-rose-50 text-rose-700 border border-rose-200 rounded-full text-[10px] font-black uppercase">
                                 <Clock size={11} className="text-rose-500 animate-pulse" />
-                                Awaiting Vendor
+                                Waiting Vendor Confirm
                               </span>
                             ) : !prog.deptAccounting ? (
                               <span className="inline-flex items-center gap-1 px-3 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-full text-[10px] font-black uppercase">
                                 <Clock size={11} className="text-indigo-500 animate-pulse" />
-                                Awaiting Dept Approval
+                                Dept. Head Approval
                               </span>
                             ) : (
                               <div className="flex items-center gap-2">
                                 <span className="inline-flex items-center gap-1 px-3 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-full text-[10px] font-black uppercase">
-                                  Awaiting Payment
+                                  Vendor Approve &gt; Kelempar ke IM SSC
                                 </span>
                                 {handleMarkClosedPaid && (
                                   <button
@@ -765,6 +765,48 @@ export default function AccountingView({
                             <FileText size={12} />
                             Lihat CL PDF
                           </button>
+                          {(() => {
+                            const isApprovedByAccounting = cl.clApprovalProgress?.deptAccounting || cl.status === "FULLY_APPROVED" || cl.status === "CLOSED_PAID" || cl.status === "APPROVED";
+                            if (cl.sentToVendor) {
+                              return (
+                                <span className="inline-flex items-center px-2.5 py-1.5 bg-green-50 text-green-700 border border-green-200 rounded text-[9.5px] font-bold">
+                                  Email Terkirim
+                                </span>
+                              );
+                            }
+                            if (!isApprovedByAccounting) {
+                              return (
+                                <button
+                                  disabled
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-slate-100 border border-slate-200 text-slate-400 text-[10px] font-bold rounded cursor-not-allowed"
+                                  title="Belum disetujui Dept Head Accounting"
+                                >
+                                  <Clock size={11} />
+                                  Kirim Email (Pending)
+                                </button>
+                              );
+                            }
+                            return (
+                              <button
+                                onClick={() => {
+                                  setConfirmationLetters(prev =>
+                                    prev.map(item => {
+                                      if (item.id === cl.id) {
+                                        alert(`Sukses: Email Confirmation Letter ${cl.clNumber} berhasil dikirim ke email Vendor!`);
+                                        return { ...item, sentToVendor: true };
+                                      }
+                                      return item;
+                                    })
+                                  );
+                                }}
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded text-[10px] font-bold cursor-pointer transition-all active:scale-95 shadow-sm"
+                                title="Kirim Confirmation Letter ke Email Vendor"
+                              >
+                                <Send size={11} />
+                                Kirim Email ke Vendor
+                              </button>
+                            );
+                          })()}
                         </div>
                       </td>
                     </tr>
@@ -795,13 +837,13 @@ export default function AccountingView({
               </button>
             </div>
 
-            {/* Content: Double Column Preview */}
-            <div className="p-6 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 max-h-[65vh]">
+            {/* Content: Full-Width Preview */}
+            <div className="p-6 overflow-y-auto grid grid-cols-1 gap-6 bg-slate-50 max-h-[65vh]">
               
-              {/* Left Column: Confirmation Letter Document Sheet Preview (A4 style) */}
-              <div className="border border-slate-200 rounded-lg bg-slate-100 p-3 max-h-[60vh] overflow-y-auto shadow-inner flex items-start justify-center">
+              {/* Confirmation Letter Document Sheet Preview (A4 style) */}
+              <div className="border border-slate-200 rounded-lg bg-slate-100 p-3 max-h-[60vh] overflow-y-auto shadow-inner flex items-start justify-center w-full">
                 <div 
-                  className="w-full bg-white shadow-md p-6 text-black border border-slate-350 text-left font-serif"
+                  className="w-full bg-white shadow-md p-6 text-black border border-slate-355 text-left font-serif max-w-[210mm]"
                   style={{ fontFamily: '"Times New Roman", Times, serif', fontSize: "10.5px", lineHeight: "1.35" }}
                 >
                   {/* Top black line */}
@@ -944,64 +986,6 @@ export default function AccountingView({
                       <span className="font-bold text-center w-24">Representative</span>
                     </div>
                   </div>
-                </div>
-              </div>
-
-              {/* Vendor Email/Reminder Preview */}
-              <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-sm flex flex-col text-left space-y-4">
-                <div className="border-b border-slate-200 pb-2 flex justify-between items-center">
-                  <span className="text-xs font-black text-amber-700 flex items-center gap-1">
-                    <Mail size={14} />
-                    Reminder Surat ke Vendor
-                  </span>
-                  <span className="text-[9px] bg-amber-50 text-amber-700 px-1.5 rounded font-bold">Email Ready</span>
-                </div>
-
-                <div className="flex-1 space-y-3 font-sans text-[11px] text-slate-800 p-3 bg-slate-50/50 rounded border border-slate-100/50 leading-relaxed">
-                  <div className="border border-slate-200 bg-white p-2 rounded text-[10px] space-y-1 font-bold text-slate-600 overflow-hidden">
-                    <div className="break-all"><span className="text-slate-400">To:</span> management@{justGeneratedCl.supplierName.toLowerCase().replace("pt ", "").replace(/ /g, "")}.co.id</div>
-                    <div className="break-all"><span className="text-slate-400">Subject:</span> [URGENT REMINDER] Lembar Confirmation Letter Kualitas {justGeneratedCl.clNumber} - MTM</div>
-                  </div>
-
-                  <p className="pt-2">Kepada Yth. Pimpinan Keuangan / Sales Manager <strong>{justGeneratedCl.supplierName}</strong>,</p>
-                  <p>
-                    Kami telah menerbitkan lembar persetujuan <strong>Confirmation Letter Penalti Kualitas (QPR)</strong> dengan nomor <strong className="break-all">{justGeneratedCl.clNumber}</strong> tanggal pengiriman <strong>{justGeneratedCl.dateSent}</strong>.
-                  </p>
-                  <p>
-                    Nilai denda klaim yang disepakati adalah sebesar <strong className="text-red-650">{justGeneratedCl.amount}</strong>. Sesuai prosedur Astra Otoparts, harap segera melakukan verifikasi dan penandatanganan lembar Confirmation Letter terlampir.
-                  </p>
-                  
-                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-md text-amber-800 flex items-start gap-2 my-2">
-                    <AlertTriangle size={16} className="shrink-0 text-amber-600 mt-0.5" />
-                    <div>
-                      <strong>Batas Waktu Otorisasi:</strong>
-                      <p className="text-[10px] mt-0.5 leading-normal">
-                        Harap melakukan Approval dalam waktu maksimal 5 (lima) hari kerja. Apabila tidak ada tanggapan, pemotongan tagihan secara otomatis akan dijalankan pada tagihan berjalan.
-                      </p>
-                    </div>
-                  </div>
-
-                  <p>Hormat kami,</p>
-                  <strong className="block mt-1 font-black text-slate-800 text-[10px]">PT Menara Terus Makmur (Finance & Accounting Div)</strong>
-                </div>
-
-                <div className="flex gap-2">
-                  <button 
-                    onClick={() => {
-                      alert(`Email reminder untuk ${justGeneratedCl.clNumber} berhasil dikirim ke vendor!`);
-                      setJustGeneratedCl(null);
-                    }}
-                    className="flex-1 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded text-xs font-bold flex items-center justify-center gap-1 cursor-pointer"
-                  >
-                    <Send size={11} />
-                    Kirim Email & Pengingat Vendor
-                  </button>
-                  <button 
-                    onClick={() => alert("Reminder template copied to clipboard!")}
-                    className="px-3 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-350 text-slate-700 rounded text-xs font-bold cursor-pointer"
-                  >
-                    Salin Teks
-                  </button>
                 </div>
               </div>
 

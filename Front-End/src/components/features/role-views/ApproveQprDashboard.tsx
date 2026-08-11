@@ -47,6 +47,19 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
   const [selectedQpr, setSelectedQpr] = useState<any>(null);
   const [previewQpr, setPreviewQpr] = useState<any>(null);
 
+  // Calculate claim count for each vendor dynamically based on QPRs
+  const vendorClaimCounts = React.useMemo(() => {
+    const counts: Record<string, number> = {};
+    
+    pendingQprs.forEach((q: any) => {
+      const name = q.supplierName;
+      if (name) {
+        counts[name] = (counts[name] || 0) + 1;
+      }
+    });
+    return counts;
+  }, [pendingQprs]);
+
   // Filter pending QPRs by role
   const getRoleName = (tab: string) => {
     switch (tab) {
@@ -375,7 +388,25 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
 
                       {/* Detail Produk */}
                       <td className="px-2 py-3 border-r border-slate-400 text-left">
-                        <div className="font-bold text-slate-700 text-[11px] whitespace-nowrap overflow-hidden text-ellipsis">{qpr.supplierName}</div>
+                        <div className="font-bold text-slate-700 text-[11px] whitespace-nowrap overflow-hidden text-ellipsis flex items-center gap-1.5">
+                          <span>{qpr.supplierName}</span>
+                          {(() => {
+                            const count = vendorClaimCounts[qpr.supplierName] || 1;
+                            if (count > 1) {
+                              return (
+                                <span className="inline-flex items-center px-1.5 py-0.5 bg-red-50 text-red-700 border border-red-200 rounded text-[9px] font-black uppercase tracking-wider" title={`${count} Claims`}>
+                                  More Than One ({count}x)
+                                </span>
+                              );
+                            } else {
+                              return (
+                                <span className="inline-flex items-center px-1.5 py-0.5 bg-slate-50 text-slate-500 border border-slate-200 rounded text-[9px] font-black uppercase tracking-wider" title="1 Claim">
+                                  1st Time
+                                </span>
+                              );
+                            }
+                          })()}
+                        </div>
                         <div className="text-[9px] text-slate-400 font-bold mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">Period: {qpr.period} | Qty: {qpr.totalItems} pcs</div>
                       </td>
 
@@ -480,7 +511,7 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
                 {/* Left Column: Official A4 QPR Document Sheet */}
                 <div className="lg:col-span-2 border border-slate-200 rounded-lg overflow-hidden bg-slate-100 p-4 max-h-[60vh] overflow-y-auto shadow-inner flex items-start justify-center">
                   <div className="w-full max-w-2xl bg-white shadow-md rounded border border-slate-300">
-                    <QprPrintPreview qpr={selectedQpr} inline={true} />
+                    <QprPrintPreview qpr={{ ...selectedQpr, vendorClaimCount: vendorClaimCounts[selectedQpr.supplierName] || 1 }} inline={true} />
                   </div>
                 </div>
 
@@ -564,7 +595,7 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
       {/* QPR Print Preview Modal */}
       {previewQpr && (
         <QprPrintPreview
-          qpr={previewQpr}
+          qpr={{ ...previewQpr, vendorClaimCount: vendorClaimCounts[previewQpr.supplierName] || 1 }}
           onClose={() => setPreviewQpr(null)}
         />
       )}

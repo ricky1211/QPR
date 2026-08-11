@@ -32,7 +32,8 @@ const getDocPipelineStages = (
   type: string,
   requiredRole?: string,
   status?: string,
-  clApprovalProgress?: { sectAccounting: boolean; deptAccounting: boolean }
+  clApprovalProgress?: { sectAccounting: boolean; deptAccounting: boolean },
+  linkedCl?: any
 ): PipelineStage[] => {
   const isApproved = status === "APPROVED" || status === "CLOSED" || status === "CLOSED_PAID" || status === "FULLY_APPROVED" || requiredRole === "Closed";
 
@@ -49,35 +50,117 @@ const getDocPipelineStages = (
       if (idx === currentIndex) return { name, status: "PENDING" };
       return { name, status: "UPCOMING" };
     });
-  } else if (type === "QPR") {
-    const chain = ["Sec. Head", "Dept. Head", "Div. Head", "Accounting"];
-    if (isApproved) return chain.map(name => ({ name, status: "APPROVED" }));
-    let currentIndex = 0;
-    if (requiredRole === "Dept Head") currentIndex = 1;
-    if (requiredRole === "Div Head") currentIndex = 2;
-    if (requiredRole === "Accounting" || requiredRole === "Vendor") currentIndex = 3;
-
-    return chain.map((name, idx) => {
-      if (idx < currentIndex) return { name, status: "APPROVED" };
-      if (idx === currentIndex) return { name, status: "PENDING" };
-      return { name, status: "UPCOMING" };
-    });
   } else {
-    // Confirmation Letter (CL) — 2-step chain: Vendor Conf., Dept Acc.
-    const chain = ["Vendor Conf.", "Dept Acc."];
-    if (isApproved) return chain.map(name => ({ name, status: "APPROVED" }));
+    // QPR or merged QPR/CL! Use 12-step pipeline
+    const stages: { name: string; status: "APPROVED" | "PENDING" | "UPCOMING" }[] = [
+      { name: "CREATE QPR", status: "UPCOMING" },
+      { name: "SECTION HEAD QA", status: "UPCOMING" },
+      { name: "DEPT. HEAD QA", status: "UPCOMING" },
+      { name: "DIV. HEAD", status: "UPCOMING" },
+      { name: "SECTION HEAD PURCHASING", status: "UPCOMING" },
+      { name: "DEPT. HEAD ACCOUNTING", status: "UPCOMING" },
+      { name: "ACCOUNTING CREATE CL", status: "UPCOMING" },
+      { name: "DEPT. HEAD ACCOUNTING", status: "UPCOMING" },
+      { name: "PURCHASING KIRIM CL KE VENDOR", status: "UPCOMING" },
+      { name: "VENDOR APPROVE", status: "UPCOMING" },
+      { name: "FINANCE CREATE IM", status: "UPCOMING" },
+      { name: "PAID", status: "UPCOMING" }
+    ];
 
-    const prog = clApprovalProgress || { sectAccounting: false, deptAccounting: false };
+    // 1. CREATE QPR
+    stages[0].status = status === "DRAFT" ? "PENDING" : "APPROVED";
 
-    return chain.map((name, idx) => {
-      if (idx === 0) {
-        // Vendor confirmation — treat as approved once CL is in any approval stage
-        const vendorDone = status === "FULLY_APPROVED" || status === "CLOSED_PAID" || status === "APPROVED_BY_VENDOR" || status === "APPROVED_SECT";
-        return { name, status: vendorDone ? "APPROVED" : "PENDING" };
-      }
-      if (idx === 1) return { name, status: prog.deptAccounting ? "APPROVED" : (status === "PENDING" || status === "APPROVED_BY_VENDOR" ? "PENDING" : "UPCOMING") };
-      return { name, status: "UPCOMING" };
-    });
+    if (status === "DRAFT") return stages;
+
+    // 2. SECTION HEAD QA
+    if (requiredRole === "Section Head") {
+      stages[1].status = "PENDING";
+      return stages;
+    } else {
+      stages[1].status = "APPROVED";
+    }
+
+    // 3. DEPT. HEAD QA
+    if (requiredRole === "Dept Head") {
+      stages[2].status = "PENDING";
+      return stages;
+    } else {
+      stages[2].status = "APPROVED";
+    }
+
+    // 4. DIV. HEAD
+    if (requiredRole === "Div Head") {
+      stages[3].status = "PENDING";
+      return stages;
+    } else {
+      stages[3].status = "APPROVED";
+    }
+
+    // 5. SECTION HEAD PURCHASING
+    if (requiredRole === "Purchasing") {
+      stages[4].status = "PENDING";
+      return stages;
+    } else {
+      stages[4].status = "APPROVED";
+    }
+
+    // 6. DEPT. HEAD ACCOUNTING (Before CL)
+    if (requiredRole === "Accounting" && !linkedCl) {
+      stages[5].status = "PENDING";
+      return stages;
+    } else {
+      stages[5].status = "APPROVED";
+    }
+
+    // 7. ACCOUNTING CREATE CL
+    if (!linkedCl) {
+      stages[6].status = "PENDING";
+      return stages;
+    } else {
+      stages[6].status = "APPROVED";
+    }
+
+    // 8. DEPT. HEAD ACCOUNTING (CL Approval)
+    const clProg = linkedCl.clApprovalProgress || clApprovalProgress || { sectAccounting: false, deptAccounting: false };
+    if (!clProg.deptAccounting && linkedCl.status !== "FULLY_APPROVED" && linkedCl.status !== "CLOSED_PAID") {
+      stages[7].status = "PENDING";
+      return stages;
+    } else {
+      stages[7].status = "APPROVED";
+    }
+
+    // 9. PURCHASING KIRIM CL KE VENDOR
+    if (!linkedCl.sentToVendor && linkedCl.status !== "APPROVED_BY_VENDOR" && linkedCl.status !== "FULLY_APPROVED" && linkedCl.status !== "CLOSED_PAID") {
+      stages[8].status = "PENDING";
+      return stages;
+    } else {
+      stages[8].status = "APPROVED";
+    }
+
+    // 10. VENDOR APPROVE
+    if (linkedCl.status === "PENDING" || linkedCl.status === "APPROVED_SECT") {
+      stages[9].status = "PENDING";
+      return stages;
+    } else {
+      stages[9].status = "APPROVED";
+    }
+
+    // 11. FINANCE CREATE IM
+    if (linkedCl.status === "FULLY_APPROVED") {
+      stages[10].status = "PENDING";
+      return stages;
+    } else {
+      stages[10].status = "APPROVED";
+    }
+
+    // 12. PAID
+    if (linkedCl.status === "CLOSED_PAID" || linkedCl.closedPaid) {
+      stages[11].status = "APPROVED";
+    } else {
+      stages[11].status = "PENDING";
+    }
+
+    return stages;
   }
 };
 
@@ -258,47 +341,63 @@ export default function Dashboard({
     }
   };
 
-  // Define authorization roles for lead time cards (Foreman, Section Head, Dept Head, Div Head, Accounting CL)
+  // Define authorization roles for lead time cards (Section Head QA, Dept. Head QA, Div. Head, Purchasing, Accounting, Vendor, Finance)
   const authRoles = [
     {
-      key: "Foreman (NCR)",
-      title: "Foreman (NCR)",
-      roles: ["Foreman"],
-      color: "border-amber-200 hover:border-amber-500 bg-amber-50/30 text-amber-800",
-      iconColor: "bg-amber-500 text-white",
-      type: "NCR"
-    },
-    {
-      key: "Section Head",
-      title: "Section Head",
+      key: "Section Head QA",
+      title: "Section Head QA",
       roles: ["Section Head"],
       color: "border-blue-200 hover:border-blue-500 bg-blue-50/30 text-blue-800",
       iconColor: "bg-blue-500 text-white",
-      type: "BOTH"
+      type: "QA"
     },
     {
-      key: "Dept Head",
-      title: "Dept Head",
+      key: "Dept. Head QA",
+      title: "Dept. Head QA",
       roles: ["Dept Head"],
       color: "border-indigo-200 hover:border-indigo-500 bg-indigo-50/30 text-indigo-800",
       iconColor: "bg-indigo-500 text-white",
-      type: "BOTH"
+      type: "QA"
     },
     {
-      key: "Div Head",
-      title: "Div Head",
-      roles: ["Div Head", "Purchasing"],
+      key: "Div. Head",
+      title: "Div. Head",
+      roles: ["Div Head"],
       color: "border-purple-200 hover:border-purple-500 bg-purple-50/30 text-purple-800",
       iconColor: "bg-purple-500 text-white",
-      type: "QPR"
+      type: "DIV"
     },
     {
-      key: "Accounting (CL)",
-      title: "Accounting (CL)",
-      roles: ["Sect Accounting", "Dept Accounting", "Accounting Approval"],
+      key: "Purchasing",
+      title: "Purchasing",
+      roles: ["Purchasing"],
+      color: "border-amber-200 hover:border-amber-500 bg-amber-50/30 text-amber-800",
+      iconColor: "bg-amber-500 text-white",
+      type: "PURCHASING"
+    },
+    {
+      key: "Accounting",
+      title: "Accounting",
+      roles: ["Sect Accounting", "Dept Accounting", "Accounting Approval", "Accounting"],
       color: "border-emerald-200 hover:border-emerald-500 bg-emerald-50/30 text-emerald-800",
       iconColor: "bg-emerald-500 text-white",
-      type: "CL"
+      type: "ACCOUNTING"
+    },
+    {
+      key: "Vendor",
+      title: "Vendor",
+      roles: ["Vendor"],
+      color: "border-rose-200 hover:border-rose-500 bg-rose-50/30 text-rose-800",
+      iconColor: "bg-rose-500 text-white",
+      type: "VENDOR"
+    },
+    {
+      key: "Finance",
+      title: "Finance",
+      roles: ["Finance"],
+      color: "border-teal-200 hover:border-teal-500 bg-teal-50/30 text-teal-800",
+      iconColor: "bg-teal-500 text-white",
+      type: "FINANCE"
     }
   ];
 
@@ -306,12 +405,12 @@ export default function Dashboard({
   const getPendingDocsForRole = (role: typeof authRoles[0]) => {
     const docs: any[] = [];
     
-    // 1. NCRs
-    if (role.type === "NCR" || role.type === "BOTH") {
+    // QA Section Head
+    if (role.key === "Section Head QA") {
       currentActiveNcrs.forEach(ncr => {
-        if (ncr.status !== "APPROVED" && ncr.status !== "CLOSED" && (role.roles.includes(ncr.requiredRole) || (role.key.includes("Foreman") && ncr.status === "DRAFT"))) {
+        if (ncr.status !== "APPROVED" && ncr.status !== "CLOSED" && ncr.requiredRole === "Section Head") {
           const lt = getDocLeadTimes(ncr);
-          const daysStuck = lt.leadTimes[ncr.requiredRole]?.days || lt.totalLeadTime;
+          const daysStuck = lt.leadTimes["Section Head"]?.days || lt.totalLeadTime;
           docs.push({
             id: `ncr-${ncr.id}`,
             docNumber: ncr.ncrNumber,
@@ -320,19 +419,15 @@ export default function Dashboard({
             date: ncr.date,
             requiredRole: ncr.requiredRole,
             daysStuck,
-            amount: `${ncr.reject || ncr.qty || 0} Reject (${ncr.partName || ncr.partNumber})`,
-            activeTab: ncr.status === "DRAFT" ? "draft-ncr" : "approve-ncr"
+            amount: `${ncr.reject || ncr.qty || 0} Reject`,
+            activeTab: "approve-ncr"
           });
         }
       });
-    }
-
-    // 2. QPRs
-    if (role.type === "QPR" || role.type === "BOTH") {
       currentActiveQprs.forEach(qpr => {
-        if (qpr.status !== "APPROVED" && qpr.status !== "CLOSED" && role.roles.includes(qpr.requiredRole)) {
+        if (qpr.status !== "APPROVED" && qpr.status !== "CLOSED" && qpr.requiredRole === "Section Head") {
           const lt = getDocLeadTimes(qpr);
-          const daysStuck = lt.leadTimes[qpr.requiredRole]?.days || lt.totalLeadTime;
+          const daysStuck = lt.leadTimes["Section Head"]?.days || lt.totalLeadTime;
           docs.push({
             id: `qpr-${qpr.id}`,
             docNumber: qpr.qprNumber,
@@ -348,8 +443,105 @@ export default function Dashboard({
       });
     }
 
-    // 3. CLs
-    if (role.type === "CL") {
+    // QA Dept Head
+    if (role.key === "Dept. Head QA") {
+      currentActiveNcrs.forEach(ncr => {
+        if (ncr.status !== "APPROVED" && ncr.status !== "CLOSED" && ncr.requiredRole === "Dept Head") {
+          const lt = getDocLeadTimes(ncr);
+          const daysStuck = lt.leadTimes["Dept Head"]?.days || lt.totalLeadTime;
+          docs.push({
+            id: `ncr-${ncr.id}`,
+            docNumber: ncr.ncrNumber,
+            type: "NCR",
+            vendor: ncr.supplierName,
+            date: ncr.date,
+            requiredRole: ncr.requiredRole,
+            daysStuck,
+            amount: `${ncr.reject || ncr.qty || 0} Reject`,
+            activeTab: "approve-ncr"
+          });
+        }
+      });
+      currentActiveQprs.forEach(qpr => {
+        if (qpr.status !== "APPROVED" && qpr.status !== "CLOSED" && qpr.requiredRole === "Dept Head") {
+          const lt = getDocLeadTimes(qpr);
+          const daysStuck = lt.leadTimes["Dept Head"]?.days || lt.totalLeadTime;
+          docs.push({
+            id: `qpr-${qpr.id}`,
+            docNumber: qpr.qprNumber,
+            type: "QPR",
+            vendor: qpr.supplierName,
+            date: qpr.date,
+            requiredRole: qpr.requiredRole,
+            daysStuck,
+            amount: qpr.claimAmount || "-",
+            activeTab: "approve-qpr"
+          });
+        }
+      });
+    }
+
+    // Div Head
+    if (role.key === "Div. Head") {
+      currentActiveQprs.forEach(qpr => {
+        if (qpr.status !== "APPROVED" && qpr.status !== "CLOSED" && qpr.requiredRole === "Div Head") {
+          const lt = getDocLeadTimes(qpr);
+          const daysStuck = lt.leadTimes["Div Head"]?.days || lt.totalLeadTime;
+          docs.push({
+            id: `qpr-${qpr.id}`,
+            docNumber: qpr.qprNumber,
+            type: "QPR",
+            vendor: qpr.supplierName,
+            date: qpr.date,
+            requiredRole: qpr.requiredRole,
+            daysStuck,
+            amount: qpr.claimAmount || "-",
+            activeTab: "approve-qpr"
+          });
+        }
+      });
+    }
+
+    // Purchasing
+    if (role.key === "Purchasing") {
+      currentActiveQprs.forEach(qpr => {
+        if (qpr.status !== "APPROVED" && qpr.status !== "CLOSED" && qpr.requiredRole === "Purchasing") {
+          const lt = getDocLeadTimes(qpr);
+          const daysStuck = lt.totalLeadTime;
+          docs.push({
+            id: `qpr-${qpr.id}`,
+            docNumber: qpr.qprNumber,
+            type: "QPR",
+            vendor: qpr.supplierName,
+            date: qpr.date,
+            requiredRole: qpr.requiredRole,
+            daysStuck,
+            amount: qpr.claimAmount || "-",
+            activeTab: "i-memo"
+          });
+        }
+      });
+    }
+
+    // Accounting
+    if (role.key === "Accounting") {
+      currentActiveQprs.forEach(qpr => {
+        if (qpr.status !== "APPROVED" && qpr.status !== "CLOSED" && qpr.requiredRole === "Accounting") {
+          const lt = getDocLeadTimes(qpr);
+          const daysStuck = lt.totalLeadTime;
+          docs.push({
+            id: `qpr-${qpr.id}`,
+            docNumber: qpr.qprNumber,
+            type: "QPR",
+            vendor: qpr.supplierName,
+            date: qpr.date,
+            requiredRole: qpr.requiredRole,
+            daysStuck,
+            amount: qpr.claimAmount || "-",
+            activeTab: "approve-cl"
+          });
+        }
+      });
       currentActiveConfirmationLetters.forEach(cl => {
         if (cl.status === "PENDING" || cl.status === "APPROVED_SECT") {
           const lt = getDocLeadTimes(cl);
@@ -360,7 +552,49 @@ export default function Dashboard({
             type: "CL",
             vendor: cl.supplierName,
             date: cl.dateSent || cl.date,
-            requiredRole: cl.requiredRole || "Accounting Approval",
+            requiredRole: cl.requiredRole || "Dept Accounting",
+            daysStuck,
+            amount: cl.amount,
+            activeTab: "approve-cl"
+          });
+        }
+      });
+    }
+
+    // Vendor
+    if (role.key === "Vendor") {
+      currentActiveQprs.forEach(qpr => {
+        if (qpr.status === "WAITING_VENDOR" || qpr.requiredRole === "Vendor") {
+          const lt = getDocLeadTimes(qpr);
+          const daysStuck = lt.totalLeadTime;
+          docs.push({
+            id: `qpr-${qpr.id}`,
+            docNumber: qpr.qprNumber,
+            type: "QPR",
+            vendor: qpr.supplierName,
+            date: qpr.date,
+            requiredRole: qpr.requiredRole,
+            daysStuck,
+            amount: qpr.claimAmount || "-",
+            activeTab: "buat-cl"
+          });
+        }
+      });
+    }
+
+    // Finance
+    if (role.key === "Finance") {
+      currentActiveConfirmationLetters.forEach(cl => {
+        if (cl.status === "FULLY_APPROVED" && !cl.closedPaid) {
+          const lt = getDocLeadTimes(cl);
+          const daysStuck = lt.totalLeadTime;
+          docs.push({
+            id: `cl-${cl.id}`,
+            docNumber: cl.clNumber,
+            type: "CL",
+            vendor: cl.supplierName,
+            date: cl.dateSent || cl.date,
+            requiredRole: "Finance Payment",
             daysStuck,
             amount: cl.amount,
             activeTab: "approve-cl"
@@ -409,7 +643,7 @@ export default function Dashboard({
     }))
   ];
 
-  // Combined list of all documents with their pipeline stages and lead time status
+  // Combined list of all documents with their pipeline stages and lead time status (merged QPR & CL)
   const documentPipelineList = [
     ...currentActiveNcrs.map(n => {
       const lt = getDocLeadTimes(n);
@@ -427,6 +661,7 @@ export default function Dashboard({
     }),
     ...currentActiveQprs.map(q => {
       const lt = getDocLeadTimes(q);
+      const linkedCl = currentActiveConfirmationLetters.find(cl => cl.qprNumber === q.qprNumber);
       return {
         id: `qpr-${q.id}`,
         docNumber: q.qprNumber,
@@ -436,24 +671,10 @@ export default function Dashboard({
         requiredRole: q.requiredRole,
         status: q.status,
         leadTime: lt.totalLeadTime,
-        isClosed: q.status === "APPROVED" || q.status === "CLOSED" || q.status === "CLOSED_PAID"
-      };
-    }),
-    ...currentActiveConfirmationLetters.map(cl => {
-      const lt = getDocLeadTimes(cl);
-      return {
-        id: `cl-${cl.id}`,
-        docNumber: cl.clNumber,
-        type: "CL",
-        vendor: cl.supplierName,
-        date: cl.dateSent || cl.date,
-        requiredRole: cl.status === "PENDING" ? "Vendor Confirmation" : "Closed",
-        status: cl.status,
-        leadTime: lt.totalLeadTime,
-        isClosed: cl.status === "APPROVED" || cl.status === "CLOSED_PAID" || cl.status === "FULLY_APPROVED",
-        closedPaid: cl.closedPaid || cl.status === "CLOSED_PAID",
-        debitNoteCount: cl.debitNoteCount || 0,
-        clApprovalProgress: cl.clApprovalProgress || { sectAccounting: false, deptAccounting: false }
+        isClosed: q.status === "APPROVED" || q.status === "CLOSED" || q.status === "CLOSED_PAID" || (linkedCl && (linkedCl.status === "CLOSED_PAID" || linkedCl.closedPaid)),
+        linkedCl: linkedCl,
+        debitNoteCount: linkedCl?.debitNoteCount || 0,
+        clApprovalProgress: linkedCl?.clApprovalProgress || { sectAccounting: false, deptAccounting: false }
       };
     })
   ];
@@ -468,7 +689,12 @@ export default function Dashboard({
       requiredRole: "Closed",
       status: "APPROVED",
       leadTime: 12,
-      isClosed: true
+      isClosed: true,
+      linkedCl: {
+        clNumber: "CL/2026/04/002",
+        status: "CLOSED_PAID",
+        closedPaid: true
+      }
     },
     {
       id: "hist-2",
@@ -479,18 +705,12 @@ export default function Dashboard({
       requiredRole: "Closed",
       status: "APPROVED",
       leadTime: 11,
-      isClosed: true
-    },
-    {
-      id: "hist-3",
-      docNumber: "CL/2026/06/015",
-      type: "CL",
-      vendor: "PT IKAN BAKAR",
-      date: "2026-06-15",
-      requiredRole: "Closed",
-      status: "APPROVED",
-      leadTime: 8,
-      isClosed: true
+      isClosed: true,
+      linkedCl: {
+        clNumber: "CL/2026/06/015",
+        status: "CLOSED_PAID",
+        closedPaid: true
+      }
     }
   ];
 
@@ -616,10 +836,6 @@ export default function Dashboard({
                 <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
                   <div className="bg-blue-500 h-full rounded-full transition-all duration-500" style={{ width: `${ncrPct}%` }} />
                 </div>
-                <div className="flex items-center gap-1.5 text-xs text-slate-600 font-semibold pt-0.5">
-                  <Clock size={12} className="text-slate-400" />
-                  <span>Avg. Lead Time: <strong className="text-slate-800">~{totalNcrAvgLt > 0 ? Math.ceil(totalNcrAvgLt / Math.max(1, totalNcrs)) : 3} Hari</strong></span>
-                </div>
               </div>
             </div>
           );
@@ -650,10 +866,6 @@ export default function Dashboard({
                 </div>
                 <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
                   <div className="bg-indigo-500 h-full rounded-full transition-all duration-500" style={{ width: `${qprPct}%` }} />
-                </div>
-                <div className="flex items-center gap-1.5 text-xs text-slate-600 font-semibold pt-0.5">
-                  <Clock size={12} className="text-slate-400" />
-                  <span>Avg. Lead Time: <strong className={`${avgQprLt > 7 ? 'text-red-600' : 'text-slate-800'}`}>{avgQprLt} Hari</strong></span>
                 </div>
               </div>
             </div>
@@ -692,117 +904,10 @@ export default function Dashboard({
                 <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
                   <div className="bg-blue-600 h-full rounded-full transition-all duration-500" style={{ width: `${clPct}%` }} />
                 </div>
-                <div className="flex items-center gap-1.5 text-xs text-slate-600 font-semibold pt-0.5">
-                  <Clock size={12} className="text-slate-400" />
-                  <span>Avg. Lead Time: <strong className={`${avgClLt > 7 ? 'text-red-600' : 'text-slate-800'}`}>{avgClLt} Hari</strong></span>
-                </div>
               </div>
             </div>
           );
         })()}
-      </div>
-
-      {/* ── BAR CHART: Distribusi Dokumen & Waktu Tunggu ─────────────────── */}
-      <div className="grid grid-cols-1 gap-5">
-        {/* Bar Chart */}
-        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
-          <div className="flex justify-between items-center">
-            <div>
-              <h4 className="text-sm font-black text-slate-800 uppercase tracking-wide">Distribusi Dokumen &amp; Waktu Tunggu Aktif</h4>
-            </div>
-            <span className="text-[10px] font-black bg-violet-50 text-violet-700 border border-violet-150 px-2 py-0.5 rounded uppercase">Stuck Queue</span>
-          </div>
-
-          <div className="space-y-3.5 pt-2 text-xs">
-            {[
-              { 
-                label: "Foreman (NCR)", 
-                value: currentActiveNcrs.filter((n: any) => n.requiredRole === "Foreman" || n.status === "DRAFT").length, 
-                days: foremanDays, 
-                max: 5, 
-                color: "from-amber-500 to-amber-600",
-                docs: currentActiveNcrs.filter((n: any) => n.requiredRole === "Foreman" || n.status === "DRAFT").map((n: any) => `${n.ncrNumber} (${n.supplierName})`)
-              },
-              { 
-                label: "Sec. Head", 
-                value: currentActiveNcrs.filter((n: any) => n.requiredRole === "Section Head" && n.status !== "APPROVED").length + currentActiveQprs.filter((q: any) => q.requiredRole === "Section Head").length, 
-                days: secHeadDays, 
-                max: 5, 
-                color: "from-blue-500 to-blue-600",
-                docs: [
-                  ...currentActiveNcrs.filter((n: any) => n.requiredRole === "Section Head" && n.status !== "APPROVED").map((n: any) => `${n.ncrNumber} (${n.supplierName})`),
-                  ...currentActiveQprs.filter((q: any) => q.requiredRole === "Section Head").map((q: any) => `${q.qprNumber} (${q.supplierName})`)
-                ]
-              },
-              { 
-                label: "Dept. Head", 
-                value: currentActiveNcrs.filter((n: any) => n.requiredRole === "Dept Head" && n.status !== "APPROVED").length + currentActiveQprs.filter((q: any) => q.requiredRole === "Dept Head").length, 
-                days: deptHeadDays, 
-                max: 5, 
-                color: "from-indigo-500 to-indigo-600",
-                docs: [
-                  ...currentActiveNcrs.filter((n: any) => n.requiredRole === "Dept Head" && n.status !== "APPROVED").map((n: any) => `${n.ncrNumber} (${n.supplierName})`),
-                  ...currentActiveQprs.filter((q: any) => q.requiredRole === "Dept Head").map((q: any) => `${q.qprNumber} (${q.supplierName})`)
-                ]
-              },
-              { 
-                label: "Div. Head", 
-                value: currentActiveQprs.filter((q: any) => q.requiredRole === "Div Head" || q.requiredRole === "Purchasing").length, 
-                days: divHeadDays, 
-                max: 5, 
-                color: "from-purple-500 to-purple-600",
-                docs: currentActiveQprs.filter((q: any) => q.requiredRole === "Div Head" || q.requiredRole === "Purchasing").map((q: any) => `${q.qprNumber} (${q.supplierName})`)
-              },
-              { 
-                label: "Accounting", 
-                value: currentActiveQprs.filter((q: any) => q.requiredRole === "Accounting" || q.status === "WAITING_VENDOR" || q.status === "APPROVED_BY_VENDOR").length + currentActiveConfirmationLetters.filter((cl: any) => cl.status === "PENDING" || cl.status === "APPROVED_SECT").length, 
-                days: accountingDays, 
-                max: 5, 
-                color: "from-emerald-500 to-emerald-600",
-                docs: [
-                  ...currentActiveQprs.filter((q: any) => q.requiredRole === "Accounting" || q.status === "WAITING_VENDOR" || q.status === "APPROVED_BY_VENDOR").map((q: any) => `${q.qprNumber} (${q.supplierName})`),
-                  ...currentActiveConfirmationLetters.filter((cl: any) => cl.status === "PENDING" || cl.status === "APPROVED_SECT").map((cl: any) => `${cl.clNumber} (${cl.supplierName})`)
-                ]
-              }
-            ].map((bar, idx) => {
-              const widthPct = bar.value === 0 ? 0 : Math.min(100, Math.max(10, (bar.value / bar.max) * 100));
-              return (
-                <div key={idx} className="space-y-2 border-b border-slate-100 pb-3 last:border-b-0 last:pb-0">
-                  <div className="flex justify-between font-bold text-slate-700 text-[11px]">
-                    <span>{bar.label}</span>
-                    <div className="flex gap-2 items-center font-mono">
-                      <span className="font-sans text-slate-900 font-extrabold">{bar.value} Dokumen</span>
-                      <span className="px-2 py-0.5 bg-red-50 text-red-700 border border-red-200 rounded text-[10px] font-black flex items-center gap-1 shadow-sm">
-                        ⏳ {bar.days} Hari Mengendap
-                      </span>
-                    </div>
-                  </div>
-                  <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
-                    <div
-                      className={`bg-gradient-to-r ${bar.color} h-full rounded-full transition-all duration-500`}
-                      style={{ width: `${widthPct}%` }}
-                    />
-                  </div>
-                  {/* Detailed list of stuck documents */}
-                  {bar.docs.length > 0 ? (
-                    <div className="text-[10px] text-slate-500 flex flex-wrap gap-1.5 items-center mt-1">
-                      <span className="font-extrabold text-slate-400 uppercase tracking-wider shrink-0 text-[8.5px]">Dokumen Stuck:</span>
-                      {bar.docs.map((docName, dIdx) => (
-                        <span key={dIdx} className="bg-slate-100 border border-slate-200 text-slate-800 px-1.5 py-0.5 rounded font-mono font-black text-[9px] shadow-2xs hover:bg-violet-50 hover:text-violet-700 hover:border-violet-200 transition-colors">
-                          {docName}
-                        </span>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-[9px] text-slate-400 italic mt-0.5">
-                      Tidak ada dokumen mengendap (Clear)
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
       </div>
 
       {/* Grid: 5 Lead Time Role Cards (Interactive) */}
@@ -1009,7 +1114,7 @@ export default function Dashboard({
 
                           {/* Approval Stages Chain */}
                           <div className="flex items-center gap-1.5 py-1">
-                            {getDocPipelineStages(doc.type, doc.requiredRole, doc.status, doc.clApprovalProgress).map((stage, idx, arr) => {
+                            {getDocPipelineStages(doc.type, doc.requiredRole, doc.status, doc.clApprovalProgress, doc.linkedCl).map((stage, idx, arr) => {
                               const stepDays = stage.status === "APPROVED" ? "1 Hari" : (stage.status === "PENDING" ? `${Math.max(1, Math.ceil((doc.leadTime || 3) / Math.max(1, idx + 1)))} Hari` : "-");
                               return (
                                 <React.Fragment key={idx}>
@@ -1079,13 +1184,20 @@ export default function Dashboard({
                         </div>
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <button
-                          onClick={() => setSelectedPipelineDoc(doc)}
-                          className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 rounded font-bold text-xs shadow-sm transition-all cursor-pointer inline-flex items-center gap-1.5"
-                        >
-                          <Eye size={12} />
-                          Detail
-                        </button>
+                        <div className="flex flex-col items-center gap-1">
+                          <button
+                            onClick={() => setSelectedPipelineDoc(doc)}
+                            className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 rounded font-bold text-xs shadow-sm transition-all cursor-pointer inline-flex items-center gap-1.5"
+                          >
+                            <Eye size={12} />
+                            Detail
+                          </button>
+                          {doc.linkedCl && (
+                            <span className="text-[9px] font-mono font-black text-slate-500 bg-slate-100 border border-slate-200 px-1 py-0.5 rounded shadow-2xs">
+                              {doc.linkedCl.clNumber}
+                            </span>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -1181,7 +1293,7 @@ export default function Dashboard({
                 <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wider font-mono">Alur Persetujuan Dokumen</span>
                 
                 <div className="flex flex-col md:flex-row md:items-center gap-2 p-4 bg-white border border-slate-150 rounded-xl overflow-x-auto">
-                  {getDocPipelineStages(selectedPipelineDoc.type, selectedPipelineDoc.requiredRole, selectedPipelineDoc.status, selectedPipelineDoc.clApprovalProgress).map((stage, i, arr) => (
+                  {getDocPipelineStages(selectedPipelineDoc.type, selectedPipelineDoc.requiredRole, selectedPipelineDoc.status, selectedPipelineDoc.clApprovalProgress, selectedPipelineDoc.linkedCl).map((stage, i, arr) => (
                     <React.Fragment key={i}>
                       <div
                         className={`flex flex-col p-3 rounded-lg border flex-1 min-w-[120px] transition-all ${

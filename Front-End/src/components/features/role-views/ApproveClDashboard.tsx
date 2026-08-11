@@ -62,6 +62,19 @@ export default function ApproveClDashboard({
   const [previewCl, setPreviewCl] = useState<any>(null);
   const [showSuccessModal, setShowSuccessModal] = useState<any>(null);
 
+  // Calculate claim count for each vendor dynamically based on CLs
+  const vendorClaimCounts = React.useMemo(() => {
+    const counts: Record<string, number> = {};
+    
+    confirmationLetters.forEach((cl: any) => {
+      const name = cl.supplierName;
+      if (name) {
+        counts[name] = (counts[name] || 0) + 1;
+      }
+    });
+    return counts;
+  }, [confirmationLetters]);
+
   // Filter pending CLs by role
   const getRoleName = (tab: string) => {
     return "Dept Accounting";
@@ -321,7 +334,25 @@ export default function ApproveClDashboard({
 
                       {/* Detail Vendor */}
                       <td className="px-2 py-3 border-r border-slate-400 text-left">
-                        <div className="font-bold text-slate-700 text-[11px] whitespace-nowrap overflow-hidden text-ellipsis">{cl.supplierName}</div>
+                        <div className="font-bold text-slate-700 text-[11px] whitespace-nowrap overflow-hidden text-ellipsis flex items-center gap-1.5">
+                          <span>{cl.supplierName}</span>
+                          {(() => {
+                            const count = vendorClaimCounts[cl.supplierName] || 1;
+                            if (count > 1) {
+                              return (
+                                <span className="inline-flex items-center px-1.5 py-0.5 bg-red-50 text-red-700 border border-red-200 rounded text-[9px] font-black uppercase tracking-wider" title={`${count} Claims`}>
+                                  More Than One ({count}x)
+                                </span>
+                              );
+                            } else {
+                              return (
+                                <span className="inline-flex items-center px-1.5 py-0.5 bg-slate-50 text-slate-500 border border-slate-200 rounded text-[9px] font-black uppercase tracking-wider" title="1 Claim">
+                                  1st Time
+                                </span>
+                              );
+                            }
+                          })()}
+                        </div>
                         <div className="text-[9px] text-slate-400 font-bold mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">QPR: {cl.qprNumber || "Custom CL"}</div>
                       </td>
 

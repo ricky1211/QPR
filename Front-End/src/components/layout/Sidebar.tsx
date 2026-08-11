@@ -70,7 +70,7 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
 
   const canBuatNcr = isOperator || isAdmin;
   const canApproveNcr = isSectionHead || isDeptHead || isAdmin;
-  const hasNcrAccess = canBuatNcr || canApproveNcr;
+  const hasNcrAccess = false; // canBuatNcr || canApproveNcr; // Sembunyikan navigasi NCR untuk sementara
 
   const canBuatQpr = isOperator || isAdmin;
   const canApproveQpr = isSectionHead || isDeptHead || isDivHead || isAdmin;

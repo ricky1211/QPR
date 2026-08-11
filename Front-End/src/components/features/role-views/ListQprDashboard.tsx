@@ -137,6 +137,27 @@ export default function ListQprDashboard({
   pendingQprs = [],
   confirmationLetters = []
 }: ListQprDashboardProps) {
+  // Calculate claim count for each vendor dynamically based on QPRs and Confirmation Letters
+  const vendorClaimCounts = React.useMemo(() => {
+    const counts: Record<string, number> = {};
+    
+    pendingQprs.forEach((q) => {
+      const name = q.supplierName;
+      if (name) {
+        counts[name] = (counts[name] || 0) + 1;
+      }
+    });
+
+    confirmationLetters.forEach((cl) => {
+      const name = cl.supplierName;
+      if (name && !pendingQprs.some(q => q.qprNumber === cl.qprNumber)) {
+        counts[name] = (counts[name] || 0) + 1;
+      }
+    });
+
+    return counts;
+  }, [pendingQprs, confirmationLetters]);
+
   // Combine all NCR, QPR, and CL documents dynamically from active state (drafts & in-progress) + fallback baseline data
   const allDocuments = React.useMemo(() => {
     const list: any[] = [];
@@ -622,7 +643,27 @@ export default function ListQprDashboard({
                       <td className="px-4 py-3 text-center text-slate-400 font-mono font-bold">{idx + 1}</td>
                       <td className="px-4 py-3 text-center text-slate-600">{formatDateIndo(doc.date)}</td>
                       <td className="px-4 py-3 font-mono font-bold text-slate-800">{doc.docNumber}</td>
-                      <td className="px-4 py-3 font-bold text-slate-700">{doc.vendorName}</td>
+                      <td className="px-4 py-3 font-bold text-slate-700">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span>{doc.vendorName}</span>
+                          {(() => {
+                            const count = vendorClaimCounts[doc.vendorName] || 1;
+                            if (count > 1) {
+                              return (
+                                <span className="inline-flex items-center px-1.5 py-0.5 bg-red-50 text-red-700 border border-red-200 rounded text-[9px] font-black uppercase tracking-wider" title={`${count} Claims in one year`}>
+                                  More Than One ({count}x)
+                                </span>
+                              );
+                            } else {
+                              return (
+                                <span className="inline-flex items-center px-1.5 py-0.5 bg-slate-50 text-slate-500 border border-slate-200 rounded text-[9px] font-black uppercase tracking-wider" title="1 Claim in one year">
+                                  1st Time
+                                </span>
+                              );
+                            }
+                          })()}
+                        </div>
+                      </td>
                       <td className="px-4 py-3 text-slate-600">
                         {doc.partName} <span className="text-[10px] text-slate-450 font-normal font-mono ml-1">({doc.partNumber})</span>
                       </td>
@@ -715,7 +756,8 @@ export default function ListQprDashboard({
             totalItems: selectedDoc.qty,
             rejectItems: selectedDoc.reject,
             allowanceRatio: selectedDoc.allowanceRatio,
-            claimAmount: selectedDoc.claimAmount
+            claimAmount: selectedDoc.claimAmount,
+            vendorClaimCount: vendorClaimCounts[selectedDoc.vendorName] || 1
           }}
           onClose={() => setSelectedDoc(null)}
         />

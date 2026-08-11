@@ -41,6 +41,15 @@ export default function PurchasingView() {
     }
   ]);
 
+  const vendorClaimCounts = React.useMemo(() => {
+    const counts: Record<string, number> = {};
+    purchasingClaims.forEach((q) => {
+      const name = q.supplierName;
+      if (name) counts[name] = (counts[name] || 0) + 1;
+    });
+    return counts;
+  }, [purchasingClaims]);
+
   // Filtering states
   const [filterDate, setFilterDate] = useState("");
   const [filterVendor, setFilterVendor] = useState("");
@@ -309,7 +318,7 @@ export default function PurchasingView() {
       {/* QPR Print Preview Modal */}
       {previewQpr && (
         <QprPrintPreview
-          qpr={previewQpr}
+          qpr={{ ...previewQpr, vendorClaimCount: vendorClaimCounts[previewQpr.supplierName] || 1 }}
           onClose={() => setPreviewQpr(null)}
         />
       )}

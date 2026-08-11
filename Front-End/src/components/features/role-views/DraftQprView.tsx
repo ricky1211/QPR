@@ -12,6 +12,19 @@ interface DraftQprViewProps {
 
 export default function DraftQprView({ pendingQprs, setPendingQprs, setActiveTab }: DraftQprViewProps) {
   const [searchTerm, setSearchTerm] = useState("");
+
+  // Calculate claim count for each vendor dynamically based on QPRs
+  const vendorClaimCounts = React.useMemo(() => {
+    const counts: Record<string, number> = {};
+    
+    pendingQprs.forEach((q) => {
+      const name = q.supplierName;
+      if (name) {
+        counts[name] = (counts[name] || 0) + 1;
+      }
+    });
+    return counts;
+  }, [pendingQprs]);
   const [filterSupplier, setFilterSupplier] = useState("ALL");
   const [filterStatus, setFilterStatus] = useState("ALL");
   const [selectedQpr, setSelectedQpr] = useState<any | null>(null);
@@ -119,7 +132,27 @@ export default function DraftQprView({ pendingQprs, setPendingQprs, setActiveTab
                 filteredQprs.map(qpr => (
                   <tr key={qpr.id} className="hover:bg-slate-55 transition-colors">
                     <td className="px-4 py-3 font-mono font-bold text-slate-850">{qpr.qprNumber}</td>
-                    <td className="px-4 py-3 text-slate-800 font-bold">{qpr.supplierName}</td>
+                    <td className="px-4 py-3 text-slate-800 font-bold">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span>{qpr.supplierName}</span>
+                        {(() => {
+                          const count = vendorClaimCounts[qpr.supplierName] || 1;
+                          if (count > 1) {
+                            return (
+                              <span className="inline-flex items-center px-1.5 py-0.5 bg-red-50 text-red-700 border border-red-200 rounded text-[9px] font-black uppercase tracking-wider" title={`${count} Claims`}>
+                                More Than One ({count}x)
+                              </span>
+                            );
+                          } else {
+                            return (
+                              <span className="inline-flex items-center px-1.5 py-0.5 bg-slate-50 text-slate-500 border border-slate-200 rounded text-[9px] font-black uppercase tracking-wider" title="1 Claim">
+                                1st Time
+                              </span>
+                            );
+                          }
+                        })()}
+                      </div>
+                    </td>
                     <td className="px-4 py-3 text-slate-650">{qpr.period || "Juni 2026"}</td>
                     <td className="px-4 py-3 text-slate-500 font-semibold">{qpr.date}</td>
                     <td className="px-4 py-3 text-right font-mono font-bold text-slate-850">{qpr.claimAmount}</td>
@@ -171,7 +204,7 @@ export default function DraftQprView({ pendingQprs, setPendingQprs, setActiveTab
       </div>
 
       {selectedQpr && (
-        <QprPrintPreview qpr={selectedQpr} onClose={() => setSelectedQpr(null)} />
+        <QprPrintPreview qpr={{ ...selectedQpr, vendorClaimCount: vendorClaimCounts[selectedQpr.supplierName] || 1 }} onClose={() => setSelectedQpr(null)} />
       )}
     </div>
   );

@@ -67,11 +67,11 @@ function FactorySVG({ label, subContent }: { label: string; subContent?: React.R
   );
 }
 
-function CheckItem({ label, checked }: { label: string; checked: boolean }) {
+function CheckItem({ label, checked, onClick }: { label: string; checked: boolean; onClick?: () => void }) {
   return (
-    <div className="flex items-center gap-1">
-      <div className="w-3 h-3 border border-black flex items-center justify-center flex-shrink-0">
-        {checked && <span style={{ fontSize: "8px" }} className="font-black leading-none">V</span>}
+    <div onClick={onClick} className="flex items-center gap-1 cursor-pointer select-none">
+      <div className="w-3 h-3 border border-black flex items-center justify-center flex-shrink-0 bg-white">
+        {checked && <span style={{ fontSize: "8px" }} className="font-black leading-none text-red-600">V</span>}
       </div>
       <span style={{ fontSize: "8px" }}>{label}</span>
     </div>
@@ -79,6 +79,70 @@ function CheckItem({ label, checked }: { label: string; checked: boolean }) {
 }
 
 export default function QprPrintPreview({ qpr, onClose, inline = false }: QprPreviewProps) {
+  const [isVendorCopy, setIsVendorCopy] = React.useState(false);
+
+  // Check if this vendor has been claimed > 1 times
+  const getClaimCountForVendor = (supplierName: string) => {
+    if (typeof qpr.vendorClaimCount === 'number') {
+      return qpr.vendorClaimCount;
+    }
+    return 1;
+  };
+
+  const claimCount = getClaimCountForVendor(qpr.supplierName);
+  const isMoreThanOne = claimCount > 1;
+
+  // Local state for interactive editing
+  const [localClaimTypes, setLocalClaimTypes] = React.useState<string[]>(
+    Array.isArray(qpr.claimType) ? qpr.claimType : ["PROSES PACKING", "PROSES CHECK"]
+  );
+  const [localIsMoreThanOne, setLocalIsMoreThanOne] = React.useState(isMoreThanOne);
+  const [localClaimCount, setLocalClaimCount] = React.useState(claimCount);
+
+  React.useEffect(() => {
+    if (Array.isArray(qpr.claimType)) {
+      setLocalClaimTypes(qpr.claimType);
+    }
+  }, [qpr.claimType]);
+
+  React.useEffect(() => {
+    setLocalIsMoreThanOne(isMoreThanOne);
+    setLocalClaimCount(claimCount);
+  }, [isMoreThanOne, claimCount]);
+
+  // Process mapping for flow diagram highlights
+  const claimTypes = localClaimTypes;
+
+  const isMaterial = claimTypes.includes("MATERIAL");
+  const isForging = claimTypes.includes("PROSES FORGING");
+  const isMachining = claimTypes.includes("PROSES M/C");
+  const isPainting = claimTypes.includes("PAINTING/PLATING");
+  const isParkerizing = claimTypes.includes("PARKEREZING");
+  const isHeatTreatment = claimTypes.includes("HEAT TREATMENT");
+  const anySupplierProcess = isMaterial || isForging || isMachining || isPainting || isParkerizing || isHeatTreatment;
+
+  let supplierProcessLabel = "MACHINING";
+  if (isMachining) supplierProcessLabel = "MACHINING";
+  else if (isForging) supplierProcessLabel = "FORGING";
+  else if (isMaterial) supplierProcessLabel = "MATERIAL";
+  else if (isPainting) supplierProcessLabel = "PAINT / PLATE";
+  else if (isParkerizing) supplierProcessLabel = "PARKERIZING";
+  else if (isHeatTreatment) supplierProcessLabel = "HEAT TREAT";
+
+  const isMtmProcess = claimTypes.includes("PROSES PACKING");
+  const isCustomerProcess = claimTypes.includes("PROSES CHECK");
+
+  const getShortVendorName = (fullName: string) => {
+    if (!fullName) return "VENDOR";
+    const upper = fullName.toUpperCase();
+    if (upper.includes("JAYADI")) return "PT. JAYADI";
+    if (upper.includes("IKAN BAKAR")) return "PT. IKAN BAKAR";
+    if (upper.includes("RUICHENG")) return "SZJR TR.CO.";
+    if (upper.includes("MENARA TERUS MAKMUR")) return "PT. MTM";
+    return fullName.replace("PT ", "PT. ").substring(0, 15);
+  };
+  const shortVendorName = getShortVendorName(qpr.supplierName);
+
   const handlePrint = () => {
     window.print();
   };
@@ -158,32 +222,32 @@ export default function QprPrintPreview({ qpr, onClose, inline = false }: QprPre
             </div>
             <div style={{ padding: "6px 8px", flex: 1 }}>
               <div style={{ fontWeight: "900", fontSize: "10.5px", color: "#1e293b", textTransform: "uppercase", marginBottom: "6px" }}>
-                {qpr.supplierName || "SHIJIAZHUANG RUICHENG TR.CO.LTD."}
+                <span contentEditable suppressContentEditableWarning className="focus:bg-yellow-50 focus:outline-none print:bg-transparent">{qpr.supplierName || "SHIJIAZHUANG RUICHENG TR.CO.LTD."}</span>
               </div>
               <div style={{ fontSize: "8.5px", lineHeight: "1.5", fontWeight: "bold", color: "#334155" }}>
                 <div style={{ display: "grid", gridTemplateColumns: "85px 1fr" }}>
                   <span>Part Name</span>
-                  <span>: {qpr.partName || "ALL TYPE PART FINISH"}</span>
+                  <span>: <span contentEditable suppressContentEditableWarning className="focus:bg-yellow-50 focus:outline-none print:bg-transparent">{qpr.partName || "ALL TYPE PART FINISH"}</span></span>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "85px 1fr" }}>
                   <span>Part Number</span>
-                  <span>: {qpr.partNumber || ""}</span>
+                  <span>: <span contentEditable suppressContentEditableWarning className="focus:bg-yellow-50 focus:outline-none print:bg-transparent">{qpr.partNumber || ""}</span></span>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "85px 1fr" }}>
                   <span>Model</span>
-                  <span>: {qpr.model || ""}</span>
+                  <span>: <span contentEditable suppressContentEditableWarning className="focus:bg-yellow-50 focus:outline-none print:bg-transparent">{qpr.model || "-"}</span></span>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "85px 1fr" }}>
                   <span>Lot/Batch</span>
-                  <span>: {qpr.lotBatch || ""}</span>
+                  <span>: <span contentEditable suppressContentEditableWarning className="focus:bg-yellow-50 focus:outline-none print:bg-transparent">{qpr.lotBatch || "-"}</span></span>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "85px 1fr" }}>
                   <span>Date</span>
-                  <span>: {formatDateIndo(qpr.date)}</span>
+                  <span>: <span contentEditable suppressContentEditableWarning className="focus:bg-yellow-50 focus:outline-none print:bg-transparent">{formatDateIndo(qpr.date)}</span></span>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "85px 1fr" }}>
                   <span>Problem</span>
-                  <span>: {qpr.problem || "VISUAL NG"}</span>
+                  <span>: <span contentEditable suppressContentEditableWarning className="focus:bg-yellow-50 focus:outline-none print:bg-transparent">{qpr.problem || "VISUAL NG"}</span></span>
                 </div>
               </div>
             </div>
@@ -206,25 +270,41 @@ export default function QprPrintPreview({ qpr, onClose, inline = false }: QprPre
             <div style={{ display: "flex", flex: 1 }}>
               {/* Left Sub-Column */}
               <div style={{ flex: 1, borderRight: "1px solid #000", display: "flex", flexDirection: "column" }}>
-                <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-                  <div style={{ textAlign: "center", fontWeight: "bold", fontSize: "7px", borderBottom: "1px solid #000", padding: "2px", background: "#f1f5f9", textTransform: "uppercase" }}>
-                    Problem Occurance in one year
-                  </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 32px", borderBottom: "1px solid #000", flex: 1, alignItems: "center" }}>
-                    <div style={{ borderRight: "1px solid #000", padding: "2px 4px", fontWeight: "bold", fontSize: "7px" }}>1st time</div>
-                    <div style={{ padding: "2px", display: "flex", justifyContent: "center" }}>
-                      <span style={{ width: "12px", height: "12px", border: "1px solid #000", display: "inline-block", backgroundColor: "#ef4444" }} />
+                {!isVendorCopy ? (
+                  <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+                    <div style={{ textAlign: "center", fontWeight: "bold", fontSize: "7px", borderBottom: "1px solid #000", padding: "2px", background: "#f1f5f9", textTransform: "uppercase" }}>
+                      Problem Occurance in one year
+                    </div>
+                    <div 
+                      onClick={() => setLocalIsMoreThanOne(false)}
+                      style={{ display: "grid", gridTemplateColumns: "1fr 32px", borderBottom: "1px solid #000", flex: 1, alignItems: "center", cursor: "pointer" }}
+                    >
+                      <div style={{ borderRight: "1px solid #000", padding: "2px 4px", fontWeight: "bold", fontSize: "7px" }}>
+                        1st time {!localIsMoreThanOne && `(${localClaimCount}x)`}
+                      </div>
+                      <div style={{ padding: "2px", display: "flex", justifyContent: "center" }}>
+                        <span style={{ width: "12px", height: "12px", border: "1px solid #000", display: "inline-block", backgroundColor: localIsMoreThanOne ? "white" : "#ef4444" }} />
+                      </div>
+                    </div>
+                    <div 
+                      onClick={() => setLocalIsMoreThanOne(true)}
+                      style={{ display: "grid", gridTemplateColumns: "1fr 32px", borderBottom: "1px solid #000", flex: 1, alignItems: "center", cursor: "pointer" }}
+                    >
+                      <div style={{ borderRight: "1px solid #000", padding: "2px 4px", fontWeight: "bold", fontSize: "7px" }}>
+                        More Than one {localIsMoreThanOne && `(${localClaimCount}x)`}
+                      </div>
+                      <div style={{ padding: "2px", display: "flex", justifyContent: "center" }}>
+                        <span style={{ width: "12px", height: "12px", border: "1px solid #000", display: "inline-block", backgroundColor: localIsMoreThanOne ? "#ef4444" : "white" }} />
+                      </div>
                     </div>
                   </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 32px", borderBottom: "1px solid #000", flex: 1, alignItems: "center" }}>
-                    <div style={{ borderRight: "1px solid #000", padding: "2px 4px", fontWeight: "bold", fontSize: "7px" }}>More Than one</div>
-                    <div style={{ padding: "2px", display: "flex", justifyContent: "center" }}>
-                      <span style={{ width: "12px", height: "12px", border: "1px solid #000", display: "inline-block", backgroundColor: "white" }} />
-                    </div>
+                ) : (
+                  <div style={{ flex: 1, display: "flex", flexDirection: "column", borderBottom: "1px solid #000", justifyContent: "center", alignItems: "center", backgroundColor: "#fafafa" }}>
+                    <span style={{ fontSize: "7px", color: "#94a3b8", fontStyle: "italic" }}>[Internal Data Excluded]</span>
                   </div>
-                </div>
+                )}
                 <div style={{ padding: "4px", fontSize: "7px", fontWeight: "bold", borderTop: "none" }}>
-                  REF. TO NCR NO : <span style={{ fontFamily: "monospace", fontSize: "7px", color: "#1e40af" }}>{qpr.refNcrNumber || "240/QI/NCR/SUP/VII/25"}</span>
+                  REF. TO NCR NO : <span style={{ fontFamily: "monospace", fontSize: "7px", color: "#1e40af" }} contentEditable suppressContentEditableWarning className="focus:bg-yellow-50 focus:outline-none print:bg-transparent">{qpr.refNcrNumber || "240/QI/NCR/SUP/VII/25"}</span>
                 </div>
               </div>
 
@@ -323,9 +403,6 @@ export default function QprPrintPreview({ qpr, onClose, inline = false }: QprPre
               <div style={{ border: "2px solid #000", padding: "8px 32px", textAlign: "center", fontWeight: "900", fontSize: "14px", letterSpacing: "0.02em" }}>
                 Claim NG TO {qpr.supplierName ? qpr.supplierName.toUpperCase().replace("PT ", "") : "SJZ RUICHENG TR.CO."}
               </div>
-              <div style={{ marginTop: "6px", fontSize: "10px", fontWeight: "bold", fontStyle: "italic", color: "#475569", textAlign: "center" }}>
-                Claim biaya sortir + re-packing
-              </div>
             </div>
           </div>
           {/* SVG Bent Arrow pointing up-right to table column */}
@@ -347,45 +424,84 @@ export default function QprPrintPreview({ qpr, onClose, inline = false }: QprPre
         <div style={{ borderBottom: "1px solid #000", padding: "10px 12px" }}>
           <div style={{ fontWeight: "bold", fontSize: "9px", textTransform: "uppercase", marginBottom: "8px", color: "#374151" }}>DETAIL KEJADIAN :</div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 8px" }}>
+            
+            {/* Supplier Box */}
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-              <FactorySVG label="MACHINING" />
-              <div style={{ fontSize: "7.5px", fontWeight: "bold", color: "#334155", marginTop: "4px" }}>SZJR TR.CO.</div>
+              {anySupplierProcess ? (
+                <FactorySVG label="" subContent={
+                  <div className="relative flex items-center justify-center" style={{ width: "42px", height: "42px" }}>
+                    <div className="absolute border-2 border-red-650" style={{ width: "30px", height: "30px", transform: "rotate(45deg)" }} />
+                    <span contentEditable suppressContentEditableWarning className="focus:bg-yellow-50 focus:outline-none print:bg-transparent relative z-10 text-center font-black" style={{ fontSize: "6.5px", color: "#dc2626", lineHeight: "1.1" }}>
+                      {supplierProcessLabel}
+                    </span>
+                  </div>
+                } />
+              ) : (
+                <FactorySVG label="" subContent={
+                  <span contentEditable suppressContentEditableWarning className="focus:bg-yellow-50 focus:outline-none print:bg-transparent text-center font-bold" style={{ fontSize: "8px", color: "#000000" }}>{supplierProcessLabel}</span>
+                } />
+              )}
+              <div style={{ fontSize: "7.5px", fontWeight: "bold", color: "#334155", marginTop: "4px" }}>
+                <span contentEditable suppressContentEditableWarning className="focus:bg-yellow-50 focus:outline-none print:bg-transparent">{shortVendorName}</span>
+              </div>
             </div>
             
             <FlowArrow />
             
+            {/* PT MTM Box */}
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-              <FactorySVG label="" subContent={
-                <div className="relative flex items-center justify-center" style={{ width: "42px", height: "42px" }}>
-                  <div className="absolute border-2 border-red-650" style={{ width: "30px", height: "30px", transform: "rotate(45deg)" }} />
-                  <span className="relative z-10 text-center font-black" style={{ fontSize: "6.5px", color: "#dc2626", lineHeight: "1.1" }}>
-                    INCOMING<br/>&amp;<br/>PACKING
+              {isMtmProcess ? (
+                <FactorySVG label="" subContent={
+                  <div className="relative flex items-center justify-center" style={{ width: "42px", height: "42px" }}>
+                    <div className="absolute border-2 border-red-650" style={{ width: "30px", height: "30px", transform: "rotate(45deg)" }} />
+                    <span contentEditable suppressContentEditableWarning className="focus:bg-yellow-50 focus:outline-none print:bg-transparent relative z-10 text-center font-black" style={{ fontSize: "6.5px", color: "#dc2626", lineHeight: "1.1" }}>
+                      INCOMING &amp; PACKING
+                    </span>
+                  </div>
+                } />
+              ) : (
+                <FactorySVG label="" subContent={
+                  <span contentEditable suppressContentEditableWarning className="focus:bg-yellow-50 focus:outline-none print:bg-transparent text-center font-bold" style={{ fontSize: "8px", color: "#000000", lineHeight: "1.1" }}>
+                    INCOMING &amp; PACKING
                   </span>
-                </div>
-              } />
-              <div style={{ fontSize: "7.5px", fontWeight: "bold", color: "#334155", marginTop: "4px" }}>PT. MTM</div>
+                } />
+              )}
+              <div style={{ fontSize: "7.5px", fontWeight: "bold", color: "#334155", marginTop: "4px" }}>
+                <span contentEditable suppressContentEditableWarning className="focus:bg-yellow-50 focus:outline-none print:bg-transparent">PT. MTM</span>
+              </div>
             </div>
             
             <FlowArrow />
             
+            {/* Customer Box */}
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
               <div style={{ border: "1.5px solid #64748b", borderRadius: "6px", padding: "6px 12px", display: "flex", alignItems: "center", gap: "8px", background: "#f8fafc" }}>
                 <div style={{ border: "1px solid #000", background: "#ffffff", padding: "6px 8px", fontWeight: "bold", fontSize: "7.5px", display: "flex", alignItems: "center", justifyContent: "center", width: "70px", height: "38px" }}>
-                  ASSY FINISH
+                  <span contentEditable suppressContentEditableWarning className="focus:bg-yellow-50 focus:outline-none print:bg-transparent font-bold" style={{ fontSize: "7.5px" }}>ASSY FINISH</span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center" }}>
                   <FlowArrow />
                 </div>
                 <div style={{ border: "1px solid #000", background: "#ffffff", padding: "2px", display: "flex", alignItems: "center", justifyContent: "center", width: "70px", height: "38px" }}>
-                  <div className="relative flex items-center justify-center" style={{ width: "42px", height: "42px" }}>
-                    <div className="absolute border-2 border-cyan-500" style={{ width: "30px", height: "30px", transform: "rotate(45deg)" }} />
-                    <span className="relative z-10 text-center font-black" style={{ fontSize: "6px", color: "#06b6d4", lineHeight: "1.1" }}>
-                      FINAL<br/>INSPEKSI
-                    </span>
-                  </div>
+                  {isCustomerProcess ? (
+                    <div className="relative flex items-center justify-center" style={{ width: "42px", height: "42px" }}>
+                      <div className="absolute border-2 border-cyan-500" style={{ width: "30px", height: "30px", transform: "rotate(45deg)" }} />
+                      <span contentEditable suppressContentEditableWarning className="focus:bg-yellow-50 focus:outline-none print:bg-transparent relative z-10 text-center font-black" style={{ fontSize: "6px", color: "#06b6d4", lineHeight: "1.1" }}>
+                        FINAL INSPEKSI
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="relative flex items-center justify-center" style={{ width: "42px", height: "42px" }}>
+                      <span contentEditable suppressContentEditableWarning className="focus:bg-yellow-50 focus:outline-none print:bg-transparent text-center font-bold" style={{ fontSize: "6px", color: "#000000", lineHeight: "1.1" }}>
+                        FINAL INSPEKSI
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
-              <div style={{ fontSize: "7.5px", fontWeight: "bold", color: "#334155", marginTop: "4px" }}>CUSTOMER</div>
+              <div style={{ fontSize: "7.5px", fontWeight: "bold", color: "#334155", marginTop: "4px" }}>
+                <span contentEditable suppressContentEditableWarning className="focus:bg-yellow-50 focus:outline-none print:bg-transparent">CUSTOMER</span>
+              </div>
             </div>
           </div>
         </div>
@@ -453,14 +569,19 @@ export default function QprPrintPreview({ qpr, onClose, inline = false }: QprPre
         <div style={{ display: "flex" }}>
           {/* Jenis Claim */}
           <div style={{ flex: 1, borderRight: "1px solid #000", padding: "10px 12px" }}>
-            <div style={{ fontWeight: "bold", fontSize: "8.5px", textTransform: "uppercase", marginBottom: "8px" }}>JENIS CLAIM :</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 24px" }}>
-              <CheckItem label="MATERIAL" checked={(qpr.claimType || ["PROSES PACKING", "PROSES CHECK"]).includes("MATERIAL")} />
-              <CheckItem label="PAINTING/PLATING" checked={(qpr.claimType || ["PROSES PACKING", "PROSES CHECK"]).includes("PAINTING/PLATING")} />
-              <CheckItem label="PROSES PACKING" checked={(qpr.claimType || ["PROSES PACKING", "PROSES CHECK"]).includes("PROSES PACKING")} />
-              <CheckItem label="PARKEREZING" checked={(qpr.claimType || ["PROSES PACKING", "PROSES CHECK"]).includes("PARKEREZING")} />
-              <CheckItem label="PROSES CHECK" checked={(qpr.claimType || ["PROSES PACKING", "PROSES CHECK"]).includes("PROSES CHECK")} />
-              <CheckItem label="HEAT TREATMENT" checked={(qpr.claimType || ["PROSES PACKING", "PROSES CHECK"]).includes("HEAT TREATMENT")} />
+              {["MATERIAL", "PAINTING/PLATING", "PROSES PACKING", "PARKEREZING", "PROSES CHECK", "HEAT TREATMENT", "PROSES FORGING", "PROSES M/C"].map((opt) => (
+                <CheckItem
+                  key={opt}
+                  label={opt}
+                  checked={localClaimTypes.includes(opt)}
+                  onClick={() => {
+                    setLocalClaimTypes(prev =>
+                      prev.includes(opt) ? prev.filter(c => c !== opt) : [...prev, opt]
+                    );
+                  }}
+                />
+              ))}
             </div>
           </div>
 
@@ -474,6 +595,7 @@ export default function QprPrintPreview({ qpr, onClose, inline = false }: QprPre
                 { 
                   type: "Prepared", 
                   name: "Heru S.", 
+                  role: "(Section)",
                   isSigned: isSectionHeadSigned,
                   sigSvg: (
                     <svg width="40" height="24" viewBox="0 0 100 60" style={{ opacity: 0.85 }}>
@@ -483,7 +605,8 @@ export default function QprPrintPreview({ qpr, onClose, inline = false }: QprPre
                 },
                 { 
                   type: "Checked", 
-                  name: "Arif T.W.", 
+                  name: "Septian N.", 
+                  role: "(Dept. Head Quality)",
                   isSigned: isDeptHeadSigned,
                   sigSvg: (
                     <svg width="40" height="24" viewBox="0 0 100 60" style={{ opacity: 0.85 }}>
@@ -493,7 +616,8 @@ export default function QprPrintPreview({ qpr, onClose, inline = false }: QprPre
                 },
                 { 
                   type: "Approved", 
-                  name: "Putu R.S.", 
+                  name: "Putu R. S.", 
+                  role: "(Div. Head.)",
                   isSigned: isDivHeadSigned,
                   sigSvg: (
                     <svg width="40" height="24" viewBox="0 0 100 60" style={{ opacity: 0.85 }}>
@@ -505,6 +629,7 @@ export default function QprPrintPreview({ qpr, onClose, inline = false }: QprPre
                 { 
                   type: "Acknowledge", 
                   name: "Purchasing", 
+                  role: "(Section Head)",
                   isSigned: isPurchasingSigned,
                   sigSvg: (
                     <svg width="40" height="24" viewBox="0 0 100 60" style={{ opacity: 0.85 }}>
@@ -515,6 +640,7 @@ export default function QprPrintPreview({ qpr, onClose, inline = false }: QprPre
                 { 
                   type: "Acknowledge", 
                   name: "Accounting", 
+                  role: "(Dept. Head)",
                   isSigned: isAccountingSigned,
                   sigSvg: (
                     <svg width="40" height="24" viewBox="0 0 100 60" style={{ opacity: 0.85 }}>
@@ -532,8 +658,9 @@ export default function QprPrintPreview({ qpr, onClose, inline = false }: QprPre
                       <span style={{ fontSize: "6.5px", color: "#cbd5e1", fontStyle: "italic" }}>(Pending)</span>
                     )}
                   </div>
-                  <div style={{ borderTop: "1px solid #000", padding: "1px 2px", fontSize: "7px", color: "#64748b", textAlign: "center", lineHeight: "1.2", fontWeight: "bold" }}>
-                    {sig.name}
+                  <div style={{ borderTop: "1px solid #000", padding: "1.5px 2px", fontSize: "6.5px", color: "#1e293b", textAlign: "center", lineHeight: "1.25", fontWeight: "bold" }}>
+                    <div style={{ textDecoration: "underline", color: "#000000" }}>{sig.name}</div>
+                    <div style={{ fontSize: "5.5px", fontWeight: "normal", color: "#475569", marginTop: "1px" }}>{sig.role}</div>
                   </div>
                 </div>
               ))}
@@ -545,7 +672,18 @@ export default function QprPrintPreview({ qpr, onClose, inline = false }: QprPre
 
   if (inline) {
     return (
-      <>
+      <div className="w-full flex flex-col items-center">
+        <div className="flex justify-end mb-3 print:hidden w-full max-w-[210mm] mx-auto">
+          <label className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 hover:bg-slate-200/70 border border-slate-250 rounded-lg text-xs font-bold text-slate-700 cursor-pointer transition-all">
+            <input
+              type="checkbox"
+              checked={isVendorCopy}
+              onChange={(e) => setIsVendorCopy(e.target.checked)}
+              className="w-3.5 h-3.5 border border-slate-350 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
+            />
+            Format Vendor (Sembunyikan Problem Occurance)
+          </label>
+        </div>
         {documentContent}
         <style>{`
           @media print {
@@ -579,66 +717,77 @@ export default function QprPrintPreview({ qpr, onClose, inline = false }: QprPre
             }
           }
         `}</style>
-        </>
-      );
-    }
-  
-    return (
-      <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 overflow-y-auto flex flex-col items-center p-4">
-        {/* Action Bar */}
-        <div className="fixed top-4 right-4 flex gap-2 z-50 print:hidden">
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 overflow-y-auto flex flex-col items-center p-4">
+      {/* Action Bar */}
+      <div className="fixed top-4 right-4 flex gap-2.5 z-50 print:hidden items-center">
+        <label className="flex items-center gap-2 px-3 py-2 bg-slate-800/90 text-white rounded-lg text-xs font-bold shadow-lg border border-slate-700 cursor-pointer hover:bg-slate-750 transition-colors">
+          <input
+            type="checkbox"
+            checked={isVendorCopy}
+            onChange={(e) => setIsVendorCopy(e.target.checked)}
+            className="w-3.5 h-3.5 border border-slate-650 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
+          />
+          Format Vendor (Sembunyikan Occurance)
+        </label>
+        <button
+          onClick={handlePrint}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-lg transition-colors cursor-pointer"
+        >
+          <Printer size={14} />
+          Cetak / Print
+        </button>
+        {onClose && (
           <button
-            onClick={handlePrint}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-lg transition-colors cursor-pointer"
+            onClick={onClose}
+            className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-bold shadow-lg border border-slate-200 transition-colors cursor-pointer"
           >
-            <Printer size={14} />
-            Cetak / Print
+            <X size={14} />
+            Batal
           </button>
-          {onClose && (
-            <button
-              onClick={onClose}
-              className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-bold shadow-lg border border-slate-200 transition-colors cursor-pointer"
-            >
-              <X size={14} />
-              Batal
-            </button>
-          )}
-        </div>
-        <div className="pt-16 pb-8 w-full flex justify-center">
-          {documentContent}
-        </div>
-        <style>{`
-          @media print {
-            @page {
-              size: A4 portrait;
-              margin: 6mm !important;
-            }
-            html, body {
-              height: auto;
-              margin: 0 !important;
-              padding: 0 !important;
-              background: #fff !important;
-            }
-            body * { visibility: hidden; }
-            #qpr-print-area, #qpr-print-area * { visibility: visible; }
-            #qpr-print-area {
-              position: relative !important;
-              left: 0 !important;
-              top: 0 !important;
-              width: 198mm !important;
-              height: 285mm !important;
-              min-height: 0 !important;
-              margin: 0 auto !important;
-              padding: 6mm !important;
-              border: 1px solid #000 !important;
-              box-shadow: none !important;
-              box-sizing: border-box !important;
-              page-break-inside: avoid !important;
-              transform: scale(0.83) !important;
-              transform-origin: top center !important;
-            }
+        )}
+      </div>
+      <div className="pt-16 pb-8 w-full flex justify-center">
+        {documentContent}
+      </div>
+      <style>{`
+        @media print {
+          @page {
+            size: A4 portrait;
+            margin: 6mm !important;
           }
-        `}</style>
+          html, body {
+            height: auto;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #fff !important;
+          }
+          body * { visibility: hidden; }
+          #qpr-print-area, #qpr-print-area * { visibility: visible; }
+          #qpr-print-area {
+            position: relative !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 198mm !important;
+            height: 285mm !important;
+            min-height: 0 !important;
+            margin: 0 auto !important;
+            padding: 6mm !important;
+            border: 1px solid #000 !important;
+            box-shadow: none !important;
+            box-sizing: border-box !important;
+            page-break-inside: avoid !important;
+            transform: scale(0.83) !important;
+            transform-origin: top center !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }
+
+
