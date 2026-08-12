@@ -23,8 +23,6 @@ import {
 
 import ClPrintPreview from "./ClPrintPreview";
 import QprPrintPreview from "./QprPrintPreview";
-import NcrPrintPreview from "./NcrPrintPreview";
-import { ncrService, mapNcrFromDb } from "@/services/ncrService";
 
 
 // Helper to map requiredRole -> human-readable stage label
@@ -162,33 +160,7 @@ export default function ListQprDashboard({
   const allDocuments = React.useMemo(() => {
     const list: any[] = [];
 
-    // 1. Add NCRs
-    pendingNcrs.forEach((ncr) => {
-      list.push({
-        id: `ncr-${ncr.id}`,
-        type: "NCR",
-        docNumber: ncr.ncrNumber,
-        date: ncr.date,
-        vendorName: ncr.supplierName,
-        partNumber: ncr.partNumber || "-",
-        partName: ncr.partName || "-",
-        period: "Juni 2026",
-        qty: ncr.qty || 1,
-        reject: ncr.reject || 0,
-        allowanceRatio: "0.5%",
-        claimAmount: "-",
-        defectType: ncr.defectType || "-",
-        disposition: ncr.disposition || "-",
-        status: ncr.status,
-        requiredRole: ncr.requiredRole,
-        approvedBy: ncr.status === "APPROVED" || ncr.status === "CLOSED" ? ["QC Staff", "Section Head", "Dept Head"] : [],
-        locationFound: ncr.locationFound || "-",
-        problemType: ncr.problemType || "-",
-        foundBy: ncr.foundBy || "-",
-        docsToRevise: ncr.docsToRevise || "-",
-        images: ncr.images || []
-      });
-    });
+
 
 
     // 2. Add QPRs
@@ -294,39 +266,7 @@ export default function ListQprDashboard({
   const [selectedDoc, setSelectedDoc] = useState<any | null>(null);
 
   const handleViewDetail = (doc: any) => {
-    if (doc.type === "NCR" && typeof doc.id === "string" && doc.id.includes("-")) {
-      const dbId = doc.id.split("-")[1];
-      ncrService.getById(dbId)
-        .then((realNcr) => {
-          const mapped = mapNcrFromDb(realNcr);
-          setSelectedDoc({
-            id: `ncr-${mapped.id}`,
-            type: "NCR",
-            docNumber: mapped.ncrNumber,
-            date: mapped.date,
-            vendorName: mapped.supplierName,
-            partNumber: mapped.partNumber,
-            partName: mapped.partName,
-            qty: mapped.qty,
-            reject: mapped.reject,
-            defectType: mapped.defectType,
-            disposition: mapped.disposition,
-            status: mapped.status,
-            requiredRole: mapped.requiredRole,
-            locationFound: mapped.locationFound,
-            problemType: mapped.problemType,
-            foundBy: mapped.foundBy,
-            docsToRevise: mapped.docsToRevise,
-            images: mapped.images
-          });
-        })
-        .catch(err => {
-          console.error("Failed to load NCR details:", err);
-          alert("Gagal memuat detail NCR.");
-        });
-    } else {
-      setSelectedDoc(doc);
-    }
+    setSelectedDoc(doc);
   };
 
 
@@ -559,20 +499,7 @@ export default function ListQprDashboard({
 
       {/* Tab Selector */}
       <div className="flex border-b border-slate-200">
-        <button
-          onClick={() => {
-            setActiveTab("ncr");
-            setSelectedDoc(null);
-          }}
-          className={`flex-1 sm:flex-initial px-6 py-3 font-bold text-xs border-b-2 transition-all flex items-center justify-center gap-2 cursor-pointer ${
-            activeTab === "ncr"
-              ? "border-blue-600 text-blue-650 bg-white"
-              : "border-transparent text-slate-500 hover:text-slate-900 bg-slate-50/50"
-          }`}
-        >
-          <ShieldAlert size={14} className="text-red-500" />
-          ARSIP DRAF & LAPORAN NCR
-        </button>
+
         <button
           onClick={() => {
             setActiveTab("qpr");
@@ -751,6 +678,8 @@ export default function ListQprDashboard({
           qpr={{
             qprNumber: selectedDoc.docNumber,
             supplierName: selectedDoc.vendorName,
+            partName: selectedDoc.partName,
+            partNumber: selectedDoc.partNumber,
             period: selectedDoc.period || "Juni 2026",
             date: selectedDoc.date,
             totalItems: selectedDoc.qty,
@@ -770,28 +699,7 @@ export default function ListQprDashboard({
         />
       )}
 
-      {selectedDoc && selectedDoc.type === "NCR" && (
-        <NcrPrintPreview
-          ncr={{
-            ncrNumber: selectedDoc.docNumber,
-            supplierName: selectedDoc.vendorName,
-            partNumber: selectedDoc.partNumber,
-            partName: selectedDoc.partName,
-            qty: selectedDoc.qty,
-            reject: selectedDoc.reject,
-            defectType: selectedDoc.defectType,
-            disposition: selectedDoc.disposition,
-            status: selectedDoc.status,
-            date: selectedDoc.date,
-            locationFound: selectedDoc.locationFound,
-            problemType: selectedDoc.problemType,
-            foundBy: selectedDoc.foundBy,
-            docsToRevise: selectedDoc.docsToRevise,
-            images: selectedDoc.images
-          }}
-          onClose={() => setSelectedDoc(null)}
-        />
-      )}
+
 
     </div>
   );

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect, useRef } from "react";
 import {
@@ -35,6 +35,8 @@ export default function IMemoView({
   const [activeSubTab, setActiveSubTab] = useState<"ssc_purchasing" | "buat_ssc_payment" | "reminder" | "kirim_cl" | "parts_per_vendor">("ssc_purchasing");
   const [copied, setCopied] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [showSscBillingPreview, setShowSscBillingPreview] = useState(false);
+  const [showSscPaymentPreview, setShowSscPaymentPreview] = useState(false);
   const [previewCl, setPreviewCl] = useState<any | null>(null);
   const [sscFiles, setSscFiles] = useState<Array<{ file: File; rowId: string }>>([]);
   const [viewPartsCl, setViewPartsCl] = useState<any | null>(null);
@@ -691,15 +693,24 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                 )}
 
                 {activeSubTab === "ssc_purchasing" && (
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 w-full items-start text-left font-sans">
-                    {/* Left Column: Form Editor (5 Columns) */}
-                    <div className="lg:col-span-5 bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4 print:hidden">
+                  <div className="flex flex-col gap-6 w-full items-center text-left font-sans">
+                    {/* Top Section: Form Editor */}
+                    <div className="w-full max-w-4xl bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4 print:hidden">
                       <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                         <div>
                           <h4 className="text-sm font-extrabold text-slate-800 font-sans">Manual Billing Editor</h4>
                           <p className="text-[10.5px] text-slate-500 font-bold font-sans mt-0.5">Isi data manual untuk memperbarui draf dokumen di kanan secara realtime.</p>
                         </div>
                         <div className="flex gap-1.5 shrink-0 font-sans">
+                          <button
+                            type="button"
+                            onClick={() => setShowSscBillingPreview(!showSscBillingPreview)}
+                            className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-750 text-[10px] font-bold rounded border border-indigo-200 transition-all cursor-pointer active:scale-95 flex items-center gap-1"
+                            title="Toggle pratinjau lembar A4"
+                          >
+                            <Eye size={12} />
+                            {showSscBillingPreview ? "Sembunyikan Preview" : "Lihat Preview"}
+                          </button>
                           <button
                             type="button"
                             onClick={() => {
@@ -922,7 +933,7 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                             + Tambah GL
                           </button>
                         </div>
-                        <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                        <div className="space-y-2">
                           {glRows.map((row, idx) => (
                             <div key={idx} className="p-2.5 border border-slate-200 rounded-lg bg-slate-50 relative space-y-1.5 text-[11px]">
                               <button
@@ -1021,8 +1032,9 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                       </div>
                     </div>
 
-                    {/* Right Column: Live A4 Printable Sheet (7 Columns) */}
-                    <div className="lg:col-span-7 flex flex-col items-center w-full space-y-4 print:w-full print:p-0">
+                    {/* Bottom Section: Live A4 Printable Sheet */}
+                    {showSscBillingPreview && (
+                      <div className="flex flex-col items-center w-full space-y-4 print:w-full print:p-0">
                       {/* Control Panel */}
                       <div className="w-full bg-white border border-slate-200 rounded-lg p-2 flex justify-between items-center print:hidden shadow-sm font-sans">
                         <span className="text-[11px] text-slate-500 font-bold font-sans">
@@ -1305,12 +1317,13 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                         </div>
                       </div>
                     </div>
+                    )}
                   </div>
                 )}
                 {activeSubTab === "buat_ssc_payment" && (
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 w-full items-start text-left font-sans">
-                    {/* Left Column: CL Selector + Form Editor (5 Columns) */}
-                    <div className="lg:col-span-5 space-y-4 print:hidden">
+                  <div className="flex flex-col gap-6 w-full items-center text-left font-sans">
+                    {/* Top Section: CL Selector + Form Editor */}
+                    <div className="w-full max-w-4xl space-y-4 print:hidden">
 
                       {/* CL Selector Panel */}
                       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
@@ -1385,6 +1398,15 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                             </p>
                           </div>
                           <div className="flex gap-1.5 shrink-0 font-sans">
+                            <button
+                              type="button"
+                              onClick={() => setShowSscPaymentPreview(!showSscPaymentPreview)}
+                              className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-750 text-[10px] font-bold rounded border border-indigo-200 transition-all cursor-pointer active:scale-95 flex items-center gap-1"
+                              title="Toggle pratinjau lembar A4"
+                            >
+                              <Eye size={12} />
+                              {showSscPaymentPreview ? "Sembunyikan Preview" : "Lihat Preview"}
+                            </button>
                             <button
                               type="button"
                               onClick={() => {
@@ -1486,7 +1508,7 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                             + Tambah Baris
                           </button>
                         </div>
-                        <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1">
+                        <div className="space-y-2">
                           {sscBillingRows.map((cl, idx) => (
                             <div key={cl.id} className="p-2.5 border border-slate-200 rounded-lg bg-slate-50 relative space-y-1.5 text-[11px]">
                               <button
@@ -1562,8 +1584,9 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                     </div>
                     </div>
 
-                    {/* Right Column: Live A4 Printable Sheet (7 Columns) */}
-                    <div className="lg:col-span-7 flex flex-col items-center w-full space-y-4 print:w-full print:p-0">
+                    {/* Bottom Section: Live A4 Printable Sheet */}
+                    {showSscPaymentPreview && (
+                      <div className="flex flex-col items-center w-full space-y-4 print:w-full print:p-0">
                       {/* Control Panel */}
                       <div className="w-full bg-white border border-slate-200 rounded-lg p-2 flex justify-between items-center print:hidden shadow-sm font-sans">
                         <span className="text-[11px] text-slate-500 font-bold font-sans">
@@ -1800,6 +1823,7 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                         </div>
                       </div>
                     </div>
+                    )}
                   </div>
                 )}
 

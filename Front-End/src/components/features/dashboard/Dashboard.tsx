@@ -810,36 +810,7 @@ export default function Dashboard({
       </div>
 
       {/* ── 3 SYNCHRONIZED SUMMARY CARDS: NCR / QPR / CL ────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-
-        {/* NCR Card */}
-        {(() => {
-          const totalNcrAvgLt = totalNcrs > 0 ? Math.round(totalNcrs * 1.5) : 0;
-          const ncrPct = totalNcrs > 0 ? Math.round((ncrClosed / totalNcrs) * 100) : 0;
-          return (
-            <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-3">
-              <div className="flex justify-between items-start">
-                <div>
-                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Non-Conformance Report</span>
-                  <h4 className="text-2xl font-black text-slate-900 mt-1 leading-none">{totalNcrs}</h4>
-                  <span className="text-xs text-slate-600 font-bold mt-1 block">Total NCR</span>
-                </div>
-                <div className="p-2 bg-blue-50 rounded-lg border border-blue-100">
-                  <ShieldAlert size={18} className="text-blue-600" />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <div className="flex justify-between text-xs font-bold text-slate-700">
-                  <span>{ncrClosed} Selesai</span>
-                  <span className="text-blue-600">{ncrInProgress} Proses</span>
-                </div>
-                <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                  <div className="bg-blue-500 h-full rounded-full transition-all duration-500" style={{ width: `${ncrPct}%` }} />
-                </div>
-              </div>
-            </div>
-          );
-        })()}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
         {/* QPR Card */}
         {(() => {

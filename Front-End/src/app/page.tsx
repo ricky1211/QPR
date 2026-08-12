@@ -28,6 +28,8 @@ import { ncrService, mapNcrFromDb } from "@/services/ncrService";
 import CalendarView from "@/components/features/calendar/CalendarView";
 import PartsDirectory from "@/components/features/parts/PartsDirectory";
 import EditAllowanceModal from "@/components/features/parts/EditAllowanceModal";
+import VendorsDirectory from "@/components/features/parts/VendorsDirectory";
+import UsersDirectory from "@/components/features/parts/UsersDirectory";
 
 
 // Mock Data
@@ -58,6 +60,8 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
       "list-qpr",
       "calendar",
       "parts",
+      "vendors",
+      "users",
       "draft-ncr",
       "draft-qpr",
       "draft-cl"
@@ -163,9 +167,37 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
   ]);
 
   // Dynamic lists for simulation
+  // NOTE: pendingQprs and confirmationLetters are persisted to sessionStorage
+  // so they survive Next.js route changes (each sub-route remounts <Home />).
   const [pendingNcrs, setPendingNcrs] = useState([]);
-  const [pendingQprs, setPendingQprs] = useState([]);
-  const [confirmationLetters, setConfirmationLetters] = useState([]);
+  const [pendingQprs, setPendingQprs] = useState<any[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const saved = sessionStorage.getItem("mtm_qpr_pendingQprs");
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+  const [confirmationLetters, setConfirmationLetters] = useState<any[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const saved = sessionStorage.getItem("mtm_qpr_confirmationLetters");
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+
+  // Persist pendingQprs to sessionStorage whenever it changes
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try { sessionStorage.setItem("mtm_qpr_pendingQprs", JSON.stringify(pendingQprs)); } catch {}
+    }
+  }, [pendingQprs]);
+
+  // Persist confirmationLetters to sessionStorage whenever it changes
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try { sessionStorage.setItem("mtm_qpr_confirmationLetters", JSON.stringify(confirmationLetters)); } catch {}
+    }
+  }, [confirmationLetters]);
 
   const handleGenerateCL = (qpr: any, amount: string, items?: any[]) => {
     const newClId = `cl-${Date.now()}`;
@@ -676,6 +708,14 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
                 setEditAllowanceVal={setEditAllowanceVal}
                 handleCreateQpr={handleCreateQpr}
               />
+            )}
+
+            {activeTab === "vendors" && (
+              <VendorsDirectory />
+            )}
+
+            {activeTab === "users" && (
+              <UsersDirectory />
             )}
 
 

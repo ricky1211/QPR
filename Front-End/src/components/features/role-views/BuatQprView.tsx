@@ -763,6 +763,22 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
                 setPreviewQpr({
                   qprNumber: `QPR/${date.slice(0,7).replace("-","/")}/${selectedSupplier?.name.replace("PT ","").replace(/ /g,"_").toUpperCase()}`,
                   supplierName: selectedSupplier?.name || "",
+                  partName: (() => {
+                    const firstRow = partRows[0];
+                    if (firstRow && firstRow.partId) {
+                      const matched = availableParts.find(p => String(p.id) === String(firstRow.partId));
+                      return matched ? matched.partName : "ALL TYPE PART FINISH";
+                    }
+                    return "ALL TYPE PART FINISH";
+                  })(),
+                  partNumber: (() => {
+                    const firstRow = partRows[0];
+                    if (firstRow && firstRow.partId) {
+                      const matched = availableParts.find(p => String(p.id) === String(firstRow.partId));
+                      return matched ? matched.partNumber : "";
+                    }
+                    return "";
+                  })(),
                   period,
                   date,
                   totalItems: totalQty,

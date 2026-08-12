@@ -280,7 +280,7 @@ export default function QprPrintPreview({ qpr, onClose, inline = false }: QprPre
                       style={{ display: "grid", gridTemplateColumns: "1fr 32px", borderBottom: "1px solid #000", flex: 1, alignItems: "center", cursor: "pointer" }}
                     >
                       <div style={{ borderRight: "1px solid #000", padding: "2px 4px", fontWeight: "bold", fontSize: "7px" }}>
-                        1st time {!localIsMoreThanOne && `(${localClaimCount}x)`}
+                        1st time
                       </div>
                       <div style={{ padding: "2px", display: "flex", justifyContent: "center" }}>
                         <span style={{ width: "12px", height: "12px", border: "1px solid #000", display: "inline-block", backgroundColor: localIsMoreThanOne ? "white" : "#ef4444" }} />
@@ -291,7 +291,7 @@ export default function QprPrintPreview({ qpr, onClose, inline = false }: QprPre
                       style={{ display: "grid", gridTemplateColumns: "1fr 32px", borderBottom: "1px solid #000", flex: 1, alignItems: "center", cursor: "pointer" }}
                     >
                       <div style={{ borderRight: "1px solid #000", padding: "2px 4px", fontWeight: "bold", fontSize: "7px" }}>
-                        More Than one {localIsMoreThanOne && `(${localClaimCount}x)`}
+                        More Than one
                       </div>
                       <div style={{ padding: "2px", display: "flex", justifyContent: "center" }}>
                         <span style={{ width: "12px", height: "12px", border: "1px solid #000", display: "inline-block", backgroundColor: localIsMoreThanOne ? "#ef4444" : "white" }} />
