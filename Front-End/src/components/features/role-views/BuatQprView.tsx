@@ -51,11 +51,13 @@ interface BuatQprViewProps {
 
 export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs = [] }: BuatQprViewProps) {
   const [supplierId, setSupplierId] = useState<number | "">("");
+  const [supplierSearchQuery, setSupplierSearchQuery] = useState("");
+  const [isSupplierDropdownOpen, setIsSupplierDropdownOpen] = useState(false);
   const [period, setPeriod] = useState("");
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [refNcrNumber, setRefNcrNumber] = useState("");
-  const [problem, setProblem] = useState("VISUAL NG");
-  const [claimType, setClaimType] = useState<string[]>(["PROSES PACKING", "PROSES CHECK"]);
+  const [problem, setProblem] = useState("");
+  const [claimType, setClaimType] = useState<string[]>([]);
   const [partRows, setPartRows] = useState<PartRow[]>([
     { id: Date.now(), partId: "", totalQty: "", qtyNg: "", stdAllowance: "0" }
   ]);
@@ -120,6 +122,7 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
     );
     if (matchedSupplier) {
       setSupplierId(matchedSupplier.id);
+      setSupplierSearchQuery(matchedSupplier.name);
       const supParts = partsBySupplier[matchedSupplier.id] || [];
 
       if (ncr.partsDetail && ncr.partsDetail.length > 0) {
@@ -207,6 +210,25 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
     "PROSES FORGING", "PROSES M/C"
   ];
 
+  const getMissingFields = (isSubmit: boolean = false) => {
+    const missing = [];
+    if (!supplierId) missing.push("Supplier / Vendor");
+    if (!period) missing.push("Periode Klaim");
+    if (!date) missing.push("Tanggal Dokumen");
+    if (!refNcrNumber) missing.push("Ref. No NCR");
+    if (!problem) missing.push("Problem / Defect");
+    if (!pdfFile) missing.push("Upload PDF Lampiran");
+    
+    if (isSubmit) {
+      const partsIncomplete = partRows.some(r => !r.partId || !r.totalQty || !r.qtyNg);
+      if (partsIncomplete) {
+        missing.push("Data Part (Part ID, Qty Kirim, atau Qty NG belum terisi)");
+      }
+    }
+    
+    return missing.join(", ");
+  };
+
   const handleSubmit = () => {
     const hasNgExceeded = partRows.some(r => {
       const qty = parseInt(r.totalQty) || 0;
@@ -220,7 +242,8 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
     }
 
     if (!supplierId || !period || !date || !refNcrNumber || !problem || !pdfFile || partRows.some(r => !r.partId || !r.totalQty || !r.qtyNg)) {
-      alert("Harap lengkapi semua field wajib (Supplier, Periode, Tanggal, Ref. No NCR, Problem/Defect, Upload PDF Lampiran, dan data Part).");
+      const missingList = getMissingFields(true);
+      alert(`Harap lengkapi field wajib berikut terlebih dahulu: ${missingList}.`);
       return;
     }
 
@@ -284,11 +307,13 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
 
   const handleReset = () => {
     setSupplierId("");
+    setSupplierSearchQuery("");
+    setIsSupplierDropdownOpen(false);
     setPeriod("");
     setDate(new Date().toISOString().split("T")[0]);
     setRefNcrNumber("");
-    setProblem("VISUAL NG");
-    setClaimType(["PROSES PACKING", "PROSES CHECK"]);
+    setProblem("");
+    setClaimType([]);
     setPartRows([{ id: Date.now(), partId: "", totalQty: "", qtyNg: "", stdAllowance: "0" }]);
     setPdfFile(null);
     setSubmitted(false);
@@ -340,103 +365,7 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
         {/* LEFT: Main Form */}
         <div className="lg:col-span-2 space-y-5">
 
-          {/* NCR Slide-Down Panel */}
-          <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-            <button
-              type="button"
-              onClick={() => setNcrPanelOpen(prev => !prev)}
-              className="w-full flex items-center justify-between px-5 py-3.5 bg-white hover:bg-blue-50/70 transition-all cursor-pointer group border-b border-slate-100"
-            >
-              <div className="flex items-center gap-2">
-                <AlertTriangle size={15} className="text-blue-600 transition-colors" />
-                <span className="text-[11px] font-black text-slate-800 group-hover:text-blue-700 uppercase tracking-wider transition-colors">
-                  List NCR
-                </span>
-                {approvedNcrs.length > 0 && (
-                  <span className="px-2 py-0.5 bg-blue-600 text-white text-[9px] font-black rounded-full shadow-xs">
-                    {approvedNcrs.length} tersedia
-                  </span>
-                )}
-              </div>
-              {ncrPanelOpen ? <ChevronUp size={16} className="text-blue-600 transition-colors" /> : <ChevronDown size={16} className="text-slate-400 group-hover:text-blue-600 transition-colors" />}
-            </button>
-
-            {ncrPanelOpen && (
-              <div className="p-4 border-t border-slate-100 max-h-[400px] overflow-y-auto">
-                {approvedNcrs.length === 0 ? (
-                  <div className="text-center py-6 text-slate-400">
-                    <FileText size={28} className="mx-auto mb-2 text-slate-300" />
-                    <p className="text-xs font-semibold">Belum ada NCR yang fully approved dan melewati batas 0.5%.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-                      Klik salah satu NCR di bawah untuk mengisi form otomatis secara detail:
-                    </p>
-                    {Object.entries(groupedNcrs).map(([vendor, partsGroup]) => (
-                      <div key={vendor} className="border border-slate-200 rounded-xl p-3 bg-slate-55/40 space-y-3 shadow-xs">
-                        <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
-                          <span className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-pulse" />
-                          <h5 className="text-[11px] font-black text-slate-900 uppercase tracking-wider">{vendor}</h5>
-                        </div>
-                        <div className="space-y-3.5 pl-1">
-                          {Object.entries(partsGroup).map(([partKey, ncrsList]) => (
-                            <div key={partKey} className="space-y-2">
-                              <h6 className="text-[10px] font-black text-blue-700 bg-blue-50/50 px-2 py-0.5 rounded border border-blue-100/50 inline-block">
-                                {partKey}
-                              </h6>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                                {ncrsList.map(ncr => {
-                                  const ngRatio = (typeof ncr.reject === 'number' && typeof ncr.qty === 'number') 
-                                    ? ((ncr.reject / ncr.qty) * 100).toFixed(2) 
-                                    : "0.00";
-                                  const isSelected = selectedNcrId === ncr.id;
-                                  return (
-                                    <button
-                                      key={ncr.id}
-                                      type="button"
-                                      onClick={() => handleSelectNcr(ncr)}
-                                      className={`w-full text-left px-3 py-2.5 rounded-lg border transition-all cursor-pointer relative overflow-hidden group/item ${
-                                        isSelected
-                                          ? 'border-blue-500 bg-blue-50 shadow-sm ring-1 ring-blue-500'
-                                          : 'border-slate-200 bg-white hover:bg-blue-50/20 hover:border-blue-300 hover:shadow-xs'
-                                      }`}
-                                    >
-                                      <div className="flex items-center justify-between">
-                                        <span className="text-[9px] font-black text-slate-800 font-mono group-hover/item:text-blue-700 transition-colors">
-                                          {ncr.ncrNumber}
-                                        </span>
-                                        <span className="text-[9px] font-black text-red-650 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded">
-                                          NG {ngRatio}%
-                                        </span>
-                                      </div>
-                                      <div className="mt-1.5 flex flex-wrap gap-x-2 gap-y-0.5 text-[9px] text-slate-650 font-bold">
-                                        <span className="text-slate-800 font-extrabold">{formatDateIndo(ncr.date)}</span>
-                                        <span>•</span>
-                                        <span>{ncr.reject || 0} NG dari {ncr.qty || 0} pcs</span>
-                                      </div>
-                                      {ncr.defectType && (
-                                        <div className="mt-1 text-[8px] text-slate-400 italic font-medium truncate">
-                                          Defect: {ncr.defectType}
-                                        </div>
-                                      )}
-                                      {isSelected && (
-                                        <div className="absolute top-0 right-0 h-full w-1.5 bg-blue-600" />
-                                      )}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+          {/* NCR Slide-Down Panel (Hidden) */}
 
           {/* Section 1: Header Info */}
           <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
@@ -445,18 +374,84 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
             </h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Supplier */}
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 relative">
                 <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                   Supplier / Vendor <span className="text-red-500">*</span>
                 </label>
-                <select
-                  value={supplierId}
-                  onChange={e => { setSupplierId(Number(e.target.value) || ""); setPartRows([{ id: Date.now(), partId: "", totalQty: "", qtyNg: "", stdAllowance: "0" }]); }}
-                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-800 font-semibold bg-white cursor-pointer"
-                >
-                  <option value="">— Pilih Supplier —</option>
-                  {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={supplierSearchQuery}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setSupplierSearchQuery(val);
+                      setIsSupplierDropdownOpen(true);
+                      // Reset selection if input is modified
+                      const found = suppliers.find(s => s.name.toLowerCase() === val.toLowerCase());
+                      if (found) {
+                        setSupplierId(found.id);
+                        setPartRows([{ id: Date.now(), partId: "", totalQty: "", qtyNg: "", stdAllowance: "0" }]);
+                      } else {
+                        setSupplierId("");
+                      }
+                    }}
+                    onFocus={() => setIsSupplierDropdownOpen(true)}
+                    placeholder="Cari Supplier / Vendor..."
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-800 font-semibold bg-white cursor-pointer pr-8"
+                  />
+                  {supplierSearchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSupplierId("");
+                        setSupplierSearchQuery("");
+                        setIsSupplierDropdownOpen(false);
+                        setPartRows([{ id: Date.now(), partId: "", totalQty: "", qtyNg: "", stdAllowance: "0" }]);
+                      }}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
+                {isSupplierDropdownOpen && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-10" 
+                      onClick={() => setIsSupplierDropdownOpen(false)} 
+                    />
+                    <div className="absolute left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-lg z-20 divide-y divide-slate-100 font-sans text-xs">
+                      {(() => {
+                        const filtered = suppliers.filter(s =>
+                          s.name.toLowerCase().includes(supplierSearchQuery.toLowerCase())
+                        );
+                        if (filtered.length === 0) {
+                          return (
+                            <div className="p-3 text-center text-slate-400 italic">
+                              Tidak ada supplier ditemukan
+                            </div>
+                          );
+                        }
+                        return filtered.map(s => (
+                          <button
+                            key={s.id}
+                            type="button"
+                            onClick={() => {
+                              setSupplierId(s.id);
+                              setSupplierSearchQuery(s.name);
+                              setIsSupplierDropdownOpen(false);
+                              setPartRows([{ id: Date.now(), partId: "", totalQty: "", qtyNg: "", stdAllowance: "0" }]);
+                            }}
+                            className="w-full text-left px-3 py-2.5 hover:bg-blue-50 transition-colors text-slate-800 font-bold block"
+                          >
+                            {s.name}
+                          </button>
+                        ));
+                      })()}
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Period */}
@@ -472,6 +467,11 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
                     const [yr, mo] = e.target.value.split("-");
                     const months = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
                     setPeriod(`${months[parseInt(mo) - 1]} ${yr}`);
+                  }}
+                  onClick={(e) => {
+                    try {
+                      e.currentTarget.showPicker();
+                    } catch (err) {}
                   }}
                   className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-800 font-semibold bg-white cursor-pointer"
                 />
@@ -518,7 +518,6 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
                   type="text"
                   value={problem}
                   onChange={e => setProblem(e.target.value)}
-                  placeholder="VISUAL NG"
                   className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-800 font-semibold bg-white"
                 />
               </div>
@@ -591,7 +590,7 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
                     <th className="border border-slate-300 px-2 py-2 w-24">NG Actual (%)</th>
                     <th className="border border-slate-300 px-2 py-2 w-24">Std Allowance 0.5% (pcs)</th>
                     <th className="border border-slate-300 px-2 py-2 w-24">Qty Claim (pcs)</th>
-                    <th className="border border-slate-300 px-2 py-2 w-10"></th>
+                    {partRows.length > 1 && <th className="border border-slate-300 px-2 py-2 w-10"></th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -619,21 +618,29 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
                         </td>
                         <td className="border border-slate-300 px-2 py-1.5">
                           <input
-                            type="number"
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
                             value={row.totalQty}
-                            onChange={e => updateRow(row.id, "totalQty", e.target.value)}
+                            onChange={e => {
+                              const val = e.target.value.replace(/[^0-9]/g, "");
+                              updateRow(row.id, "totalQty", val);
+                            }}
                             placeholder="0"
-                            min="0"
                             className="w-full text-xs border-0 bg-transparent focus:ring-0 text-slate-800 font-semibold text-center"
                           />
                         </td>
                         <td className={`border border-slate-300 px-2 py-1.5 transition-colors ${isNgExceeded ? 'bg-red-50' : ''}`}>
                           <input
-                            type="number"
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
                             value={row.qtyNg}
-                            onChange={e => updateRow(row.id, "qtyNg", e.target.value)}
+                            onChange={e => {
+                              const val = e.target.value.replace(/[^0-9]/g, "");
+                              updateRow(row.id, "qtyNg", val);
+                            }}
                             placeholder="0"
-                            min="0"
                             className={`w-full text-xs border-0 bg-transparent focus:ring-0 font-bold text-center ${
                               isNgExceeded ? 'text-red-700 font-extrabold focus:outline-none' : 'text-red-600'
                             }`}
@@ -648,16 +655,16 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
                         <td className="border border-slate-300 px-2 py-1.5 text-center font-bold text-emerald-700">
                           {claim.toLocaleString("id-ID")}
                         </td>
-                        <td className="border border-slate-300 px-1 py-1.5 text-center">
-                          {partRows.length > 1 && (
+                        {partRows.length > 1 && (
+                          <td className="border border-slate-300 px-1 py-1.5 text-center">
                             <button
                               onClick={() => removeRow(row.id)}
                               className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-all cursor-pointer"
                             >
                               <Trash2 size={11} />
                             </button>
-                          )}
-                        </td>
+                          </td>
+                        )}
                       </tr>
                     );
                   })}
@@ -668,7 +675,7 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
                     <td className="border border-slate-300 px-2 py-1.5 text-slate-700 bg-slate-50">{totalQty > 0 ? ((totalQtyNg / totalQty) * 100).toFixed(2) : "0.00"}%</td>
                     <td className="border border-slate-300 px-2 py-1.5 text-slate-700">{totalStdAllowance.toLocaleString("id-ID")}</td>
                     <td className="border border-slate-300 px-2 py-1.5 text-emerald-700 font-black">{billableQty.toLocaleString("id-ID")}</td>
-                    <td className="border border-slate-300"></td>
+                    {partRows.length > 1 && <td className="border border-slate-300"></td>}
                   </tr>
                 </tbody>
               </table>
@@ -757,7 +764,8 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
                   return;
                 }
                 if (!supplierId || !period || !date || !refNcrNumber || !problem || !pdfFile) {
-                  alert("Harap lengkapi semua field wajib (Supplier, Periode, Tanggal, Ref. No NCR, Problem/Defect, dan Upload PDF Lampiran) terlebih dahulu untuk preview.");
+                  const missingList = getMissingFields(false);
+                  alert(`Harap lengkapi field wajib berikut terlebih dahulu: ${missingList}.`);
                   return;
                 }
                 setPreviewQpr({

@@ -31,7 +31,88 @@ export default function IMemoView({
   parts = []
 }: IMemoViewProps) {
   const [sscBillingRows, setSscBillingRows] = useState<any[]>([]);
+  const [createdSscBillings, setCreatedSscBillings] = useState<any[]>(() => {
+    return [
+      {
+        id: "mock-cl-1",
+        clNumber: "CL/2026/06/001",
+        supplierName: "PT TEMARU ENGINEERING INDONESIA",
+        dateSent: "2026-06-18",
+        amount: "Rp 24.000.000",
+        memoCompany: "PT. MENARA TERUS MAKMUR",
+        memoBusinessArea: "MT",
+        memoRequestDate: "18/06/2026",
+        memoBillingType: "One Time",
+        memoPeriod: "06/26",
+        memoTitle: "Permintaan Pembuatan Invoice Claim NG Part",
+        memoRequestTo: "SSC Billing",
+        memoDescription: "Mohon dibuatkan invoice untuk Claim Part NG dari PT TEMARU ENGINEERING INDONESIA atas CL CL/2026/06/001",
+        memoCustomerType: "PKP",
+        memoNpwp: "81.571.024.9-408.000",
+        memoSupportingDoc: "-",
+        memoBillingAddressedTo: "Jalan Galuh Mas Raya No. 28-29, Sukaharja, Telukjambe Barat, Sukaharja, Telukjambe Timur, Kabupaten Karawang",
+        memoCustomerName: "PT TEMARU ENGINEERING INDONESIA",
+        memoCurrency: "IDR",
+        memoAmount: "24000000",
+        memoSays: "Dua Puluh Empat Juta Rupiah",
+        acctCustomerCode: "OTC08002",
+        acctCustomerType: "Non Trade",
+        acctTradingPartner: "",
+        acctExchangeRate: "",
+        acctJournal: "",
+        glRows: [
+          { code: "OTC08002", name: "PT TEMARU ENGINEER", costCenter: "", amountDr: "24.000.000", amountCr: "", text: "Claim Part NG" },
+          { code: "545-102-0000", name: "FOH Subcont Fee", costCenter: "MT015FOHGE", amountDr: "", amountCr: "21.621.621", text: "Claim Part NG" },
+          { code: "211-310-0000", name: "Tax Pay VAT Out", costCenter: "", amountDr: "", amountCr: "2.378.379", text: "ppn 11%" }
+        ],
+        sigPrepared: "Bagas",
+        sigApproved1: "Anindita",
+        sigApproved2: "Evi Sulistyorini",
+        sigEntry: "",
+        sigChecked: "",
+      },
+      {
+        id: "mock-cl-2",
+        clNumber: "CL/2026/07/001",
+        supplierName: "PT JAYADI",
+        dateSent: "2026-07-20",
+        amount: "Rp 18.200.000",
+        memoCompany: "PT. MENARA TERUS MAKMUR",
+        memoBusinessArea: "MT",
+        memoRequestDate: "20/07/2026",
+        memoBillingType: "One Time",
+        memoPeriod: "07/26",
+        memoTitle: "Permintaan Pembuatan Invoice Claim NG Part",
+        memoRequestTo: "SSC Billing",
+        memoDescription: "Mohon dibuatkan invoice untuk Claim Part NG dari PT JAYADI atas CL CL/2026/07/001",
+        memoCustomerType: "PKP",
+        memoNpwp: "81.571.024.9-408.000",
+        memoSupportingDoc: "-",
+        memoBillingAddressedTo: "Jalan Galuh Mas Raya No. 28-29, Sukaharja, Telukjambe Barat, Sukaharja, Telukjambe Timur, Kabupaten Karawang",
+        memoCustomerName: "PT JAYADI",
+        memoCurrency: "IDR",
+        memoAmount: "18200000",
+        memoSays: "Delapan Belas Juta Dua Ratus Ribu Rupiah",
+        acctCustomerCode: "OTC08002",
+        acctCustomerType: "Non Trade",
+        acctTradingPartner: "",
+        acctExchangeRate: "",
+        acctJournal: "",
+        glRows: [
+          { code: "OTC08002", name: "PT JAYADI", costCenter: "", amountDr: "18.200.000", amountCr: "", text: "Claim Part NG" },
+          { code: "545-102-0000", name: "FOH Subcont Fee", costCenter: "MT015FOHGE", amountDr: "", amountCr: "16.396.396", text: "Claim Part NG" },
+          { code: "211-310-0000", name: "Tax Pay VAT Out", costCenter: "", amountDr: "", amountCr: "1.803.604", text: "ppn 11%" }
+        ],
+        sigPrepared: "Bagas",
+        sigApproved1: "Anindita",
+        sigApproved2: "Evi Sulistyorini",
+        sigEntry: "",
+        sigChecked: "",
+      }
+    ];
+  });
   const [selectedClId, setSelectedClId] = useState<string>("");
+  const [selectedBillingClId, setSelectedBillingClId] = useState<string>("");
   const [activeSubTab, setActiveSubTab] = useState<"ssc_purchasing" | "buat_ssc_payment" | "reminder" | "kirim_cl" | "parts_per_vendor">("ssc_purchasing");
   const [copied, setCopied] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
@@ -182,9 +263,66 @@ export default function IMemoView({
   // Sync confirmationLetters → sscBillingRows whenever global CL state changes.
   // Merges without duplicates (by id). CL rows with any approval status are included.
   useEffect(() => {
-    if (confirmationLetters.length === 0) return;
     setSscBillingRows(prev => {
-      const existingIds = new Set(prev.map((r: any) => r.id));
+      let baseRows = prev;
+      if (prev.length === 0 && confirmationLetters.length === 0) {
+        baseRows = [
+          {
+            id: "mock-cl-1",
+            clNumber: "CL/2026/06/001",
+            qprNumber: "QPR/2026/05/IKAN_BAKAR",
+            supplierName: "PT TEMARU ENGINEERING INDONESIA",
+            dateSent: "2026-06-18",
+            amount: "Rp 24.000.000",
+            status: "FULLY_APPROVED",
+            memoStatus: "DRAFT_MEMO",
+            reminderSentCount: 0,
+            customText: "POTONG TAGIH CLAIM PART NG",
+            paymentDate: "10/08/2026",
+            customerCode: "OTC08002",
+            documentNo: "202606001",
+            items: [{ no: 1, partName: "Harddisk 1TB", totalQty: 2000, qtyNG: 20, ngActual: 1.0, stdAllowance: 10, qtyClaim: 20, qty: 20, claimCost: 1081081, unitPrice: 1081081, amount: 21621620, subtotal: 21621620 }]
+          },
+          {
+            id: "mock-cl-2",
+            clNumber: "CL/2026/07/001",
+            qprNumber: "QPR/2026/06/JAYADI_1",
+            supplierName: "PT JAYADI",
+            dateSent: "2026-07-20",
+            amount: "Rp 18.200.000",
+            status: "FULLY_APPROVED",
+            memoStatus: "DRAFT_MEMO",
+            reminderSentCount: 0,
+            customText: "POTONG TAGIH CLAIM PT JAYADI",
+            paymentDate: "10/10/2026",
+            customerCode: "OTC08002",
+            documentNo: "202512006",
+            items: [{ no: 1, partName: "Motherboard X1", totalQty: 1000, qtyNG: 10, ngActual: 1.0, stdAllowance: 5, qtyClaim: 10, qty: 10, claimCost: 1500000, unitPrice: 1500000, amount: 15000000, subtotal: 15000000 }]
+          },
+          {
+            id: "mock-cl-3",
+            clNumber: "CL/2025/12/006",
+            qprNumber: "004/QI/QPR/SUB/11/25, 009/QI/QPR/SUB/11/25, 014/QI/QPR/SUB/11/25",
+            supplierName: "Anugerah Daya Industri Komponen Utama, PT.",
+            dateSent: "2025-12-02",
+            amount: "Rp 1.144.283",
+            status: "FULLY_APPROVED",
+            memoStatus: "DRAFT_MEMO",
+            reminderSentCount: 0,
+            customText: "POTONG TAGIH CLAIM HUB CLUTCH",
+            paymentDate: "10/02/2026",
+            customerCode: "OTC08002",
+            documentNo: "202512006",
+            items: [
+              { no: 1, partName: "HUB CLUTCH, IMV 683N", totalQty: 1000, qtyNG: 14, ngActual: 1.4, stdAllowance: 5, qtyClaim: 14, qty: 14, claimCost: 49516, unitPrice: 49516, amount: 693224, subtotal: 693224 },
+              { no: 2, partName: "HUB CLUTCH, RZN", totalQty: 500, qtyNG: 6, ngActual: 1.2, stdAllowance: 5, qtyClaim: 6, qty: 6, claimCost: 56277, unitPrice: 56277, amount: 337662, subtotal: 337662 }
+            ]
+          }
+        ];
+      }
+      if (confirmationLetters.length === 0) return baseRows;
+
+      const existingIds = new Set(baseRows.map((r: any) => r.id));
       const newFromCl: any[] = confirmationLetters
         .filter((cl: any) => !existingIds.has(cl.id))
         .map((cl: any) => ({
@@ -205,7 +343,7 @@ export default function IMemoView({
           paymentDate: "",
         }));
       // Also update status of existing rows that match a CL that changed
-      const updated = prev.map((row: any) => {
+      const updated = baseRows.map((row: any) => {
         const match = confirmationLetters.find((cl: any) => cl.id === row.id);
         if (match) return { ...row, status: match.status, amount: match.amount, supplierName: match.supplierName };
         return row;
@@ -224,6 +362,50 @@ export default function IMemoView({
       }
     }
   }, [confirmationLetters]);
+
+  // Auto-populate billing form when user selects a CL from the left panel
+  useEffect(() => {
+    if (!selectedBillingClId) return;
+    const cl = sscBillingRows.find((r: any) => r.id === selectedBillingClId);
+    if (!cl) return;
+
+    const formatToDisplay = (raw: string) => {
+      if (!raw) return "";
+      const d = new Date(raw);
+      if (!isNaN(d.getTime())) {
+        return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+      }
+      return raw;
+    };
+
+    setMemoRequestDate(formatToDisplay(cl.dateSent));
+    setMemoCustomerName(cl.supplierName);
+    setMemoAmount(cl.amount ? cl.amount.replace(/[^0-9]/g, "") : "");
+    setMemoPeriod(cl.dateSent ? `${String(new Date(cl.dateSent).getMonth() + 1).padStart(2, "0")}/${String(new Date(cl.dateSent).getFullYear()).slice(-2)}` : "02/26");
+    setMemoTitle("Permintaan Pembuatan Invoice Claim NG Part");
+    setMemoDescription(`Mohon dibuatkan invoice untuk Claim Part NG dari ${cl.supplierName} atas CL ${cl.clNumber}`);
+    setAcctCustomerCode(cl.customerCode || "OTC08002");
+    
+    // Auto-generate some GL rows based on amount
+    const rawAmt = cl.amount ? cl.amount.replace(/[^0-9]/g, "") : "0";
+    const numAmt = parseInt(rawAmt, 10) || 0;
+    if (numAmt > 0) {
+      const dpp = Math.round(numAmt / 1.11);
+      const vat = numAmt - dpp;
+      
+      const formatNum = (n: number) => {
+        return n.toLocaleString("id-ID");
+      };
+
+      setGlRows([
+        { code: cl.customerCode || "OTC08002", name: cl.supplierName, costCenter: "", amountDr: formatNum(numAmt), amountCr: "", text: "Claim Part NG" },
+        { code: "545-102-0000", name: "FOH Subcont Fee", costCenter: "MT015FOHGE", amountDr: "", amountCr: formatNum(dpp), text: "Claim Part NG" },
+        { code: "211-310-0000", name: "Tax Pay VAT Out", costCenter: "", amountDr: "", amountCr: formatNum(vat), text: "ppn 11%" }
+      ]);
+    }
+
+    setSelectedClId(selectedBillingClId);
+  }, [selectedBillingClId]);
 
   // Selected CL for Buat SSC Payment panel
   const [selectedPaymentClId, setSelectedPaymentClId] = useState<string>("");
@@ -244,6 +426,46 @@ export default function IMemoView({
   };
 
   const handlePrint = () => {
+    // Auto-generate/save SSC Billing to list ssc payment
+    const newBilling = {
+      id: selectedBillingClId || `billing-${Date.now()}`,
+      clNumber: sscBillingRows.find((r: any) => r.id === selectedBillingClId)?.clNumber || `CL-${Date.now()}`,
+      supplierName: memoCustomerName,
+      dateSent: memoRequestDate,
+      amount: memoAmount ? `Rp ${parseInt(memoAmount).toLocaleString("id-ID")}` : "Rp 0",
+      memoCompany,
+      memoBusinessArea,
+      memoRequestDate,
+      memoBillingType,
+      memoPeriod,
+      memoTitle,
+      memoRequestTo,
+      memoDescription,
+      memoCustomerType,
+      memoNpwp,
+      memoSupportingDoc,
+      memoBillingAddressedTo,
+      memoCustomerName,
+      memoCurrency,
+      memoAmount,
+      memoSays,
+      acctCustomerCode,
+      acctCustomerType,
+      acctTradingPartner,
+      acctExchangeRate,
+      acctJournal,
+      glRows,
+      sigPrepared,
+      sigApproved1,
+      sigApproved2,
+      sigEntry,
+      sigChecked,
+    };
+    setCreatedSscBillings(prev => {
+      const filtered = prev.filter(b => b.id !== newBilling.id);
+      return [newBilling, ...filtered];
+    });
+    alert(`Sukses: SSC Billing untuk ${newBilling.clNumber} berhasil dibuat dan otomatis terdaftar di list SSC Payment!`);
     window.print();
   };
 
@@ -343,35 +565,22 @@ export default function IMemoView({
   const [paySigApproved2, setPaySigApproved2] = useState("Evi Sulistyorini");
   const [paySigEntry, setPaySigEntry] = useState("");
 
-  // Auto-populate payment form when user selects a CL from the left panel
+  // Auto-populate payment form when user selects a created SSC Billing from the left panel
   useEffect(() => {
     if (!selectedPaymentClId) return;
-    const cl = sscBillingRows.find((r: any) => r.id === selectedPaymentClId);
-    if (!cl) return;
+    const billing = createdSscBillings.find((r: any) => r.id === selectedPaymentClId);
+    if (!billing) return;
 
-    // Format date from ISO (YYYY-MM-DD) or any format to dd/mm/yyyy
-    const formatToDisplay = (raw: string) => {
-      if (!raw) return "";
-      const d = new Date(raw);
-      if (!isNaN(d.getTime())) {
-        return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
-      }
-      return raw;
-    };
-
-    setPayRequestDate(formatToDisplay(cl.dateSent));
+    setPayRequestDate(billing.memoRequestDate || "");
     setPayTitle("Permohonan Pemotongan Invoice Vendor");
     setPayTo("SSC Invoicing & Payment");
+    
+    const formattedAmt = billing.memoAmount ? parseInt(billing.memoAmount).toLocaleString("id-ID") : "0";
     setPayInstruction(
-      "Sehubungan dengan ditemukannya komponen NG yang bukan disebabkan oleh proses internal kami, mohon dapat dilakukan pemotongan pembayaran terhadap vendor berikut :"
+      `Sehubungan dengan ditemukannya komponen NG yang bukan disebabkan oleh proses internal kami, mohon dapat dilakukan pemotongan pembayaran terhadap vendor ${billing.supplierName} sebesar Rp ${formattedAmt} atas CL ${billing.clNumber}.`
     );
-    // Load this CL as the single row in the payment table, preserving any other rows
-    setSscBillingRows(prev => {
-      // Mark this CL as selected by moving it to top and setting selectedClId
-      return prev;
-    });
     setSelectedClId(selectedPaymentClId);
-  }, [selectedPaymentClId]);
+  }, [selectedPaymentClId, createdSscBillings]);
 
 
   const sscEmail = "ssc-billing@astraoparts.co.id";
@@ -536,12 +745,7 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
       </div>
 
       {/* Editor & Templates Preview */}
-      {confirmationLetters.length === 0 ? (
-        <div className="bg-white border border-slate-200 rounded-xl p-12 text-center text-slate-400 font-bold italic">
-          Belum ada Confirmation Letter yang dibuat. Silakan terbitkan Confirmation Letter terlebih dahulu di tab "Buat Confirmation Letter".
-        </div>
-      ) : (
-        <>
+      <>
           {/* Centered Horizontal Navigation Subtabs */}
           <div className="flex justify-center print:hidden">
           <div className="flex bg-slate-100 p-1.5 rounded-xl border border-slate-200 gap-1.5 overflow-x-auto shadow-sm max-w-4xl w-full">
@@ -694,13 +898,82 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
 
                 {activeSubTab === "ssc_purchasing" && (
                   <div className="flex flex-col gap-6 w-full items-center text-left font-sans">
-                    {/* Top Section: Form Editor */}
-                    <div className="w-full max-w-4xl bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4 print:hidden">
-                      <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                        <div>
-                          <h4 className="text-sm font-extrabold text-slate-800 font-sans">Manual Billing Editor</h4>
-                          <p className="text-[10.5px] text-slate-500 font-bold font-sans mt-0.5">Isi data manual untuk memperbarui draf dokumen di kanan secara realtime.</p>
+                    {/* Top Section: CL Selector + Form Editor */}
+                    <div className="w-full max-w-4xl space-y-4 print:hidden">
+                      {/* CL Selector Panel */}
+                      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                        <div className="p-3 border-b border-slate-100 bg-slate-50/70">
+                          <h5 className="text-[10.5px] font-black text-slate-700 uppercase tracking-wider">
+                            📋 Pilih CL untuk Diproses SSC Billing
+                          </h5>
+                          <p className="text-[9.5px] text-slate-400 font-semibold mt-0.5">
+                            {sscBillingRows.filter((cl: any) => cl.status === "FULLY_APPROVED" || cl.status === "APPROVED" || cl.status === "CLOSED_PAID").length} Confirmation Letter disetujui · Klik untuk auto-isi form billing
+                          </p>
                         </div>
+                        <div className="max-h-[180px] overflow-y-auto divide-y divide-slate-100">
+                          {sscBillingRows.filter((cl: any) => cl.status === "FULLY_APPROVED" || cl.status === "APPROVED" || cl.status === "CLOSED_PAID").length === 0 ? (
+                            <div className="p-6 text-center text-slate-400 italic text-[11px] font-semibold">
+                              Tidak ada Confirmation Letter yang telah disetujui (Clear Approval).
+                            </div>
+                          ) : (
+                            sscBillingRows
+                              .filter((cl: any) => cl.status === "FULLY_APPROVED" || cl.status === "APPROVED" || cl.status === "CLOSED_PAID")
+                              .map((cl: any) => {
+                                const isSelected = selectedBillingClId === cl.id;
+                              const statusColor = cl.status === "FULLY_APPROVED" || cl.status === "APPROVED"
+                                ? "bg-emerald-100 text-emerald-700"
+                                : cl.status === "CLOSED_PAID"
+                                ? "bg-slate-100 text-slate-500"
+                                : "bg-amber-100 text-amber-700";
+                              const statusLabel = cl.status === "FULLY_APPROVED" || cl.status === "APPROVED"
+                                ? "Approved"
+                                : cl.status === "CLOSED_PAID"
+                                ? "Closed"
+                                : cl.status === "WAITING_VENDOR"
+                                ? "Sent to Vendor"
+                                : "Pending";
+                              return (
+                                <button
+                                  key={cl.id}
+                                  type="button"
+                                  onClick={() => setSelectedBillingClId(cl.id)}
+                                  className={`w-full text-left p-3 flex items-start gap-3 transition-all cursor-pointer ${
+                                    isSelected
+                                      ? "bg-blue-50 border-l-2 border-blue-500"
+                                      : "hover:bg-slate-50/70 border-l-2 border-transparent"
+                                  }`}
+                                >
+                                  <div className={`mt-0.5 w-1.5 h-1.5 rounded-full shrink-0 ${isSelected ? "bg-blue-500" : "bg-slate-300"}`} />
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <span className="text-[10.5px] font-black text-slate-800 font-mono truncate">{cl.clNumber}</span>
+                                      <span className={`text-[8.5px] font-black px-1.5 py-0.5 rounded shrink-0 ${statusColor}`}>{statusLabel}</span>
+                                    </div>
+                                    <div className="text-[9.5px] text-slate-500 font-semibold mt-0.5 truncate">{cl.supplierName}</div>
+                                    <div className="text-[9px] text-slate-400 font-bold mt-0.5 flex items-center gap-2">
+                                      <span>{cl.dateSent}</span>
+                                      <span className="text-slate-300">·</span>
+                                      <span className="font-black text-slate-600">{cl.amount}</span>
+                                    </div>
+                                  </div>
+                                </button>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Manual Billing Editor Form */}
+                      <div className="w-full bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                          <div>
+                            <h4 className="text-sm font-extrabold text-slate-800 font-sans">Manual Billing Editor</h4>
+                            <p className="text-[10.5px] text-slate-500 font-bold font-sans mt-0.5">
+                              {selectedBillingClId
+                                ? <>✅ CL terpilih: <strong className="text-blue-700">{sscBillingRows.find((r: any) => r.id === selectedBillingClId)?.clNumber || "—"}</strong></>
+                                : "Pilih CL di atas atau isi data manual untuk memperbarui draf dokumen."}
+                            </p>
+                          </div>
                         <div className="flex gap-1.5 shrink-0 font-sans">
                           <button
                             type="button"
@@ -1031,6 +1304,7 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                         </div>
                       </div>
                     </div>
+                  </div>
 
                     {/* Bottom Section: Live A4 Printable Sheet */}
                     {showSscBillingPreview && (
@@ -1329,37 +1603,25 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                         <div className="p-3 border-b border-slate-100 bg-slate-50/70">
                           <h5 className="text-[10.5px] font-black text-slate-700 uppercase tracking-wider">
-                            📋 Pilih CL untuk Diproses
+                            📋 Pilih SSC Billing untuk Diproses SSC Payment
                           </h5>
                           <p className="text-[9.5px] text-slate-400 font-semibold mt-0.5">
-                            {sscBillingRows.length} Confirmation Letter tersedia · Klik untuk auto-isi form
+                            {createdSscBillings.length} SSC Billing tersedia · Klik untuk auto-isi form payment
                           </p>
                         </div>
                         <div className="max-h-[230px] overflow-y-auto divide-y divide-slate-100">
-                          {sscBillingRows.length === 0 ? (
+                          {createdSscBillings.length === 0 ? (
                             <div className="p-6 text-center text-slate-400 italic text-[11px] font-semibold">
-                              Belum ada CL. Buat CL di menu Accounting terlebih dahulu.
+                              Tidak ada SSC Billing yang telah dibuat. Silakan buat SSC Billing terlebih dahulu pada tab sebelumnya.
                             </div>
                           ) : (
-                            sscBillingRows.map((cl: any) => {
-                              const isSelected = selectedPaymentClId === cl.id;
-                              const statusColor = cl.status === "FULLY_APPROVED" || cl.status === "APPROVED"
-                                ? "bg-emerald-100 text-emerald-700"
-                                : cl.status === "CLOSED_PAID"
-                                ? "bg-slate-100 text-slate-500"
-                                : "bg-amber-100 text-amber-700";
-                              const statusLabel = cl.status === "FULLY_APPROVED" || cl.status === "APPROVED"
-                                ? "Approved"
-                                : cl.status === "CLOSED_PAID"
-                                ? "Closed"
-                                : cl.status === "WAITING_VENDOR"
-                                ? "Sent to Vendor"
-                                : "Pending";
+                            createdSscBillings.map((billing: any) => {
+                              const isSelected = selectedPaymentClId === billing.id;
                               return (
                                 <button
-                                  key={cl.id}
+                                  key={billing.id}
                                   type="button"
-                                  onClick={() => setSelectedPaymentClId(cl.id)}
+                                  onClick={() => setSelectedPaymentClId(billing.id)}
                                   className={`w-full text-left p-3 flex items-start gap-3 transition-all cursor-pointer ${
                                     isSelected
                                       ? "bg-blue-50 border-l-2 border-blue-500"
@@ -1369,14 +1631,14 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                                   <div className={`mt-0.5 w-1.5 h-1.5 rounded-full shrink-0 ${isSelected ? "bg-blue-500" : "bg-slate-300"}`} />
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-center justify-between gap-2">
-                                      <span className="text-[10.5px] font-black text-slate-800 font-mono truncate">{cl.clNumber}</span>
-                                      <span className={`text-[8.5px] font-black px-1.5 py-0.5 rounded shrink-0 ${statusColor}`}>{statusLabel}</span>
+                                      <span className="text-[10.5px] font-black text-slate-800 font-mono truncate">{billing.clNumber}</span>
+                                      <span className="text-[8.5px] font-black px-1.5 py-0.5 rounded shrink-0 bg-emerald-100 text-emerald-700">Billing Created</span>
                                     </div>
-                                    <div className="text-[9.5px] text-slate-500 font-semibold mt-0.5 truncate">{cl.supplierName}</div>
+                                    <div className="text-[9.5px] text-slate-500 font-semibold mt-0.5 truncate">{billing.supplierName}</div>
                                     <div className="text-[9px] text-slate-400 font-bold mt-0.5 flex items-center gap-2">
-                                      <span>{cl.dateSent}</span>
+                                      <span>{billing.memoRequestDate || billing.dateSent}</span>
                                       <span className="text-slate-300">·</span>
-                                      <span className="font-black text-slate-600">{cl.amount}</span>
+                                      <span className="font-black text-slate-600">{billing.amount}</span>
                                     </div>
                                   </div>
                                 </button>
@@ -1393,8 +1655,8 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                             <h4 className="text-sm font-extrabold text-slate-800 font-sans">SSC Payment Editor</h4>
                             <p className="text-[10.5px] text-slate-500 font-bold font-sans mt-0.5">
                               {selectedPaymentClId
-                                ? <>✅ CL terpilih: <strong className="text-blue-700">{sscBillingRows.find((r: any) => r.id === selectedPaymentClId)?.clNumber || "—"}</strong></>
-                                : "Pilih CL di atas atau isi data manual."}
+                                ? <>✅ SSC Billing terpilih: <strong className="text-blue-700">{createdSscBillings.find((r: any) => r.id === selectedPaymentClId)?.clNumber || "—"}</strong></>
+                                : "Pilih SSC Billing di atas atau isi data manual."}
                             </p>
                           </div>
                           <div className="flex gap-1.5 shrink-0 font-sans">
@@ -1509,7 +1771,7 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                           </button>
                         </div>
                         <div className="space-y-2">
-                          {sscBillingRows.map((cl, idx) => (
+                        {(selectedPaymentClId ? sscBillingRows.filter(cl => cl.id === selectedPaymentClId) : sscBillingRows).map((cl, idx) => (
                             <div key={cl.id} className="p-2.5 border border-slate-200 rounded-lg bg-slate-50 relative space-y-1.5 text-[11px]">
                               <button
                                 type="button"
@@ -1685,7 +1947,7 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                                     </tr>
                                   </thead>
                                   <tbody>
-                                    {sscBillingRows.map((cl, idx) => {
+                                    {(selectedPaymentClId ? sscBillingRows.filter(cl => cl.id === selectedPaymentClId) : sscBillingRows).map((cl, idx) => {
                                       const rawAmt = cl.amount ? cl.amount.replace(/[^0-9]/g, "") : "0";
                                       const numAmt = parseInt(rawAmt, 10);
                                       const formattedAmt = isNaN(numAmt) ? cl.amount : numAmt.toLocaleString("id-ID");
@@ -1957,7 +2219,6 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                 )}
         </div>
       </>
-    )}
       <style>{`
         @media print {
           @page {

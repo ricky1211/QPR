@@ -1044,7 +1044,6 @@ export default function Dashboard({
                     <th className="px-4 py-3 w-12 text-center">No</th>
                     <th className="px-4 py-3">No. Dokumen</th>
                     <th className="px-4 py-3">Vendor / Supplier</th>
-                    <th className="px-4 py-3 text-center w-24">Tipe</th>
                     <th className="px-4 py-3 text-left">Status / Tracking</th>
                     <th className="px-4 py-3 text-center w-24">Aksi</th>
                   </tr>
@@ -1055,17 +1054,6 @@ export default function Dashboard({
                       <td className="px-4 py-3 text-center text-slate-400 font-mono font-bold">{idx + 1}</td>
                       <td className="px-4 py-3 font-mono font-bold text-slate-800">{doc.docNumber}</td>
                       <td className="px-4 py-3 font-bold text-slate-700">{doc.vendor}</td>
-                      <td className="px-4 py-3 text-center">
-                        <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
-                          doc.type === "NCR" 
-                            ? "bg-blue-50 text-blue-700 border border-blue-100" 
-                            : doc.type === "QPR" 
-                              ? "bg-indigo-50 text-indigo-700 border border-indigo-100"
-                              : "bg-emerald-50 text-emerald-700 border border-emerald-100"
-                        }`}>
-                          {doc.type}
-                        </span>
-                      </td>
                       <td className="px-4 py-3 text-left">
                         <div className="flex items-center gap-3 flex-wrap">
                           {/* Overall Status Badge */}

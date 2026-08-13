@@ -624,7 +624,7 @@ export default function AccountingView({
                 <th className="px-4 py-3">Vendor</th>
                 <th className="px-4 py-3">Tgl Kirim</th>
                 <th className="px-4 py-3 text-center w-52">Lead Time (Proses Accounting)</th>
-                <th className="px-4 py-3 text-center">Status</th>
+                <th className="px-4 py-3 text-center min-w-[760px]">Status</th>
                 <th className="px-4 py-3 text-right">Aksi</th>
               </tr>
             </thead>
@@ -663,10 +663,11 @@ export default function AccountingView({
                            let diffDays = 1;
                            try {
                              const sentDate = new Date(cl.dateSent);
-                             const nowDate = new Date("2026-07-16");
+                             const nowDate = new Date();
                              diffDays = Math.max(1, Math.ceil(Math.abs(nowDate.getTime() - sentDate.getTime()) / (1000 * 60 * 60 * 24)));
                            } catch {}
-                           const finalDays = fullyApproved ? (cl.id === "cl-1" ? 2 : 1) : diffDays;
+                           // Lock days at approval time if approved
+                           const finalDays = fullyApproved ? (cl.approvedDays || diffDays) : diffDays;
                            const pct = Math.min(100, Math.round((finalDays / MAX_DAYS) * 100));
                            const barColor = fullyApproved
                              ? "bg-emerald-500"
@@ -699,14 +700,13 @@ export default function AccountingView({
                                  <span>0</span>
                                  <span className="text-slate-500">Target: {MAX_DAYS} hari</span>
                                </div>
-                               {/* Approval step mini badges */}
                                <div className="flex gap-1 mt-0.5">
                                  {approvalSteps.map(step => (
                                    <span
                                      key={step.key}
                                      className={`text-[8px] font-black px-1.5 py-0.5 rounded ${step.done ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'}`}
                                    >
-                                     {step.done ? '✓' : '○'} {step.key === 'sect' ? 'Sect' : 'Dept'}
+                                     {step.done ? '✓' : '○'} Dept
                                    </span>
                                  ))}
                                </div>
@@ -715,98 +715,157 @@ export default function AccountingView({
                          })()}
                        </td>
 
-                                                <td className="px-4 py-3 text-center">
-                          <div className="flex items-center gap-2.5 justify-center">
-                            {closedPaid ? (
-                              <span className="inline-flex items-center gap-1 px-3 py-1 bg-green-50 text-green-700 border border-green-200 rounded-full text-[10px] font-black uppercase">
-                                <CheckCircle2 size={11} className="text-green-600" />
-                                Close Paid
-                              </span>
-                            ) : cl.status === "PENDING" ? (
-                              <span className="inline-flex items-center gap-1 px-3 py-1 bg-rose-50 text-rose-700 border border-rose-200 rounded-full text-[10px] font-black uppercase">
-                                <Clock size={11} className="text-rose-500 animate-pulse" />
-                                Waiting Vendor Confirm
-                              </span>
-                            ) : !prog.deptAccounting ? (
-                              <span className="inline-flex items-center gap-1 px-3 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-full text-[10px] font-black uppercase">
-                                <Clock size={11} className="text-indigo-500 animate-pulse" />
-                                Dept. Head Approval
-                              </span>
-                            ) : (
-                              <div className="flex items-center gap-2">
-                                <span className="inline-flex items-center gap-1 px-3 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-full text-[10px] font-black uppercase">
-                                  Vendor Approve &gt; Kelempar ke IM SSC
-                                </span>
-                                {handleMarkClosedPaid && (
-                                  <button
-                                    onClick={() => handleMarkClosedPaid(cl.id)}
-                                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-[9px] font-black cursor-pointer transition-colors active:scale-95 uppercase shadow-sm shrink-0"
-                                    title="Tandai sebagai Close Paid (vendor sudah bayar)"
-                                  >
-                                    <Banknote size={10} />
-                                    Mark Close Paid
-                                  </button>
-                                )}
-                              </div>
-                            )}
-                          </div>
+                        <td className="px-4 py-3">
+                           <div className="flex items-center gap-1 justify-center py-1 whitespace-nowrap flex-wrap">
+                             {(() => {
+                               // Stage flags
+                               const isDeptApproved = !!(prog.deptAccounting || cl.status === "FULLY_APPROVED" || cl.status === "CLOSED_PAID");
+                               const isPurchasingSent = !!(cl.purchasingSentCl || cl.status === "CLOSED_PAID");
+                               const isVendorApproved = !!(cl.vendorApproved || cl.status === "CLOSED_PAID");
+
+                               const stages = [
+                                 {
+                                   name: "1. WAITING DEPT ACCOUNTING",
+                                   status: isDeptApproved ? "APPROVED" : "PENDING"
+                                 },
+                                 {
+                                   name: "2. DEPT ACCOUNTING APPROVE",
+                                   status: isDeptApproved ? "APPROVED" : "UPCOMING"
+                                 },
+                                 {
+                                   name: "3. PURCHASING SEND CL",
+                                   status: isPurchasingSent ? "APPROVED" : (isDeptApproved ? "PENDING" : "UPCOMING")
+                                 },
+                                 {
+                                   name: "4. WAITING VENDOR APPROVAL",
+                                   status: isVendorApproved ? "APPROVED" : (isPurchasingSent ? "PENDING" : "UPCOMING")
+                                 },
+                                 {
+                                   name: "5. VENDOR APPROVED",
+                                   status: isVendorApproved ? "APPROVED" : "UPCOMING"
+                                 }
+                               ];
+
+                               return stages.map((stage, i, arr) => (
+                                 <React.Fragment key={i}>
+                                   <span
+                                     className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[9px] font-extrabold transition-all border shrink-0 ${
+                                       stage.status === "APPROVED"
+                                         ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                         : stage.status === "PENDING"
+                                         ? "bg-amber-50 text-amber-700 border-amber-300 ring-1 ring-amber-100"
+                                         : "bg-slate-50 text-slate-400 border-slate-200 opacity-60"
+                                     }`}
+                                   >
+                                     {stage.status === "APPROVED" && <CheckCircle2 size={10} className="text-emerald-600 shrink-0" />}
+                                     {stage.status === "PENDING" && <Clock size={10} className="text-amber-500 shrink-0" />}
+                                     {stage.name}
+                                   </span>
+                                   {i < arr.length - 1 && (
+                                     <div className="flex flex-col items-center justify-center shrink-0 px-1 select-none">
+                                       <span className="text-slate-400 text-xs font-black leading-none">→</span>
+                                     </div>
+                                   )}
+                                 </React.Fragment>
+                               ));
+                             })()}
+
+                             {/* Purchasing manual action buttons */}
+                             {(() => {
+                               const isDeptApproved = !!(prog.deptAccounting || cl.status === "FULLY_APPROVED" || cl.status === "CLOSED_PAID");
+                               const isPurchasingSent = !!(cl.purchasingSentCl || cl.status === "CLOSED_PAID");
+                               const isVendorApproved = !!(cl.vendorApproved || cl.status === "CLOSED_PAID");
+                               return (
+                                 <div className="flex gap-1.5 ml-2 shrink-0 items-center">
+                                   {/* Send CL to Vendor */}
+                                   {isDeptApproved && !isPurchasingSent && (
+                                     <button
+                                       onClick={() => setConfirmationLetters(prev => prev.map(c => c.id === cl.id ? { ...c, purchasingSentCl: true, purchasingSentDate: new Date().toISOString().split('T')[0] } : c))}
+                                       className="inline-flex items-center gap-1 px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-[8.5px] font-black cursor-pointer transition-colors active:scale-95 uppercase shadow-sm"
+                                       title="Purchasing: Kirim CL ke Vendor"
+                                     >
+                                       <Send size={9} />
+                                       Kirim ke Vendor
+                                     </button>
+                                   )}
+                                   {/* Vendor Approved via Upload CL */}
+                                   {isPurchasingSent && !isVendorApproved && (
+                                     <div className="flex items-center gap-1">
+                                       <label className="inline-flex items-center gap-1 px-2 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded text-[8.5px] font-black cursor-pointer transition-colors active:scale-95 uppercase shadow-sm">
+                                         <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                                         Upload CL Signed
+                                         <input
+                                           type="file"
+                                           accept="application/pdf,image/*"
+                                           className="hidden"
+                                           onChange={(e) => {
+                                             if (e.target.files && e.target.files.length > 0) {
+                                               const file = e.target.files[0];
+                                               const fileUrl = URL.createObjectURL(file);
+                                               alert(`File "${file.name}" berhasil diupload. Status CL berubah menjadi Vendor Approved.`);
+                                               setConfirmationLetters(prev => prev.map(c => c.id === cl.id ? { ...c, vendorApproved: true, vendorApprovedDate: new Date().toISOString().split('T')[0], signedClFileName: file.name, signedClFileUrl: fileUrl } : c));
+                                             }
+                                           }}
+                                         />
+                                       </label>
+                                       <span className="text-slate-300">or</span>
+                                       <button
+                                         onClick={() => setConfirmationLetters(prev => prev.map(c => c.id === cl.id ? { ...c, vendorApproved: true, vendorApprovedDate: new Date().toISOString().split('T')[0] } : c))}
+                                         className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[8.5px] font-black cursor-pointer transition-colors active:scale-95 uppercase shadow-sm"
+                                         title="Purchasing: Vendor Sudah Approve"
+                                       >
+                                         <CheckCircle2 size={9} />
+                                         Vendor Approve
+                                       </button>
+                                     </div>
+                                   )}
+                                   {/* Close Paid */}
+                                   {isVendorApproved && !closedPaid && handleMarkClosedPaid && (
+                                     <button
+                                       onClick={() => handleMarkClosedPaid(cl.id)}
+                                       className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-[8.5px] font-black cursor-pointer transition-colors active:scale-95 uppercase shadow-sm"
+                                       title="Tandai sebagai Close Paid"
+                                     >
+                                       <Banknote size={9} />
+                                       Close Paid
+                                     </button>
+                                   )}
+                                   {closedPaid && (
+                                     <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-50 text-green-700 border border-green-200 rounded text-[9px] font-black uppercase">
+                                       <CheckCircle2 size={10} className="text-green-600" />
+                                       Close Paid
+                                     </span>
+                                   )}
+                                 </div>
+                               );
+                             })()}
+                           </div>
                         </td>
-
-
 
                       {/* Aksi */}
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            onClick={() => setPreviewClDoc(cl)}
-                            className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-md text-[10px] font-bold cursor-pointer flex items-center justify-center gap-1"
-                            title="Lihat Confirmation Letter PDF"
-                          >
-                            <FileText size={12} />
-                            Lihat CL PDF
-                          </button>
-                          {(() => {
-                            const isApprovedByAccounting = cl.clApprovalProgress?.deptAccounting || cl.status === "FULLY_APPROVED" || cl.status === "CLOSED_PAID" || cl.status === "APPROVED";
-                            if (cl.sentToVendor) {
-                              return (
-                                <span className="inline-flex items-center px-2.5 py-1.5 bg-green-50 text-green-700 border border-green-200 rounded text-[9.5px] font-bold">
-                                  Email Terkirim
-                                </span>
-                              );
-                            }
-                            if (!isApprovedByAccounting) {
-                              return (
-                                <button
-                                  disabled
-                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-slate-100 border border-slate-200 text-slate-400 text-[10px] font-bold rounded cursor-not-allowed"
-                                  title="Belum disetujui Dept Head Accounting"
-                                >
-                                  <Clock size={11} />
-                                  Kirim Email (Pending)
-                                </button>
-                              );
-                            }
-                            return (
-                              <button
-                                onClick={() => {
-                                  setConfirmationLetters(prev =>
-                                    prev.map(item => {
-                                      if (item.id === cl.id) {
-                                        alert(`Sukses: Email Confirmation Letter ${cl.clNumber} berhasil dikirim ke email Vendor!`);
-                                        return { ...item, sentToVendor: true };
-                                      }
-                                      return item;
-                                    })
-                                  );
-                                }}
-                                className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded text-[10px] font-bold cursor-pointer transition-all active:scale-95 shadow-sm"
-                                title="Kirim Confirmation Letter ke Email Vendor"
-                              >
-                                <Send size={11} />
-                                Kirim Email ke Vendor
-                              </button>
-                            );
-                          })()}
+                          {cl.signedClFileUrl ? (
+                             <a
+                               href={cl.signedClFileUrl}
+                               target="_blank"
+                               rel="noopener noreferrer"
+                               className="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-md text-[10px] font-bold cursor-pointer flex items-center justify-center gap-1 shadow-sm"
+                               title={`Buka file yang di-upload: ${cl.signedClFileName}`}
+                             >
+                               <FileText size={12} />
+                               Buka Signed CL ({cl.signedClFileName?.slice(0, 10)}...)
+                             </a>
+                           ) : (
+                             <button
+                               onClick={() => setPreviewClDoc(cl)}
+                               className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-md text-[10px] font-bold cursor-pointer flex items-center justify-center gap-1"
+                               title="Lihat Confirmation Letter PDF"
+                             >
+                               <FileText size={12} />
+                               Lihat CL PDF
+                             </button>
+                           )}
                         </div>
                       </td>
                     </tr>

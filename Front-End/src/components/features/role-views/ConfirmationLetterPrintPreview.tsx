@@ -110,12 +110,32 @@ export default function ConfirmationLetterPrintPreview({ cl, onClose, inline = f
             fontSize: "12px",
             width: inline ? "100%" : "210mm",
             minHeight: inline ? "auto" : "297mm",
-            padding: inline ? "8px" : "20mm",
+            padding: inline ? "8px" : "0px",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "space-between",
             boxSizing: "border-box"
           }}
         >
-          {/* Solid line at the top */}
-          <div className="border-t-2 border-black mb-8 w-full" />
+
+
+          {/* PT Menara Terus Makmur Logo and Certificates Header */}
+          <div className="w-full px-[10mm] pt-[6mm] pb-3 border-b-[3px] border-black mb-6 font-sans">
+            <div className="flex justify-between items-center">
+              {/* Left: MTM Logo Area */}
+              <div className="flex items-center">
+                <img src="/qpr/logo-mtm.png" alt="PT MTM Logo" style={{ height: "38px", objectFit: "contain", display: "block" }} />
+              </div>
+
+              {/* Right: Certificates Sticker */}
+              <div className="flex items-center">
+                <img src="/qpr/stiker.png" alt="TUV SUD Certificates" style={{ height: "72px", objectFit: "contain", display: "block" }} />
+              </div>
+            </div>
+          </div>
+
+          {/* Document Content Wrapper with proper standard letter margins */}
+          <div className="flex-1 flex flex-col justify-start px-[20mm] py-2 text-xs font-serif leading-relaxed text-justify">
 
           {/* Title */}
           <div className="text-center mb-6">
@@ -225,32 +245,56 @@ export default function ConfirmationLetterPrintPreview({ cl, onClose, inline = f
           </div>
 
           {/* Signature & Approval blocks */}
-          <div className="mt-10 font-serif text-[12px] relative" style={{ minHeight: "155px" }}>
-            <div className="flex justify-between items-start">
-              {/* Yours Faithfully signature block (Left) */}
-              <div className="space-y-1 w-full relative">
-                <span className="block">Yours Faithfully,</span>
-                <strong className="block font-serif font-bold text-black mt-1">MenaraTerusMakmur, PT</strong>
-                <div className="flex items-center justify-between text-slate-700 text-[11px] w-full">
-                  <span>Accounting &amp; Finance Departement</span>
+          <div className="mt-10 font-serif text-[12px]">
+            {/* Header row: Yours Faithfully */}
+            <span className="block">Yours Faithfully,</span>
+            <strong className="block font-serif font-bold text-black mt-1">MenaraTerusMakmur, PT</strong>
+            <span className="block text-slate-700 text-[11px] mt-0.5">Accounting &amp; Finance Departement</span>
+
+            {/* Two-column signature row */}
+            <div className="flex justify-between items-end mt-2">
+
+              {/* LEFT: TTD + Anindita */}
+              <div>
+                {/* Signature image */}
+                <div style={{ height: "70px", position: "relative" }}>
                   {(cl.clApprovalProgress?.deptAccounting || cl.status === "FULLY_APPROVED" || cl.status === "CLOSED_PAID") && (
-                    <div className="font-serif text-black flex items-center gap-14 text-[12px] pr-10">
-                      <span className="italic font-normal font-serif text-[13px] lowercase">p</span>
-                      <span className="font-bold text-[12px] text-[#0f766e]">Approved</span>
-                    </div>
+                    <img
+                      src="/qpr/TTD-Anindita.jpeg"
+                      alt="TTD Anindita"
+                      style={{ height: "68px", objectFit: "contain", position: "absolute", bottom: 0, left: 0 }}
+                    />
                   )}
                 </div>
-                
-                {/* Space for signature */}
-                <div style={{ height: "45px" }} />
-
-                {/* Person details */}
-                <div className="pt-2">
+                <div className="pt-0">
                   <span className="underline font-bold block text-[13px] text-black">Anindita Imilaningtyas</span>
                   <span className="block text-[11px] text-slate-700 font-normal">Dep. Head Accounting &amp; Finance</span>
                 </div>
               </div>
+
+              {/* RIGHT: Approved + Vendor — only when approved */}
+              {(cl.clApprovalProgress?.deptAccounting || cl.status === "FULLY_APPROVED" || cl.status === "CLOSED_PAID") && (
+                <div className="flex flex-col items-end pr-10">
+                  <span className="font-bold text-[12px] text-[#0f766e] mb-1">Approved</span>
+                  {/* spacer matching signature height */}
+                  <div style={{ height: "70px" }} />
+                  <span className="underline font-bold block text-[13px] text-black text-right">{cl.supplierName}</span>
+                  <span className="block text-[11px] text-slate-700 font-normal">Vendor</span>
+                </div>
+              )}
+
             </div>
+          </div>
+          </div>
+
+          {/* PT Menara Terus Makmur Footer */}
+          <div className="w-full px-[10mm] pb-[6mm] pt-3 border-t-[3px] border-black mt-auto text-center text-[10px] text-slate-700 font-sans font-bold leading-normal">
+            <div>PT Menara Terus Makmur - Manufacturer : Forging Parts, Mechanical Jacks, Hand Tools &amp; Machining Parts</div>
+            <div className="text-[9px] font-semibold text-slate-500 mt-0.5">
+              Jl. Jababeka XI Blok H.3 - 12 Kawasan Industri Jababeka, Cikarang Utara, Kabupaten Bekasi, Jawa Barat - Indonesia 17530 / Telp. : +62-21-8934504 (Hunting) Fax. : +62-21-8934505
+            </div>
+            {/* Bottom Blue Bar */}
+            <div className="w-full h-[6px] bg-[#002060] mt-3" />
           </div>
 
         </div>
@@ -278,7 +322,10 @@ export default function ConfirmationLetterPrintPreview({ cl, onClose, inline = f
             height: 285mm !important;
             min-height: 0 !important;
             margin: 0 auto !important;
-            padding: 6mm !important;
+            padding: 0mm !important;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: space-between !important;
             border: 1px solid #000 !important;
             box-shadow: none !important;
             box-sizing: border-box !important;
