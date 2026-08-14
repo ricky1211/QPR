@@ -22,6 +22,7 @@ model Vendor {
   id                  String               @id @default(cuid())
   vendorCode          String               @unique
   vendorName          String?              @unique
+  email               String?
   createdAt           DateTime?            @default(now())
   updatedAt           DateTime?            @updatedAt
   vendorParts         VendorPart[]
@@ -43,13 +44,13 @@ model VendorPart {
 }
 
 model Ncr {
-  id                         String               @id @default(cuid())
-  code                       String               @unique
-  date                       DateTime             @default(now())
+  id                         String   @id @default(cuid())
+  code                       String   @unique
+  date                       DateTime @default(now())
   partId                     String?
-  part                       Part?                @relation(fields: [partId], references: [id])
+  part                       Part?    @relation(fields: [partId], references: [id])
   vendorId                   String
-  vendor                     Vendor               @relation(fields: [vendorId], references: [id])
+  vendor                     Vendor   @relation(fields: [vendorId], references: [id])
   location                   Json?
   problemType                Json?
   description                String?
@@ -59,12 +60,12 @@ model Ncr {
   docsToRevise               Json?
   images                     Json?
   details                    Json?
-  
+
   // Relasi 1-to-1 ke Progres Approval (Checksum tanda tangan digital)
-  ncrApprovalProgress        NcrApprovalProgress?
+  ncrApprovalProgress NcrApprovalProgress?
 
   // Relasi Many-to-Many ke User (Inspektur bisa lebih dari satu)
-  inspectors                 User[]               @relation("NcrInspectors")
+  inspectors User[] @relation("NcrInspectors")
 }
 
 model NcrApprovalProgress {
@@ -78,15 +79,17 @@ model NcrApprovalProgress {
 }
 
 model User {
-  id            String   @id @default(cuid())
-  name          String
-  npk           Int      @unique
-  
+  id    String  @id @default(cuid())
+  name  String
+  npk   Int     @unique
+  email String? @unique
+
   // Relasi Terbalik Many-to-Many ke Ncr
-  inspectedNcrs Ncr[]    @relation("NcrInspectors")
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  inspectedNcrs Ncr[] @relation("NcrInspectors")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  Qpr       Qpr[]
 }
 
 enum Location {
@@ -111,96 +114,153 @@ enum Disposition {
 }
 
 model Qpr {
-  id                  String               @id @default(cuid())
-  qprNumber           String               @unique
-  date                DateTime             @default(now())
-  vendorId            String
-  vendor              Vendor               @relation(fields: [vendorId], references: [id])
-  status              QprStatus            @default(WAITING_APPROVAL)
-  requiredRole        String
-  refNcrNumber        String?
-  problem             String?
-  claimType           String?
-  totalQty            Int
-  totalQtyNg          Int
-  totalStdAllowance   Int
-  billableQty         Int
-  claimAmount         Float?
-  qprParts            QprPart[]
-  approvalProgress    QprApprovalProgress?
-  confirmationLetter  ConfirmationLetter?
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
+  id                 String               @id @default(cuid())
+  qprNumber          String               @unique
+  date               DateTime             @default(now())
+  vendorId           String
+  vendor             Vendor               @relation(fields: [vendorId], references: [id])
+  userId             String?
+  user               User?                @relation(fields: [userId], references: [id])
+  status             QprStatus            @default(WAITING_APPROVAL)
+  requiredRole       String
+  refNcrNumber       String?
+  problem            String?
+  claimType          String?
+  totalQty           Int
+  totalQtyNg         Int
+  totalStdAllowance  Int
+  billableQty        Int
+  claimAmount        Float?
+  qprParts           QprPart[]
+  approvalProgress   QprApprovalProgress?
+  confirmationLetter ConfirmationLetter?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
 }
 
 model QprPart {
-  id            String   @id @default(cuid())
-  qprId         String
-  qpr           Qpr      @relation(fields: [qprId], references: [id])
-  partId        String
-  part          Part     @relation(fields: [partId], references: [id])
-  totalQty      Int
-  qtyNg         Int
-  stdAllowance  Int
-  qtyClaim      Int
-  unitPrice     Float?
-  taxRate       Float?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id           String   @id @default(cuid())
+  qprId        String
+  qpr          Qpr      @relation(fields: [qprId], references: [id])
+  partId       String
+  part         Part     @relation(fields: [partId], references: [id])
+  totalQty     Int
+  qtyNg        Int
+  stdAllowance Int
+  qtyClaim     Int
+  unitPrice    Float?
+  taxRate      Float?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
 model QprApprovalProgress {
-  id                  String    @id @default(cuid())
-  qprId               String    @unique
-  qpr                 Qpr       @relation(fields: [qprId], references: [id])
+  id                  String   @id @default(cuid())
+  qprId               String   @unique
+  qpr                 Qpr      @relation(fields: [qprId], references: [id])
   checksumSectionHead Bytes?
+  remarksSectionHead  String?
   checksumDeptHead    Bytes?
+  remarksDeptHead     String?
   checksumDivHead     Bytes?
+  remarksDivHead      String?
   checksumVendor      Bytes?
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  remarksVendor       String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 }
 
 model ConfirmationLetter {
-  id              String      @id @default(cuid())
-  clNumber        String      @unique
-  dateSent        DateTime    @default(now())
-  qprId           String      @unique
-  qpr             Qpr         @relation(fields: [qprId], references: [id])
-  vendorId        String
-  vendor          Vendor      @relation(fields: [vendorId], references: [id])
-  amount          Float
-  status          ClStatus    @default(PENDING)
-  sscBilling      SscBilling?
-  sscPayment      SscPayment?
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  id         String      @id @default(cuid())
+  clNumber   String      @unique
+  dateSent   DateTime    @default(now())
+  qprId      String      @unique
+  qpr        Qpr         @relation(fields: [qprId], references: [id])
+  vendorId   String
+  vendor     Vendor      @relation(fields: [vendorId], references: [id])
+  amount     Float
+  status     ClStatus    @default(PENDING)
+  sscBilling SscBilling?
+  sscPayment SscPayment?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
 }
 
 model SscBilling {
-  id            String          @id @default(cuid())
-  clId          String          @unique
-  cl            ConfirmationLetter @relation(fields: [clId], references: [id])
-  billingNo     String          @unique
-  billingDate   DateTime        @default(now())
-  totalAmount   Float
-  status        BillingStatus   @default(UNPAID)
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  id                     String             @id @default(cuid())
+  clId                   String             @unique
+  cl                     ConfirmationLetter @relation(fields: [clId], references: [id])
+  billingNo              String             @unique
+  billingDate            DateTime           @default(now())
+  totalAmount            Float
+  status                 BillingStatus      @default(UNPAID)
+  
+  // Fields matching the AOP SSC Billing layout
+  memoCompany            String             @default("PT. MENARA TERUS MAKMUR")
+  memoBusinessArea       String             @default("MT")
+  memoRequestDate        String?
+  memoBillingType        String             @default("One Time")
+  memoPeriod             String?
+  memoTitle              String             @default("Permintaan Pembuatan Invoice Claim NG Part")
+  memoRequestTo          String             @default("SSC Billing")
+  memoDescription        String?
+  memoCustomerType       String             @default("PKP")
+  memoNpwp               String?
+  memoSupportingDoc      String?
+  memoBillingAddressedTo String?
+  memoCustomerName       String?
+  memoCurrency           String             @default("IDR")
+  memoAmount             String?
+  memoSays               String?
+  
+  acctCustomerCode       String?
+  acctCustomerType       String?
+  acctTradingPartner     String?
+  acctExchangeRate       String?
+  acctJournal            String?
+  glRows                 Json?              // Stores GL Account entries: code, name, costCenter, amountDr, amountCr, text
+  
+  sigPrepared            String?
+  sigPreparedRole        String?            @default("Accounting BU")
+  sigApproved1           String?
+  sigApproved1Role       String?            @default("Accounting Dept Head")
+  sigApproved2           String?
+  sigApproved2Role       String?            @default("Admin Div/BOD")
+  sigEntry               String?
+  sigEntryRole           String?            @default("SSC Billing Admin")
+  sigChecked             String?
+  sigCheckedRole         String?            @default("AR Function Lead")
+
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
 }
 
 model SscPayment {
-  id            String          @id @default(cuid())
-  clId          String          @unique
-  cl            ConfirmationLetter @relation(fields: [clId], references: [id])
-  paymentNo     String          @unique
-  paymentDate   DateTime        @default(now())
-  amountPaid    Float
-  bankName      String?
-  accountNo     String?
-  status        PaymentStatus   @default(PENDING)
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  id                     String             @id @default(cuid())
+  clId                   String             @unique
+  cl                     ConfirmationLetter @relation(fields: [clId], references: [id])
+  paymentNo              String             @unique
+  paymentDate            DateTime           @default(now())
+  amountPaid             Float
+  bankName               String?
+  accountNo              String?
+  status                 PaymentStatus      @default(PENDING)
+
+  // Fields matching the AOP SSC Payment layout
+  payCompany             String             @default("PT MENARA TERUS MAKMUR")
+  payBusinessArea        String             @default("MT")
+  payTitle               String             @default("Permohonan Pemotongan Invoice Vendor")
+  payTo                  String             @default("SSC Invoicing & Payment")
+  payInstruction         String?
+  payRequestDate         String?
+  
+  paySigPrepared         String?
+  paySigApproved1        String?
+  paySigApproved2        String?
+  paySigEntry            String?
+  
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
 }
 
 enum QprStatus {
@@ -210,6 +270,7 @@ enum QprStatus {
   APPROVED
   CLOSED
   CLOSED_PAID
+  UNDER_REVISION
 }
 
 enum ClStatus {

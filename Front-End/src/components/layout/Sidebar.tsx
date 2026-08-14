@@ -77,7 +77,7 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
 
   const canBuatQpr = isOperator || isAdmin;
   const canApproveQpr = isSectionHead || isDeptHead || isDivHead || isAdmin;
-  const canCL = isAccounting || isAdmin;
+  const canCL = isAccounting || isPurchasing || isAdmin;
   const canIMemo = isPurchasing || isAdmin;
   const canListQpr = isAdmin || isOperator || isAccounting || isPurchasing;
 

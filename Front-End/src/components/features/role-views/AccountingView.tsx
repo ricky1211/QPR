@@ -223,8 +223,8 @@ export default function AccountingView({
         {/* Left: Queue List */}
         <div className="lg:col-span-1 bg-white border border-slate-100 rounded-lg shadow-sm overflow-hidden flex flex-col">
           <div className="p-4 border-b border-slate-100 bg-slate-50/30">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Antrean Accounting</span>
-            <h4 className="text-xs font-bold text-slate-800 mt-1">QPR Disetujui Div Head</h4>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Antrean Pembuatan CL (Purchasing)</span>
+            <h4 className="text-xs font-bold text-slate-800 mt-1">Klaim QPR Siap di-CL</h4>
           </div>
 
           <div className="p-4 space-y-2.5 flex-1">
@@ -763,7 +763,7 @@ export default function AccountingView({
                                    </span>
                                    {i < arr.length - 1 && (
                                      <div className="flex flex-col items-center justify-center shrink-0 px-1 select-none">
-                                       <span className="text-slate-400 text-xs font-black leading-none">→</span>
+                                       <span className="text-slate-400 text-xs font-black leading-none">:</span>
                                      </div>
                                    )}
                                  </React.Fragment>

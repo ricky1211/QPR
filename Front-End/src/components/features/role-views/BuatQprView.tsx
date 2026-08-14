@@ -47,9 +47,17 @@ interface BuatQprViewProps {
   pendingQprs?: any[];
   setPendingQprs?: React.Dispatch<React.SetStateAction<any[]>>;
   pendingNcrs?: any[];
+  selectedQprForEdit?: any;
+  setSelectedQprForEdit?: (qpr: any) => void;
 }
 
-export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs = [] }: BuatQprViewProps) {
+export default function BuatQprView({
+  pendingQprs,
+  setPendingQprs,
+  pendingNcrs = [],
+  selectedQprForEdit = null,
+  setSelectedQprForEdit = () => {}
+}: BuatQprViewProps) {
   const [supplierId, setSupplierId] = useState<number | "">("");
   const [supplierSearchQuery, setSupplierSearchQuery] = useState("");
   const [isSupplierDropdownOpen, setIsSupplierDropdownOpen] = useState(false);
@@ -63,8 +71,69 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
   ]);
   const [previewQpr, setPreviewQpr] = useState<any>(null);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [remarks, setRemarks] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [submittedNum, setSubmittedNum] = useState("");
+
+  // Load selectedQprForEdit details if present on mount/change
+  React.useEffect(() => {
+    if (selectedQprForEdit) {
+      const matchedSupplier = suppliers.find(
+        s => s.name.toLowerCase() === (selectedQprForEdit.supplierName || "").toLowerCase()
+      );
+      if (matchedSupplier) {
+        setSupplierId(matchedSupplier.id);
+        setSupplierSearchQuery(matchedSupplier.name);
+        
+        const supParts = partsBySupplier[matchedSupplier.id] || [];
+        if (selectedQprForEdit.parts && selectedQprForEdit.parts.length > 0) {
+          const rows = selectedQprForEdit.parts.map((p: any, idx: number) => {
+            const matchedPart = supParts.find(
+              sp => sp.partName.toLowerCase() === p.partName.toLowerCase()
+            );
+            return {
+              id: Date.now() + idx,
+              partId: matchedPart ? String(matchedPart.id) : "",
+              totalQty: String(p.totalQty || 1000),
+              qtyNg: String(p.qtyNG !== undefined ? p.qtyNG : (p.qtyNg || 30)),
+              stdAllowance: String(p.stdAllowance || 5)
+            };
+          });
+          setPartRows(rows);
+        }
+      }
+
+      // Convert period from "Mei 2026" / "Juni 2026" text to "2026-05" format for <input type="month">
+      const rawPeriod = selectedQprForEdit.period || "";
+      let convertedPeriod = rawPeriod;
+      const monthNamesIndo = [
+        "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+        "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+      ];
+      const periodMatch = rawPeriod.match(/^(\w+)\s+(\d{4})$/);
+      if (periodMatch) {
+        const monthIdx = monthNamesIndo.findIndex(
+          m => m.toLowerCase() === periodMatch[1].toLowerCase()
+        );
+        if (monthIdx !== -1) {
+          convertedPeriod = `${periodMatch[2]}-${String(monthIdx + 1).padStart(2, "0")}`;
+        }
+      }
+      // Also handle if already in YYYY-MM format
+      if (/^\d{4}-\d{2}$/.test(rawPeriod)) {
+        convertedPeriod = rawPeriod;
+      }
+      setPeriod(convertedPeriod);
+
+      setDate(selectedQprForEdit.date || new Date().toISOString().split("T")[0]);
+      setRefNcrNumber(selectedQprForEdit.refNcrNumber || "");
+      setProblem(selectedQprForEdit.problem || "");
+      setClaimType(Array.isArray(selectedQprForEdit.claimType) ? selectedQprForEdit.claimType : []);
+      setRemarks(selectedQprForEdit.remarks || "");
+      // Mock pdf file to bypass missing field check
+      setPdfFile(new File([""], selectedQprForEdit.pdfFileName || "revision_attachment.pdf"));
+    }
+  }, [selectedQprForEdit]);
 
   // NCR slide-down panel state
   const [ncrPanelOpen, setNcrPanelOpen] = useState(false);
@@ -207,7 +276,7 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
   const claimTypeOptions = [
     "MATERIAL", "PROSES PACKING", "PROSES CHECK",
     "PAINTING/PLATING", "PARKEREZING", "HEAT TREATMENT",
-    "PROSES FORGING", "PROSES M/C"
+    "PROSES FORGING", "PROSES M/C", "OTHERS"
   ];
 
   const getMissingFields = (isSubmit: boolean = false) => {
@@ -278,9 +347,12 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
       };
     });
 
-    const qprNum = `QPR/${date.slice(0, 7).replace("-", "/")}/${selectedSupplier?.name.replace("PT ", "").replace(/ /g, "_").toUpperCase()}`;
+    const qprNum = selectedQprForEdit 
+      ? selectedQprForEdit.qprNumber 
+      : `QPR/${date.slice(0, 7).replace("-", "/")}/${selectedSupplier?.name.replace("PT ", "").replace(/ /g, "_").toUpperCase()}`;
+      
     const newQpr = {
-      id: Date.now(),
+      id: selectedQprForEdit ? selectedQprForEdit.id : Date.now(),
       qprNumber: qprNum,
       date,
       supplierName: selectedSupplier?.name,
@@ -299,8 +371,19 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
     };
 
     if (setPendingQprs) {
-      setPendingQprs((prev: any[]) => [newQpr, ...prev]);
+      setPendingQprs((prev: any[]) => {
+        if (selectedQprForEdit) {
+          return prev.map(q => q.id === selectedQprForEdit.id ? newQpr : q);
+        } else {
+          return [newQpr, ...prev];
+        }
+      });
     }
+    // Clear sessionStorage revision data
+    if (typeof window !== "undefined") {
+      try { sessionStorage.removeItem("selectedQprForEdit"); } catch {}
+    }
+    setSelectedQprForEdit(null);
     setSubmittedNum(qprNum);
     setSubmitted(true);
   };
@@ -314,10 +397,16 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
     setRefNcrNumber("");
     setProblem("");
     setClaimType([]);
+    setRemarks("");
     setPartRows([{ id: Date.now(), partId: "", totalQty: "", qtyNg: "", stdAllowance: "0" }]);
     setPdfFile(null);
     setSubmitted(false);
     setSubmittedNum("");
+    // Clear sessionStorage revision data
+    if (typeof window !== "undefined") {
+      try { sessionStorage.removeItem("selectedQprForEdit"); } catch {}
+    }
+    if (setSelectedQprForEdit) setSelectedQprForEdit(null);
   };
 
   if (submitted) {
@@ -355,9 +444,23 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
             <span className="p-1.5 bg-white/10 text-white rounded-lg">
               <ClipboardList size={18} />
             </span>
-            <h3 className="text-base font-black uppercase tracking-wider">Pengisian Form QPR</h3>
+            <h3 className="text-base font-black uppercase tracking-wider">
+              {selectedQprForEdit ? "Revisi / Edit Dokumen QPR" : "Pengisian Form QPR"}
+            </h3>
           </div>
         </div>
+        {selectedQprForEdit && (
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedQprForEdit(null);
+              handleReset();
+            }}
+            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs rounded-lg shadow-sm border border-red-500 cursor-pointer active:scale-95 transition-all flex items-center gap-1.5 shrink-0"
+          >
+            ✕ Kosongkan & Batalkan Revisi
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -561,6 +664,20 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
                     </div>
                   )}
                 </div>
+              </div>
+
+              {/* Remarks */}
+              <div className="space-y-1.5 sm:col-span-2">
+                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  Remarks / Catatan Tambahan
+                </label>
+                <textarea
+                  value={remarks}
+                  onChange={e => setRemarks(e.target.value)}
+                  placeholder="Masukkan remarks/catatan tambahan untuk QPR di sini..."
+                  rows={2}
+                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-800 font-semibold bg-white placeholder-slate-400"
+                />
               </div>
             </div>
           </div>
@@ -812,7 +929,9 @@ export default function BuatQprView({ pendingQprs, setPendingQprs, pendingNcrs =
                   }),
                   refNcrNumber,
                   problem,
-                  claimType
+                  claimType,
+                  remarks,
+                  pdfFileName: pdfFile ? pdfFile.name : null
                 });
               }}
               className="w-full py-2 border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer"

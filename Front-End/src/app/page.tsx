@@ -135,6 +135,61 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
       .catch((err) => {
         console.error("Failed to fetch real NCRs:", err);
       });
+
+    // Lead-time auto-close logic:
+    // Every 10th of the next month following the document's creation date, 
+    // it automatically changes status to CLOSED_PAID if not already closed.
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth(); // 0-indexed
+    const currentDay = today.getDate();
+
+    const isAfterOrOn10thOfNextMonth = (creationDateStr: string) => {
+      if (!creationDateStr) return false;
+      const creationDate = new Date(creationDateStr);
+      if (isNaN(creationDate.getTime())) return false;
+      
+      // Calculate the 10th of the month after creation month
+      const targetYear = creationDate.getFullYear();
+      const targetMonth = creationDate.getMonth() + 1; // month following creation month
+      
+      const thresholdDate = new Date(targetYear, targetMonth, 10);
+      return today >= thresholdDate;
+    };
+
+    // 1. Process confirmationLetters
+    setConfirmationLetters(prev => {
+      let changed = false;
+      const updated = prev.map(cl => {
+        if (cl.status !== "CLOSED_PAID" && isAfterOrOn10thOfNextMonth(cl.dateSent)) {
+          changed = true;
+          return { ...cl, closedPaid: true, status: "CLOSED_PAID" };
+        }
+        return cl;
+      });
+      if (changed) {
+        console.log("Auto-lead-time: marked pending CLs as CLOSED_PAID");
+      }
+      return updated;
+    });
+
+    // 2. Process createdSscBillings
+    setCreatedSscBillings(prev => {
+      let changed = false;
+      const updated = prev.map(bill => {
+        // Fallback to current date split if memoRequestDate or dateSent isn't in YYYY-MM-DD
+        const dateStr = bill.dateSent || (bill.memoRequestDate ? bill.memoRequestDate.split('/').reverse().join('-') : null);
+        if (bill.status !== "CLOSED_PAID" && !bill.closedPaid && isAfterOrOn10thOfNextMonth(dateStr)) {
+          changed = true;
+          return { ...bill, closedPaid: true, status: "CLOSED_PAID" };
+        }
+        return bill;
+      });
+      if (changed) {
+        console.log("Auto-lead-time: marked pending SSC Payments as CLOSED_PAID");
+      }
+      return updated;
+    });
   }, []);
 
 
@@ -166,6 +221,24 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
     }
   ]);
 
+  // Selected QPR for revision editing
+  const [selectedQprForEdit, setSelectedQprForEdit] = useState<any>(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const saved = sessionStorage.getItem("mtm_qpr_selectedQprForEdit");
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
+  });
+
+  // Keep selectedQprForEdit synced in sessionStorage
+  useEffect(() => {
+    if (selectedQprForEdit) {
+      sessionStorage.setItem("mtm_qpr_selectedQprForEdit", JSON.stringify(selectedQprForEdit));
+    } else {
+      sessionStorage.removeItem("mtm_qpr_selectedQprForEdit");
+    }
+  }, [selectedQprForEdit]);
+
   // Dynamic lists for simulation
   // NOTE: pendingQprs and confirmationLetters are persisted to sessionStorage
   // so they survive Next.js route changes (each sub-route remounts <Home />).
@@ -174,8 +247,8 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
     if (typeof window === "undefined") return [];
     try {
       const saved = sessionStorage.getItem("mtm_qpr_pendingQprs");
-      return saved ? JSON.parse(saved) : [];
-    } catch { return []; }
+      return saved ? JSON.parse(saved) : mockPendingQprs;
+    } catch { return mockPendingQprs; }
   });
   const [confirmationLetters, setConfirmationLetters] = useState<any[]>(() => {
     if (typeof window === "undefined") return [];
@@ -183,6 +256,91 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
       const saved = sessionStorage.getItem("mtm_qpr_confirmationLetters");
       return saved ? JSON.parse(saved) : [];
     } catch { return []; }
+  });
+  const [createdSscBillings, setCreatedSscBillings] = useState<any[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const saved = sessionStorage.getItem("mtm_qpr_createdSscBillings");
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [
+      {
+        id: "mock-cl-1",
+        clNumber: "CL/2026/06/001",
+        supplierName: "PT TEMARU ENGINEERING INDONESIA",
+        dateSent: "2026-06-18",
+        amount: "Rp 24.000.000",
+        memoCompany: "PT. MENARA TERUS MAKMUR",
+        memoBusinessArea: "MT",
+        memoRequestDate: "18/06/2026",
+        memoBillingType: "One Time",
+        memoPeriod: "06/26",
+        memoTitle: "Permintaan Pembuatan Invoice Claim NG Part",
+        memoRequestTo: "SSC Billing",
+        memoDescription: "Mohon dibuatkan invoice untuk Claim Part NG dari PT TEMARU ENGINEERING INDONESIA atas CL CL/2026/06/001",
+        memoCustomerType: "PKP",
+        memoNpwp: "81.571.024.9-408.000",
+        memoSupportingDoc: "-",
+        memoBillingAddressedTo: "Jalan Galuh Mas Raya No. 28-29, Sukaharja, Telukjambe Barat, Sukaharja, Telukjambe Timur, Kabupaten Karawang",
+        memoCustomerName: "PT TEMARU ENGINEERING INDONESIA",
+        memoCurrency: "IDR",
+        memoAmount: "24000000",
+        memoSays: "Dua Puluh Empat Juta Rupiah",
+        acctCustomerCode: "OTC08002",
+        acctCustomerType: "Non Trade",
+        acctTradingPartner: "",
+        acctExchangeRate: "",
+        acctJournal: "",
+        glRows: [
+          { code: "OTC08002", name: "PT TEMARU ENGINEER", costCenter: "", amountDr: "24.000.000", amountCr: "", text: "Claim Part NG" },
+          { code: "545-102-0000", name: "FOH Subcont Fee", costCenter: "MT015FOHGE", amountDr: "", amountCr: "21.621.621", text: "Claim Part NG" },
+          { code: "211-310-0000", name: "Tax Pay VAT Out", costCenter: "", amountDr: "", amountCr: "2.378.379", text: "ppn 11%" }
+        ],
+        sigPrepared: "Bagas",
+        sigApproved1: "Anindita",
+        sigApproved2: "Evi Sulistyorini",
+        sigEntry: "",
+        sigChecked: "",
+      },
+      {
+        id: "mock-cl-2",
+        clNumber: "CL/2026/07/001",
+        supplierName: "PT JAYADI",
+        dateSent: "2026-07-20",
+        amount: "Rp 18.200.000",
+        memoCompany: "PT. MENARA TERUS MAKMUR",
+        memoBusinessArea: "MT",
+        memoRequestDate: "20/07/2026",
+        memoBillingType: "One Time",
+        memoPeriod: "07/26",
+        memoTitle: "Permintaan Pembuatan Invoice Claim NG Part",
+        memoRequestTo: "SSC Billing",
+        memoDescription: "Mohon dibuatkan invoice untuk Claim Part NG dari PT JAYADI atas CL CL/2026/07/001",
+        memoCustomerType: "PKP",
+        memoNpwp: "81.571.024.9-408.000",
+        memoSupportingDoc: "-",
+        memoBillingAddressedTo: "Jalan Galuh Mas Raya No. 28-29, Sukaharja, Telukjambe Barat, Sukaharja, Telukjambe Timur, Kabupaten Karawang",
+        memoCustomerName: "PT JAYADI",
+        memoCurrency: "IDR",
+        memoAmount: "18200000",
+        memoSays: "Delapan Belas Juta Dua Ratus Ribu Rupiah",
+        acctCustomerCode: "OTC08002",
+        acctCustomerType: "Non Trade",
+        acctTradingPartner: "",
+        acctExchangeRate: "",
+        acctJournal: "",
+        glRows: [
+          { code: "OTC08002", name: "PT JAYADI", costCenter: "", amountDr: "18.200.000", amountCr: "", text: "Claim Part NG" },
+          { code: "545-102-0000", name: "FOH Subcont Fee", costCenter: "MT015FOHGE", amountDr: "", amountCr: "16.396.396", text: "Claim Part NG" },
+          { code: "211-310-0000", name: "Tax Pay VAT Out", costCenter: "", amountDr: "", amountCr: "1.803.604", text: "ppn 11%" }
+        ],
+        sigPrepared: "Bagas",
+        sigApproved1: "Anindita",
+        sigApproved2: "Evi Sulistyorini",
+        sigEntry: "",
+        sigChecked: "",
+      }
+    ];
   });
 
   // Persist pendingQprs to sessionStorage whenever it changes
@@ -199,29 +357,62 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
     }
   }, [confirmationLetters]);
 
+  // Persist createdSscBillings to sessionStorage whenever it changes
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try { sessionStorage.setItem("mtm_qpr_createdSscBillings", JSON.stringify(createdSscBillings)); } catch {}
+    }
+  }, [createdSscBillings]);
+
   const handleGenerateCL = (qpr: any, amount: string, items?: any[]) => {
     const newClId = `cl-${Date.now()}`;
-    const cleanAmount = amount.startsWith("Rp") ? amount : `Rp ${amount}`;
+    const cleanAmount = amount && amount.startsWith("Rp") ? amount : `Rp ${amount || "0"}`;
+    const today = new Date().toISOString().split("T")[0];
     const newCl = {
       id: newClId,
-      clNumber: `CL/2026/06/${qpr.supplierName.replace("PT ", "").replace(/ /g, "_")}_${Math.floor(Math.random() * 900 + 100)}`,
+      clNumber: `CL/${today.slice(0,7).replace("-","/")}/${qpr.supplierName.replace("PT ", "").replace(/ /g, "_")}_${Math.floor(Math.random() * 900 + 100)}`,
       qprNumber: qpr.qprNumber,
       supplierName: qpr.supplierName,
-      dateSent: new Date().toISOString().split("T")[0],
+      dateSent: today,
       amount: cleanAmount,
       status: "PENDING",
       requiredRole: "Dept Accounting",
       memoStatus: "SENT_AOP",
       reminderSentCount: 1,
       sentToVendor: false,
+      vendorApproved: false,
+      vendorApprovedDocName: null,
+      readyForSSC: false,
       items: items || [],
       clApprovalProgress: { sectAccounting: false, deptAccounting: false },
       closedPaid: false,
       debitNoteCount: 0,
-      reminderCount: 1
+      reminderCount: 1,
+      // Full QPR source data preserved
+      qprSourceData: {
+        parts: qpr.parts || [],
+        problem: qpr.problem || "",
+        claimType: qpr.claimType || [],
+        refNcrNumber: qpr.refNcrNumber || "",
+        pdfFileName: qpr.pdfFileName || null,
+        period: qpr.period || "",
+        date: qpr.date || today,
+        totalItems: qpr.totalItems || 0,
+        rejectItems: qpr.rejectItems || 0,
+        allowanceRatio: qpr.allowanceRatio || "0%",
+        remarks: qpr.remarks || ""
+      }
     };
     setConfirmationLetters(prev => [newCl, ...prev]);
     setPendingQprs(prev => prev.map(q => q.qprNumber === qpr.qprNumber ? { ...q, status: "CLOSED", requiredRole: "Closed" } : q));
+    // Add notification
+    setNotifications(prev => [{
+      id: Date.now(),
+      message: `CL ${newCl.clNumber} otomatis dibuat dari QPR ${qpr.qprNumber} (${qpr.supplierName}) dan menunggu persetujuan Dept Accounting.`,
+      time: "Baru saja",
+      type: "success",
+      unread: true
+    }, ...prev]);
   };
 
   // Handler: Approve CL per level accounting (dept only)
@@ -422,29 +613,46 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
 
 
   // Perform QPR Approval Action
-  const handleApproveQprAction = (id, qprNum) => {
+  const handleApproveQprAction = (id, qprNum, actionType: "APPROVE" | "REVISE" | "REJECT" = "APPROVE", reviewComment = "") => {
     let alertMsg = "";
     let notifMsg = "";
 
     setPendingQprs(prev => {
       const updated = prev.map(q => {
         if (q.id === id) {
+          if (actionType === "REVISE") {
+            alertMsg = `Sukses: Klaim QPR ${qprNum} dikembalikan ke Operator untuk revisi dengan catatan: "${reviewComment}"`;
+            notifMsg = `Klaim QPR ${qprNum} di-revise oleh ${q.requiredRole}.`;
+            return {
+              ...q,
+              status: "UNDER_REVISION",
+              requiredRole: "Operator",
+              remarks: reviewComment || q.remarks
+            };
+          } else if (actionType === "REJECT") {
+            alertMsg = `Sukses: Klaim QPR ${qprNum} ditolak (REJECTED) dengan catatan: "${reviewComment}"`;
+            notifMsg = `Klaim QPR ${qprNum} ditolak oleh ${q.requiredRole}.`;
+            return {
+              ...q,
+              status: "REJECTED",
+              requiredRole: "Closed",
+              remarks: reviewComment || q.remarks
+            };
+          }
+
+          // Default: APPROVE
           if (q.requiredRole === "Section Head") {
             alertMsg = `Sukses: Klaim QPR ${qprNum} disetujui oleh Section Head dan diteruskan ke Dept Head!`;
             notifMsg = `Klaim QPR ${qprNum} disetujui oleh Section Head dan diteruskan ke Dept Head.`;
-            return { ...q, requiredRole: "Dept Head" };
+            return { ...q, requiredRole: "Dept Head", remarksSectionHead: reviewComment || q.remarksSectionHead };
           } else if (q.requiredRole === "Dept Head") {
             alertMsg = `Sukses: Klaim QPR ${qprNum} disetujui oleh Dept Head dan diteruskan ke Div Head!`;
             notifMsg = `Klaim QPR ${qprNum} disetujui oleh Dept Head dan diteruskan ke Div Head.`;
-            return { ...q, requiredRole: "Div Head" };
+            return { ...q, requiredRole: "Div Head", remarksDeptHead: reviewComment || q.remarksDeptHead };
           } else if (q.requiredRole === "Div Head") {
-            alertMsg = `Sukses: Klaim QPR ${qprNum} disetujui oleh Div Head dan diteruskan ke Vendor Portal & Accounting Queue!`;
-            notifMsg = `Klaim QPR ${qprNum} disetujui oleh Div Head dan masuk ke Portal Vendor.`;
-            return { ...q, requiredRole: "Vendor", status: "WAITING_VENDOR" };
-          } else if (q.requiredRole === "Purchasing") {
-            alertMsg = `Sukses: Klaim QPR ${qprNum} di-acknowledge oleh Purchasing!`;
-            notifMsg = `Klaim QPR ${qprNum} di-acknowledge oleh Purchasing.`;
-            return { ...q, requiredRole: "Closed", status: "APPROVED" };
+            alertMsg = `Sukses: Klaim QPR ${qprNum} disetujui oleh Div Head dan diteruskan ke Purchasing untuk pembuatan CL!`;
+            notifMsg = `Klaim QPR ${qprNum} disetujui oleh Div Head dan diteruskan ke Purchasing.`;
+            return { ...q, requiredRole: "Purchasing", status: "APPROVED", remarksDivHead: reviewComment || q.remarksDivHead };
           }
         }
         return q;
@@ -452,9 +660,9 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
 
       const newNotif = {
         id: Date.now() + 1,
-        message: notifMsg || `Klaim QPR ${qprNum} telah disetujui digital.`,
+        message: notifMsg || `Klaim QPR ${qprNum} telah diproses.`,
         time: "Baru saja",
-        type: "success",
+        type: actionType === "APPROVE" ? "success" : actionType === "REVISE" ? "info" : "danger",
         unread: true
       };
       setNotifications(prevNotifs => [newNotif, ...prevNotifs]);
@@ -621,6 +829,7 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
                 pendingQprs={pendingQprs}
                 handleApproveQprAction={handleApproveQprAction}
                 username={username}
+                setNotifications={setNotifications}
               />
             )}
 
@@ -629,6 +838,8 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
                 pendingQprs={pendingQprs}
                 setPendingQprs={setPendingQprs}
                 pendingNcrs={pendingNcrs}
+                selectedQprForEdit={selectedQprForEdit}
+                setSelectedQprForEdit={setSelectedQprForEdit}
               />
             )}
 
@@ -640,7 +851,7 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
               />
             )}
 
-            {activeTab === "draft-cl" && (username === "accounting" || username === "admin") && (
+            {activeTab === "draft-cl" && (username === "accounting" || username === "purchasing" || username === "admin") && (
               <DraftClView
                 confirmationLetters={confirmationLetters}
                 setConfirmationLetters={setConfirmationLetters}
@@ -648,7 +859,7 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
               />
             )}
 
-            {activeTab === "confirmation-letter" && (username === "accounting" || username === "admin") && (
+            {activeTab === "confirmation-letter" && (username === "accounting" || username === "purchasing" || username === "admin") && (
               <AccountingView 
                 confirmationLetters={confirmationLetters}
                 setConfirmationLetters={setConfirmationLetters}
@@ -676,6 +887,8 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
                 confirmationLetters={confirmationLetters}
                 setConfirmationLetters={setConfirmationLetters}
                 parts={parts}
+                createdSscBillings={createdSscBillings}
+                setCreatedSscBillings={setCreatedSscBillings}
               />
             )}
 
@@ -684,6 +897,10 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
                 pendingNcrs={pendingNcrs}
                 pendingQprs={pendingQprs}
                 confirmationLetters={confirmationLetters}
+                createdSscBillings={createdSscBillings}
+                setCreatedSscBillings={setCreatedSscBillings}
+                setSelectedQprForEdit={setSelectedQprForEdit}
+                parentSetActiveTab={handleTabChange}
               />
             )}
 

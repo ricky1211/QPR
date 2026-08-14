@@ -18,7 +18,8 @@ import {
   Download,
   AlertCircle,
   ShieldAlert,
-  Printer
+  Printer,
+  Edit
 } from "lucide-react";
 
 import ClPrintPreview from "./ClPrintPreview";
@@ -51,7 +52,7 @@ const stageLabel = (type: string, requiredRole?: string, status?: string): strin
 
 interface ApprovalStage {
   name: string;
-  status: "APPROVED" | "PENDING" | "UPCOMING" | "DRAFT";
+  status: "APPROVED" | "PENDING" | "UPCOMING" | "DRAFT" | "REVISE";
 }
 
 const getApprovalStages = (
@@ -65,14 +66,26 @@ const getApprovalStages = (
     return chain.map((name, idx) => ({ name, status: idx === 0 ? "DRAFT" : "UPCOMING" }));
   }
 
-  if (status === "APPROVED" || status === "CLOSED") {
+  if (status === "APPROVED" || status === "CLOSED" || status === "CLOSED_PAID") {
     const defaultChain =
       type === "CL"
         ? ["Vendor", "Accounting"]
         : type === "NCR"
         ? ["Foreman", "Section Head", "Dept Head"]
+        : type === "SSC Billing"
+        ? ["Accounting BU", "Accounting Dept Head"]
+        : type === "SSC Payment"
+        ? ["Accounting BU", "Accounting Dept Head", "Admin Div/BOD"]
         : ["Section Head", "Dept Head", "Div Head", "Accounting"];
     return defaultChain.map((name) => ({ name, status: "APPROVED" }));
+  }
+
+  if (type === "SSC Billing" || type === "SSC Payment") {
+    const isClosed = status === "CLOSED_PAID";
+    return [
+      { name: "Created", status: "APPROVED" },
+      { name: "Close Paid", status: isClosed ? "APPROVED" : "PENDING" }
+    ];
   }
 
   if (type === "CL") {
@@ -106,6 +119,9 @@ const getApprovalStages = (
     });
   } else {
     const chain = ["Section Head", "Dept Head", "Div Head", "Accounting"];
+    if (status === "UNDER_REVISION" || status === "REVISE") {
+      return chain.map((name) => ({ name, status: "REVISE" }));
+    }
     let currentIndex = 0;
     if (requiredRole === "Dept Head") currentIndex = 1;
     if (requiredRole === "Div Head") currentIndex = 2;
@@ -128,12 +144,20 @@ interface ListQprDashboardProps {
   pendingNcrs?: any[];
   pendingQprs?: any[];
   confirmationLetters?: any[];
+  createdSscBillings?: any[];
+  setCreatedSscBillings?: React.Dispatch<React.SetStateAction<any[]>>;
+  setSelectedQprForEdit?: (qpr: any) => void;
+  parentSetActiveTab?: (tab: string) => void;
 }
 
 export default function ListQprDashboard({
   pendingNcrs = [],
   pendingQprs = [],
-  confirmationLetters = []
+  confirmationLetters = [],
+  createdSscBillings = [],
+  setCreatedSscBillings = () => {},
+  setSelectedQprForEdit = () => {},
+  parentSetActiveTab = () => {}
 }: ListQprDashboardProps) {
   // Calculate claim count for each vendor dynamically based on QPRs and Confirmation Letters
   const vendorClaimCounts = React.useMemo(() => {
@@ -182,7 +206,8 @@ export default function ListQprDashboard({
         disposition: "-",
         status: qpr.status,
         requiredRole: qpr.requiredRole,
-        approvedBy: qpr.status === "APPROVED" || qpr.status === "CLOSED" || qpr.status === "APPROVED_INTERNAL" ? ["Section Head", "Dept Head", "Div Head", "Accounting"] : []
+        approvedBy: qpr.status === "APPROVED" || qpr.status === "CLOSED" || qpr.status === "APPROVED_INTERNAL" ? ["Section Head", "Dept Head", "Div Head", "Accounting"] : [],
+        refObject: qpr
       });
     });
 
@@ -206,6 +231,52 @@ export default function ListQprDashboard({
         status: cl.status,
         requiredRole: cl.requiredRole,
         approvedBy: cl.status === "FULLY_APPROVED" || cl.status === "CLOSED_PAID" ? ["Vendor", "Accounting"] : []
+      });
+    });
+
+    // 4. Add I-Memos from createdSscBillings
+    createdSscBillings.forEach((bill) => {
+      // Split into SSC Billing vs SSC Payment representation
+      list.push({
+        id: `billing-${bill.id}`,
+        type: "SSC Billing",
+        docNumber: bill.clNumber || `BILL-${bill.id}`,
+        date: bill.dateSent || new Date().toISOString().split("T")[0],
+        vendorName: bill.supplierName || "—",
+        partNumber: "—",
+        partName: bill.memoTitle || "Manual Billing",
+        period: bill.memoPeriod || "—",
+        qty: 1,
+        reject: 0,
+        allowanceRatio: "—",
+        claimAmount: bill.amount || "Rp 0",
+        defectType: "—",
+        disposition: "—",
+        status: bill.closedPaid || bill.status === "CLOSED_PAID" ? "CLOSED_PAID" : "APPROVED",
+        requiredRole: "Closed",
+        approvedBy: ["Accounting BU", "Accounting Dept Head"],
+        refObject: bill
+      });
+
+      list.push({
+        id: `payment-${bill.id}`,
+        type: "SSC Payment",
+        docNumber: `PAY-${bill.clNumber}` || `PAY-${bill.id}`,
+        date: bill.dateSent || new Date().toISOString().split("T")[0],
+        vendorName: bill.supplierName || "—",
+        partNumber: "—",
+        partName: "Permohonan Pemotongan Invoice",
+        period: bill.memoPeriod || "—",
+        qty: 1,
+        reject: 0,
+        allowanceRatio: "—",
+        claimAmount: bill.amount || "Rp 0",
+        defectType: "—",
+        disposition: "—",
+        status: bill.closedPaid || bill.status === "CLOSED_PAID" ? "CLOSED_PAID" : "PENDING",
+        requiredRole: bill.closedPaid || bill.status === "CLOSED_PAID" ? "Closed" : "Accounting Dept Head",
+        approvedBy: bill.closedPaid || bill.status === "CLOSED_PAID" ? ["Accounting BU", "Accounting Dept Head", "Admin Div/BOD"] : [],
+        refObject: bill
       });
     });
 
@@ -499,7 +570,6 @@ export default function ListQprDashboard({
 
       {/* Tab Selector */}
       <div className="flex border-b border-slate-200">
-
         <button
           onClick={() => {
             setActiveTab("qpr");
@@ -528,13 +598,41 @@ export default function ListQprDashboard({
           <AlertCircle size={14} className="text-emerald-500" />
           ARSIP CONFIRMATION LETTER
         </button>
+        <button
+          onClick={() => {
+            setActiveTab("ssc billing");
+            setSelectedDoc(null);
+          }}
+          className={`flex-1 sm:flex-initial px-6 py-3 font-bold text-xs border-b-2 transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            activeTab === "ssc billing"
+              ? "border-blue-600 text-blue-650 bg-white"
+              : "border-transparent text-slate-500 hover:text-slate-900 bg-slate-50/50"
+          }`}
+        >
+          <FileText size={14} className="text-indigo-550" />
+          I-MEMO: SSC BILLING
+        </button>
+        <button
+          onClick={() => {
+            setActiveTab("ssc payment");
+            setSelectedDoc(null);
+          }}
+          className={`flex-1 sm:flex-initial px-6 py-3 font-bold text-xs border-b-2 transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            activeTab === "ssc payment"
+              ? "border-blue-600 text-blue-650 bg-white"
+              : "border-transparent text-slate-500 hover:text-slate-900 bg-slate-50/50"
+          }`}
+        >
+          <AlertCircle size={14} className="text-teal-550" />
+          I-MEMO: SSC PAYMENT
+        </button>
       </div>
 
       {/* Main Table List */}
       <div className="bg-white border border-slate-350 rounded-xl shadow-sm overflow-hidden">
         <div className="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
           <h4 className="text-xs font-bold text-slate-800 text-left uppercase tracking-wide">
-            {activeTab === "ncr" ? "Daftar Semua Draf & Laporan NCR" : activeTab === "qpr" ? "Daftar Semua Klaim QPR" : "Daftar Semua Confirmation Letter"}
+            {activeTab === "qpr" ? "Daftar Semua Klaim QPR" : activeTab === "cl" ? "Daftar Semua Confirmation Letter" : activeTab === "ssc billing" ? "Daftar I-Memo SSC Billing" : "Daftar I-Memo SSC Payment"}
           </h4>
           <span className="px-2.5 py-1 bg-indigo-50 text-indigo-700 text-[10px] font-bold rounded shadow-sm">
             Ditemukan: {filteredData.length} Dokumen
@@ -549,8 +647,12 @@ export default function ListQprDashboard({
                 <th className="px-4 py-3 w-28 text-center">Tanggal</th>
                 <th className="px-4 py-3">No. Dokumen</th>
                 <th className="px-4 py-3">Nama Vendor / Subcont</th>
-                <th className="px-4 py-3">Part Item</th>
-                <th className="px-4 py-3 text-right">Allowance Ratio</th>
+                {activeTab !== "ssc billing" && activeTab !== "ssc payment" && (
+                  <>
+                    <th className="px-4 py-3">Part Item</th>
+                    <th className="px-4 py-3 text-right">Allowance Ratio</th>
+                  </>
+                )}
                 <th className="px-4 py-3 text-center">Status / Tracking</th>
                 <th className="px-4 py-3 text-center w-24">Aksi</th>
               </tr>
@@ -559,7 +661,7 @@ export default function ListQprDashboard({
             <tbody className="divide-y divide-slate-200">
               {filteredData.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-5 py-12 text-center text-slate-400 font-bold italic">
+                  <td colSpan={activeTab === "ssc billing" || activeTab === "ssc payment" ? 6 : 8} className="px-5 py-12 text-center text-slate-400 font-bold italic">
                     Tidak ditemukan data arsip {activeTab.toUpperCase()} yang cocok dengan kriteria filter.
                   </td>
                 </tr>
@@ -591,19 +693,40 @@ export default function ListQprDashboard({
                           })()}
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-slate-600">
-                        {doc.partName} <span className="text-[10px] text-slate-450 font-normal font-mono ml-1">({doc.partNumber})</span>
-                      </td>
-                      <td className="px-4 py-3 text-right font-bold text-slate-600">{doc.allowanceRatio}</td>
+                      {doc.type !== "SSC Billing" && doc.type !== "SSC Payment" && (
+                        <>
+                          <td className="px-4 py-3 text-slate-600">
+                            {doc.partName} <span className="text-[10px] text-slate-450 font-normal font-mono ml-1">({doc.partNumber})</span>
+                          </td>
+                          <td className="px-4 py-3 text-right font-bold text-slate-600">
+                            {doc.allowanceRatio}
+                          </td>
+                        </>
+                      )}
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1.5 justify-center py-1">
                           {(() => {
+                            if (doc.status === "UNDER_REVISION" || doc.status === "REVISE") {
+                              return (
+                                <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-rose-50 text-rose-700 border border-rose-250 rounded-md text-[11px] font-black uppercase tracking-wider animate-pulse shadow-sm">
+                                  <AlertCircle size={12} className="text-rose-600 shrink-0" />
+                                  REVISE
+                                </span>
+                              );
+                            }
+
                             const stages = getApprovalStages(doc.type, doc.requiredRole, doc.approvedBy, doc.status);
                             let totalDaysSum = 0;
                             const stageElements = stages.map((stage, i, arr) => {
                               const stepDaysNum = stage.status === "APPROVED" ? 1 : (stage.status === "PENDING" ? (i + 1) * 2 : 0);
                               totalDaysSum += stepDaysNum;
-                              const stepDaysText = stage.status === "APPROVED" ? "1 Hari" : (stage.status === "PENDING" ? `${stepDaysNum} Hari` : "-");
+                              
+                              // Custom text for final/closed stage showing date document was created/marked
+                              let displayText = stage.name;
+                              if (stage.status === "APPROVED" && (i === arr.length - 1 || doc.status === "CLOSED_PAID")) {
+                                displayText = `${stage.name} (${doc.date})`;
+                              }
+
                               return (
                                 <React.Fragment key={i}>
                                   <span
@@ -617,13 +740,16 @@ export default function ListQprDashboard({
                                   >
                                     {stage.status === "APPROVED" && <CheckCircle2 size={10} className="text-emerald-600 shrink-0" />}
                                     {stage.status === "PENDING" && <Clock size={10} className="text-amber-500 shrink-0" />}
-                                    {stage.name}
+                                    {displayText}
                                   </span>
                                   {i < arr.length - 1 && (
                                     <div className="flex flex-col items-center justify-center shrink-0 px-1 select-none">
                                       <span className="text-slate-400 text-xs font-black leading-none">→</span>
                                       <span className="text-[8px] font-bold text-slate-500 bg-slate-100 px-1 py-0.2 rounded mt-0.5 leading-none">
-                                        {stepDaysText}
+                                        {doc.type === "SSC Payment" && i === arr.length - 2
+                                          ? "Tgl 10 Bln Depan"
+                                          : (stage.status === "APPROVED" ? "1 Hari" : (stage.status === "PENDING" ? `${stepDaysNum} Hari` : "-"))
+                                        }
                                       </span>
                                     </div>
                                   )}
@@ -636,7 +762,7 @@ export default function ListQprDashboard({
                                 {stageElements}
                                 <span className="text-slate-300 font-bold ml-1 shrink-0">|</span>
                                 <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-800 border border-blue-200 rounded-md text-[10px] font-extrabold shadow-sm shrink-0 ml-0.5">
-                                  ⏳ Total: {totalDaysSum} Hari
+                                  ⏳ Total: {doc.type === "SSC Payment" ? "Lead Time" : `${totalDaysSum} Hari`}
                                 </span>
                               </>
                             );
@@ -645,6 +771,7 @@ export default function ListQprDashboard({
                       </td>
                       <td className="px-4 py-3 text-center">
                         <div className="flex items-center justify-center gap-1.5">
+                          {/* Always show Detail button */}
                           <button
                             onClick={() => handleViewDetail(doc)}
                             className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-all cursor-pointer flex items-center gap-1 text-[10px] font-bold shadow-sm"
@@ -653,14 +780,46 @@ export default function ListQprDashboard({
                             <Eye size={12} />
                             Detail
                           </button>
-                          <button
-                            onClick={() => handleViewDetail(doc)}
-                            className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md transition-all cursor-pointer flex items-center gap-1 text-[10px] font-bold shadow-sm"
-                            title="Printout PDF Dokumen"
-                          >
-                            <Printer size={12} />
-                            Print PDF
-                          </button>
+
+                          {/* Show REVISI action button when QPR is under revision */}
+                          {doc.type === "QPR" && (doc.status === "UNDER_REVISION" || doc.status === "REVISE") && (
+                            <button
+                              onClick={() => {
+                                  if (doc.refObject) {
+                                    setSelectedQprForEdit(doc.refObject);
+                                    if (typeof window !== "undefined") {
+                                      try { sessionStorage.setItem("selectedQprForEdit", JSON.stringify(doc.refObject)); } catch {}
+                                    }
+                                    parentSetActiveTab("buat-qpr");
+                                  }
+                              }}
+                              className="px-2.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-md transition-all cursor-pointer flex items-center gap-1 text-[10px] font-bold shadow-sm animate-pulse"
+                              title="Edit & Revisi Dokumen QPR"
+                            >
+                              <Edit size={12} />
+                              Revisi
+                            </button>
+                          )}
+
+                          {/* Close Paid Manual Button for SSC Billing/Payment before Auto Date 10 */}
+                          {(doc.type === "SSC Billing" || doc.type === "SSC Payment") && doc.status !== "CLOSED_PAID" && (
+                            <button
+                              onClick={() => {
+                                const matchedId = doc.id.replace("billing-", "").replace("payment-", "");
+                                setCreatedSscBillings(prev => prev.map(bill => {
+                                  if (bill.id === matchedId) {
+                                    return { ...bill, closedPaid: true, status: "CLOSED_PAID" };
+                                  }
+                                  return bill;
+                                }));
+                                alert(`Status ${doc.type} ${doc.docNumber} berhasil diubah secara manual menjadi Close Paid.`);
+                              }}
+                              className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md transition-all cursor-pointer flex items-center gap-1 text-[10px] font-bold shadow-sm"
+                              title="Set Close Paid Secara Manual"
+                            >
+                              ✓ Close Paid
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -686,9 +845,27 @@ export default function ListQprDashboard({
             rejectItems: selectedDoc.reject,
             allowanceRatio: selectedDoc.allowanceRatio,
             claimAmount: selectedDoc.claimAmount,
-            vendorClaimCount: vendorClaimCounts[selectedDoc.vendorName] || 1
+            vendorClaimCount: vendorClaimCounts[selectedDoc.vendorName] || 1,
+            status: selectedDoc.status,
+            // Pass full QPR source data if available
+            parts: selectedDoc.refObject?.parts || [],
+            problem: selectedDoc.refObject?.problem || "",
+            claimType: selectedDoc.refObject?.claimType || [],
+            refNcrNumber: selectedDoc.refObject?.refNcrNumber || "",
+            pdfFileName: selectedDoc.refObject?.pdfFileName || null,
+            remarks: selectedDoc.refObject?.remarks || ""
           }}
           onClose={() => setSelectedDoc(null)}
+          onEditRevision={() => {
+            if (selectedDoc.refObject) {
+              setSelectedQprForEdit(selectedDoc.refObject);
+              if (typeof window !== "undefined") {
+                try { sessionStorage.setItem("selectedQprForEdit", JSON.stringify(selectedDoc.refObject)); } catch {}
+              }
+              parentSetActiveTab("buat-qpr");
+              setSelectedDoc(null);
+            }
+          }}
         />
       )}
 
@@ -697,6 +874,472 @@ export default function ListQprDashboard({
           cl={selectedDoc}
           onClose={() => setSelectedDoc(null)}
         />
+      )}
+
+      {selectedDoc && (selectedDoc.type === "SSC Billing" || selectedDoc.type === "SSC Payment") && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-slate-100 rounded-xl w-full max-w-4xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]">
+            <div className="p-4 bg-slate-800 text-white flex justify-between items-center shrink-0">
+              <div>
+                <h3 className="text-sm font-extrabold uppercase tracking-wider">Detail Internal Memo ({selectedDoc.type})</h3>
+                <p className="text-[10px] text-slate-400 font-bold mt-0.5">{selectedDoc.docNumber} | {selectedDoc.vendorName}</p>
+              </div>
+              <button
+                onClick={() => setSelectedDoc(null)}
+                className="w-7 h-7 rounded-full bg-slate-700 hover:bg-slate-600 text-white font-bold flex items-center justify-center transition-colors cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto bg-slate-200 flex justify-center shadow-inner print:p-0 print:bg-white">
+              {selectedDoc.type === "SSC Billing" ? (
+                <div 
+                  id="internal-memo-sheet"
+                  className="bg-white text-black p-[12mm] shadow-lg border border-slate-450 w-[210mm] min-h-[297mm] text-left mx-auto relative flex flex-col print:shadow-none print:border-none print:w-[198mm] print:h-[280mm] print:p-[8mm] print:m-0"
+                  style={{ fontFamily: 'Arial, sans-serif', lineHeight: '1.2' }}
+                >
+                  {/* Top Section */}
+                  <div className="flex justify-between items-start mb-6">
+                    <div className="space-y-1.5 w-[55%]">
+                      <div className="flex text-xs items-center">
+                        <span className="font-bold w-24 shrink-0 font-sans">Company</span>
+                        <span className="mr-2">:</span>
+                        <span className="font-bold border-b border-black flex-1 min-h-[16px]">{selectedDoc.refObject?.memoCompany || "PT. MENARA TERUS MAKMUR"}</span>
+                      </div>
+                      <div className="flex text-xs items-center">
+                        <span className="font-bold w-24 shrink-0 font-sans">Business Area</span>
+                        <span className="mr-2">:</span>
+                        <span className="font-bold border-b border-black flex-1 min-h-[16px]">{selectedDoc.refObject?.memoBusinessArea || "MT"}</span>
+                      </div>
+                      <div className="flex text-xs items-center">
+                        <span className="font-bold w-24 shrink-0 font-sans">Request Date</span>
+                        <span className="mr-2">:</span>
+                        <div className="flex items-center gap-0.5 font-bold font-mono text-xs select-none border-b border-black flex-1 pb-0.5">
+                          {(selectedDoc.refObject?.memoRequestDate || selectedDoc.date || "").replace(/[^0-9]/g, "").slice(0, 8).padEnd(8, " ").split("").map((char, charIdx) => (
+                            <React.Fragment key={charIdx}>
+                              <span className="w-3.5 h-4.5 border border-black flex items-center justify-center bg-white text-black text-[10px]">{char}</span>
+                              {(charIdx === 1 || charIdx === 3) && <span className="mx-0.5">/</span>}
+                            </React.Fragment>
+                          ))}
+                          <span className="text-[8px] text-slate-400 font-sans font-normal ml-2">(dd/mm/yyyy)</span>
+                        </div>
+                      </div>
+                      <div className="flex text-xs items-center">
+                        <span className="font-bold w-24 shrink-0 font-sans">Billing Type</span>
+                        <span className="mr-2">:</span>
+                        <div className="flex items-center gap-4 border-b border-black flex-1 pb-0.5">
+                          <label className="flex items-center gap-1 font-bold text-[10px]">
+                            <span className={`w-3.5 h-3.5 border border-black flex items-center justify-center text-[9px] ${(!selectedDoc.refObject?.memoBillingType || selectedDoc.refObject?.memoBillingType === "One Time") ? "bg-black text-white" : ""}`}>
+                              {(!selectedDoc.refObject?.memoBillingType || selectedDoc.refObject?.memoBillingType === "One Time") ? "✓" : ""}
+                            </span>
+                            One Time
+                          </label>
+                          <label className="flex items-center gap-1 font-bold text-[10px]">
+                            <span className={`w-3.5 h-3.5 border border-black flex items-center justify-center text-[9px] ${(selectedDoc.refObject?.memoBillingType === "Recurring") ? "bg-black text-white" : ""}`}>
+                              {(selectedDoc.refObject?.memoBillingType === "Recurring") ? "✓" : ""}
+                            </span>
+                            Recurring
+                          </label>
+                          <div className="flex items-center gap-1 ml-auto">
+                            <span className="font-sans text-[8px] text-slate-500 font-bold">Period *) (mm/yy):</span>
+                            {(selectedDoc.refObject?.memoPeriod || selectedDoc.period || "").replace(/[^0-9]/g, "").slice(0, 4).padEnd(4, " ").split("").map((char, charIdx) => (
+                              <React.Fragment key={charIdx}>
+                                <span className="w-3 h-4 border border-black flex items-center justify-center bg-white text-black text-[9px] font-mono">{char}</span>
+                                {charIdx === 1 && <span className="mx-0.5">/</span>}
+                              </React.Fragment>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="w-[185px] h-[52px] border border-dashed border-black/80 flex flex-col items-center justify-center p-2 text-center text-black/75">
+                      <span className="text-[7px] font-bold tracking-widest leading-none font-sans">PLEASE PUT <span className="underline font-black">FA01 BARCODE</span> HERE</span>
+                    </div>
+                  </div>
+
+                  <div className="text-center mb-6">
+                    <h2 className="text-sm font-extrabold tracking-wider border-b border-black pb-0.5 inline-block uppercase text-black font-sans">
+                      INTERNAL MEMO - MANUAL BILLING TO CUSTOMER
+                    </h2>
+                  </div>
+
+                  <div className="border border-black flex flex-col divide-y divide-black text-[10.5px] mb-4">
+                    <div className="flex divide-x divide-black">
+                      <div className="w-[180px] p-2 font-bold bg-slate-50/50 shrink-0 font-sans">Title</div>
+                      <div className="flex-1 p-2 font-bold bg-white min-h-[28px] uppercase">{selectedDoc.refObject?.memoTitle || "PERMINTAAN PEMBUATAN INVOICE CLAIM NG PART"}</div>
+                    </div>
+                    <div className="flex divide-x divide-black">
+                      <div className="w-[180px] p-2 font-bold bg-slate-50/50 shrink-0 font-sans">Request Addressed to</div>
+                      <div className="flex-1 p-2 font-semibold bg-white min-h-[28px]">{selectedDoc.refObject?.memoRequestTo || "SSC Billing"}</div>
+                    </div>
+                    <div className="flex divide-x divide-black">
+                      <div className="w-[180px] p-2 font-bold bg-slate-50/50 shrink-0 font-sans">Description</div>
+                      <div className="flex-1 p-2 bg-white min-h-[48px] font-semibold leading-relaxed">{selectedDoc.refObject?.memoDescription || "Mohon dibuatkan Invoice untuk Claim Part NG"}</div>
+                    </div>
+                    <div className="flex divide-x divide-black items-center">
+                      <div className="w-[180px] p-2 font-bold bg-slate-50/50 shrink-0 font-sans">Customer Type</div>
+                      <div className="flex-1 p-2 flex items-center justify-between bg-white min-h-[28px]">
+                        <div className="flex items-center gap-4">
+                          <label className="flex items-center gap-1 font-bold">
+                            <span className={`w-3.5 h-3.5 border border-black flex items-center justify-center text-[10px] ${(selectedDoc.refObject?.memoCustomerType === "PKP" || !selectedDoc.refObject?.memoCustomerType) ? "bg-black text-white" : ""}`}>
+                              {(selectedDoc.refObject?.memoCustomerType === "PKP" || !selectedDoc.refObject?.memoCustomerType) ? "✓" : ""}
+                            </span>
+                            PKP
+                          </label>
+                          <label className="flex items-center gap-1 font-bold">
+                            <span className={`w-3.5 h-3.5 border border-black flex items-center justify-center text-[10px] ${selectedDoc.refObject?.memoCustomerType === "Non PKP" ? "bg-black text-white" : ""}`}>
+                              {selectedDoc.refObject?.memoCustomerType === "Non PKP" ? "✓" : ""}
+                            </span>
+                            Non PKP
+                          </label>
+                        </div>
+                        <div className="flex items-center gap-1.5 mr-2 font-sans">
+                          <span className="font-bold">NPWP:</span>
+                          <div className="flex items-center gap-0.5 font-bold font-mono text-[10px] select-none">
+                            {(selectedDoc.refObject?.memoNpwp || "815710249408000").replace(/[^0-9]/g, "").slice(0, 15).padEnd(15, " ").split("").map((char, charIdx) => (
+                              <React.Fragment key={charIdx}>
+                                <span className="w-3 h-4 border border-black flex items-center justify-center bg-white text-black text-[9px] font-mono">{char}</span>
+                                {(charIdx === 1 || charIdx === 4 || charIdx === 7 || charIdx === 8 || charIdx === 11) && <span className="mx-0.2">-</span>}
+                              </React.Fragment>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex py-1 px-2 text-[9px] text-slate-500 font-semibold bg-slate-50 italic font-sans">
+                      *lampirkan NPWP u/ customer yg belum terdaftar pada customer master (OTC)
+                    </div>
+                    <div className="flex divide-x divide-black">
+                      <div className="w-[180px] p-2 font-bold bg-slate-50/50 shrink-0 font-sans">Supporting Document</div>
+                      <div className="flex-1 p-2 bg-white font-semibold">{selectedDoc.refObject?.memoSupportingDoc || "-"}</div>
+                    </div>
+                    <div className="flex divide-x divide-black">
+                      <div className="w-[180px] p-2 font-bold bg-slate-50/50 shrink-0 font-sans">Billing Addressed to</div>
+                      <div className="flex-1 p-2 bg-white font-semibold min-h-[28px]">{selectedDoc.refObject?.memoBillingAddressedTo || ""}</div>
+                    </div>
+                    <div className="flex divide-x divide-black">
+                      <div className="w-[180px] p-2 font-bold bg-slate-50/50 shrink-0 font-sans">Customer Name</div>
+                      <div className="flex-1 p-2 bg-white font-extrabold text-[12px] uppercase min-h-[28px]">{selectedDoc.refObject?.memoCustomerName || selectedDoc.vendorName}</div>
+                    </div>
+                    <div className="flex divide-x divide-black items-center">
+                      <div className="w-[180px] p-2 font-bold bg-slate-50/50 shrink-0 font-sans">Currency</div>
+                      <div className="flex-1 p-2 bg-white flex items-center gap-0.5 min-h-[28px]">
+                        {(selectedDoc.refObject?.memoCurrency || "IDR").split("").map((c, i) => (
+                          <span key={i} className="w-3.5 h-4.5 border border-black flex items-center justify-center bg-white text-black text-[9px] font-bold font-mono">{c}</span>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex divide-x divide-black">
+                      <div className="w-[180px] p-2 font-bold bg-slate-50/50 shrink-0 font-sans">Amount</div>
+                      <div className="flex-1 p-2 bg-white font-extrabold text-[12px] min-h-[28px]">{selectedDoc.claimAmount}</div>
+                    </div>
+                    <div className="flex divide-x divide-black">
+                      <div className="w-[180px] p-2 font-bold bg-slate-50/50 shrink-0 font-sans">Says</div>
+                      <div className="flex-1 p-2 bg-white font-semibold italic min-h-[28px]">{selectedDoc.refObject?.memoSays || ""}</div>
+                    </div>
+                  </div>
+
+                  {/* Data Accounting Block */}
+                  <div className="border border-black text-[10.5px] mb-4 font-sans">
+                    <div className="p-1.5 font-extrabold bg-slate-100 border-b border-black uppercase tracking-wider text-[8px] font-sans">
+                      DATA ACCOUNTING (Filled In by Accounting BU)
+                    </div>
+                    <div className="grid grid-cols-2 divide-x divide-black">
+                      <div className="flex flex-col divide-y divide-black">
+                        <div className="flex items-center p-1.5 gap-2">
+                          <span className="font-bold w-[120px] shrink-0 font-sans">Customer Code</span>
+                          <span className="mr-1.5 font-sans">:</span>
+                          <div className="flex items-center gap-0.5 font-bold font-mono text-xs select-none">
+                            {(selectedDoc.refObject?.acctCustomerCode || "OTC08002").split("").map((char, charIdx) => (
+                              <span key={charIdx} className="w-3.5 h-4.5 border border-black flex items-center justify-center bg-white text-black text-[10px]">{char}</span>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="flex items-center p-1.5 font-sans gap-2">
+                          <span className="font-bold w-[120px] shrink-0 font-sans">Customer Type</span>
+                          <span className="mr-1.5 font-sans">:</span>
+                          <div className="flex items-center gap-3">
+                            <label className="flex items-center gap-1 font-bold">
+                              <span className={`w-3.5 h-3.5 border border-black flex items-center justify-center text-[10px] ${selectedDoc.refObject?.acctCustomerType === "Trade" ? "bg-black text-white" : ""}`}>
+                                {selectedDoc.refObject?.acctCustomerType === "Trade" ? "✓" : ""}
+                              </span>
+                              Trade
+                            </label>
+                            <label className="flex items-center gap-1 font-bold">
+                              <span className={`w-3.5 h-3.5 border border-black flex items-center justify-center text-[10px] ${(selectedDoc.refObject?.acctCustomerType === "Non Trade" || !selectedDoc.refObject?.acctCustomerType) ? "bg-black text-white" : ""}`}>
+                                {(selectedDoc.refObject?.acctCustomerType === "Non Trade" || !selectedDoc.refObject?.acctCustomerType) ? "✓" : ""}
+                              </span>
+                              Non Trade
+                            </label>
+                          </div>
+                        </div>
+                        <div className="flex items-center p-1.5 font-sans gap-2">
+                          <span className="font-bold w-[120px] shrink-0 font-sans">Trading Partner</span>
+                          <span className="mr-1.5 font-sans">:</span>
+                          <div className="flex items-center gap-0.5 font-bold font-mono text-xs select-none">
+                            {(selectedDoc.refObject?.acctTradingPartner || "").padEnd(5, " ").split("").map((char, charIdx) => (
+                              <span key={charIdx} className="w-3.5 h-4.5 border border-black flex items-center justify-center bg-white text-black text-[10px]">{char}</span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex flex-col divide-y divide-black font-sans">
+                        <div className="flex items-center p-2 min-h-[32px] font-sans gap-2">
+                          <span className="font-bold w-[120px] shrink-0 font-sans">Exchange Rate*</span>
+                          <span className="mr-1.5 font-sans">:</span>
+                          <span className="font-semibold">{selectedDoc.refObject?.acctExchangeRate || "—"}</span>
+                        </div>
+                        <div className="flex items-center p-2 min-h-[32px] font-sans gap-2">
+                          <span className="font-bold w-[120px] shrink-0 font-sans">Journal</span>
+                          <span className="mr-1.5 font-sans">:</span>
+                          <span className="font-semibold">{selectedDoc.refObject?.acctJournal || "—"}</span>
+                        </div>
+                        <div className="p-1.5 px-2 text-[7.5px] text-slate-500 italic bg-slate-50/50 flex-1 flex items-center leading-normal font-sans">
+                          *if foreign currency applied and exchange rate is left blank, then exchange rate at SAP will be used
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* GL Account Table matching requested image */}
+                  <div className="border border-black overflow-hidden mb-6 text-[10px]">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-[#f08a00] text-white uppercase font-extrabold border-b border-black text-center text-[8px] tracking-wider font-sans">
+                          <th className="border-r border-black p-1.5 w-[110px]">GL Account Code</th>
+                          <th className="border-r border-black p-1.5">GL Account Name</th>
+                          <th className="border-r border-black p-1.5 w-[90px]">Cost Center</th>
+                          <th className="border-r border-black p-1.5 w-[95px]">Amount (Dr.)</th>
+                          <th className="border-r border-black p-1.5 w-[95px]">Amount (Cr.)</th>
+                          <th className="p-1.5 w-[130px]">Text</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(() => {
+                          const defaultGlRows = [
+                            { code: "OTC08002", name: "PT TEMARU ENGINEER", costCenter: "", amountDr: selectedDoc.claimAmount.replace("Rp ", ""), amountCr: "", text: "Claim Part NG" },
+                            { code: "545-102-0000", name: "FOH Subcont Fee", costCenter: "MT015FOHGE", amountDr: "", amountCr: (parseFloat(selectedDoc.claimAmount.replace(/[^0-9]/g, "")) * 0.9).toLocaleString("id-ID"), text: "Claim Part NG" },
+                            { code: "211-310-0000", name: "Tax Pay VAT Out", costCenter: "", amountDr: "", amountCr: (parseFloat(selectedDoc.claimAmount.replace(/[^0-9]/g, "")) * 0.1).toLocaleString("id-ID"), text: "ppn 11%" }
+                          ];
+                          const rows = selectedDoc.refObject?.glRows && selectedDoc.refObject.glRows.length > 0 ? selectedDoc.refObject.glRows : defaultGlRows;
+                          return Array.from({ length: Math.max(5, rows.length) }).map((_, i) => {
+                            const row = rows[i] || { code: "", name: "", costCenter: "", amountDr: "", amountCr: "", text: "" };
+                            return (
+                              <tr key={i} className="border-b border-black font-semibold h-[24px] text-black">
+                                <td className="border-r border-black p-1 text-center font-mono">{row.code}</td>
+                                <td className="border-r border-black p-1 text-left font-sans">{row.name}</td>
+                                <td className="border-r border-black p-1 text-center font-mono">{row.costCenter}</td>
+                                <td className="border-r border-black p-1 text-right font-mono">{row.amountDr}</td>
+                                <td className="border-r border-black p-1 text-right font-mono">{row.amountCr}</td>
+                                <td className="p-1 text-left font-sans">{row.text}</td>
+                              </tr>
+                            );
+                          });
+                        })()}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Dynamic Signature box panel (5 columns layout) */}
+                  <div className="border border-black overflow-hidden mb-6 text-[10px] mt-auto font-sans">
+                    <div className="grid grid-cols-5 text-center divide-x divide-black font-bold font-sans">
+                      <div className="p-1 border-b border-black bg-slate-50/50">Prepared by <sup>1)</sup></div>
+                      <div className="p-1 border-b border-black bg-slate-50/50 col-span-2">Approved by <sup>1)</sup></div>
+                      <div className="p-1 border-b border-black bg-slate-50/50">Entry by <sup>1)</sup></div>
+                      <div className="p-1 border-b border-black bg-slate-50/50">Checked by <sup>1)</sup></div>
+                    </div>
+                    <div className="grid grid-cols-5 text-center divide-x divide-black h-[58px] items-end pb-2 bg-white">
+                      <div className="px-1 text-center font-sans font-bold border-b border-dashed border-slate-350 mx-1">{selectedDoc.refObject?.sigPrepared || "Bagas"}</div>
+                      <div className="px-1 text-center font-sans font-bold border-b border-dashed border-slate-350 mx-1">{selectedDoc.refObject?.sigApproved1 || "Anindita"}</div>
+                      <div className="px-1 text-center font-sans font-bold border-b border-dashed border-slate-350 mx-1">{selectedDoc.refObject?.sigApproved2 || "Evi Sulistyorini"}</div>
+                      <div className="px-1 text-center font-sans font-bold border-b border-dashed border-slate-350 mx-1">{selectedDoc.refObject?.sigEntry || "—"}</div>
+                      <div className="px-1 text-center font-sans font-bold border-b border-dashed border-slate-350 mx-1">{selectedDoc.refObject?.sigChecked || "—"}</div>
+                    </div>
+                    <div className="grid grid-cols-5 text-center divide-x divide-black text-[9px] font-bold text-white bg-blue-600/90 border-t border-black font-sans">
+                      <div className="p-1 py-1.5 truncate text-center">Accounting BU</div>
+                      <div className="p-1 py-1.5 truncate text-center">Accounting Dept Head</div>
+                      <div className="p-1 py-1.5 truncate text-center">Admin Div/BOD</div>
+                      <div className="p-1 py-1.5 truncate text-center">SSC Billing Admin</div>
+                      <div className="p-1 py-1.5 truncate text-center">AR Function Lead</div>
+                    </div>
+                  </div>
+
+                  {/* Footer / Remark */}
+                  <div className="text-[8px] text-slate-500 leading-tight space-y-0.5 font-sans">
+                    <div><strong>Remark:</strong></div>
+                    <div>*) Only filled if billing type is recurring</div>
+                    <div>1) Every signing person must write down his / her full name in the grey box and his/her function in the blue box</div>
+                    <div className="flex justify-between pt-2 border-t border-slate-200 mt-2 text-[7.5px] font-mono text-slate-450 font-sans">
+                      <span>Approved by System {new Date(selectedDoc.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} 17:02</span>
+                      <span>Internal Memo - Onetime Billing {selectedDoc.refObject?.acctCustomerCode || "TEIN"}1 of 1</span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div 
+                  id="internal-memo-sheet"
+                  className="bg-white text-black p-[12mm] shadow-lg border border-slate-455 w-[210mm] min-h-[297mm] text-left mx-auto relative flex flex-col print:shadow-none print:border-none print:w-[198mm] print:h-[280mm] print:p-[8mm] print:m-0"
+                  style={{ fontFamily: 'Arial, sans-serif', lineHeight: '1.2' }}
+                >
+                  <div className="flex justify-between items-start mb-6">
+                    <div className="space-y-1.5 w-[55%]">
+                      <div className="flex text-xs">
+                        <span className="font-bold w-24 shrink-0 font-sans">Company</span>
+                        <span className="mr-2">:</span>
+                        <span className="font-bold border-b border-black flex-1 min-h-[16px]">{selectedDoc.refObject?.memoCompany || "PT. MENARA TERUS MAKMUR"}</span>
+                      </div>
+                      <div className="flex text-xs">
+                        <span className="font-bold w-24 shrink-0 font-sans">Business Area</span>
+                        <span className="mr-2">:</span>
+                        <span className="font-bold border-b border-black flex-1 min-h-[16px]">{selectedDoc.refObject?.memoBusinessArea || "MT"}</span>
+                      </div>
+                      <div className="flex text-xs">
+                        <span className="font-bold w-24 shrink-0 font-sans">Request Date</span>
+                        <span className="mr-2">:</span>
+                        <div className="flex items-center gap-0.5 font-bold font-mono text-xs select-none border-b border-black flex-1 pb-0.5">
+                          {(selectedDoc.refObject?.memoRequestDate || selectedDoc.date || "").replace(/[^0-9]/g, "").slice(0, 8).padEnd(8, " ").split("").map((char, charIdx) => (
+                            <React.Fragment key={charIdx}>
+                              <span className="w-3.5 h-4.5 border border-black flex items-center justify-center bg-white text-black text-[10px]">{char}</span>
+                              {(charIdx === 1 || charIdx === 3) && <span className="mx-0.5">/</span>}
+                            </React.Fragment>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="w-[185px] h-[52px] border border-dashed border-black/80 flex flex-col items-center justify-center p-2 text-center text-black/75">
+                      <span className="text-[7px] font-bold tracking-widest leading-none font-sans">PLEASE PUT <span className="underline font-black">FA BARCODE</span> HERE</span>
+                    </div>
+                  </div>
+
+                  <div className="text-center mb-6">
+                    <h2 className="text-sm font-extrabold tracking-wider border-b border-black pb-0.5 inline-block uppercase text-black font-sans">
+                      INTERNAL MEMO - OTHERS
+                    </h2>
+                  </div>
+
+                  <div className="border border-black flex flex-col divide-y divide-black text-[11px] mb-4">
+                    <div className="flex divide-x divide-black">
+                      <div className="w-[180px] p-2 font-bold bg-slate-50/50 shrink-0 font-sans">Title</div>
+                      <div className="flex-1 p-2 font-bold bg-white min-h-[28px] uppercase">{selectedDoc.refObject?.memoTitle || "Permintaan Pemotongan Tagihan Reject Vendor"}</div>
+                    </div>
+                    <div className="flex divide-x divide-black">
+                      <div className="w-[180px] p-2 font-bold bg-slate-50/50 shrink-0 font-sans">To</div>
+                      <div className="flex-1 p-2 font-semibold bg-white min-h-[28px]">SSC Invoicing & Payment</div>
+                    </div>
+                    <div className="flex divide-x divide-black">
+                      <div className="w-[180px] p-2 font-bold bg-slate-50/50 shrink-0 font-sans">Instruction</div>
+                      <div className="flex-1 p-2 bg-white leading-relaxed font-sans pr-4">{selectedDoc.refObject?.memoInstruction || `Mohon diproses untuk pemotongan tagihan terhadap vendor PT JAYADI sebesar ${selectedDoc.claimAmount} atas denda kualitas reject part.`}</div>
+                    </div>
+                    
+                    {/* Gold nested table matching ssc payment template preview */}
+                    <div className="w-full p-2 bg-white flex flex-col font-sans">
+                      <div className="pl-16 pr-2 py-2">
+                        <table className="w-full text-[9px] border-collapse border border-black">
+                          <thead>
+                            <tr className="text-black border border-black text-[8.5px] text-center font-bold">
+                              <th className="border border-black px-1.5 py-1 font-bold" style={{ backgroundColor: '#f2c811' }}>Customer</th>
+                              <th className="border border-black px-1.5 py-1 font-bold" style={{ backgroundColor: '#f2c811' }}>DocumentNo</th>
+                              <th className="border border-black px-1.5 py-1 font-bold" style={{ backgroundColor: '#f2c811' }}>Text</th>
+                              <th className="border border-black px-1.5 py-1 font-bold" style={{ backgroundColor: '#f2c811' }}>Vendor</th>
+                              <th className="border border-black px-1.5 py-1 font-bold" style={{ backgroundColor: '#f2c811' }}>Doc. Date</th>
+                              <th className="border border-black px-1.5 py-1 text-right font-bold" style={{ backgroundColor: '#f2c811' }}>Local Crcy Amt</th>
+                              <th className="border border-black px-1.5 py-1 font-bold" style={{ backgroundColor: '#f2c811' }}>Potong tagih payment date</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr className="bg-white border border-black text-black">
+                              <td className="border border-black px-1.5 py-1 text-center font-mono font-bold">OTC08002</td>
+                              <td className="border border-black px-1.5 py-1 text-center font-mono font-bold">{selectedDoc.docNumber.replace("PAY-", "")}</td>
+                              <td className="border border-black px-1.5 py-1 text-left font-mono font-bold uppercase">POTONG TAGIH DENDA REJECT</td>
+                              <td className="border border-black px-1.5 py-1 text-left font-sans font-bold">{selectedDoc.vendorName}</td>
+                              <td className="border border-black px-1.5 py-1 text-center font-mono font-semibold">{selectedDoc.date}</td>
+                              <td className="border border-black px-1.5 py-1 text-right font-mono font-bold">{selectedDoc.claimAmount.replace("Rp ", "")}</td>
+                              <td className="border border-black px-1.5 py-1 text-center font-mono font-bold">10/{parseInt(selectedDoc.date.split("/")[1] || "6") + 1}/26</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-auto border border-black overflow-hidden mb-6 text-[10px] font-sans">
+                    <div className="grid grid-cols-4 text-center divide-x divide-black font-bold bg-slate-50 border-b border-black">
+                      <div className="p-1">Prepared By</div>
+                      <div className="p-1 col-span-2">Approved By</div>
+                      <div className="p-1">Entry By</div>
+                    </div>
+                    <div className="grid grid-cols-4 text-center divide-x divide-black text-[9px] font-bold text-black h-8 items-center bg-[#d9d9d9]">
+                      <div className="p-0.5">{selectedDoc.refObject?.sigPrepared || "Bagas"}</div>
+                      <div className="p-0.5">{selectedDoc.refObject?.sigApproved1 || "Anindita"}</div>
+                      <div className="p-0.5">{selectedDoc.refObject?.sigApproved2 || "Evi Sulistyorini"}</div>
+                      <div className="p-0.5">{selectedDoc.refObject?.sigEntry || "—"}</div>
+                    </div>
+                    <div className="grid grid-cols-4 text-center divide-x divide-black text-[9px] font-bold text-white bg-blue-600/90 border-t border-black font-sans">
+                      <div className="p-1 py-1.5">Accounting BU</div>
+                      <div className="p-1 py-1.5">Accounting Dept Head</div>
+                      <div className="p-1 py-1.5">Admin Div/BOD</div>
+                      <div className="p-1 py-1.5">Entry By Function</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-2 shrink-0 print:hidden">
+              <button
+                onClick={() => window.print()}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg shadow-md transition-all cursor-pointer active:scale-95"
+              >
+                Print PDF
+              </button>
+              <button
+                onClick={() => setSelectedDoc(null)}
+                className="px-4 py-2 bg-white hover:bg-slate-150 text-slate-700 border border-slate-300 font-bold text-xs rounded-lg shadow-sm transition-all cursor-pointer active:scale-95"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+          <style>{`
+            @media print {
+              @page {
+                size: A4 portrait;
+                margin: 6mm !important;
+              }
+              html, body {
+                height: auto;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: #fff !important;
+              }
+              body * { visibility: hidden; }
+              #internal-memo-sheet, #internal-memo-sheet * { visibility: visible; }
+              #internal-memo-sheet {
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 198mm !important;
+                height: 280mm !important;
+                min-height: 0 !important;
+                margin: 0 auto !important;
+                padding: 4mm !important;
+                border: 1px solid #000 !important;
+                box-shadow: none !important;
+                box-sizing: border-box !important;
+                page-break-inside: avoid !important;
+                transform: scale(0.85) !important;
+                transform-origin: top center !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
+              #internal-memo-sheet * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
+            }
+          `}</style>
+        </div>
       )}
 
 

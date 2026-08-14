@@ -15,11 +15,12 @@ import {
   ListTodo,
   TrendingDown,
   ArrowRight,
-  Shield
+  Shield,
+  Bell
 } from "lucide-react";
 import QprPrintPreview from "./QprPrintPreview";
 
-export default function ApproveQprDashboard({ pendingQprs, handleApproveQprAction, username = "admin" }) {
+export default function ApproveQprDashboard({ pendingQprs, handleApproveQprAction, username = "admin", setNotifications = null }) {
   const getInitialTab = () => {
     if (username === "sectionhead") return "section-head";
     if (username === "depthead") return "dept-head";
@@ -46,6 +47,7 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
   // Modal states
   const [selectedQpr, setSelectedQpr] = useState<any>(null);
   const [previewQpr, setPreviewQpr] = useState<any>(null);
+  const [approvalComment, setApprovalComment] = useState("");
 
   // Calculate claim count for each vendor dynamically based on QPRs
   const vendorClaimCounts = React.useMemo(() => {
@@ -523,32 +525,45 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
                     <span className="text-xs text-slate-450 block mt-0.5">Periode Transaksi: {selectedQpr.period}</span>
                   </div>
 
+                {/* Authorization chain - dynamic based on QPR requiredRole */}
                   <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 text-[11px] space-y-2.5">
                     <span className="text-[9px] font-black text-slate-455 uppercase tracking-widest block">
                       Rantai Otorisasi QPR (Signatures)
                     </span>
                     <div className="space-y-3 divide-y divide-slate-150">
-                      <div className="flex justify-between items-center pt-2.5 first:pt-0">
-                        <span className="font-bold text-slate-700">1. Section Head</span>
-                        <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-emerald-50 text-emerald-700">Signed (Heru S.)</span>
-                      </div>
-                      <div className="flex justify-between items-center pt-2.5">
-                        <span className="font-bold text-slate-700">2. Dept Head</span>
-                        <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase ${
-                          levelTab !== "section-head" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
-                        }`}>
-                          {levelTab !== "section-head" ? "Signed (Putu R.S.)" : "PENDING"}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center pt-2.5">
-                        <span className="font-bold text-slate-700">3. Div Head</span>
-                        <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase ${
-                          levelTab !== "section-head" && levelTab !== "dept-head" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
-                        }`}>
-                          {levelTab !== "section-head" && levelTab !== "dept-head" ? "Signed (Arif T.W.)" : "PENDING"}
-                        </span>
-                      </div>
+                      {[
+                        { label: "1. Section Head", doneWhen: ["Dept Head", "Div Head", "Closed", "CLOSED", "Vendor"] },
+                        { label: "2. Dept Head",    doneWhen: ["Div Head", "Closed", "CLOSED", "Vendor"] },
+                        { label: "3. Div Head",     doneWhen: ["Closed", "CLOSED", "Vendor", "Approved"] },
+                      ].map((step) => {
+                        const isDone = step.doneWhen.includes(selectedQpr.requiredRole) || selectedQpr.status === "CLOSED" || selectedQpr.status === "APPROVED";
+                        const isPending = !isDone;
+                        return (
+                          <div key={step.label} className="flex justify-between items-center pt-2.5 first:pt-0">
+                            <span className="font-bold text-slate-700">{step.label}</span>
+                            <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase ${
+                              isDone ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
+                            }`}>
+                              {isDone ? "✓ Signed" : "PENDING"}
+                            </span>
+                          </div>
+                        );
+                      })}
                     </div>
+                  </div>
+
+                  {/* Approval Notes */}
+                  <div className="space-y-1.5 pt-2">
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                      Catatan / Notes Otorisasi (Manual)
+                    </label>
+                    <textarea
+                      value={approvalComment}
+                      onChange={(e) => setApprovalComment(e.target.value)}
+                      placeholder="Tulis alasan untuk Revise/Reject atau instruksi tambahan..."
+                      rows={3}
+                      className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-slate-800 font-semibold"
+                    />
                   </div>
 
                   <div className="p-3.5 bg-blue-50/30 border border-blue-100/50 rounded-lg text-[10px] text-slate-550 leading-relaxed">
@@ -560,25 +575,72 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
               </div>
             </div>
 
-            <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex justify-between items-center gap-2">
-              <button
-                onClick={() => setPreviewQpr(selectedQpr)}
-                className="flex items-center gap-1.5 px-4 py-2 border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-md text-xs font-bold transition-colors cursor-pointer"
-              >
-                <FileText size={13} />
-                Preview Form QPR
-              </button>
+              <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
               <div className="flex gap-2">
+                <button
+                  onClick={() => setPreviewQpr(selectedQpr)}
+                  className="flex items-center justify-center gap-1.5 px-4 py-2 border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-md text-xs font-bold transition-colors cursor-pointer"
+                >
+                  <FileText size={13} />
+                  Preview Form QPR
+                </button>
+                {/* Reminder Button */}
+                <button
+                  onClick={() => {
+                    const nextRole = selectedQpr.requiredRole || "Section Head";
+                    const msg = `🔔 REMINDER: Dokumen QPR ${selectedQpr.qprNumber} (${selectedQpr.supplierName}) menunggu persetujuan Anda sebagai ${nextRole}. Harap segera lakukan review.`;
+                    if (setNotifications) {
+                      setNotifications((prev: any[]) => [{
+                        id: Date.now(),
+                        message: msg,
+                        time: "Baru saja",
+                        type: "info",
+                        unread: true
+                      }, ...prev]);
+                    }
+                    alert(`Reminder berhasil dikirim ke ${nextRole}!\n\n"${msg}"`);
+                  }}
+                  className="flex items-center justify-center gap-1.5 px-4 py-2 border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-md text-xs font-bold transition-colors cursor-pointer"
+                >
+                  <Bell size={13} />
+                  Kirim Reminder
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-2 justify-end">
                 <button 
-                  onClick={() => setSelectedQpr(null)} 
+                  onClick={() => {
+                    setSelectedQpr(null);
+                    setApprovalComment("");
+                  }} 
                   className="px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-md text-xs font-bold transition-colors cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   onClick={() => {
-                    handleApproveQprAction(selectedQpr.id, selectedQpr.qprNumber);
+                    handleApproveQprAction(selectedQpr.id, selectedQpr.qprNumber, "REVISE", approvalComment);
                     setSelectedQpr(null);
+                    setApprovalComment("");
+                  }}
+                  className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-md font-bold text-xs shadow-md transition-colors cursor-pointer"
+                >
+                  Revise
+                </button>
+                <button
+                  onClick={() => {
+                    handleApproveQprAction(selectedQpr.id, selectedQpr.qprNumber, "REJECT", approvalComment);
+                    setSelectedQpr(null);
+                    setApprovalComment("");
+                  }}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md font-bold text-xs shadow-md transition-colors cursor-pointer"
+                >
+                  Reject
+                </button>
+                <button
+                  onClick={() => {
+                    handleApproveQprAction(selectedQpr.id, selectedQpr.qprNumber, "APPROVE", approvalComment);
+                    setSelectedQpr(null);
+                    setApprovalComment("");
                   }}
                   className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-bold text-xs shadow-md shadow-blue-500/10 transition-colors cursor-pointer"
                 >

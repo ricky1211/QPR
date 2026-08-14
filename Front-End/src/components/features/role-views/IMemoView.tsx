@@ -23,94 +23,18 @@ interface IMemoViewProps {
   confirmationLetters: any[];
   setConfirmationLetters: React.Dispatch<React.SetStateAction<any[]>>;
   parts?: any[];
+  createdSscBillings?: any[];
+  setCreatedSscBillings?: React.Dispatch<React.SetStateAction<any[]>>;
 }
 
 export default function IMemoView({
   confirmationLetters,
   setConfirmationLetters,
-  parts = []
+  parts = [],
+  createdSscBillings = [],
+  setCreatedSscBillings = () => {}
 }: IMemoViewProps) {
   const [sscBillingRows, setSscBillingRows] = useState<any[]>([]);
-  const [createdSscBillings, setCreatedSscBillings] = useState<any[]>(() => {
-    return [
-      {
-        id: "mock-cl-1",
-        clNumber: "CL/2026/06/001",
-        supplierName: "PT TEMARU ENGINEERING INDONESIA",
-        dateSent: "2026-06-18",
-        amount: "Rp 24.000.000",
-        memoCompany: "PT. MENARA TERUS MAKMUR",
-        memoBusinessArea: "MT",
-        memoRequestDate: "18/06/2026",
-        memoBillingType: "One Time",
-        memoPeriod: "06/26",
-        memoTitle: "Permintaan Pembuatan Invoice Claim NG Part",
-        memoRequestTo: "SSC Billing",
-        memoDescription: "Mohon dibuatkan invoice untuk Claim Part NG dari PT TEMARU ENGINEERING INDONESIA atas CL CL/2026/06/001",
-        memoCustomerType: "PKP",
-        memoNpwp: "81.571.024.9-408.000",
-        memoSupportingDoc: "-",
-        memoBillingAddressedTo: "Jalan Galuh Mas Raya No. 28-29, Sukaharja, Telukjambe Barat, Sukaharja, Telukjambe Timur, Kabupaten Karawang",
-        memoCustomerName: "PT TEMARU ENGINEERING INDONESIA",
-        memoCurrency: "IDR",
-        memoAmount: "24000000",
-        memoSays: "Dua Puluh Empat Juta Rupiah",
-        acctCustomerCode: "OTC08002",
-        acctCustomerType: "Non Trade",
-        acctTradingPartner: "",
-        acctExchangeRate: "",
-        acctJournal: "",
-        glRows: [
-          { code: "OTC08002", name: "PT TEMARU ENGINEER", costCenter: "", amountDr: "24.000.000", amountCr: "", text: "Claim Part NG" },
-          { code: "545-102-0000", name: "FOH Subcont Fee", costCenter: "MT015FOHGE", amountDr: "", amountCr: "21.621.621", text: "Claim Part NG" },
-          { code: "211-310-0000", name: "Tax Pay VAT Out", costCenter: "", amountDr: "", amountCr: "2.378.379", text: "ppn 11%" }
-        ],
-        sigPrepared: "Bagas",
-        sigApproved1: "Anindita",
-        sigApproved2: "Evi Sulistyorini",
-        sigEntry: "",
-        sigChecked: "",
-      },
-      {
-        id: "mock-cl-2",
-        clNumber: "CL/2026/07/001",
-        supplierName: "PT JAYADI",
-        dateSent: "2026-07-20",
-        amount: "Rp 18.200.000",
-        memoCompany: "PT. MENARA TERUS MAKMUR",
-        memoBusinessArea: "MT",
-        memoRequestDate: "20/07/2026",
-        memoBillingType: "One Time",
-        memoPeriod: "07/26",
-        memoTitle: "Permintaan Pembuatan Invoice Claim NG Part",
-        memoRequestTo: "SSC Billing",
-        memoDescription: "Mohon dibuatkan invoice untuk Claim Part NG dari PT JAYADI atas CL CL/2026/07/001",
-        memoCustomerType: "PKP",
-        memoNpwp: "81.571.024.9-408.000",
-        memoSupportingDoc: "-",
-        memoBillingAddressedTo: "Jalan Galuh Mas Raya No. 28-29, Sukaharja, Telukjambe Barat, Sukaharja, Telukjambe Timur, Kabupaten Karawang",
-        memoCustomerName: "PT JAYADI",
-        memoCurrency: "IDR",
-        memoAmount: "18200000",
-        memoSays: "Delapan Belas Juta Dua Ratus Ribu Rupiah",
-        acctCustomerCode: "OTC08002",
-        acctCustomerType: "Non Trade",
-        acctTradingPartner: "",
-        acctExchangeRate: "",
-        acctJournal: "",
-        glRows: [
-          { code: "OTC08002", name: "PT JAYADI", costCenter: "", amountDr: "18.200.000", amountCr: "", text: "Claim Part NG" },
-          { code: "545-102-0000", name: "FOH Subcont Fee", costCenter: "MT015FOHGE", amountDr: "", amountCr: "16.396.396", text: "Claim Part NG" },
-          { code: "211-310-0000", name: "Tax Pay VAT Out", costCenter: "", amountDr: "", amountCr: "1.803.604", text: "ppn 11%" }
-        ],
-        sigPrepared: "Bagas",
-        sigApproved1: "Anindita",
-        sigApproved2: "Evi Sulistyorini",
-        sigEntry: "",
-        sigChecked: "",
-      }
-    ];
-  });
   const [selectedClId, setSelectedClId] = useState<string>("");
   const [selectedBillingClId, setSelectedBillingClId] = useState<string>("");
   const [activeSubTab, setActiveSubTab] = useState<"ssc_purchasing" | "buat_ssc_payment" | "reminder" | "kirim_cl" | "parts_per_vendor">("ssc_purchasing");
@@ -469,6 +393,70 @@ export default function IMemoView({
     window.print();
   };
 
+  const handleConfirmToPayment = () => {
+    // 1. Create the billing document inside createdSscBillings so it's registered
+    const clNumberVal = sscBillingRows.find((r: any) => r.id === selectedBillingClId)?.clNumber || `CL-${Date.now()}`;
+    const newBilling = {
+      id: selectedBillingClId || `billing-${Date.now()}`,
+      clNumber: clNumberVal,
+      supplierName: memoCustomerName,
+      dateSent: memoRequestDate,
+      amount: memoAmount ? `Rp ${parseInt(memoAmount).toLocaleString("id-ID")}` : "Rp 0",
+      memoCompany,
+      memoBusinessArea,
+      memoRequestDate,
+      memoBillingType,
+      memoPeriod,
+      memoTitle,
+      memoRequestTo,
+      memoDescription,
+      memoCustomerType,
+      memoNpwp,
+      memoSupportingDoc,
+      memoBillingAddressedTo,
+      memoCustomerName,
+      memoCurrency,
+      memoAmount,
+      memoSays,
+      acctCustomerCode,
+      acctCustomerType,
+      acctTradingPartner,
+      acctExchangeRate,
+      acctJournal,
+      glRows,
+      sigPrepared,
+      sigApproved1,
+      sigApproved2,
+      sigEntry,
+      sigChecked,
+    };
+
+    setCreatedSscBillings(prev => {
+      const filtered = prev.filter(b => b.id !== newBilling.id);
+      return [newBilling, ...filtered];
+    });
+
+    // 2. Load fields to pay form state
+    setPayCompany(memoCompany);
+    setPayBusinessArea(memoBusinessArea);
+    setPayRequestDate(memoRequestDate);
+    setPayTitle("Permohonan Pemotongan Invoice Vendor");
+    setPayTo("SSC Invoicing & Payment");
+    const formattedAmt = memoAmount ? parseInt(memoAmount).toLocaleString("id-ID") : "0";
+    setPayInstruction(
+      `Sehubungan dengan ditemukannya komponen NG yang bukan disebabkan oleh proses internal kami, mohon dapat dilakukan pemotongan pembayaran terhadap vendor ${memoCustomerName} sebesar Rp ${formattedAmt} atas CL ${clNumberVal}.`
+    );
+    setPaySigPrepared(sigPrepared);
+    setPaySigApproved1(sigApproved1);
+    setPaySigApproved2(sigApproved2);
+    setPaySigEntry(sigEntry);
+
+    // 3. Switch active payment tab selection
+    setSelectedPaymentClId(newBilling.id);
+    setActiveSubTab("buat_ssc_payment");
+    alert(`Sukses: Data SSC Billing untuk ${newBilling.clNumber} berhasil dikonfirmasi (Confirm) tanpa ada perubahan data. Dialihkan ke tab SSC Payment.`);
+  };
+
   const handleCopyText = (text: string) => {
     navigator.clipboard.writeText(text);
     setCopied(true);
@@ -571,14 +559,47 @@ export default function IMemoView({
     const billing = createdSscBillings.find((r: any) => r.id === selectedPaymentClId);
     if (!billing) return;
 
+    // Fill all editable payment fields from the SSC Billing data
+    setPayCompany(billing.memoCompany || "PT MENARA TERUS MAKMUR");
+    setPayBusinessArea(billing.memoBusinessArea || "MT");
     setPayRequestDate(billing.memoRequestDate || "");
     setPayTitle("Permohonan Pemotongan Invoice Vendor");
     setPayTo("SSC Invoicing & Payment");
+    setPaySigPrepared(billing.sigPrepared || "Bagas Nur P");
+    setPaySigApproved1(billing.sigApproved1 || "Anindita I");
+    setPaySigApproved2(billing.sigApproved2 || "Evi Sulistyorini");
+    setPaySigEntry(billing.sigEntry || "");
     
-    const formattedAmt = billing.memoAmount ? parseInt(billing.memoAmount).toLocaleString("id-ID") : "0";
+    const formattedAmt = billing.memoAmount
+      ? parseInt(billing.memoAmount).toLocaleString("id-ID")
+      : (billing.amount ? billing.amount.replace("Rp ", "") : "0");
+
     setPayInstruction(
-      `Sehubungan dengan ditemukannya komponen NG yang bukan disebabkan oleh proses internal kami, mohon dapat dilakukan pemotongan pembayaran terhadap vendor ${billing.supplierName} sebesar Rp ${formattedAmt} atas CL ${billing.clNumber}.`
+      `Sehubungan dengan ditemukannya komponen NG yang bukan disebabkan oleh proses internal kami, mohon dapat dilakukan pemotongan pembayaran terhadap vendor ${billing.supplierName || billing.memoCustomerName} sebesar Rp ${formattedAmt} atas CL ${billing.clNumber}.`
     );
+
+    // Auto-inject the selected billing as a payment row if not already present
+    const rawAmt = billing.memoAmount || billing.amount?.replace(/[^0-9]/g, "") || "0";
+    const numAmt = parseInt(rawAmt, 10) || 0;
+    const existingRow = sscBillingRows.find((r: any) => r.id === selectedPaymentClId);
+    if (!existingRow) {
+      setSscBillingRows(prev => [{
+        id: billing.id,
+        clNumber: billing.clNumber,
+        qprNumber: billing.qprNumber || "",
+        supplierName: billing.supplierName || billing.memoCustomerName,
+        dateSent: billing.dateSent || billing.memoRequestDate,
+        amount: billing.amount || (numAmt ? `Rp ${numAmt.toLocaleString("id-ID")}` : "Rp 0"),
+        status: "PENDING",
+        memoStatus: "DRAFT_MEMO",
+        reminderSentCount: 0,
+        customText: `POTONG TAGIH CLAIM PART NG`,
+        paymentDate: "",
+        customerCode: billing.acctCustomerCode || "OTC08002",
+        documentNo: billing.clNumber?.replace(/[^0-9]/g, "").slice(-11) || ""
+      }, ...prev.filter((r: any) => r.id !== billing.id)]);
+    }
+
     setSelectedClId(selectedPaymentClId);
   }, [selectedPaymentClId, createdSscBillings]);
 
@@ -1310,17 +1331,26 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                     {showSscBillingPreview && (
                       <div className="flex flex-col items-center w-full space-y-4 print:w-full print:p-0">
                       {/* Control Panel */}
-                      <div className="w-full bg-white border border-slate-200 rounded-lg p-2 flex justify-between items-center print:hidden shadow-sm font-sans">
+                      <div className="w-full bg-white border border-slate-200 rounded-lg p-2 flex justify-between items-center print:hidden shadow-sm font-sans gap-2">
                         <span className="text-[11px] text-slate-500 font-bold font-sans">
                           Pratinjau Live: <strong>A4 Portrait Sheet</strong>
                         </span>
-                        <button
-                          onClick={handlePrint}
-                          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs rounded-lg shadow-md hover:shadow-blue-600/20 flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 font-sans"
-                        >
-                          <Printer size={13} />
-                          Cetak Memo Internal
-                        </button>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={handleConfirmToPayment}
+                            className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold text-xs rounded-lg shadow-md flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 font-sans"
+                          >
+                            <CheckCircle2 size={13} />
+                            Confirm (Lanjutkan ke SSC Payment)
+                          </button>
+                          <button
+                            onClick={handlePrint}
+                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs rounded-lg shadow-md hover:shadow-blue-600/20 flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 font-sans"
+                          >
+                            <Printer size={13} />
+                            Cetak Memo Internal
+                          </button>
+                        </div>
                       </div>
 
                       {/* Actual Document Sheet Container */}
@@ -1466,12 +1496,12 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                             </div>
                             <div className="grid grid-cols-2 divide-x divide-black">
                               <div className="flex flex-col divide-y divide-black">
-                                <div className="flex divide-x divide-black items-center p-1.5">
+                                <div className="flex items-center p-1.5 gap-2">
                                   <span className="font-bold w-[120px] shrink-0 font-sans">Customer Code</span>
                                   <span className="mr-1.5 font-sans">:</span>
                                   {renderCustomerCodeBoxes(acctCustomerCode)}
                                 </div>
-                                <div className="flex divide-x divide-black items-center p-1.5 font-sans">
+                                <div className="flex items-center p-1.5 font-sans gap-2">
                                   <span className="font-bold w-[120px] shrink-0 font-sans">Customer Type</span>
                                   <span className="mr-1.5 font-sans">:</span>
                                   <div className="flex items-center gap-3">
@@ -1489,19 +1519,19 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                                     </label>
                                   </div>
                                 </div>
-                                <div className="flex divide-x divide-black items-center p-1.5 font-sans">
+                                <div className="flex items-center p-1.5 font-sans gap-2">
                                   <span className="font-bold w-[120px] shrink-0 font-sans">Trading Partner</span>
                                   <span className="mr-1.5 font-sans">:</span>
                                   {renderTradingPartnerBoxes(acctTradingPartner)}
                                 </div>
                               </div>
                               <div className="flex flex-col divide-y divide-black font-sans">
-                                <div className="flex divide-x divide-black items-center p-2 min-h-[32px] font-sans">
+                                <div className="flex items-center p-2 min-h-[32px] font-sans gap-2">
                                   <span className="font-bold w-[120px] shrink-0 font-sans">Exchange Rate*</span>
                                   <span className="mr-1.5 font-sans">:</span>
                                   <span className="font-semibold">{acctExchangeRate || "—"}</span>
                                 </div>
-                                <div className="flex divide-x divide-black items-center p-2 min-h-[32px] font-sans">
+                                <div className="flex items-center p-2 min-h-[32px] font-sans gap-2">
                                   <span className="font-bold w-[120px] shrink-0 font-sans">Journal</span>
                                   <span className="mr-1.5 font-sans">:</span>
                                   <span className="font-semibold">{acctJournal || "—"}</span>
@@ -2011,50 +2041,15 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                             <div className="grid grid-cols-4 text-center divide-x divide-black h-[58px]">
                               {/* Prepared Signature */}
                               <div className="flex items-end justify-center pb-2 bg-white px-1 relative">
-                                {paySigPrepared && (
-                                  <span
-                                    className="block font-serif italic text-blue-700 text-lg select-none pb-1"
-                                    style={{ fontFamily: "'Brush Script MT', 'Reenie Beanie', cursive, sans-serif", fontSize: '20px' }}
-                                  >
-                                    {paySigPrepared.split(" ")[0]}
-                                  </span>
-                                )}
                               </div>
                               {/* Approved 1 Signature */}
                               <div className="flex items-end justify-center pb-2 bg-white px-1 relative">
-                                {paySigApproved1 && (
-                                  <>
-                                    <div className="absolute top-1.5 left-1.5 border border-slate-300 bg-slate-50/50 text-[9px] font-black text-slate-500 rounded px-1 rotate-[-12deg] tracking-wider select-none opacity-80">AIR</div>
-                                    <span
-                                      className="block font-serif italic text-blue-700 text-lg select-none pb-1"
-                                      style={{ fontFamily: "'Brush Script MT', 'Reenie Beanie', cursive, sans-serif", fontSize: '20px' }}
-                                    >
-                                      {paySigApproved1.split(" ")[0]}
-                                    </span>
-                                  </>
-                                )}
                               </div>
                               {/* Approved 2 Signature */}
                               <div className="flex items-end justify-center pb-2 bg-white px-1 relative">
-                                {paySigApproved2 && (
-                                  <span
-                                    className="block font-serif italic text-blue-700 text-lg select-none pb-1"
-                                    style={{ fontFamily: "'Brush Script MT', 'Reenie Beanie', cursive, sans-serif", fontSize: '20px' }}
-                                  >
-                                    {paySigApproved2.split(" ")[0]}
-                                  </span>
-                                )}
                               </div>
                               {/* Entry By Signature */}
                               <div className="flex items-end justify-center pb-2 bg-white px-1 relative">
-                                {paySigEntry && (
-                                  <span
-                                    className="block font-serif italic text-blue-700 text-lg select-none pb-1"
-                                    style={{ fontFamily: "'Brush Script MT', 'Reenie Beanie', cursive, sans-serif", fontSize: '20px' }}
-                                  >
-                                    {paySigEntry.split(" ")[0]}
-                                  </span>
-                                )}
                               </div>
                             </div>
                             {/* Grey box names */}

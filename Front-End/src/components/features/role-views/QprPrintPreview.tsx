@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { X, Printer } from "lucide-react";
+import { X, Printer, Edit } from "lucide-react";
 
 interface QprPreviewProps {
   qpr: {
@@ -18,6 +18,7 @@ interface QprPreviewProps {
   };
   onClose?: () => void;
   inline?: boolean;
+  onEditRevision?: () => void;
 }
 
 const PART_ITEMS = [
@@ -78,7 +79,7 @@ function CheckItem({ label, checked, onClick }: { label: string; checked: boolea
   );
 }
 
-export default function QprPrintPreview({ qpr, onClose, inline = false }: QprPreviewProps) {
+export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRevision }: QprPreviewProps) {
   const [isVendorCopy, setIsVendorCopy] = React.useState(false);
 
   // Check if this vendor has been claimed > 1 times
@@ -180,7 +181,7 @@ export default function QprPrintPreview({ qpr, onClose, inline = false }: QprPre
   const documentContent = (
     <div
       id="qpr-print-area"
-      className={`bg-white mx-auto ${inline ? "w-full shadow-sm" : "shadow-2xl my-4"}`}
+      className={`bg-white mx-auto ${inline ? "w-full shadow-sm" : "shadow-2xl my-4"} flex flex-col`}
       style={{
         fontFamily: "Arial, sans-serif",
         fontSize: "10px",
@@ -188,7 +189,9 @@ export default function QprPrintPreview({ qpr, onClose, inline = false }: QprPre
         width: inline ? "100%" : "210mm",
         minHeight: inline ? "auto" : "297mm",
         padding: inline ? "8px" : "15mm",
-        boxSizing: "border-box"
+        boxSizing: "border-box",
+        display: "flex",
+        flexDirection: "column"
       }}
     >
         {/* Company Header */}
@@ -249,6 +252,12 @@ export default function QprPrintPreview({ qpr, onClose, inline = false }: QprPre
                   <span>Problem</span>
                   <span>: <span contentEditable suppressContentEditableWarning className="focus:bg-yellow-50 focus:outline-none print:bg-transparent">{qpr.problem || "VISUAL NG"}</span></span>
                 </div>
+                {qpr.pdfFileName && (
+                  <div style={{ display: "grid", gridTemplateColumns: "85px 1fr", marginTop: "2px" }}>
+                    <span>Attachment</span>
+                    <span className="text-blue-750 font-bold">: 📄 {qpr.pdfFileName}</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -396,179 +405,23 @@ export default function QprPrintPreview({ qpr, onClose, inline = false }: QprPre
           </table>
         </div>
 
-        {/* Claim NG Box */}
-        <div style={{ borderBottom: "1px solid #000", display: "flex", alignItems: "center", padding: "16px 20px", position: "relative" }}>
-          <div style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center" }}>
-            <div>
-              <div style={{ border: "2px solid #000", padding: "8px 32px", textAlign: "center", fontWeight: "900", fontSize: "14px", letterSpacing: "0.02em" }}>
-                Claim NG TO {qpr.supplierName ? qpr.supplierName.toUpperCase().replace("PT ", "") : "SJZ RUICHENG TR.CO."}
-              </div>
-            </div>
+        {/* Remarks Section */}
+        <div style={{ borderBottom: "1px solid #000", padding: "10px 12px", flexGrow: 1, display: "flex", flexDirection: "row", alignItems: "flex-start", gap: "8px" }}>
+          <div style={{ fontWeight: "bold", fontSize: "9px", textTransform: "uppercase", color: "#374151", whiteSpace: "nowrap" }}>REMARKS :</div>
+          <div 
+            contentEditable 
+            suppressContentEditableWarning
+            className="focus:bg-yellow-50 focus:outline-none print:bg-transparent"
+            style={{ fontSize: "8.5px", minHeight: "45px", flexGrow: 1, outline: "none", whiteSpace: "pre-wrap", color: "#1f2937" }}
+          >
+            {qpr.remarks || ""}
           </div>
-          {/* SVG Bent Arrow pointing up-right to table column */}
-          <div style={{ width: "90px", height: "80px", display: "flex", alignItems: "center", justifyContent: "center", paddingRight: "16px" }}>
-            <svg width="85" height="75" viewBox="0 0 100 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path
-                d="M 10,60 L 60,60 L 60,32 L 72,32 L 50,8 L 28,32 L 40,32 L 40,48 L 10,48 Z"
-                fill="#ef4444"
-                stroke="#000000"
-                strokeWidth="2.5"
-                strokeLinejoin="miter"
-                strokeLinecap="square"
-              />
-            </svg>
-          </div>
-        </div>
-
-        {/* DETAIL KEJADIAN */}
-        <div style={{ borderBottom: "1px solid #000", padding: "10px 12px" }}>
-          <div style={{ fontWeight: "bold", fontSize: "9px", textTransform: "uppercase", marginBottom: "8px", color: "#374151" }}>DETAIL KEJADIAN :</div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 8px" }}>
-            
-            {/* Supplier Box */}
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-              {anySupplierProcess ? (
-                <FactorySVG label="" subContent={
-                  <div className="relative flex items-center justify-center" style={{ width: "42px", height: "42px" }}>
-                    <div className="absolute border-2 border-red-650" style={{ width: "30px", height: "30px", transform: "rotate(45deg)" }} />
-                    <span contentEditable suppressContentEditableWarning className="focus:bg-yellow-50 focus:outline-none print:bg-transparent relative z-10 text-center font-black" style={{ fontSize: "6.5px", color: "#dc2626", lineHeight: "1.1" }}>
-                      {supplierProcessLabel}
-                    </span>
-                  </div>
-                } />
-              ) : (
-                <FactorySVG label="" subContent={
-                  <span contentEditable suppressContentEditableWarning className="focus:bg-yellow-50 focus:outline-none print:bg-transparent text-center font-bold" style={{ fontSize: "8px", color: "#000000" }}>{supplierProcessLabel}</span>
-                } />
-              )}
-              <div style={{ fontSize: "7.5px", fontWeight: "bold", color: "#334155", marginTop: "4px" }}>
-                <span contentEditable suppressContentEditableWarning className="focus:bg-yellow-50 focus:outline-none print:bg-transparent">{shortVendorName}</span>
-              </div>
-            </div>
-            
-            <FlowArrow />
-            
-            {/* PT MTM Box */}
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-              {isMtmProcess ? (
-                <FactorySVG label="" subContent={
-                  <div className="relative flex items-center justify-center" style={{ width: "42px", height: "42px" }}>
-                    <div className="absolute border-2 border-red-650" style={{ width: "30px", height: "30px", transform: "rotate(45deg)" }} />
-                    <span contentEditable suppressContentEditableWarning className="focus:bg-yellow-50 focus:outline-none print:bg-transparent relative z-10 text-center font-black" style={{ fontSize: "6.5px", color: "#dc2626", lineHeight: "1.1" }}>
-                      INCOMING &amp; PACKING
-                    </span>
-                  </div>
-                } />
-              ) : (
-                <FactorySVG label="" subContent={
-                  <span contentEditable suppressContentEditableWarning className="focus:bg-yellow-50 focus:outline-none print:bg-transparent text-center font-bold" style={{ fontSize: "8px", color: "#000000", lineHeight: "1.1" }}>
-                    INCOMING &amp; PACKING
-                  </span>
-                } />
-              )}
-              <div style={{ fontSize: "7.5px", fontWeight: "bold", color: "#334155", marginTop: "4px" }}>
-                <span contentEditable suppressContentEditableWarning className="focus:bg-yellow-50 focus:outline-none print:bg-transparent">PT. MTM</span>
-              </div>
-            </div>
-            
-            <FlowArrow />
-            
-            {/* Customer Box */}
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-              <div style={{ border: "1.5px solid #64748b", borderRadius: "6px", padding: "6px 12px", display: "flex", alignItems: "center", gap: "8px", background: "#f8fafc" }}>
-                <div style={{ border: "1px solid #000", background: "#ffffff", padding: "6px 8px", fontWeight: "bold", fontSize: "7.5px", display: "flex", alignItems: "center", justifyContent: "center", width: "70px", height: "38px" }}>
-                  <span contentEditable suppressContentEditableWarning className="focus:bg-yellow-50 focus:outline-none print:bg-transparent font-bold" style={{ fontSize: "7.5px" }}>ASSY FINISH</span>
-                </div>
-                <div style={{ display: "flex", alignItems: "center" }}>
-                  <FlowArrow />
-                </div>
-                <div style={{ border: "1px solid #000", background: "#ffffff", padding: "2px", display: "flex", alignItems: "center", justifyContent: "center", width: "70px", height: "38px" }}>
-                  {isCustomerProcess ? (
-                    <div className="relative flex items-center justify-center" style={{ width: "42px", height: "42px" }}>
-                      <div className="absolute border-2 border-cyan-500" style={{ width: "30px", height: "30px", transform: "rotate(45deg)" }} />
-                      <span contentEditable suppressContentEditableWarning className="focus:bg-yellow-50 focus:outline-none print:bg-transparent relative z-10 text-center font-black" style={{ fontSize: "6px", color: "#06b6d4", lineHeight: "1.1" }}>
-                        FINAL INSPEKSI
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="relative flex items-center justify-center" style={{ width: "42px", height: "42px" }}>
-                      <span contentEditable suppressContentEditableWarning className="focus:bg-yellow-50 focus:outline-none print:bg-transparent text-center font-bold" style={{ fontSize: "6px", color: "#000000", lineHeight: "1.1" }}>
-                        FINAL INSPEKSI
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div style={{ fontSize: "7.5px", fontWeight: "bold", color: "#334155", marginTop: "4px" }}>
-                <span contentEditable suppressContentEditableWarning className="focus:bg-yellow-50 focus:outline-none print:bg-transparent">CUSTOMER</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* MTM REQUEST TABLE */}
-        <div style={{ borderBottom: "1px solid #000" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "7.5px" }}>
-            <thead>
-              <tr style={{ backgroundColor: "transparent" }}>
-                <th style={{ border: "1.5px solid #000", backgroundColor: "#f1f5f9", width: "32px", minWidth: "32px", padding: "2.5px 3px" }}>&nbsp;</th>
-                <th style={{ border: "1.5px solid #000", borderBottom: "1.5px solid #000", backgroundColor: "#f1f5f9", padding: "2.5px 3px", fontWeight: "bold", textAlign: "center", width: "30px" }}>NO</th>
-                <th style={{ border: "1.5px solid #000", borderBottom: "1.5px solid #000", backgroundColor: "#f1f5f9", padding: "2.5px 3px", fontWeight: "bold", textAlign: "center" }}>ITEM</th>
-                <th style={{ border: "1.5px solid #000", borderBottom: "1.5px solid #000", backgroundColor: "#f1f5f9", padding: "2.5px 3px", fontWeight: "bold", width: "20px" }}>&nbsp;</th>
-                <th style={{ border: "1.5px solid #000", borderBottom: "1.5px solid #000", backgroundColor: "#f1f5f9", padding: "2.5px 3px", fontWeight: "bold", textAlign: "center", width: "60px" }}>D/D</th>
-                <th style={{ border: "1.5px solid #000", borderBottom: "1.5px solid #000", backgroundColor: "#f1f5f9", padding: "2.5px 3px", fontWeight: "bold", textAlign: "center", width: "60px" }}>PIC</th>
-                <th style={{ border: "1.5px solid #000", borderBottom: "1.5px solid #000", backgroundColor: "#f1f5f9", padding: "2.5px 3px", fontWeight: "bold", textAlign: "center", width: "150px" }}>REMARKS</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[
-                { no: 1, items: ["Sortir Internal Supplier", "Sortir MTM", "Sortir Customer"] },
-                { no: 2, items: ["Report Plan Activity"] },
-                { no: 3, items: ["PICA"] },
-                { no: 4, items: ["Presentasi"] },
-                { no: 5, items: ["Audit"] },
-                { no: 6, items: ["Others"] },
-              ].map((row, rowIndex) => (
-                <React.Fragment key={row.no}>
-                  {row.items.map((item, i) => (
-                    <tr key={`${row.no}-${i}`} style={{ backgroundColor: "transparent" }}>
-                      {/* Vertical MTM REQUEST header rendered only in the very first cell of the body */}
-                      {rowIndex === 0 && i === 0 && (
-                        <td rowSpan={8} style={{ border: "1.5px solid #000", backgroundColor: "#475569", color: "#ffffff", fontWeight: "bold", fontSize: "8px", width: "32px", minWidth: "32px", padding: "2px 0", textAlign: "center", verticalAlign: "middle" }}>
-                          <div style={{
-                            writingMode: "vertical-rl",
-                            transform: "rotate(180deg)",
-                            whiteSpace: "nowrap",
-                            margin: "0 auto",
-                            letterSpacing: "0.05em",
-                            display: "inline-block"
-                          }}>
-                            MTM REQUEST
-                          </div>
-                        </td>
-                      )}
-                      {i === 0 && (
-                        <td rowSpan={row.items.length} style={{ border: "1.5px solid #000", padding: "1.5px 2px", textAlign: "center", fontFamily: "monospace", fontWeight: "bold", fontSize: "8px" }}>
-                          {row.no}
-                        </td>
-                      )}
-                      <td style={{ border: "1.5px solid #000", padding: "1.5px 4px", fontSize: "7px", fontWeight: "bold" }}>{item}</td>
-                      <td style={{ border: "1.5px solid #000", padding: "1.5px 3px", textAlign: "center", fontWeight: "bold", fontSize: "7.5px" }}>-</td>
-                      <td style={{ border: "1.5px solid #000", padding: "1.5px 3px", textAlign: "center", fontWeight: "bold", fontSize: "7.5px" }}>-</td>
-                      <td style={{ border: "1.5px solid #000", padding: "1.5px 3px", textAlign: "center", fontWeight: "bold", fontSize: "7.5px" }}>-</td>
-                      <td style={{ border: "1.5px solid #000", padding: "1.5px 3px" }}>&nbsp;</td>
-                    </tr>
-                  ))}
-                </React.Fragment>
-              ))}
-            </tbody>
-          </table>
         </div>
 
         {/* JENIS CLAIM + Signature */}
-        <div style={{ display: "flex" }}>
+        <div style={{ display: "flex", borderBottom: "1.5px solid #000", marginTop: "auto" }}>
           {/* Jenis Claim */}
-          <div style={{ flex: 1, borderRight: "1px solid #000", padding: "10px 12px" }}>
+          <div style={{ flex: 1, borderLeft: "1px solid #000", borderRight: "1px solid #000", padding: "10px 12px" }}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 24px" }}>
               {["MATERIAL", "PAINTING/PLATING", "PROSES PACKING", "PARKEREZING", "PROSES CHECK", "HEAT TREATMENT", "PROSES FORGING", "PROSES M/C"].map((opt) => (
                 <CheckItem
@@ -586,16 +439,27 @@ export default function QprPrintPreview({ qpr, onClose, inline = false }: QprPre
           </div>
 
           {/* Signature Block */}
-          <div style={{ flex: 1 }}>
+          <div style={{ flex: 1, borderLeft: "1px solid #000", borderRight: "1px solid #000" }}>
             <div style={{ borderBottom: "1px solid #000", textAlign: "center", padding: "4px", fontSize: "8px", fontWeight: "bold", color: "#1e293b" }}>
               Cikarang, {formatDateIndo(qpr.date)}
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr" }}>
               {[
                 { 
                   type: "Prepared", 
+                  name: qpr.user?.name || "QPR Creator", 
+                  role: "(Creator)",
+                  isSigned: true,
+                  sigSvg: (
+                    <svg width="40" height="24" viewBox="0 0 100 60" style={{ opacity: 0.85 }}>
+                      <path d="M15,35 Q30,10 45,35 T75,35 M35,5 L35,45" stroke="#1e293b" strokeWidth="2.2" fill="none" />
+                    </svg>
+                  )
+                },
+                { 
+                  type: "Checked", 
                   name: "Heru S.", 
-                  role: "(Section)",
+                  role: "(Section Head)",
                   isSigned: isSectionHeadSigned,
                   sigSvg: (
                     <svg width="40" height="24" viewBox="0 0 100 60" style={{ opacity: 0.85 }}>
@@ -617,39 +481,16 @@ export default function QprPrintPreview({ qpr, onClose, inline = false }: QprPre
                 { 
                   type: "Approved", 
                   name: "Putu R. S.", 
-                  role: "(Div. Head.)",
+                  role: "(Div. Head)",
                   isSigned: isDivHeadSigned,
                   sigSvg: (
                     <svg width="40" height="24" viewBox="0 0 100 60" style={{ opacity: 0.85 }}>
                       <path d="M10,25 Q30,5 50,25 T90,25 M50,10 L50,50" stroke="#0f172a" strokeWidth="2.2" fill="none" />
-                      <text x="35" y="45" fill="#1d4ed8" fontSize="9" fontWeight="bold">28/8/25</text>
-                    </svg>
-                  )
-                },
-                { 
-                  type: "Acknowledge", 
-                  name: "Purchasing", 
-                  role: "(Section Head)",
-                  isSigned: isPurchasingSigned,
-                  sigSvg: (
-                    <svg width="40" height="24" viewBox="0 0 100 60" style={{ opacity: 0.85 }}>
-                      <path d="M20,40 Q40,20 60,40 T80,30" stroke="#1e293b" strokeWidth="2.2" fill="none" />
-                    </svg>
-                  )
-                },
-                { 
-                  type: "Acknowledge", 
-                  name: "Accounting", 
-                  role: "(Dept. Head)",
-                  isSigned: isAccountingSigned,
-                  sigSvg: (
-                    <svg width="40" height="24" viewBox="0 0 100 60" style={{ opacity: 0.85 }}>
-                      <path d="M20,35 Q40,15 60,35" stroke="#94a3b8" strokeWidth="1.5" fill="none" />
                     </svg>
                   )
                 }
               ].map((sig, i) => (
-                <div key={i} style={{ borderRight: i < 4 ? "1px solid #000" : "none", textAlign: "center", display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: "60px" }}>
+                <div key={i} style={{ borderRight: i < 3 ? "1px solid #000" : "none", textAlign: "center", display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: "60px" }}>
                   <div style={{ borderBottom: "1px solid #000", padding: "1px 2px", fontWeight: "bold", fontSize: "7px", background: "#f8fafc" }}>{sig.type}</div>
                   <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", minHeight: "30px", padding: "1px" }}>
                     {sig.isSigned ? (
@@ -685,6 +526,72 @@ export default function QprPrintPreview({ qpr, onClose, inline = false }: QprPre
           </label>
         </div>
         {documentContent}
+
+        {/* Lampiran PDF check block (inline) */}
+        {qpr.pdfFileName && (
+          <div className="w-full max-w-[210mm] mt-4 print:hidden flex flex-col gap-3">
+            {/* Direct File View (PDF Simulation) - Inline version */}
+            <div className="w-full h-[400px] bg-slate-50 rounded-lg overflow-hidden border border-slate-200 flex flex-col items-center justify-center relative shadow-sm">
+              <div className="w-full h-full pt-9 px-6 pb-4 overflow-y-auto flex flex-col items-center">
+                {/* Simulated A4 PDF Document Sheet */}
+                <div className="w-full max-w-[170mm] min-h-[300px] bg-white border border-slate-200 shadow-sm p-6 text-left font-sans text-slate-650 space-y-4">
+                  <div className="border-b border-slate-200 pb-2.5 flex justify-between items-start">
+                    <div>
+                      <h4 className="text-xs font-black text-slate-800">BUKTI KETIDAKSESUAIAN (NCR ATTACHMENT)</h4>
+                      <p className="text-[8px] text-slate-400 font-bold mt-0.5">Reference NCR No: {qpr.refNcrNumber || "NCR/2026/06/020"}</p>
+                    </div>
+                    <span className="text-[9px] font-black text-red-650 bg-red-50 border border-red-100 px-2 py-0.5 rounded">CLAIM ATTACHED</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 text-[9px] font-semibold">
+                    <div className="space-y-1">
+                      <span className="text-slate-400 text-[8px] uppercase tracking-wider block">Vendor Name</span>
+                      <span className="text-slate-700 font-bold">{qpr.supplierName}</span>
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-slate-400 text-[8px] uppercase tracking-wider block">QPR Ref No</span>
+                      <span className="text-slate-700 font-bold font-mono">{qpr.qprNumber}</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <span className="text-slate-400 text-[8px] uppercase tracking-wider block">Defect / Problem Analysis Description</span>
+                    <div className="bg-slate-50/50 p-2.5 rounded border border-slate-150 text-[9.5px] leading-relaxed text-slate-700 italic">
+                      "{qpr.problem || "Defect visual/dimensi pada komponen luar setelah proses assembly"}"
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <span className="text-slate-400 text-[8px] uppercase tracking-wider block">Daftar Part Terpengaruh</span>
+                    <table className="w-full border-collapse border border-slate-150 text-[8.5px]">
+                      <thead>
+                        <tr className="bg-slate-50 text-slate-500 font-black">
+                          <th className="border border-slate-150 p-1 text-left">Part Name</th>
+                          <th className="border border-slate-150 p-1 text-center">Qty NG</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {qpr.parts && qpr.parts.length > 0 ? (
+                          qpr.parts.map((p: any, idx: number) => (
+                            <tr key={idx} className="font-semibold text-slate-650">
+                              <td className="border border-slate-150 p-1">{p.partName}</td>
+                              <td className="border border-slate-150 p-1 text-center font-bold text-red-650">{p.qtyNG || p.qtyNg || p.qtyClaim || 0} pcs</td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr className="font-semibold text-slate-650">
+                            <td className="border border-slate-150 p-1">{qpr.partName || "ALL TYPE PART FINISH"}</td>
+                            <td className="border border-slate-150 p-1 text-center font-bold text-red-650">{qpr.rejectItems || 0} pcs</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         <style>{`
           @media print {
             @page {
@@ -741,6 +648,15 @@ export default function QprPrintPreview({ qpr, onClose, inline = false }: QprPre
           <Printer size={14} />
           Cetak / Print
         </button>
+        {onEditRevision && qpr.status === "UNDER_REVISION" && (
+          <button
+            onClick={onEditRevision}
+            className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-bold shadow-lg transition-colors cursor-pointer"
+          >
+            <Edit size={14} />
+            Revisi / Edit
+          </button>
+        )}
         {onClose && (
           <button
             onClick={onClose}
@@ -751,8 +667,74 @@ export default function QprPrintPreview({ qpr, onClose, inline = false }: QprPre
           </button>
         )}
       </div>
-      <div className="pt-16 pb-8 w-full flex justify-center">
+      <div className="pt-16 pb-8 w-full flex flex-col items-center gap-4">
         {documentContent}
+               {/* Lampiran PDF check block */}
+        {qpr.pdfFileName && (
+          <div className="w-full max-w-[210mm] mx-auto print:hidden mt-4 flex flex-col gap-3">
+            {/* Direct File View (PDF Simulation) */}
+            <div className="w-full h-[500px] bg-slate-50 rounded-lg overflow-hidden border border-slate-300 flex flex-col items-center justify-center relative shadow-sm">
+              <div className="w-full h-full pt-9 px-8 pb-4 overflow-y-auto flex flex-col items-center">
+                {/* Simulated A4 PDF Document Sheet */}
+                <div className="w-full max-w-[180mm] min-h-[400px] bg-white border border-slate-300 shadow-sm p-8 text-left font-sans text-slate-700 space-y-4">
+                  <div className="border-b-2 border-slate-400 pb-3 flex justify-between items-start">
+                    <div>
+                      <h4 className="text-sm font-black text-slate-800">BUKTI KETIDAKSESUAIAN (NCR ATTACHMENT)</h4>
+                      <p className="text-[9px] text-slate-500 font-semibold mt-0.5">Reference NCR No: {qpr.refNcrNumber || "-"}</p>
+                    </div>
+                    <span className="text-xs font-bold text-red-650 bg-red-50 border border-red-200 px-2.5 py-1 rounded">CLAIM ATTACHED</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 text-[10px] font-semibold">
+                    <div className="space-y-1.5">
+                      <span className="text-slate-400 text-[9px] uppercase tracking-wider block">Vendor Name</span>
+                      <span className="text-slate-800 font-bold">{qpr.supplierName}</span>
+                    </div>
+                    <div className="space-y-1.5">
+                      <span className="text-slate-400 text-[9px] uppercase tracking-wider block">QPR Ref No</span>
+                      <span className="text-slate-850 font-bold font-mono">{qpr.qprNumber}</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <span className="text-slate-400 text-[9px] uppercase tracking-wider block">Defect / Problem Analysis Description</span>
+                    <div className="bg-slate-50 p-3 rounded border border-slate-200 text-[10.5px] leading-relaxed text-slate-800 italic">
+                      "{qpr.problem || "Defect visual/dimensi pada komponen luar setelah proses assembly"}"
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <span className="text-slate-400 text-[9px] uppercase tracking-wider block">Daftar Part Terpengaruh</span>
+                    <table className="w-full border-collapse border border-slate-200 text-[9px]">
+                      <thead>
+                        <tr className="bg-slate-50 text-slate-600 font-black">
+                          <th className="border border-slate-200 p-1.5 text-left">Part Name</th>
+                          <th className="border border-slate-200 p-1.5 text-center">Qty NG</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {qpr.parts && qpr.parts.length > 0 ? (
+                          qpr.parts.map((p: any, idx: number) => (
+                            <tr key={idx} className="font-semibold text-slate-700">
+                              <td className="border border-slate-200 p-1.5">{p.partName}</td>
+                              <td className="border border-slate-200 p-1.5 text-center font-bold text-red-650">{(p.qtyNG !== undefined ? p.qtyNG : (p.qtyNg || p.qtyClaim || 0))} pcs</td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr className="font-semibold text-slate-750">
+                            <td className="border border-slate-200 p-1.5">{qpr.partName || "ALL TYPE PART FINISH"}</td>
+                            <td className="border border-slate-200 p-1.5 text-center font-bold text-red-650">{qpr.rejectItems || 0} pcs</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
       <style>{`
         @media print {
