@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { X, Printer, Edit } from "lucide-react";
+import { X, Printer, Edit, FileText } from "lucide-react";
 
 interface QprPreviewProps {
   qpr: {
@@ -530,65 +530,73 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
         {/* Lampiran PDF check block (inline) */}
         {qpr.pdfFileName && (
           <div className="w-full max-w-[210mm] mt-4 print:hidden flex flex-col gap-3">
-            {/* Direct File View (PDF Simulation) - Inline version */}
-            <div className="w-full h-[400px] bg-slate-50 rounded-lg overflow-hidden border border-slate-200 flex flex-col items-center justify-center relative shadow-sm">
-              <div className="w-full h-full pt-9 px-6 pb-4 overflow-y-auto flex flex-col items-center">
-                {/* Simulated A4 PDF Document Sheet */}
-                <div className="w-full max-w-[170mm] min-h-[300px] bg-white border border-slate-200 shadow-sm p-6 text-left font-sans text-slate-650 space-y-4">
-                  <div className="border-b border-slate-200 pb-2.5 flex justify-between items-start">
-                    <div>
-                      <h4 className="text-xs font-black text-slate-800">BUKTI KETIDAKSESUAIAN (NCR ATTACHMENT)</h4>
-                      <p className="text-[8px] text-slate-400 font-bold mt-0.5">Reference NCR No: {qpr.refNcrNumber || "NCR/2026/06/020"}</p>
+            {/* Direct File View (PDF Embed or Simulation) - Inline version */}
+            <div className="w-full h-[450px] bg-slate-50 rounded-lg overflow-hidden border border-slate-200 relative shadow-sm">
+              {qpr.pdfFileBase64 ? (
+                <iframe
+                  src={qpr.pdfFileBase64}
+                  className="w-full h-full border-0"
+                  title="Uploaded PDF Attachment"
+                />
+              ) : (
+                <div className="w-full h-full pt-9 px-6 pb-4 overflow-y-auto flex flex-col items-center">
+                  {/* Simulated A4 PDF Document Sheet */}
+                  <div className="w-full max-w-[170mm] min-h-[300px] bg-white border border-slate-200 shadow-sm p-6 text-left font-sans text-slate-650 space-y-4">
+                    <div className="border-b border-slate-200 pb-2.5 flex justify-between items-start">
+                      <div>
+                        <h4 className="text-xs font-black text-slate-800">BUKTI KETIDAKSESUAIAN (NCR ATTACHMENT)</h4>
+                        <p className="text-[8px] text-slate-400 font-bold mt-0.5">Reference NCR No: {qpr.refNcrNumber || "NCR/2026/06/020"}</p>
+                      </div>
+                      <span className="text-[9px] font-black text-red-650 bg-red-50 border border-red-100 px-2 py-0.5 rounded">CLAIM ATTACHED</span>
                     </div>
-                    <span className="text-[9px] font-black text-red-650 bg-red-50 border border-red-100 px-2 py-0.5 rounded">CLAIM ATTACHED</span>
-                  </div>
 
-                  <div className="grid grid-cols-2 gap-4 text-[9px] font-semibold">
-                    <div className="space-y-1">
-                      <span className="text-slate-400 text-[8px] uppercase tracking-wider block">Vendor Name</span>
-                      <span className="text-slate-700 font-bold">{qpr.supplierName}</span>
+                    <div className="grid grid-cols-2 gap-4 text-[9px] font-semibold">
+                      <div className="space-y-1">
+                        <span className="text-slate-400 text-[8px] uppercase tracking-wider block">Vendor Name</span>
+                        <span className="text-slate-700 font-bold">{qpr.supplierName}</span>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-slate-400 text-[8px] uppercase tracking-wider block">QPR Ref No</span>
+                        <span className="text-slate-700 font-bold font-mono">{qpr.qprNumber}</span>
+                      </div>
                     </div>
-                    <div className="space-y-1">
-                      <span className="text-slate-400 text-[8px] uppercase tracking-wider block">QPR Ref No</span>
-                      <span className="text-slate-700 font-bold font-mono">{qpr.qprNumber}</span>
-                    </div>
-                  </div>
 
-                  <div className="space-y-1.5">
-                    <span className="text-slate-400 text-[8px] uppercase tracking-wider block">Defect / Problem Analysis Description</span>
-                    <div className="bg-slate-50/50 p-2.5 rounded border border-slate-150 text-[9.5px] leading-relaxed text-slate-700 italic">
-                      "{qpr.problem || "Defect visual/dimensi pada komponen luar setelah proses assembly"}"
+                    <div className="space-y-1.5">
+                      <span className="text-slate-400 text-[8px] uppercase tracking-wider block">Defect / Problem Analysis Description</span>
+                      <div className="bg-slate-50/50 p-2.5 rounded border border-slate-150 text-[9.5px] leading-relaxed text-slate-700 italic">
+                        "{qpr.problem || "Defect visual/dimensi pada komponen luar setelah proses assembly"}"
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="space-y-1.5">
-                    <span className="text-slate-400 text-[8px] uppercase tracking-wider block">Daftar Part Terpengaruh</span>
-                    <table className="w-full border-collapse border border-slate-150 text-[8.5px]">
-                      <thead>
-                        <tr className="bg-slate-50 text-slate-500 font-black">
-                          <th className="border border-slate-150 p-1 text-left">Part Name</th>
-                          <th className="border border-slate-150 p-1 text-center">Qty NG</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {qpr.parts && qpr.parts.length > 0 ? (
-                          qpr.parts.map((p: any, idx: number) => (
-                            <tr key={idx} className="font-semibold text-slate-650">
-                              <td className="border border-slate-150 p-1">{p.partName}</td>
-                              <td className="border border-slate-150 p-1 text-center font-bold text-red-650">{p.qtyNG || p.qtyNg || p.qtyClaim || 0} pcs</td>
-                            </tr>
-                          ))
-                        ) : (
-                          <tr className="font-semibold text-slate-650">
-                            <td className="border border-slate-150 p-1">{qpr.partName || "ALL TYPE PART FINISH"}</td>
-                            <td className="border border-slate-150 p-1 text-center font-bold text-red-650">{qpr.rejectItems || 0} pcs</td>
+                    <div className="space-y-1.5">
+                      <span className="text-slate-400 text-[8px] uppercase tracking-wider block">Daftar Part Terpengaruh</span>
+                      <table className="w-full border-collapse border border-slate-150 text-[8.5px]">
+                        <thead>
+                          <tr className="bg-slate-50 text-slate-500 font-black">
+                            <th className="border border-slate-150 p-1 text-left">Part Name</th>
+                            <th className="border border-slate-150 p-1 text-center">Qty NG</th>
                           </tr>
-                        )}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {qpr.parts && qpr.parts.length > 0 ? (
+                            qpr.parts.map((p: any, idx: number) => (
+                              <tr key={idx} className="font-semibold text-slate-650">
+                                <td className="border border-slate-150 p-1">{p.partName}</td>
+                                <td className="border border-slate-150 p-1 text-center font-bold text-red-650">{p.qtyNG || p.qtyNg || p.qtyClaim || 0} pcs</td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr className="font-semibold text-slate-650">
+                              <td className="border border-slate-150 p-1">{qpr.partName || "ALL TYPE PART FINISH"}</td>
+                              <td className="border border-slate-150 p-1 text-center font-bold text-red-650">{qpr.rejectItems || 0} pcs</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         )}
@@ -669,69 +677,76 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
       </div>
       <div className="pt-16 pb-8 w-full flex flex-col items-center gap-4">
         {documentContent}
-               {/* Lampiran PDF check block */}
+        {/* Lampiran PDF check block */}
         {qpr.pdfFileName && (
           <div className="w-full max-w-[210mm] mx-auto print:hidden mt-4 flex flex-col gap-3">
             {/* Direct File View (PDF Simulation) */}
-            <div className="w-full h-[500px] bg-slate-50 rounded-lg overflow-hidden border border-slate-300 flex flex-col items-center justify-center relative shadow-sm">
-              <div className="w-full h-full pt-9 px-8 pb-4 overflow-y-auto flex flex-col items-center">
-                {/* Simulated A4 PDF Document Sheet */}
-                <div className="w-full max-w-[180mm] min-h-[400px] bg-white border border-slate-300 shadow-sm p-8 text-left font-sans text-slate-700 space-y-4">
-                  <div className="border-b-2 border-slate-400 pb-3 flex justify-between items-start">
-                    <div>
-                      <h4 className="text-sm font-black text-slate-800">BUKTI KETIDAKSESUAIAN (NCR ATTACHMENT)</h4>
-                      <p className="text-[9px] text-slate-500 font-semibold mt-0.5">Reference NCR No: {qpr.refNcrNumber || "-"}</p>
+            <div className="w-full h-[600px] bg-slate-50 rounded-lg overflow-hidden border border-slate-300 relative shadow-sm">
+              {qpr.pdfFileBase64 ? (
+                <iframe
+                  src={qpr.pdfFileBase64}
+                  className="w-full h-full border-0"
+                  title="Uploaded PDF Attachment"
+                />
+              ) : (
+                <div className="w-full h-full pt-9 px-8 pb-4 overflow-y-auto flex flex-col items-center">
+                  {/* Simulated A4 PDF Document Sheet */}
+                  <div className="w-full max-w-[180mm] min-h-[400px] bg-white border border-slate-300 shadow-sm p-8 text-left font-sans text-slate-700 space-y-4">
+                    <div className="border-b-2 border-slate-400 pb-3 flex justify-between items-start">
+                      <div>
+                        <h4 className="text-sm font-black text-slate-800">BUKTI KETIDAKSESUAIAN (NCR ATTACHMENT)</h4>
+                        <p className="text-[9px] text-slate-500 font-semibold mt-0.5">Reference NCR No: {qpr.refNcrNumber || "-"}</p>
+                      </div>
+                      <span className="text-xs font-bold text-red-650 bg-red-50 border border-red-200 px-2.5 py-1 rounded">CLAIM ATTACHED</span>
                     </div>
-                    <span className="text-xs font-bold text-red-650 bg-red-50 border border-red-200 px-2.5 py-1 rounded">CLAIM ATTACHED</span>
-                  </div>
 
-                  <div className="grid grid-cols-2 gap-4 text-[10px] font-semibold">
-                    <div className="space-y-1.5">
-                      <span className="text-slate-400 text-[9px] uppercase tracking-wider block">Vendor Name</span>
-                      <span className="text-slate-800 font-bold">{qpr.supplierName}</span>
+                    <div className="grid grid-cols-2 gap-4 text-[10px] font-semibold">
+                      <div className="space-y-1.5">
+                        <span className="text-slate-400 text-[9px] uppercase tracking-wider block">Vendor Name</span>
+                        <span className="text-slate-800 font-bold">{qpr.supplierName}</span>
+                      </div>
+                      <div className="space-y-1.5">
+                        <span className="text-slate-400 text-[9px] uppercase tracking-wider block">QPR Ref No</span>
+                        <span className="text-slate-855 font-bold font-mono">{qpr.qprNumber}</span>
+                      </div>
                     </div>
-                    <div className="space-y-1.5">
-                      <span className="text-slate-400 text-[9px] uppercase tracking-wider block">QPR Ref No</span>
-                      <span className="text-slate-850 font-bold font-mono">{qpr.qprNumber}</span>
-                    </div>
-                  </div>
 
-                  <div className="space-y-2">
-                    <span className="text-slate-400 text-[9px] uppercase tracking-wider block">Defect / Problem Analysis Description</span>
-                    <div className="bg-slate-50 p-3 rounded border border-slate-200 text-[10.5px] leading-relaxed text-slate-800 italic">
-                      "{qpr.problem || "Defect visual/dimensi pada komponen luar setelah proses assembly"}"
+                    <div className="space-y-2">
+                      <span className="text-slate-450 text-[9px] uppercase tracking-wider block">Defect / Problem Analysis Description</span>
+                      <div className="bg-slate-50 p-3 rounded border border-slate-200 text-[10.5px] leading-relaxed text-slate-800 italic">
+                        "{qpr.problem || "Defect visual/dimensi pada komponen luar setelah proses assembly"}"
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="space-y-2">
-                    <span className="text-slate-400 text-[9px] uppercase tracking-wider block">Daftar Part Terpengaruh</span>
-                    <table className="w-full border-collapse border border-slate-200 text-[9px]">
-                      <thead>
-                        <tr className="bg-slate-50 text-slate-600 font-black">
-                          <th className="border border-slate-200 p-1.5 text-left">Part Name</th>
-                          <th className="border border-slate-200 p-1.5 text-center">Qty NG</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {qpr.parts && qpr.parts.length > 0 ? (
-                          qpr.parts.map((p: any, idx: number) => (
-                            <tr key={idx} className="font-semibold text-slate-700">
-                              <td className="border border-slate-200 p-1.5">{p.partName}</td>
-                              <td className="border border-slate-200 p-1.5 text-center font-bold text-red-650">{(p.qtyNG !== undefined ? p.qtyNG : (p.qtyNg || p.qtyClaim || 0))} pcs</td>
-                            </tr>
-                          ))
-                        ) : (
-                          <tr className="font-semibold text-slate-750">
-                            <td className="border border-slate-200 p-1.5">{qpr.partName || "ALL TYPE PART FINISH"}</td>
-                            <td className="border border-slate-200 p-1.5 text-center font-bold text-red-650">{qpr.rejectItems || 0} pcs</td>
+                    <div className="space-y-2">
+                      <span className="text-slate-450 text-[9px] uppercase tracking-wider block">Daftar Part Terpengaruh</span>
+                      <table className="w-full border-collapse border border-slate-200 text-[9px]">
+                        <thead>
+                          <tr className="bg-slate-50 text-slate-600 font-black">
+                            <th className="border border-slate-200 p-1.5 text-left">Part Name</th>
+                            <th className="border border-slate-200 p-1.5 text-center">Qty NG</th>
                           </tr>
-                        )}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {qpr.parts && qpr.parts.length > 0 ? (
+                            qpr.parts.map((p: any, idx: number) => (
+                              <tr key={idx} className="font-semibold text-slate-700">
+                                <td className="border border-slate-200 p-1.5">{p.partName}</td>
+                                <td className="border border-slate-200 p-1.5 text-center font-bold text-red-650">{(p.qtyNG !== undefined ? p.qtyNG : (p.qtyNg || p.qtyClaim || 0))} pcs</td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr className="font-semibold text-slate-750">
+                              <td className="border border-slate-200 p-1.5">{qpr.partName || "ALL TYPE PART FINISH"}</td>
+                              <td className="border border-slate-200 p-1.5 text-center font-bold text-red-650">{qpr.rejectItems || 0} pcs</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
-
                 </div>
-              </div>
+              )}
             </div>
           </div>
         )}

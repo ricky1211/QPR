@@ -54,6 +54,7 @@ export default function BuatQprView({
   ]);
   const [previewQpr, setPreviewQpr] = useState<any>(null);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [pdfBase64, setPdfBase64] = useState<string | null>(null);
   const [remarks, setRemarks] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [submittedNum, setSubmittedNum] = useState("");
@@ -154,6 +155,11 @@ export default function BuatQprView({
       setRemarks(selectedQprForEdit.remarks || "");
       // Mock pdf file to bypass missing field check
       setPdfFile(new File([""], selectedQprForEdit.pdfFileName || "revision_attachment.pdf"));
+      if (selectedQprForEdit.pdfFileBase64) {
+        setPdfBase64(selectedQprForEdit.pdfFileBase64);
+      } else {
+        setPdfBase64(null);
+      }
     }
   }, [selectedQprForEdit, suppliers, partsBySupplier]);
 
@@ -389,7 +395,8 @@ export default function BuatQprView({
       refNcrNumber,
       problem,
       claimType,
-      pdfFileName: pdfFile ? pdfFile.name : null
+      pdfFileName: pdfFile ? pdfFile.name : null,
+      pdfFileBase64: pdfBase64
     };
 
     if (setPendingQprs) {
@@ -422,6 +429,7 @@ export default function BuatQprView({
     setRemarks("");
     setPartRows([{ id: Date.now(), partId: "", totalQty: "", qtyNg: "", stdAllowance: "0" }]);
     setPdfFile(null);
+    setPdfBase64(null);
     setSubmitted(false);
     setSubmittedNum("");
     // Clear sessionStorage revision data
@@ -667,6 +675,11 @@ export default function BuatQprView({
                             return;
                           }
                           setPdfFile(file);
+                          const reader = new FileReader();
+                          reader.onload = (event) => {
+                            setPdfBase64(event.target?.result as string);
+                          };
+                          reader.readAsDataURL(file);
                         }
                       }}
                       className="hidden"
@@ -677,7 +690,10 @@ export default function BuatQprView({
                       <span className="truncate max-w-[200px]">{pdfFile.name}</span>
                       <button
                         type="button"
-                        onClick={() => setPdfFile(null)}
+                        onClick={() => {
+                          setPdfFile(null);
+                          setPdfBase64(null);
+                        }}
                         className="text-red-500 hover:text-red-700 font-bold ml-1 cursor-pointer"
                         title="Hapus file"
                       >
@@ -686,6 +702,18 @@ export default function BuatQprView({
                     </div>
                   )}
                 </div>
+                {pdfBase64 && (
+                  <div className="w-full h-[250px] bg-slate-50 border border-slate-250 rounded-lg overflow-hidden relative shadow-inner mt-3">
+                    <div className="absolute top-2 right-2 z-10 bg-slate-900/60 text-white text-[9px] font-black px-2 py-1 rounded backdrop-blur-[1.5px] uppercase tracking-wider select-none">
+                      Preview File Upload
+                    </div>
+                    <iframe
+                      src={pdfBase64}
+                      className="w-full h-full border-0"
+                      title="Direct Upload Preview"
+                    />
+                  </div>
+                )}
               </div>
 
               {/* Remarks */}
@@ -953,7 +981,8 @@ export default function BuatQprView({
                   problem,
                   claimType,
                   remarks,
-                  pdfFileName: pdfFile ? pdfFile.name : null
+                  pdfFileName: pdfFile ? pdfFile.name : null,
+                  pdfFileBase64: pdfBase64
                 });
               }}
               className="w-full py-2 border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer"
