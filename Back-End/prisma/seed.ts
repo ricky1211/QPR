@@ -27,9 +27,9 @@ async function main() {
 
   // 2. Seed Vendors
   const vendorsData = [
-    { vendorCode: 'VND001', vendorName: 'PT TEMARU ENGINEERING INDONESIA' },
+    { vendorCode: '31012100', vendorName: 'PT TEMARU ENGINEERING INDONESIA' },
     { vendorCode: 'VND002', vendorName: 'PT SUKSES CIPTA MAKMUR' },
-    { vendorCode: 'VND003', vendorName: 'PT ANUGERAH DAYA INDUSTRI KOMPONEN UTAMA' },
+    { vendorCode: 'VND003', vendorName: 'Anugerah Daya Industri Komponen Utama, PT.' },
     { vendorCode: 'VND004', vendorName: 'PT JAYADI' },
     { vendorCode: 'VND005', vendorName: 'SHIJIAZHUANG RUICHENG TRADE CO., LTD' },
     { vendorCode: 'VND006', vendorName: 'PT IKAN BAKAR' },
@@ -37,11 +37,25 @@ async function main() {
 
   const seededVendors = [];
   for (const v of vendorsData) {
-    const vendor = await prisma.vendor.upsert({
-      where: { vendorCode: v.vendorCode },
-      update: { vendorName: v.vendorName },
-      create: { vendorCode: v.vendorCode, vendorName: v.vendorName },
+    let vendor = await prisma.vendor.findFirst({
+      where: {
+        OR: [
+          { vendorCode: v.vendorCode },
+          { vendorName: v.vendorName }
+        ]
+      }
     });
+
+    if (vendor) {
+      vendor = await prisma.vendor.update({
+        where: { id: vendor.id },
+        data: { vendorName: v.vendorName, vendorCode: v.vendorCode }
+      });
+    } else {
+      vendor = await prisma.vendor.create({
+        data: { vendorCode: v.vendorCode, vendorName: v.vendorName }
+      });
+    }
     seededVendors.push(vendor);
   }
   console.log(`Seeded ${seededVendors.length} vendors.`);
@@ -56,11 +70,25 @@ async function main() {
 
   const seededParts = [];
   for (const p of partsData) {
-    const part = await prisma.part.upsert({
-      where: { partNumber: p.partNumber },
-      update: { partDesc: p.partDesc },
-      create: { partNumber: p.partNumber, partDesc: p.partDesc },
+    let part = await prisma.part.findFirst({
+      where: {
+        OR: [
+          { partNumber: p.partNumber },
+          { partDesc: p.partDesc }
+        ]
+      }
     });
+
+    if (part) {
+      part = await prisma.part.update({
+        where: { id: part.id },
+        data: { partDesc: p.partDesc, partNumber: p.partNumber }
+      });
+    } else {
+      part = await prisma.part.create({
+        data: { partNumber: p.partNumber, partDesc: p.partDesc }
+      });
+    }
     seededParts.push(part);
   }
   console.log(`Seeded ${seededParts.length} parts.`);

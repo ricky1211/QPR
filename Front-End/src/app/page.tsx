@@ -23,6 +23,9 @@ import DraftQprView from "@/components/features/role-views/DraftQprView";
 import DraftClView from "@/components/features/role-views/DraftClView";
 import { ncrService, mapNcrFromDb } from "@/services/ncrService";
 import { vendorService } from "@/services/vendorService";
+import { qprService, mapQprFromDb } from "@/services/qprService";
+import { clService, mapClFromDb } from "@/services/clService";
+import { sscService, mapBillingFromDb } from "@/services/sscService";
 
 
 // Global tracking views & modals
@@ -124,7 +127,7 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
     };
   }, [initialTab, router]);
 
-  // Fetch real NCRs and Parts from backend PostgreSQL database on mount
+  // Fetch real NCRs, Parts, QPRs, CLs, and Billings from backend PostgreSQL database on mount
   useEffect(() => {
     ncrService.getAll()
       .then((data) => {
@@ -164,6 +167,36 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
       })
       .catch((err) => {
         console.error("Failed to fetch real parts:", err);
+      });
+
+    qprService.getAll()
+      .then((dbQprs) => {
+        if (Array.isArray(dbQprs)) {
+          setPendingQprs(dbQprs.map((q: any) => mapQprFromDb(q)));
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to fetch real QPRs:", err);
+      });
+
+    clService.getAll()
+      .then((dbCls) => {
+        if (Array.isArray(dbCls)) {
+          setConfirmationLetters(dbCls.map((cl: any) => mapClFromDb(cl)));
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to fetch real CLs:", err);
+      });
+
+    sscService.getAllBillings()
+      .then((dbBillings) => {
+        if (Array.isArray(dbBillings)) {
+          setCreatedSscBillings(dbBillings.map((b: any) => mapBillingFromDb(b)));
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to fetch real Billings:", err);
       });
 
     // Lead-time auto-close logic:
@@ -273,105 +306,9 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
   // NOTE: pendingQprs and confirmationLetters are persisted to sessionStorage
   // so they survive Next.js route changes (each sub-route remounts <Home />).
   const [pendingNcrs, setPendingNcrs] = useState([]);
-  const [pendingQprs, setPendingQprs] = useState<any[]>(() => {
-    if (typeof window === "undefined") return [];
-    try {
-      const saved = sessionStorage.getItem("mtm_qpr_pendingQprs");
-      return saved ? JSON.parse(saved) : mockPendingQprs;
-    } catch { return mockPendingQprs; }
-  });
-  const [confirmationLetters, setConfirmationLetters] = useState<any[]>(() => {
-    if (typeof window === "undefined") return [];
-    try {
-      const saved = sessionStorage.getItem("mtm_qpr_confirmationLetters");
-      return saved ? JSON.parse(saved) : [];
-    } catch { return []; }
-  });
-  const [createdSscBillings, setCreatedSscBillings] = useState<any[]>(() => {
-    if (typeof window === "undefined") return [];
-    try {
-      const saved = sessionStorage.getItem("mtm_qpr_createdSscBillings");
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return [
-      {
-        id: "mock-cl-1",
-        clNumber: "CL/2026/06/001",
-        supplierName: "PT TEMARU ENGINEERING INDONESIA",
-        dateSent: "2026-06-18",
-        amount: "Rp 24.000.000",
-        memoCompany: "PT. MENARA TERUS MAKMUR",
-        memoBusinessArea: "MT",
-        memoRequestDate: "18/06/2026",
-        memoBillingType: "One Time",
-        memoPeriod: "06/26",
-        memoTitle: "Permintaan Pembuatan Invoice Claim NG Part",
-        memoRequestTo: "SSC Billing",
-        memoDescription: "Mohon dibuatkan invoice untuk Claim Part NG dari PT TEMARU ENGINEERING INDONESIA atas CL CL/2026/06/001",
-        memoCustomerType: "PKP",
-        memoNpwp: "81.571.024.9-408.000",
-        memoSupportingDoc: "-",
-        memoBillingAddressedTo: "Jalan Galuh Mas Raya No. 28-29, Sukaharja, Telukjambe Barat, Sukaharja, Telukjambe Timur, Kabupaten Karawang",
-        memoCustomerName: "PT TEMARU ENGINEERING INDONESIA",
-        memoCurrency: "IDR",
-        memoAmount: "24000000",
-        memoSays: "Dua Puluh Empat Juta Rupiah",
-        acctCustomerCode: "OTC08002",
-        acctCustomerType: "Non Trade",
-        acctTradingPartner: "",
-        acctExchangeRate: "",
-        acctJournal: "",
-        glRows: [
-          { code: "OTC08002", name: "PT TEMARU ENGINEER", costCenter: "", amountDr: "24.000.000", amountCr: "", text: "Claim Part NG" },
-          { code: "545-102-0000", name: "FOH Subcont Fee", costCenter: "MT015FOHGE", amountDr: "", amountCr: "21.621.621", text: "Claim Part NG" },
-          { code: "211-310-0000", name: "Tax Pay VAT Out", costCenter: "", amountDr: "", amountCr: "2.378.379", text: "ppn 11%" }
-        ],
-        sigPrepared: "Bagas",
-        sigApproved1: "Anindita",
-        sigApproved2: "Evi Sulistyorini",
-        sigEntry: "",
-        sigChecked: "",
-      },
-      {
-        id: "mock-cl-2",
-        clNumber: "CL/2026/07/001",
-        supplierName: "PT JAYADI",
-        dateSent: "2026-07-20",
-        amount: "Rp 18.200.000",
-        memoCompany: "PT. MENARA TERUS MAKMUR",
-        memoBusinessArea: "MT",
-        memoRequestDate: "20/07/2026",
-        memoBillingType: "One Time",
-        memoPeriod: "07/26",
-        memoTitle: "Permintaan Pembuatan Invoice Claim NG Part",
-        memoRequestTo: "SSC Billing",
-        memoDescription: "Mohon dibuatkan invoice untuk Claim Part NG dari PT JAYADI atas CL CL/2026/07/001",
-        memoCustomerType: "PKP",
-        memoNpwp: "81.571.024.9-408.000",
-        memoSupportingDoc: "-",
-        memoBillingAddressedTo: "Jalan Galuh Mas Raya No. 28-29, Sukaharja, Telukjambe Barat, Sukaharja, Telukjambe Timur, Kabupaten Karawang",
-        memoCustomerName: "PT JAYADI",
-        memoCurrency: "IDR",
-        memoAmount: "18200000",
-        memoSays: "Delapan Belas Juta Dua Ratus Ribu Rupiah",
-        acctCustomerCode: "OTC08002",
-        acctCustomerType: "Non Trade",
-        acctTradingPartner: "",
-        acctExchangeRate: "",
-        acctJournal: "",
-        glRows: [
-          { code: "OTC08002", name: "PT JAYADI", costCenter: "", amountDr: "18.200.000", amountCr: "", text: "Claim Part NG" },
-          { code: "545-102-0000", name: "FOH Subcont Fee", costCenter: "MT015FOHGE", amountDr: "", amountCr: "16.396.396", text: "Claim Part NG" },
-          { code: "211-310-0000", name: "Tax Pay VAT Out", costCenter: "", amountDr: "", amountCr: "1.803.604", text: "ppn 11%" }
-        ],
-        sigPrepared: "Bagas",
-        sigApproved1: "Anindita",
-        sigApproved2: "Evi Sulistyorini",
-        sigEntry: "",
-        sigChecked: "",
-      }
-    ];
-  });
+  const [pendingQprs, setPendingQprs] = useState<any[]>([]);
+  const [confirmationLetters, setConfirmationLetters] = useState<any[]>([]);
+  const [createdSscBillings, setCreatedSscBillings] = useState<any[]>([]);
 
   // Persist pendingQprs to sessionStorage whenever it changes
   useEffect(() => {
@@ -395,85 +332,102 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
   }, [createdSscBillings]);
 
   const handleGenerateCL = (qpr: any, amount: string, items?: any[]) => {
-    const newClId = `cl-${Date.now()}`;
     const cleanAmount = amount && amount.startsWith("Rp") ? amount : `Rp ${amount || "0"}`;
     const today = new Date().toISOString().split("T")[0];
-    const newCl = {
-      id: newClId,
-      clNumber: `CL/${today.slice(0,7).replace("-","/")}/${qpr.supplierName.replace("PT ", "").replace(/ /g, "_")}_${Math.floor(Math.random() * 900 + 100)}`,
-      qprNumber: qpr.qprNumber,
-      supplierName: qpr.supplierName,
+    const clNum = `CL/${today.slice(0,7).replace("-","/")}/${qpr.supplierName.replace("PT ", "").replace(/ /g, "_")}_${Math.floor(Math.random() * 900 + 100)}`;
+    const parsedAmount = parseFloat(cleanAmount.replace(/[^0-9.]/g, ""));
+
+    const payload = {
+      clNumber: clNum,
       dateSent: today,
-      amount: cleanAmount,
-      status: "PENDING",
-      requiredRole: "Dept Accounting",
-      memoStatus: "SENT_AOP",
-      reminderSentCount: 1,
-      sentToVendor: false,
-      vendorApproved: false,
-      vendorApprovedDocName: null,
-      readyForSSC: false,
-      items: items || [],
-      clApprovalProgress: { sectAccounting: false, deptAccounting: false },
-      closedPaid: false,
-      debitNoteCount: 0,
-      reminderCount: 1,
-      // Full QPR source data preserved
-      qprSourceData: {
-        parts: qpr.parts || [],
-        problem: qpr.problem || "",
-        claimType: qpr.claimType || [],
-        refNcrNumber: qpr.refNcrNumber || "",
-        pdfFileName: qpr.pdfFileName || null,
-        period: qpr.period || "",
-        date: qpr.date || today,
-        totalItems: qpr.totalItems || 0,
-        rejectItems: qpr.rejectItems || 0,
-        allowanceRatio: qpr.allowanceRatio || "0%",
-        remarks: qpr.remarks || ""
-      }
+      qprId: qpr.id,
+      vendorId: qpr.supplierId,
+      amount: parsedAmount,
+      status: "PENDING"
     };
-    setConfirmationLetters(prev => [newCl, ...prev]);
-    setPendingQprs(prev => prev.map(q => q.qprNumber === qpr.qprNumber ? { ...q, status: "CLOSED", requiredRole: "Closed" } : q));
+
+    clService.create(payload)
+      .then(() => {
+        return qprService.update(qpr.id, { status: "CLOSED", requiredRole: "Closed" });
+      })
+      .then(() => {
+        clService.getAll().then(data => setConfirmationLetters(data.map(mapClFromDb)));
+        qprService.getAll().then(data => setPendingQprs(data.map(mapQprFromDb)));
+      })
+      .catch((err) => {
+        console.error("Failed to generate CL in DB:", err);
+      });
+
     // Add notification
     setNotifications(prev => [{
       id: Date.now(),
-      message: `CL ${newCl.clNumber} otomatis dibuat dari QPR ${qpr.qprNumber} (${qpr.supplierName}) dan menunggu persetujuan Dept Accounting.`,
+      message: `CL ${clNum} otomatis dibuat dari QPR ${qpr.qprNumber} (${qpr.supplierName}) dan menunggu persetujuan Dept Accounting.`,
       time: "Baru saja",
-      type: "success",
+      type: "success" as const,
       unread: true
     }, ...prev]);
   };
 
   // Handler: Approve CL per level accounting (dept only)
   const handleApproveCL = (clId: string, level: "sect" | "dept" | "div") => {
-    setConfirmationLetters(prev => prev.map(cl => {
-      if (cl.id !== clId) return cl;
-      const progress = { ...cl.clApprovalProgress };
-      let newStatus = cl.status;
-      let nextRole = cl.requiredRole;
+    const proceedWithLocalStateUpdate = () => {
+      setConfirmationLetters(prev => prev.map(cl => {
+        if (cl.id !== clId) return cl;
+        const progress = { ...cl.clApprovalProgress };
+        let newStatus = cl.status;
+        let nextRole = cl.requiredRole;
 
-      if (level === "dept" && !progress.deptAccounting) {
-        progress.sectAccounting = true; // Auto-set for legacy compatibility
-        progress.deptAccounting = true;
-        newStatus = "FULLY_APPROVED";
-        nextRole = "Closed";
-        alert(`Sukses: CL ${cl.clNumber} disetujui sepenuhnya oleh Dept Accounting!`);
-      } else if (level === "sect" && !progress.sectAccounting) {
-        progress.sectAccounting = true;
-        newStatus = "APPROVED_SECT";
-        nextRole = "Dept Accounting";
-        alert(`Sukses: CL ${cl.clNumber} disetujui oleh Sect Accounting!`);
-      }
-      return { ...cl, clApprovalProgress: progress, status: newStatus, requiredRole: nextRole };
-    }));
+        if (level === "dept" && !progress.deptAccounting) {
+          progress.sectAccounting = true; // Auto-set for legacy compatibility
+          progress.deptAccounting = true;
+          newStatus = "FULLY_APPROVED";
+          nextRole = "Closed";
+          alert(`Sukses: CL ${cl.clNumber} disetujui sepenuhnya oleh Dept Accounting!`);
+        } else if (level === "sect" && !progress.sectAccounting) {
+          progress.sectAccounting = true;
+          newStatus = "APPROVED_SECT";
+          nextRole = "Dept Accounting";
+          alert(`Sukses: CL ${cl.clNumber} disetujui oleh Sect Accounting!`);
+        }
+        return { ...cl, clApprovalProgress: progress, status: newStatus, requiredRole: nextRole };
+      }));
+    };
+
+    if (typeof clId === "string" && clId.length > 10) {
+      const dbStatus = level === "dept" ? "APPROVED" : "PENDING";
+      clService.update(clId, { status: dbStatus })
+        .then(() => {
+          proceedWithLocalStateUpdate();
+        })
+        .catch(err => {
+          console.error("Failed to update CL in DB:", err);
+          alert(`Gagal menyimpan approval CL ke database: ${err.message}`);
+        });
+    } else {
+      proceedWithLocalStateUpdate();
+    }
   };
 
   // Handler: Mark CL as Close Paid
   const handleMarkClosedPaid = (clId: string) => {
-    setConfirmationLetters(prev => prev.map(cl =>
-      cl.id === clId ? { ...cl, closedPaid: true, status: "CLOSED_PAID" } : cl
-    ));
+    const proceedWithLocalStateUpdate = () => {
+      setConfirmationLetters(prev => prev.map(cl =>
+        cl.id === clId ? { ...cl, closedPaid: true, status: "CLOSED_PAID" } : cl
+      ));
+    };
+
+    if (typeof clId === "string" && clId.length > 10) {
+      clService.update(clId, { status: "APPROVED" }) // keep as approved in db but update local
+        .then(() => {
+          proceedWithLocalStateUpdate();
+        })
+        .catch(err => {
+          console.error("Failed to mark CL closed paid in DB:", err);
+          proceedWithLocalStateUpdate();
+        });
+    } else {
+      proceedWithLocalStateUpdate();
+    }
   };
 
   // Handler: Increment debit note / potong tagih count

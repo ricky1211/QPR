@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import ConfirmationLetterPrintPreview from "./ConfirmationLetterPrintPreview";
 import { parseCLPdf } from "@/utils/parseCLPdf";
+import { sscService, mapBillingFromDb } from "@/services/sscService";
 
 interface IMemoViewProps {
   confirmationLetters: any[];
@@ -188,65 +189,9 @@ export default function IMemoView({
   // Merges without duplicates (by id). CL rows with any approval status are included.
   useEffect(() => {
     setSscBillingRows(prev => {
-      let baseRows = prev;
-      if (prev.length === 0 && confirmationLetters.length === 0) {
-        baseRows = [
-          {
-            id: "mock-cl-1",
-            clNumber: "CL/2026/06/001",
-            qprNumber: "QPR/2026/05/IKAN_BAKAR",
-            supplierName: "PT TEMARU ENGINEERING INDONESIA",
-            dateSent: "2026-06-18",
-            amount: "Rp 24.000.000",
-            status: "FULLY_APPROVED",
-            memoStatus: "DRAFT_MEMO",
-            reminderSentCount: 0,
-            customText: "POTONG TAGIH CLAIM PART NG",
-            paymentDate: "10/08/2026",
-            customerCode: "OTC08002",
-            documentNo: "202606001",
-            items: [{ no: 1, partName: "Harddisk 1TB", totalQty: 2000, qtyNG: 20, ngActual: 1.0, stdAllowance: 10, qtyClaim: 20, qty: 20, claimCost: 1081081, unitPrice: 1081081, amount: 21621620, subtotal: 21621620 }]
-          },
-          {
-            id: "mock-cl-2",
-            clNumber: "CL/2026/07/001",
-            qprNumber: "QPR/2026/06/JAYADI_1",
-            supplierName: "PT JAYADI",
-            dateSent: "2026-07-20",
-            amount: "Rp 18.200.000",
-            status: "FULLY_APPROVED",
-            memoStatus: "DRAFT_MEMO",
-            reminderSentCount: 0,
-            customText: "POTONG TAGIH CLAIM PT JAYADI",
-            paymentDate: "10/10/2026",
-            customerCode: "OTC08002",
-            documentNo: "202512006",
-            items: [{ no: 1, partName: "Motherboard X1", totalQty: 1000, qtyNG: 10, ngActual: 1.0, stdAllowance: 5, qtyClaim: 10, qty: 10, claimCost: 1500000, unitPrice: 1500000, amount: 15000000, subtotal: 15000000 }]
-          },
-          {
-            id: "mock-cl-3",
-            clNumber: "CL/2025/12/006",
-            qprNumber: "004/QI/QPR/SUB/11/25, 009/QI/QPR/SUB/11/25, 014/QI/QPR/SUB/11/25",
-            supplierName: "Anugerah Daya Industri Komponen Utama, PT.",
-            dateSent: "2025-12-02",
-            amount: "Rp 1.144.283",
-            status: "FULLY_APPROVED",
-            memoStatus: "DRAFT_MEMO",
-            reminderSentCount: 0,
-            customText: "POTONG TAGIH CLAIM HUB CLUTCH",
-            paymentDate: "10/02/2026",
-            customerCode: "OTC08002",
-            documentNo: "202512006",
-            items: [
-              { no: 1, partName: "HUB CLUTCH, IMV 683N", totalQty: 1000, qtyNG: 14, ngActual: 1.4, stdAllowance: 5, qtyClaim: 14, qty: 14, claimCost: 49516, unitPrice: 49516, amount: 693224, subtotal: 693224 },
-              { no: 2, partName: "HUB CLUTCH, RZN", totalQty: 500, qtyNG: 6, ngActual: 1.2, stdAllowance: 5, qtyClaim: 6, qty: 6, claimCost: 56277, unitPrice: 56277, amount: 337662, subtotal: 337662 }
-            ]
-          }
-        ];
-      }
-      if (confirmationLetters.length === 0) return baseRows;
+      if (confirmationLetters.length === 0) return [];
 
-      const existingIds = new Set(baseRows.map((r: any) => r.id));
+      const existingIds = new Set(prev.map((r: any) => r.id));
       const newFromCl: any[] = confirmationLetters
         .filter((cl: any) => !existingIds.has(cl.id))
         .map((cl: any) => ({
@@ -267,12 +212,12 @@ export default function IMemoView({
           paymentDate: "",
         }));
       // Also update status of existing rows that match a CL that changed
-      const updated = baseRows.map((row: any) => {
+      const updated = prev.map((row: any) => {
         const match = confirmationLetters.find((cl: any) => cl.id === row.id);
         if (match) return { ...row, status: match.status, amount: match.amount, supplierName: match.supplierName };
         return row;
       });
-      return [...updated, ...newFromCl];
+      return [...updated.filter(r => confirmationLetters.some(cl => cl.id === r.id)), ...newFromCl];
     });
   }, [confirmationLetters]);
 
@@ -350,13 +295,15 @@ export default function IMemoView({
   };
 
   const handlePrint = () => {
-    // Auto-generate/save SSC Billing to list ssc payment
-    const newBilling = {
-      id: selectedBillingClId || `billing-${Date.now()}`,
-      clNumber: sscBillingRows.find((r: any) => r.id === selectedBillingClId)?.clNumber || `CL-${Date.now()}`,
-      supplierName: memoCustomerName,
-      dateSent: memoRequestDate,
-      amount: memoAmount ? `Rp ${parseInt(memoAmount).toLocaleString("id-ID")}` : "Rp 0",
+    const clNumVal = sscBillingRows.find((r: any) => r.id === selectedBillingClId)?.clNumber || `CL-${Date.now()}`;
+    const parsedAmount = parseFloat(memoAmount || "0");
+
+    const payload = {
+      clId: selectedBillingClId,
+      billingNo: `INV/${clNumVal.replace("CL/", "")}`,
+      billingDate: new Date().toISOString(),
+      totalAmount: parsedAmount,
+      status: "UNPAID",
       memoCompany,
       memoBusinessArea,
       memoRequestDate,
@@ -371,29 +318,37 @@ export default function IMemoView({
       memoBillingAddressedTo,
       memoCustomerName,
       memoCurrency,
-      memoAmount,
+      memoAmount: String(parsedAmount),
       memoSays,
       acctCustomerCode,
       acctCustomerType,
-      acctTradingPartner,
-      acctExchangeRate,
-      acctJournal,
-      glRows,
+      acctTradingPartner: acctTradingPartner || "",
+      acctExchangeRate: acctExchangeRate || "",
+      acctJournal: acctJournal || "",
+      glRows: JSON.stringify(glRows),
       sigPrepared,
+      sigPreparedRole: sigPreparedRole || "Purchasing",
       sigApproved1,
+      sigApproved1Role: sigApproved1Role || "Accounting Section Head",
       sigApproved2,
-      sigEntry,
-      sigChecked,
-      sigPreparedRole,
-      sigApproved1Role,
-      sigApproved2Role,
-      sigEntryRole,
-      sigCheckedRole,
+      sigApproved2Role: sigApproved2Role || "Accounting Dept Head",
+      sigEntry: sigEntry || "",
+      sigEntryRole: sigEntryRole || "",
+      sigChecked: sigChecked || "",
+      sigCheckedRole: sigCheckedRole || ""
     };
-    setCreatedSscBillings(prev => {
-      const filtered = prev.filter(b => b.id !== newBilling.id);
-      return [newBilling, ...filtered];
-    });
+
+    sscService.createBilling(payload)
+      .then(() => {
+        sscService.getAllBillings().then(data => {
+          if (Array.isArray(data) && setCreatedSscBillings) {
+            setCreatedSscBillings(data.map(mapBillingFromDb));
+          }
+        });
+      })
+      .catch((err) => {
+        console.error("Failed to save SSC Billing in DB:", err);
+      });
 
     // Tentukan sheet mana yang aktif
     const sheetId = document.getElementById("manual-billing-sheet") ? "manual-billing-sheet" : "internal-memo-sheet";
@@ -415,14 +370,15 @@ export default function IMemoView({
   };
 
   const handleConfirmToPayment = () => {
-    // 1. Create the billing document inside createdSscBillings so it's registered
-    const clNumberVal = sscBillingRows.find((r: any) => r.id === selectedBillingClId)?.clNumber || `CL-${Date.now()}`;
-    const newBilling = {
-      id: selectedBillingClId || `billing-${Date.now()}`,
-      clNumber: clNumberVal,
-      supplierName: memoCustomerName,
-      dateSent: memoRequestDate,
-      amount: memoAmount ? `Rp ${parseInt(memoAmount).toLocaleString("id-ID")}` : "Rp 0",
+    const clNumVal = sscBillingRows.find((r: any) => r.id === selectedBillingClId)?.clNumber || `CL-${Date.now()}`;
+    const parsedAmount = parseFloat(memoAmount || "0");
+
+    const payload = {
+      clId: selectedBillingClId,
+      billingNo: `INV/${clNumVal.replace("CL/", "")}`,
+      billingDate: new Date().toISOString(),
+      totalAmount: parsedAmount,
+      status: "UNPAID",
       memoCompany,
       memoBusinessArea,
       memoRequestDate,
@@ -437,30 +393,37 @@ export default function IMemoView({
       memoBillingAddressedTo,
       memoCustomerName,
       memoCurrency,
-      memoAmount,
+      memoAmount: String(parsedAmount),
       memoSays,
       acctCustomerCode,
       acctCustomerType,
-      acctTradingPartner,
-      acctExchangeRate,
-      acctJournal,
-      glRows,
+      acctTradingPartner: acctTradingPartner || "",
+      acctExchangeRate: acctExchangeRate || "",
+      acctJournal: acctJournal || "",
+      glRows: JSON.stringify(glRows),
       sigPrepared,
+      sigPreparedRole: sigPreparedRole || "Purchasing",
       sigApproved1,
+      sigApproved1Role: sigApproved1Role || "Accounting Section Head",
       sigApproved2,
-      sigEntry,
-      sigChecked,
-      sigPreparedRole,
-      sigApproved1Role,
-      sigApproved2Role,
-      sigEntryRole,
-      sigCheckedRole,
+      sigApproved2Role: sigApproved2Role || "Accounting Dept Head",
+      sigEntry: sigEntry || "",
+      sigEntryRole: sigEntryRole || "",
+      sigChecked: sigChecked || "",
+      sigCheckedRole: sigCheckedRole || ""
     };
 
-    setCreatedSscBillings(prev => {
-      const filtered = prev.filter(b => b.id !== newBilling.id);
-      return [newBilling, ...filtered];
-    });
+    sscService.createBilling(payload)
+      .then(() => {
+        sscService.getAllBillings().then(data => {
+          if (Array.isArray(data) && setCreatedSscBillings) {
+            setCreatedSscBillings(data.map(mapBillingFromDb));
+          }
+        });
+      })
+      .catch((err) => {
+        console.error("Failed to save SSC Billing in DB:", err);
+      });
 
     // 2. Load fields to pay form state
     setPayCompany(memoCompany);
@@ -470,7 +433,7 @@ export default function IMemoView({
     setPayTo("SSC Invoicing & Payment");
     const formattedAmt = memoAmount ? parseInt(memoAmount).toLocaleString("id-ID") : "0";
     setPayInstruction(
-      `Sehubungan dengan ditemukannya komponen NG yang bukan disebabkan oleh proses internal kami, mohon dapat dilakukan pemotongan pembayaran terhadap vendor ${memoCustomerName} sebesar Rp ${formattedAmt} atas CL ${clNumberVal}.`
+      `Sehubungan dengan ditemukannya komponen NG yang bukan disebabkan oleh proses internal kami, mohon dapat dilakukan pemotongan pembayaran terhadap vendor ${memoCustomerName} sebesar Rp ${formattedAmt} atas CL ${clNumVal}.`
     );
     setPaySigPrepared(sigPrepared);
     setPaySigPreparedRole(sigPreparedRole);
@@ -484,9 +447,9 @@ export default function IMemoView({
     setPaySigCheckedRole(sigCheckedRole);
 
     // 3. Switch active payment tab selection
-    setSelectedPaymentClId(newBilling.id);
+    setSelectedPaymentClId(selectedBillingClId);
     setActiveSubTab("buat_ssc_payment");
-    alert(`Sukses: Data SSC Billing untuk ${newBilling.clNumber} berhasil dikonfirmasi (Confirm) tanpa ada perubahan data. Dialihkan ke tab SSC Payment.`);
+    alert(`Sukses: Data SSC Billing untuk ${clNumVal} berhasil dikonfirmasi (Confirm) tanpa ada perubahan data. Dialihkan ke tab SSC Payment.`);
   };
 
   const handleCopyText = (text: string) => {

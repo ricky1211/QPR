@@ -160,6 +160,51 @@ export class QprsService {
         remarksDivHead,
         checksumVendor: convertBuffer(checksumVendor),
         remarksVendor,
+        approvedAtSectionHead: checksumSectionHead ? new Date() : undefined,
+        approvedAtDeptHead: checksumDeptHead ? new Date() : undefined,
+        approvedAtDivHead: checksumDivHead ? new Date() : undefined,
+        approvedAtVendor: checksumVendor ? new Date() : undefined,
+      },
+    });
+  }
+
+  async findAllConfirmationLetters(): Promise<any[]> {
+    try {
+      return await this.prisma.confirmationLetter.findMany({
+        include: {
+          vendor: true,
+          qpr: true,
+          sscBilling: true,
+          sscPayment: true,
+        },
+      });
+    } catch (error) {
+      console.error('[QprsService] Error in findAllConfirmationLetters():', error);
+      return [];
+    }
+  }
+
+  async createConfirmationLetter(data: any): Promise<any> {
+    const { clNumber, dateSent, qprId, vendorId, amount, status } = data;
+    return await this.prisma.confirmationLetter.create({
+      data: {
+        clNumber,
+        dateSent: dateSent ? new Date(dateSent) : new Date(),
+        qprId,
+        vendorId,
+        amount: parseFloat(String(amount || '0').replace(/[^0-9.]/g, '')),
+        status: status || 'PENDING',
+      },
+    });
+  }
+
+  async updateConfirmationLetter(id: string, data: any): Promise<any> {
+    const { status, amount } = data;
+    return await this.prisma.confirmationLetter.update({
+      where: { id },
+      data: {
+        status,
+        amount: amount ? parseFloat(String(amount).replace(/[^0-9.]/g, '')) : undefined,
       },
     });
   }

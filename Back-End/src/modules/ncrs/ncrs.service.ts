@@ -216,6 +216,8 @@ export class NcrsService {
         data: {
           checksumApprovalSectionHead: data.checksumApprovalSectionHead,
           checksumApprovalDeptHead: data.checksumApprovalDeptHead,
+          approvedAtSectionHead: data.checksumApprovalSectionHead ? new Date() : undefined,
+          approvedAtDeptHead: data.checksumApprovalDeptHead ? new Date() : undefined,
         },
       });
     } else {
@@ -224,6 +226,8 @@ export class NcrsService {
           ncrId,
           checksumApprovalSectionHead: data.checksumApprovalSectionHead,
           checksumApprovalDeptHead: data.checksumApprovalDeptHead,
+          approvedAtSectionHead: data.checksumApprovalSectionHead ? new Date() : undefined,
+          approvedAtDeptHead: data.checksumApprovalDeptHead ? new Date() : undefined,
         },
       });
     }

@@ -74,6 +74,8 @@ model NcrApprovalProgress {
   ncr                         Ncr       @relation(fields: [ncrId], references: [id])
   checksumApprovalSectionHead Bytes?
   checksumApprovalDeptHead    Bytes?
+  approvedAtSectionHead       DateTime?
+  approvedAtDeptHead          DateTime?
   createdAt                   DateTime? @default(now())
   updatedAt                   DateTime? @default(now())
 }
@@ -131,6 +133,8 @@ model Qpr {
   totalStdAllowance  Int
   billableQty        Int
   claimAmount        Float?
+  pdfFileName        String?
+  pdfFileBase64      String?
   qprParts           QprPart[]
   approvalProgress   QprApprovalProgress?
   confirmationLetter ConfirmationLetter?
@@ -166,6 +170,10 @@ model QprApprovalProgress {
   remarksDivHead      String?
   checksumVendor      Bytes?
   remarksVendor       String?
+  approvedAtSectionHead DateTime?
+  approvedAtDeptHead    DateTime?
+  approvedAtDivHead     DateTime?
+  approvedAtVendor      DateTime?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 }

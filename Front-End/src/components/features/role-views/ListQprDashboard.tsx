@@ -195,8 +195,8 @@ export default function ListQprDashboard({
         docNumber: qpr.qprNumber,
         date: qpr.date,
         vendorName: qpr.supplierName,
-        partNumber: qpr.partNumber || "MB-001",
-        partName: qpr.partName || "Motherboard X1",
+        partNumber: qpr.parts?.[0]?.partNumber || qpr.partNumber || "MB-001",
+        partName: qpr.parts?.[0]?.partName || qpr.partName || "Motherboard X1",
         period: qpr.period || "Juni 2026",
         qty: qpr.totalItems || 1000,
         reject: qpr.rejectItems || 30,
@@ -219,8 +219,8 @@ export default function ListQprDashboard({
         docNumber: cl.clNumber,
         date: cl.dateSent,
         vendorName: cl.supplierName,
-        partNumber: cl.partNumber || "MB-001",
-        partName: cl.partName || "Motherboard X1",
+        partNumber: cl.qprSourceData?.parts?.[0]?.partNumber || cl.partNumber || "MB-001",
+        partName: cl.qprSourceData?.parts?.[0]?.partName || cl.partName || "Motherboard X1",
         period: "Juni 2026",
         qty: cl.qty || 1000,
         reject: cl.reject || 10,
@@ -717,14 +717,65 @@ export default function ListQprDashboard({
 
                             const stages = getApprovalStages(doc.type, doc.requiredRole, doc.approvedBy, doc.status);
                             let totalDaysSum = 0;
+                            
+                            // Helper to calculate days spent
+                            const getDaysBetween = (startStr?: string | Date, endStr?: string | Date): number => {
+                              if (!startStr) return 0;
+                              const start = new Date(startStr);
+                              const end = endStr ? new Date(endStr) : new Date();
+                              if (isNaN(start.getTime()) || isNaN(end.getTime())) return 0;
+                              start.setHours(0, 0, 0, 0);
+                              end.setHours(0, 0, 0, 0);
+                              const diffTime = end.getTime() - start.getTime();
+                              const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                              return Math.max(0, diffDays);
+                            };
+
                             const stageElements = stages.map((stage, i, arr) => {
-                              const stepDaysNum = stage.status === "APPROVED" ? 1 : (stage.status === "PENDING" ? (i + 1) * 2 : 0);
+                              let stepDaysNum = 0;
+                              if (doc.type === "QPR" && doc.refObject) {
+                                const qpr = doc.refObject;
+                                const progress = qpr.approvalProgress;
+                                if (i === 0) {
+                                  // Section Head
+                                  if (stage.status === "APPROVED") {
+                                    stepDaysNum = getDaysBetween(qpr.date, progress?.approvedAtSectionHead || qpr.date);
+                                  } else if (stage.status === "PENDING") {
+                                    stepDaysNum = getDaysBetween(qpr.date, new Date());
+                                  }
+                                } else if (i === 1) {
+                                  // Dept Head
+                                  if (stage.status === "APPROVED") {
+                                    stepDaysNum = getDaysBetween(progress?.approvedAtSectionHead, progress?.approvedAtDeptHead || progress?.approvedAtSectionHead);
+                                  } else if (stage.status === "PENDING") {
+                                    stepDaysNum = getDaysBetween(progress?.approvedAtSectionHead, new Date());
+                                  }
+                                } else if (i === 2) {
+                                  // Div Head
+                                  if (stage.status === "APPROVED") {
+                                    stepDaysNum = getDaysBetween(progress?.approvedAtDeptHead, progress?.approvedAtDivHead || progress?.approvedAtDeptHead);
+                                  } else if (stage.status === "PENDING") {
+                                    stepDaysNum = getDaysBetween(progress?.approvedAtDeptHead, new Date());
+                                  }
+                                } else if (i === 3) {
+                                  // Accounting
+                                  if (stage.status === "APPROVED") {
+                                    stepDaysNum = getDaysBetween(progress?.approvedAtDivHead, progress?.approvedAtVendor || progress?.approvedAtDivHead);
+                                  } else if (stage.status === "PENDING") {
+                                    stepDaysNum = getDaysBetween(progress?.approvedAtDivHead, new Date());
+                                  }
+                                }
+                              } else {
+                                // Default fallback for other documents or mock items
+                                stepDaysNum = stage.status === "APPROVED" ? 1 : (stage.status === "PENDING" ? getDaysBetween(doc.date, new Date()) : 0);
+                              }
+
                               totalDaysSum += stepDaysNum;
                               
                               // Custom text for final/closed stage showing date document was created/marked
                               let displayText = stage.name;
                               if (stage.status === "APPROVED" && (i === arr.length - 1 || doc.status === "CLOSED_PAID")) {
-                                displayText = `${stage.name} (${doc.date})`;
+                                  displayText = `${stage.name} (${doc.date})`;
                               }
 
                               return (
@@ -748,7 +799,7 @@ export default function ListQprDashboard({
                                       <span className="text-[8px] font-bold text-slate-500 bg-slate-100 px-1 py-0.2 rounded mt-0.5 leading-none">
                                         {doc.type === "SSC Payment" && i === arr.length - 2
                                           ? "Tgl 10 Bln Depan"
-                                          : (stage.status === "APPROVED" ? "1 Hari" : (stage.status === "PENDING" ? `${stepDaysNum} Hari` : "-"))
+                                          : (stage.status === "APPROVED" ? `${stepDaysNum} Hari` : (stage.status === "PENDING" ? `${stepDaysNum} Hari` : "-"))
                                         }
                                       </span>
                                     </div>

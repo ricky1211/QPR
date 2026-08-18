@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import QprPrintPreview from "./QprPrintPreview";
 import { vendorService } from "@/services/vendorService";
+import { qprService, mapQprFromDb } from "@/services/qprService";
 
 interface PartRow {
   id: number;
@@ -355,8 +356,7 @@ export default function BuatQprView({
     };
 
     let calculatedClaimVal = 0;
-    const partsData = partRows.map((row, idx) => {
-      const matchedPart = availableParts.find(p => String(p.id) === String(row.partId));
+    const qprPartsPayload = partRows.map((row) => {
       const totalVal = parseInt(row.totalQty) || 0;
       const ngVal = parseInt(row.qtyNg) || 0;
       const stdVal = Math.round(totalVal * 0.005);
@@ -365,49 +365,58 @@ export default function BuatQprView({
       calculatedClaimVal += qtyClaim * price;
 
       return {
-        no: idx + 1,
-        partName: matchedPart ? matchedPart.partName : "ALL TYPE PART FINISH",
+        partId: row.partId,
         totalQty: totalVal,
-        qtyNG: ngVal,
-        ngActual: totalVal > 0 ? (ngVal / totalVal) * 100 : 0.0,
+        qtyNg: ngVal,
         stdAllowance: stdVal,
-        qtyClaim
+        qtyClaim,
+        unitPrice: price,
+        taxRate: 0.11
       };
     });
 
     const qprNum = selectedQprForEdit 
       ? selectedQprForEdit.qprNumber 
       : `QPR/${date.slice(0, 7).replace("-", "/")}/${selectedSupplier?.name.replace("PT ", "").replace(/ /g, "_").toUpperCase()}`;
-      
-    const newQpr = {
-      id: selectedQprForEdit ? selectedQprForEdit.id : Date.now(),
+
+    const payload = {
       qprNumber: qprNum,
-      date,
-      supplierName: selectedSupplier?.name,
-      period,
-      totalItems: totalQty,
-      rejectItems: totalQtyNg,
-      allowanceRatio: `${((totalStdAllowance / (totalQty || 1)) * 100).toFixed(1)}%`,
-      claimAmount: `Rp ${calculatedClaimVal.toLocaleString("id-ID")}`,
+      date: date ? new Date(date).toISOString() : new Date().toISOString(),
+      vendorId: supplierId,
       status: "WAITING_APPROVAL",
       requiredRole: "Section Head",
-      parts: partsData,
       refNcrNumber,
       problem,
-      claimType,
+      claimType: Array.isArray(claimType) ? claimType.join(", ") : claimType,
+      totalQty: totalQty,
+      totalQtyNg: totalQtyNg,
+      totalStdAllowance: totalStdAllowance,
+      billableQty: billableQty,
+      claimAmount: calculatedClaimVal,
       pdfFileName: pdfFile ? pdfFile.name : null,
-      pdfFileBase64: pdfBase64
+      pdfFileBase64: pdfBase64 || undefined,
+      qprParts: qprPartsPayload
     };
 
-    if (setPendingQprs) {
-      setPendingQprs((prev: any[]) => {
-        if (selectedQprForEdit) {
-          return prev.map(q => q.id === selectedQprForEdit.id ? newQpr : q);
-        } else {
-          return [newQpr, ...prev];
+    const savePromise = selectedQprForEdit
+      ? qprService.update(selectedQprForEdit.id, payload)
+      : qprService.create(payload);
+
+    savePromise
+      .then(() => {
+        if (setPendingQprs) {
+          qprService.getAll().then((data) => {
+            if (Array.isArray(data)) {
+              setPendingQprs(data.map((q: any) => mapQprFromDb(q)));
+            }
+          });
         }
+      })
+      .catch((err) => {
+        console.error("Failed to save QPR to database:", err);
+        alert(`Gagal menyimpan QPR ke database: ${err.message || err}`);
       });
-    }
+
     // Clear sessionStorage revision data
     if (typeof window !== "undefined") {
       try { sessionStorage.removeItem("selectedQprForEdit"); } catch {}
