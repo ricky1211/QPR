@@ -60,6 +60,34 @@ export default function BuatQprView({
   const [submitted, setSubmitted] = useState(false);
   const [submittedNum, setSubmittedNum] = useState("");
 
+  const base64ToBlobUrl = (base64Str: string): string => {
+    if (!base64Str) return "";
+    if (!base64Str.startsWith("data:application/pdf")) {
+      return base64Str;
+    }
+    try {
+      const parts = base64Str.split(";base64,");
+      const contentType = parts[0].split(":")[1];
+      const raw = window.atob(parts[1]);
+      const rawLength = raw.length;
+      const uInt8Array = new Uint8Array(rawLength);
+      for (let i = 0; i < rawLength; ++i) {
+        uInt8Array[i] = raw.charCodeAt(i);
+      }
+      const blob = new Blob([uInt8Array], { type: contentType });
+      return URL.createObjectURL(blob);
+    } catch (error) {
+      console.error("Error converting base64 to blob:", error);
+      return base64Str;
+    }
+  };
+
+  const pdfBlobUrl = React.useMemo(() => {
+    if (!pdfBase64) return "";
+    const url = base64ToBlobUrl(pdfBase64);
+    return `${url}#toolbar=0&navpanes=0`;
+  }, [pdfBase64]);
+
   // Fetch real vendors and parts mapping on mount
   useEffect(() => {
     vendorService.getAll()
@@ -717,7 +745,7 @@ export default function BuatQprView({
                       Preview File Upload
                     </div>
                     <iframe
-                      src={pdfBase64}
+                      src={pdfBlobUrl}
                       className="w-full h-full border-0"
                       title="Direct Upload Preview"
                     />

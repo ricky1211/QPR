@@ -82,6 +82,34 @@ function CheckItem({ label, checked, onClick }: { label: string; checked: boolea
 export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRevision }: QprPreviewProps) {
   const [isVendorCopy, setIsVendorCopy] = React.useState(false);
 
+  const base64ToBlobUrl = (base64Str: string): string => {
+    if (!base64Str) return "";
+    if (!base64Str.startsWith("data:application/pdf")) {
+      return base64Str;
+    }
+    try {
+      const parts = base64Str.split(";base64,");
+      const contentType = parts[0].split(":")[1];
+      const raw = window.atob(parts[1]);
+      const rawLength = raw.length;
+      const uInt8Array = new Uint8Array(rawLength);
+      for (let i = 0; i < rawLength; ++i) {
+        uInt8Array[i] = raw.charCodeAt(i);
+      }
+      const blob = new Blob([uInt8Array], { type: contentType });
+      return URL.createObjectURL(blob);
+    } catch (error) {
+      console.error("Error converting base64 to blob:", error);
+      return base64Str;
+    }
+  };
+
+  const pdfBlobUrl = React.useMemo(() => {
+    if (!qpr.pdfFileBase64) return "";
+    const url = base64ToBlobUrl(qpr.pdfFileBase64);
+    return `${url}#toolbar=0&navpanes=0`;
+  }, [qpr.pdfFileBase64]);
+
   // Check if this vendor has been claimed > 1 times
   const getClaimCountForVendor = (supplierName: string) => {
     if (typeof qpr.vendorClaimCount === 'number') {
@@ -534,7 +562,7 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
             <div className="w-full h-[450px] bg-slate-50 rounded-lg overflow-hidden border border-slate-200 relative shadow-sm">
               {qpr.pdfFileBase64 ? (
                 <iframe
-                  src={qpr.pdfFileBase64}
+                  src={pdfBlobUrl}
                   className="w-full h-full border-0"
                   title="Uploaded PDF Attachment"
                 />
@@ -684,7 +712,7 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
             <div className="w-full h-[600px] bg-slate-50 rounded-lg overflow-hidden border border-slate-300 relative shadow-sm">
               {qpr.pdfFileBase64 ? (
                 <iframe
-                  src={qpr.pdfFileBase64}
+                  src={pdfBlobUrl}
                   className="w-full h-full border-0"
                   title="Uploaded PDF Attachment"
                 />

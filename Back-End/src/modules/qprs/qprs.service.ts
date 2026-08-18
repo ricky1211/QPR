@@ -75,6 +75,8 @@ export class QprsService {
       totalStdAllowance,
       billableQty,
       claimAmount,
+      pdfFileName,
+      pdfFileBase64,
       qprParts,
     } = data;
 
@@ -95,6 +97,8 @@ export class QprsService {
         totalStdAllowance,
         billableQty,
         claimAmount,
+        pdfFileName,
+        pdfFileBase64,
         qprParts: qprParts && Array.isArray(qprParts) ? {
           create: qprParts.map((part: any) => ({
             partId: part.partId,
@@ -118,7 +122,20 @@ export class QprsService {
   }
 
   async update(id: string, data: any): Promise<Qpr> {
-    const { status, requiredRole, problem, claimType, totalQty, totalQtyNg, totalStdAllowance, billableQty, claimAmount } = data;
+    const {
+      status,
+      requiredRole,
+      problem,
+      claimType,
+      totalQty,
+      totalQtyNg,
+      totalStdAllowance,
+      billableQty,
+      claimAmount,
+      pdfFileName,
+      pdfFileBase64,
+    } = data;
+
     return await this.prisma.qpr.update({
       where: { id },
       data: {
@@ -131,6 +148,8 @@ export class QprsService {
         totalStdAllowance,
         billableQty,
         claimAmount,
+        pdfFileName,
+        pdfFileBase64,
       },
     });
   }
