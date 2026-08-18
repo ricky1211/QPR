@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   ClipboardList,
   Plus,
@@ -13,27 +13,7 @@ import {
   AlertTriangle
 } from "lucide-react";
 import QprPrintPreview from "./QprPrintPreview";
-
-const suppliers = [
-  { id: 1, name: "PT JAYADI", code: "SPL-JAY" },
-  { id: 2, name: "PT IKAN BAKAR", code: "SPL-IBK" },
-  { id: 3, name: "SHIJIAZHUANG RUICHENG TRADE CO., LTD", code: "SPL-SRC" }
-];
-
-const partsBySupplier: Record<number, { id: number; partNumber: string; partName: string }[]> = {
-  1: [
-    { id: 1, partNumber: "MB-001", partName: "Motherboard X1" },
-    { id: 2, partNumber: "GL-001", partName: "Gelas Kaca" },
-    { id: 5, partNumber: "KB-004", partName: "Keyboard Mechanical" }
-  ],
-  2: [
-    { id: 3, partNumber: "HD-002", partName: "Harddisk 1TB" },
-    { id: 4, partNumber: "CP-003", partName: "CPU Fan Cooler" }
-  ],
-  3: [
-    { id: 6, partNumber: "CR-001", partName: "CONE RACE ALL TYPE" }
-  ]
-};
+import { vendorService } from "@/services/vendorService";
 
 interface PartRow {
   id: number;
@@ -58,7 +38,10 @@ export default function BuatQprView({
   selectedQprForEdit = null,
   setSelectedQprForEdit = () => {}
 }: BuatQprViewProps) {
-  const [supplierId, setSupplierId] = useState<number | "">("");
+  const [suppliers, setSuppliers] = useState<any[]>([]);
+  const [partsBySupplier, setPartsBySupplier] = useState<Record<string, any[]>>({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [supplierId, setSupplierId] = useState<string | "">("");
   const [supplierSearchQuery, setSupplierSearchQuery] = useState("");
   const [isSupplierDropdownOpen, setIsSupplierDropdownOpen] = useState(false);
   const [period, setPeriod] = useState("");
@@ -75,9 +58,48 @@ export default function BuatQprView({
   const [submitted, setSubmitted] = useState(false);
   const [submittedNum, setSubmittedNum] = useState("");
 
+  // Fetch real vendors and parts mapping on mount
+  useEffect(() => {
+    vendorService.getAll()
+      .then((vendorsList) => {
+        if (Array.isArray(vendorsList)) {
+          const mappedSuppliers = vendorsList.map((v: any) => ({
+            id: v.id,
+            code: v.vendorCode,
+            name: v.vendorName || `Vendor ${v.vendorCode}`,
+          }));
+          setSuppliers(mappedSuppliers);
+
+          const mappedPartsBySup: Record<string, any[]> = {};
+          vendorsList.forEach((v: any) => {
+            const partsList: any[] = [];
+            if (v.vendorParts && Array.isArray(v.vendorParts)) {
+              v.vendorParts.forEach((vp: any) => {
+                if (vp.part) {
+                  partsList.push({
+                    id: vp.part.id,
+                    partNumber: vp.part.partNumber,
+                    partName: vp.part.partDesc || vp.part.partNumber,
+                  });
+                }
+              });
+            }
+            mappedPartsBySup[v.id] = partsList;
+          });
+          setPartsBySupplier(mappedPartsBySup);
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to load vendors:", err);
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+  }, []);
+
   // Load selectedQprForEdit details if present on mount/change
   React.useEffect(() => {
-    if (selectedQprForEdit) {
+    if (selectedQprForEdit && suppliers.length > 0) {
       const matchedSupplier = suppliers.find(
         s => s.name.toLowerCase() === (selectedQprForEdit.supplierName || "").toLowerCase()
       );
@@ -133,7 +155,7 @@ export default function BuatQprView({
       // Mock pdf file to bypass missing field check
       setPdfFile(new File([""], selectedQprForEdit.pdfFileName || "revision_attachment.pdf"));
     }
-  }, [selectedQprForEdit]);
+  }, [selectedQprForEdit, suppliers, partsBySupplier]);
 
   // NCR slide-down panel state
   const [ncrPanelOpen, setNcrPanelOpen] = useState(false);

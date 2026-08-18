@@ -1265,22 +1265,25 @@ export default function ListQprDashboard({
                   </div>
 
                   <div className="mt-auto border border-black overflow-hidden mb-6 text-[10px] font-sans">
-                    <div className="grid grid-cols-4 text-center divide-x divide-black font-bold bg-slate-50 border-b border-black">
-                      <div className="p-1">Prepared By</div>
-                      <div className="p-1 col-span-2">Approved By</div>
-                      <div className="p-1">Entry By</div>
+                    <div className="grid grid-cols-5 text-center divide-x divide-black font-bold font-sans">
+                      <div className="p-1 border-b border-black bg-slate-50/50">Prepared by <sup>1)</sup></div>
+                      <div className="p-1 border-b border-black bg-slate-50/50 col-span-2">Approved by <sup>1)</sup></div>
+                      <div className="p-1 border-b border-black bg-slate-50/50">Entry by <sup>1)</sup></div>
+                      <div className="p-1 border-b border-black bg-slate-50/50">Checked by <sup>1)</sup></div>
                     </div>
-                    <div className="grid grid-cols-4 text-center divide-x divide-black text-[9px] font-bold text-black h-8 items-center bg-[#d9d9d9]">
-                      <div className="p-0.5">{selectedDoc.refObject?.sigPrepared || "Bagas"}</div>
-                      <div className="p-0.5">{selectedDoc.refObject?.sigApproved1 || "Anindita"}</div>
-                      <div className="p-0.5">{selectedDoc.refObject?.sigApproved2 || "Evi Sulistyorini"}</div>
-                      <div className="p-0.5">{selectedDoc.refObject?.sigEntry || "—"}</div>
+                    <div className="grid grid-cols-5 text-center divide-x divide-black h-[58px] items-end pb-2 bg-white">
+                      <div className="px-1 text-center font-sans font-bold border-b border-dashed border-slate-350 mx-1">{selectedDoc.refObject?.sigPrepared || "Bagas"}</div>
+                      <div className="px-1 text-center font-sans font-bold border-b border-dashed border-slate-350 mx-1">{selectedDoc.refObject?.sigApproved1 || "Anindita"}</div>
+                      <div className="px-1 text-center font-sans font-bold border-b border-dashed border-slate-350 mx-1">{selectedDoc.refObject?.sigApproved2 || "Evi Sulistyorini"}</div>
+                      <div className="px-1 text-center font-sans font-bold border-b border-dashed border-slate-350 mx-1">{selectedDoc.refObject?.sigEntry || "—"}</div>
+                      <div className="px-1 text-center font-sans font-bold border-b border-dashed border-slate-350 mx-1">{selectedDoc.refObject?.sigChecked || "—"}</div>
                     </div>
-                    <div className="grid grid-cols-4 text-center divide-x divide-black text-[9px] font-bold text-white bg-blue-600/90 border-t border-black font-sans">
-                      <div className="p-1 py-1.5">Accounting BU</div>
-                      <div className="p-1 py-1.5">Accounting Dept Head</div>
-                      <div className="p-1 py-1.5">Admin Div/BOD</div>
-                      <div className="p-1 py-1.5">Entry By Function</div>
+                    <div className="grid grid-cols-5 text-center divide-x divide-black text-[9px] font-bold text-white bg-blue-600/90 border-t border-black font-sans">
+                      <div className="p-1 py-1.5 truncate text-center">Accounting BU</div>
+                      <div className="p-1 py-1.5 truncate text-center">Accounting Dept Head</div>
+                      <div className="p-1 py-1.5 truncate text-center">Admin Div/BOD</div>
+                      <div className="p-1 py-1.5 truncate text-center">SSC Billing Admin</div>
+                      <div className="p-1 py-1.5 truncate text-center">AR Function Lead</div>
                     </div>
                   </div>
                 </div>
@@ -1288,7 +1291,35 @@ export default function ListQprDashboard({
             </div>
             <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-2 shrink-0 print:hidden">
               <button
-                onClick={() => window.print()}
+                onClick={() => {
+                  const el = document.getElementById("internal-memo-sheet");
+                  if (!el) return;
+                  const content = el.innerHTML;
+                  const styles = Array.from(document.querySelectorAll("link[rel='stylesheet'], style"))
+                    .map(s => s.outerHTML)
+                    .join("\n");
+                  const pw = window.open("", "_blank", "width=900,height=1200");
+                  if (!pw) return;
+                  pw.document.open();
+                  pw.document.write(`<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>Internal Memo</title>
+    ${styles}
+    <style>
+      *{box-sizing:border-box;}
+      html,body{margin:0;padding:0;background:white;font-family:Arial,sans-serif;}
+      @page{size:A4 portrait;margin:0;}
+      body>div{width:210mm;min-height:297mm;padding:12mm;background:white;font-family:Arial,sans-serif;line-height:1.2;font-size:12px;color:black;}
+    </style>
+  </head>
+  <body><div>${content}</div></body>
+</html>`);
+                  pw.document.close();
+                  pw.focus();
+                  setTimeout(() => { pw.print(); pw.close(); }, 500);
+                }}
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg shadow-md transition-all cursor-pointer active:scale-95"
               >
                 Print PDF
@@ -1303,39 +1334,61 @@ export default function ListQprDashboard({
           </div>
           <style>{`
             @media print {
-              @page {
-                size: A4 portrait;
-                margin: 6mm !important;
+              /* Sembunyikan semua elemen di luar modal dialog */
+              body > div:not(.fixed),
+              aside,
+              nav,
+              header,
+              footer,
+              .print\\:hidden,
+              button {
+                display: none !important;
               }
-              html, body {
-                height: auto;
-                margin: 0 !important;
-                padding: 0 !important;
-                background: #fff !important;
-              }
-              body * { visibility: hidden; }
-              #internal-memo-sheet, #internal-memo-sheet * { visibility: visible; }
-              #internal-memo-sheet {
+
+              /* Atur kontainer dialog agar membiarkan children terlihat */
+              .fixed {
                 position: absolute !important;
                 left: 0 !important;
                 top: 0 !important;
+                width: 100% !important;
+                height: auto !important;
+                background: white !important;
+                overflow: visible !important;
+                display: block !important;
+              }
+
+              .fixed > div {
+                background: white !important;
+                border: none !important;
+                box-shadow: none !important;
+                max-height: none !important;
+                overflow: visible !important;
+                display: block !important;
+              }
+
+              /* Hilangkan header modal berwarna gelap */
+              .bg-slate-800, .shrink-0 {
+                display: none !important;
+              }
+
+              /* Pastikan sheet terlihat dan berukuran pas A4 */
+              #internal-memo-sheet {
+                visibility: visible !important;
+                display: flex !important;
+                margin: 0 auto !important;
+                padding: 10mm !important;
                 width: 198mm !important;
                 height: 280mm !important;
-                min-height: 0 !important;
-                margin: 0 auto !important;
-                padding: 4mm !important;
-                border: 1px solid #000 !important;
+                border: none !important;
                 box-shadow: none !important;
-                box-sizing: border-box !important;
+                background: white !important;
                 page-break-inside: avoid !important;
-                transform: scale(0.85) !important;
-                transform-origin: top center !important;
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
               }
+              
               #internal-memo-sheet * {
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
+                visibility: visible !important;
               }
             }
           `}</style>

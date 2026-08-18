@@ -22,6 +22,7 @@ import DraftNcrView from "@/components/features/role-views/DraftNcrView";
 import DraftQprView from "@/components/features/role-views/DraftQprView";
 import DraftClView from "@/components/features/role-views/DraftClView";
 import { ncrService, mapNcrFromDb } from "@/services/ncrService";
+import { vendorService } from "@/services/vendorService";
 
 
 // Global tracking views & modals
@@ -123,7 +124,7 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
     };
   }, [initialTab, router]);
 
-  // Fetch real NCRs from backend PostgreSQL database on mount
+  // Fetch real NCRs and Parts from backend PostgreSQL database on mount
   useEffect(() => {
     ncrService.getAll()
       .then((data) => {
@@ -134,6 +135,35 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
       })
       .catch((err) => {
         console.error("Failed to fetch real NCRs:", err);
+      });
+
+    vendorService.getAll()
+      .then((vendorsList) => {
+        if (Array.isArray(vendorsList)) {
+          const mappedParts: any[] = [];
+          vendorsList.forEach((v: any) => {
+            if (v.vendorParts && Array.isArray(v.vendorParts)) {
+              v.vendorParts.forEach((vp: any) => {
+                if (vp.part) {
+                  mappedParts.push({
+                    id: vp.part.id,
+                    partNumber: vp.part.partNumber,
+                    partName: vp.part.partDesc || vp.part.partNumber,
+                    supplierId: v.id,
+                    supplierName: v.vendorName || `Vendor ${v.vendorCode}`,
+                    allowanceRatio: 0.5,
+                    status: "UNDER ALLOWANCE",
+                    hasNcrActive: false
+                  });
+                }
+              });
+            }
+          });
+          setParts(mappedParts);
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to fetch real parts:", err);
       });
 
     // Lead-time auto-close logic:
@@ -453,7 +483,7 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
     ));
   };
 
-  const [parts, setParts] = useState(mockParts);
+  const [parts, setParts] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [editingPart, setEditingPart] = useState(null);
   const [editAllowanceVal, setEditAllowanceVal] = useState("");
@@ -1070,7 +1100,9 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
                      customAlert.message.toLowerCase().includes("isi") ||
                      customAlert.message.toLowerCase().includes("belum") ||
                      customAlert.message.toLowerCase().includes("salah") ||
-                     customAlert.message.toLowerCase().includes("tidak") ? (
+                     customAlert.message.toLowerCase().includes("tidak") ||
+                     customAlert.message.toLowerCase().includes("popup") ||
+                     customAlert.message.toLowerCase().includes("diblokir") ? (
                       <div className="w-14 h-14 rounded-full bg-amber-50 text-amber-600 border border-amber-250 flex items-center justify-center shadow-inner">
                         <AlertTriangle size={28} className="animate-bounce" />
                       </div>
@@ -1091,7 +1123,9 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
                          customAlert.message.toLowerCase().includes("isi") ||
                          customAlert.message.toLowerCase().includes("belum") ||
                          customAlert.message.toLowerCase().includes("salah") ||
-                         customAlert.message.toLowerCase().includes("tidak")
+                         customAlert.message.toLowerCase().includes("tidak") ||
+                         customAlert.message.toLowerCase().includes("popup") ||
+                         customAlert.message.toLowerCase().includes("diblokir")
                           ? "Pemberitahuan" 
                           : "Approval Sukses"}
                       </h4>

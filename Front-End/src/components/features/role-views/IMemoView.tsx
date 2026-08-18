@@ -384,13 +384,34 @@ export default function IMemoView({
       sigApproved2,
       sigEntry,
       sigChecked,
+      sigPreparedRole,
+      sigApproved1Role,
+      sigApproved2Role,
+      sigEntryRole,
+      sigCheckedRole,
     };
     setCreatedSscBillings(prev => {
       const filtered = prev.filter(b => b.id !== newBilling.id);
       return [newBilling, ...filtered];
     });
-    alert(`Sukses: SSC Billing untuk ${newBilling.clNumber} berhasil dibuat dan otomatis terdaftar di list SSC Payment!`);
-    window.print();
+
+    // Tentukan sheet mana yang aktif
+    const sheetId = document.getElementById("manual-billing-sheet") ? "manual-billing-sheet" : "internal-memo-sheet";
+    const el = document.getElementById(sheetId);
+    if (!el) {
+      console.error("Print sheet element tidak ditemukan");
+      return;
+    }
+
+    // Tandai elemen root agar @media print CSS tahu sheet mana yang harus ditampilkan
+    document.documentElement.setAttribute("data-printing-memo", sheetId);
+
+    // Gunakan window.print() langsung — styling 100% identik dengan preview
+    setTimeout(() => {
+      window.print();
+      // Hapus atribut setelah print selesai / dibatalkan
+      document.documentElement.removeAttribute("data-printing-memo");
+    }, 100);
   };
 
   const handleConfirmToPayment = () => {
@@ -429,6 +450,11 @@ export default function IMemoView({
       sigApproved2,
       sigEntry,
       sigChecked,
+      sigPreparedRole,
+      sigApproved1Role,
+      sigApproved2Role,
+      sigEntryRole,
+      sigCheckedRole,
     };
 
     setCreatedSscBillings(prev => {
@@ -447,9 +473,15 @@ export default function IMemoView({
       `Sehubungan dengan ditemukannya komponen NG yang bukan disebabkan oleh proses internal kami, mohon dapat dilakukan pemotongan pembayaran terhadap vendor ${memoCustomerName} sebesar Rp ${formattedAmt} atas CL ${clNumberVal}.`
     );
     setPaySigPrepared(sigPrepared);
+    setPaySigPreparedRole(sigPreparedRole);
     setPaySigApproved1(sigApproved1);
+    setPaySigApproved1Role(sigApproved1Role);
     setPaySigApproved2(sigApproved2);
+    setPaySigApproved2Role(sigApproved2Role);
     setPaySigEntry(sigEntry);
+    setPaySigEntryRole(sigEntryRole);
+    setPaySigChecked(sigChecked);
+    setPaySigCheckedRole(sigCheckedRole);
 
     // 3. Switch active payment tab selection
     setSelectedPaymentClId(newBilling.id);
@@ -549,9 +581,15 @@ export default function IMemoView({
   );
   const [payRequestDate, setPayRequestDate] = useState("10/04/2026");
   const [paySigPrepared, setPaySigPrepared] = useState("Bagas Nur P");
+  const [paySigPreparedRole, setPaySigPreparedRole] = useState("Accounting BU");
   const [paySigApproved1, setPaySigApproved1] = useState("Anindita I");
+  const [paySigApproved1Role, setPaySigApproved1Role] = useState("Accounting Dept Head");
   const [paySigApproved2, setPaySigApproved2] = useState("Evi Sulistyorini");
+  const [paySigApproved2Role, setPaySigApproved2Role] = useState("Admin Div/BOD");
   const [paySigEntry, setPaySigEntry] = useState("");
+  const [paySigEntryRole, setPaySigEntryRole] = useState("SSC Billing Admin");
+  const [paySigChecked, setPaySigChecked] = useState("");
+  const [paySigCheckedRole, setPaySigCheckedRole] = useState("AR Function Lead");
 
   // Auto-populate payment form when user selects a created SSC Billing from the left panel
   useEffect(() => {
@@ -566,9 +604,15 @@ export default function IMemoView({
     setPayTitle("Permohonan Pemotongan Invoice Vendor");
     setPayTo("SSC Invoicing & Payment");
     setPaySigPrepared(billing.sigPrepared || "Bagas Nur P");
+    setPaySigPreparedRole(billing.sigPreparedRole || "Accounting BU");
     setPaySigApproved1(billing.sigApproved1 || "Anindita I");
+    setPaySigApproved1Role(billing.sigApproved1Role || "Accounting Dept Head");
     setPaySigApproved2(billing.sigApproved2 || "Evi Sulistyorini");
+    setPaySigApproved2Role(billing.sigApproved2Role || "Admin Div/BOD");
     setPaySigEntry(billing.sigEntry || "");
+    setPaySigEntryRole(billing.sigEntryRole || "SSC Billing Admin");
+    setPaySigChecked(billing.sigChecked || "");
+    setPaySigCheckedRole(billing.sigCheckedRole || "AR Function Lead");
     
     const formattedAmt = billing.memoAmount
       ? parseInt(billing.memoAmount).toLocaleString("id-ID")
@@ -1022,13 +1066,23 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                               setAcctTradingPartner("");
                               setAcctExchangeRate("");
                               setAcctJournal("");
-                              setGlRows([
-                                { code: "", name: "", costCenter: "", amountDr: "", amountCr: "", text: "" },
-                                { code: "", name: "", costCenter: "", amountDr: "", amountCr: "", text: "" },
-                                { code: "", name: "", costCenter: "", amountDr: "", amountCr: "", text: "" }
-                              ]);
-                              setSigEntry("");
-                              setSigChecked("");
+                              setPayCompany("PT Menara Terus Makmur");
+                              setPayBusinessArea("");
+                              setPayRequestDate("");
+                              setPayTitle("");
+                              setPayTo("");
+                              setPayInstruction("");
+                              setPaySigPrepared("");
+                              setPaySigPreparedRole("Accounting BU");
+                              setPaySigApproved1("");
+                              setPaySigApproved1Role("Accounting Dept Head");
+                              setPaySigApproved2("");
+                              setPaySigApproved2Role("Admin Div/BOD");
+                              setPaySigEntry("");
+                              setPaySigEntryRole("SSC Billing Admin");
+                              setPaySigChecked("");
+                              setPaySigCheckedRole("AR Function Lead");
+                              setSscBillingRows([]);
                             }}
                             className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold rounded border border-slate-300 transition-all cursor-pointer active:scale-95"
                             title="Kosongkan Isian Form"
@@ -1038,7 +1092,6 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                           <button
                             type="button"
                             onClick={() => {
-                              setMemoCompany("PT. MENARA TERUS MAKMUR");
                               setMemoBusinessArea("MT");
                               setMemoRequestDate("10/02/2026");
                               setMemoBillingType("One Time");
@@ -1329,7 +1382,7 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
 
                     {/* Bottom Section: Live A4 Printable Sheet */}
                     {showSscBillingPreview && (
-                      <div className="flex flex-col items-center w-full space-y-4 print:w-full print:p-0">
+                      <div className="flex flex-col items-center w-full space-y-4">
                       {/* Control Panel */}
                       <div className="w-full bg-white border border-slate-200 rounded-lg p-2 flex justify-between items-center print:hidden shadow-sm font-sans gap-2">
                         <span className="text-[11px] text-slate-500 font-bold font-sans">
@@ -1354,10 +1407,10 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                       </div>
 
                       {/* Actual Document Sheet Container */}
-                      <div className="w-full overflow-x-auto p-1 bg-slate-200 border border-slate-300 rounded-xl flex justify-center shadow-inner print:bg-white print:border-none print:p-0 print:shadow-none">
+                      <div className="w-full overflow-x-auto p-1 bg-slate-200 border border-slate-300 rounded-xl flex justify-center shadow-inner">
                         <div
                           id="manual-billing-sheet"
-                          className="bg-white text-black p-[12mm] shadow-lg border border-slate-450 w-[210mm] min-h-[297mm] text-left mx-auto relative flex flex-col print:shadow-none print:border-none print:w-[198mm] print:h-[280mm] print:p-[8mm] print:m-0"
+                          className="bg-white text-black p-[12mm] shadow-lg border border-slate-450 w-[210mm] min-h-[297mm] text-left mx-auto relative flex flex-col"
                           style={{
                             fontFamily: 'Arial, sans-serif',
                             lineHeight: '1.2'
@@ -1548,12 +1601,12 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                             <table className="w-full text-left border-collapse">
                               <thead>
                                 <tr className="bg-[#f08a00] text-white uppercase font-extrabold border-b border-black text-center text-[8.5px] tracking-wider font-sans">
-                                  <th className="border-r border-black p-1.5 w-[110px]">GL Account Code</th>
-                                  <th className="border-r border-black p-1.5">GL Account Name</th>
-                                  <th className="border-r border-black p-1.5 w-[90px]">Cost Center</th>
-                                  <th className="border-r border-black p-1.5 w-[95px]">Amount (Dr.)</th>
-                                  <th className="border-r border-black p-1.5 w-[95px]">Amount (Cr.)</th>
-                                  <th className="p-1.5 w-[130px]">Text</th>
+                                  <th className="border-r border-black p-1.5 w-[110px]" style={{ backgroundColor: '#f08a00', color: '#ffffff' }}>GL Account Code</th>
+                                  <th className="border-r border-black p-1.5" style={{ backgroundColor: '#f08a00', color: '#ffffff' }}>GL Account Name</th>
+                                  <th className="border-r border-black p-1.5 w-[90px]" style={{ backgroundColor: '#f08a00', color: '#ffffff' }}>Cost Center</th>
+                                  <th className="border-r border-black p-1.5 w-[95px]" style={{ backgroundColor: '#f08a00', color: '#ffffff' }}>Amount (Dr.)</th>
+                                  <th className="border-r border-black p-1.5 w-[95px]" style={{ backgroundColor: '#f08a00', color: '#ffffff' }}>Amount (Cr.)</th>
+                                  <th className="p-1.5 w-[130px]" style={{ backgroundColor: '#f08a00', color: '#ffffff' }}>Text</th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -1575,36 +1628,36 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                           </div>
 
                           {/* Signatures Panel */}
-                          <div className="border border-black overflow-hidden mb-6 text-[10px] mt-auto font-sans">
+                          <div className="border border-black overflow-hidden mb-6 text-[11px] mt-auto font-sans print-signatures-panel">
                             <div className="grid grid-cols-5 text-center divide-x divide-black font-bold font-sans">
-                              <div className="p-1 border-b border-black bg-slate-50/50">Prepared by <sup>1)</sup></div>
-                              <div className="p-1 border-b border-black bg-slate-50/50 col-span-2">Approved by <sup>1)</sup></div>
-                              <div className="p-1 border-b border-black bg-slate-50/50">Entry by <sup>1)</sup></div>
-                              <div className="p-1 border-b border-black bg-slate-50/50">Checked by <sup>1)</sup></div>
+                              <div className="p-1.5 border-b border-black bg-slate-50/50">Prepared by <sup>1)</sup></div>
+                              <div className="p-1.5 border-b border-black bg-slate-50/50 col-span-2">Approved by <sup>1)</sup></div>
+                              <div className="p-1.5 border-b border-black bg-slate-50/50">Entry by <sup>1)</sup></div>
+                              <div className="p-1.5 border-b border-black bg-slate-50/50">Checked by <sup>1)</sup></div>
                             </div>
-                            <div className="grid grid-cols-5 text-center divide-x divide-black h-[58px]">
+                            <div className="grid grid-cols-5 text-center divide-x divide-black h-[75px]">
                               <div className="flex items-end justify-center pb-2 bg-white px-1">
-                                <span className="font-bold border-b border-dashed border-slate-400 pb-0.5 min-h-[14px] w-full truncate text-center font-sans" title={sigPrepared}>{sigPrepared}</span>
+                                <span className="font-bold border-b border-dashed border-slate-400 pb-1 min-h-[18px] w-full inline-block text-center font-sans text-[11.5px]" title={sigPrepared}>{sigPrepared}</span>
                               </div>
                               <div className="flex items-end justify-center pb-2 bg-white px-1">
-                                <span className="font-bold border-b border-dashed border-slate-400 pb-0.5 min-h-[14px] w-full truncate text-center font-sans" title={sigApproved1}>{sigApproved1}</span>
+                                <span className="font-bold border-b border-dashed border-slate-400 pb-1 min-h-[18px] w-full inline-block text-center font-sans text-[11.5px]" title={sigApproved1}>{sigApproved1}</span>
                               </div>
                               <div className="flex items-end justify-center pb-2 bg-white px-1">
-                                <span className="font-bold border-b border-dashed border-slate-400 pb-0.5 min-h-[14px] w-full truncate text-center font-sans" title={sigApproved2}>{sigApproved2}</span>
+                                <span className="font-bold border-b border-dashed border-slate-400 pb-1 min-h-[18px] w-full inline-block text-center font-sans text-[11.5px]" title={sigApproved2}>{sigApproved2}</span>
                               </div>
                               <div className="flex items-end justify-center pb-2 bg-white px-1">
-                                <span className="font-bold border-b border-dashed border-slate-400 pb-0.5 min-h-[14px] w-full truncate text-center font-sans" title={sigEntry}>{sigEntry}</span>
+                                <span className="font-bold border-b border-dashed border-slate-400 pb-1 min-h-[18px] w-full inline-block text-center font-sans text-[11.5px]" title={sigEntry}>{sigEntry}</span>
                               </div>
                               <div className="flex items-end justify-center pb-2 bg-white px-1">
-                                <span className="font-bold border-b border-dashed border-slate-400 pb-0.5 min-h-[14px] w-full truncate text-center font-sans" title={sigChecked}>{sigChecked}</span>
+                                <span className="font-bold border-b border-dashed border-slate-400 pb-1 min-h-[18px] w-full inline-block text-center font-sans text-[11.5px]" title={sigChecked}>{sigChecked}</span>
                               </div>
                             </div>
-                            <div className="grid grid-cols-5 text-center divide-x divide-black text-[9px] font-bold text-white bg-blue-600/90 border-t border-black font-sans">
-                              <div className="p-1 py-1.5 truncate text-center" title={sigPreparedRole}>{sigPreparedRole}</div>
-                              <div className="p-1 py-1.5 truncate text-center" title={sigApproved1Role}>{sigApproved1Role}</div>
-                              <div className="p-1 py-1.5 truncate text-center" title={sigApproved2Role}>{sigApproved2Role}</div>
-                              <div className="p-1 py-1.5 truncate text-center" title={sigEntryRole}>{sigEntryRole}</div>
-                              <div className="p-1 py-1.5 truncate text-center" title={sigCheckedRole}>{sigCheckedRole}</div>
+                            <div className="grid grid-cols-5 text-center divide-x divide-black text-[10px] font-bold text-white bg-blue-600/95 border-t border-black font-sans print-roles-row">
+                              <div className="p-1 py-2 text-center flex items-center justify-center min-h-[22px]" title={sigPreparedRole}>{sigPreparedRole}</div>
+                              <div className="p-1 py-2 text-center flex items-center justify-center min-h-[22px]" title={sigApproved1Role}>{sigApproved1Role}</div>
+                              <div className="p-1 py-2 text-center flex items-center justify-center min-h-[22px]" title={sigApproved2Role}>{sigApproved2Role}</div>
+                              <div className="p-1 py-2 text-center flex items-center justify-center min-h-[22px]" title={sigEntryRole}>{sigEntryRole}</div>
+                              <div className="p-1 py-2 text-center flex items-center justify-center min-h-[22px]" title={sigCheckedRole}>{sigCheckedRole}</div>
                             </div>
                           </div>
 
@@ -1615,7 +1668,7 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                             <div>1) Every signing person must write down his / her full name in the grey box and his/her function in the blue box</div>
                             <div className="flex justify-between pt-2 border-t border-slate-200 mt-2 text-[7.5px] font-mono text-slate-450 font-sans">
                               <span>Approved By System {new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} 17:02</span>
-                              <span>Internal Memo - Onetime Billing TEIN1 of 1</span>
+                              <span>Internal Memo - {memoBillingType === "One Time" ? "Onetime" : "Recurring"} Billing {acctCustomerCode || "TEIN1"} of 1</span>
                             </div>
                           </div>
                         </div>
@@ -1702,48 +1755,59 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                             <button
                               type="button"
                               onClick={() => {
-
-                              setPayCompany("PT Menara Terus Makmur");
-                              setPayBusinessArea("");
-                              setPayRequestDate("");
-                              setPayTitle("");
-                              setPayTo("");
-                              setPayInstruction("");
-                              setPaySigPrepared("");
-                              setPaySigApproved1("");
-                              setPaySigApproved2("");
-                              setPaySigEntry("");
-                              setSscBillingRows([]);
-                            }}
-                            className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold rounded border border-slate-300 transition-all cursor-pointer active:scale-95"
-                            title="Kosongkan Isian Form"
-                          >
-                            Kosongkan
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setPayCompany("PT Menara Terus Makmur");
-                              setPayBusinessArea("MT");
-                              setPayRequestDate("10/04/2026");
-                              setPayTitle("Permohonan Pemotongan Invoice Vendor");
-                              setPayTo("SSC Invoicing & Payment");
-                              setPayInstruction("Sehubungan dengan ditemukannya komponen NG yang bukan disebabkan oleh proses internal kami, mohon dapat dilakukan pemotongan pembayaran terhadap vendor berikut :");
-                              setPaySigPrepared("Bagas Nur P");
-                              setPaySigApproved1("Anindita I");
-                              setPaySigApproved2("Evi Sulistyorini");
-                              setPaySigEntry("");
-                              setSscBillingRows([
-                                { id: "ex-1", customerCode: "OTC08002", clNumber: "CL/2026/06/001", qprNumber: "QPR/2026/05/IKAN_BAKAR", supplierName: "PT TEMARU ENGINEERING INDONESIA", dateSent: "21/05/2026", amount: "Rp 2.661.505", status: "PENDING", memoStatus: "DRAFT_MEMO", reminderSentCount: 0, customText: "CLAIM PART NG", paymentDate: "10/07/2026", documentNo: "1800000049" },
-                                { id: "ex-2", customerCode: "OTC08002", clNumber: "CL/2026/06/002", qprNumber: "QPR/2026/05/IKAN_BAKAR", supplierName: "PT SUKSES CIPTA MAKMUR", dateSent: "21/06/2026", amount: "Rp 66.346.268", status: "PENDING", memoStatus: "DRAFT_MEMO", reminderSentCount: 0, customText: "CLAIM PART NG", paymentDate: "10/07/2026", documentNo: "1800000050" },
-                                { id: "ex-3", customerCode: "OTC08002", clNumber: "CL/2026/06/003", qprNumber: "QPR/2026/05/IKAN_BAKAR", supplierName: "PT ANUGERAH DAYA INDUSTRI KOMPONEN UTAMA", dateSent: "21/05/2026", amount: "Rp 606.480", status: "PENDING", memoStatus: "DRAFT_MEMO", reminderSentCount: 0, customText: "CLAIM NG", paymentDate: "10/07/2026", documentNo: "1800000054" }
-                              ]);
-                            }}
-                            className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 text-[10px] font-bold rounded border border-blue-200 transition-all cursor-pointer active:scale-95"
-                            title="Isi dengan Data Contoh PDF"
-                          >
-                            Isi Contoh
-                          </button>
+                                setPayCompany("PT Menara Terus Makmur");
+                                setPayBusinessArea("");
+                                setPayRequestDate("");
+                                setPayTitle("");
+                                setPayTo("");
+                                setPayInstruction("");
+                                setPaySigPrepared("");
+                                setPaySigPreparedRole("Accounting BU");
+                                setPaySigApproved1("");
+                                setPaySigApproved1Role("Accounting Dept Head");
+                                setPaySigApproved2("");
+                                setPaySigApproved2Role("Admin Div/BOD");
+                                setPaySigEntry("");
+                                setPaySigEntryRole("SSC Billing Admin");
+                                setPaySigChecked("");
+                                setPaySigCheckedRole("AR Function Lead");
+                                setSscBillingRows([]);
+                              }}
+                              className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold rounded border border-slate-300 transition-all cursor-pointer active:scale-95"
+                              title="Kosongkan Isian Form"
+                            >
+                              Kosongkan
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPayCompany("PT Menara Terus Makmur");
+                                setPayBusinessArea("MT");
+                                setPayRequestDate("10/04/2026");
+                                setPayTitle("Permohonan Pemotongan Invoice Vendor");
+                                setPayTo("SSC Invoicing & Payment");
+                                setPayInstruction("Sehubungan dengan ditemukannya komponen NG yang bukan disebabkan oleh proses internal kami, mohon dapat dilakukan pemotongan pembayaran terhadap vendor berikut :");
+                                setPaySigPrepared("Bagas Nur P");
+                                setPaySigPreparedRole("Accounting BU");
+                                setPaySigApproved1("Anindita I");
+                                setPaySigApproved1Role("Accounting Dept Head");
+                                setPaySigApproved2("Evi Sulistyorini");
+                                setPaySigApproved2Role("Admin Div/BOD");
+                                setPaySigEntry("");
+                                setPaySigEntryRole("SSC Billing Admin");
+                                setPaySigChecked("");
+                                setPaySigCheckedRole("AR Function Lead");
+                                setSscBillingRows([
+                                  { id: "ex-1", customerCode: "OTC08002", clNumber: "CL/2026/06/001", qprNumber: "QPR/2026/05/IKAN_BAKAR", supplierName: "PT TEMARU ENGINEERING INDONESIA", dateSent: "21/05/2026", amount: "Rp 2.661.505", status: "PENDING", memoStatus: "DRAFT_MEMO", reminderSentCount: 0, customText: "CLAIM PART NG", paymentDate: "10/07/2026", documentNo: "1800000049" },
+                                  { id: "ex-2", customerCode: "OTC08002", clNumber: "CL/2026/06/002", qprNumber: "QPR/2026/05/IKAN_BAKAR", supplierName: "PT SUKSES CIPTA MAKMUR", dateSent: "21/06/2026", amount: "Rp 66.346.268", status: "PENDING", memoStatus: "DRAFT_MEMO", reminderSentCount: 0, customText: "CLAIM PART NG", paymentDate: "10/07/2026", documentNo: "1800000050" },
+                                  { id: "ex-3", customerCode: "OTC08002", clNumber: "CL/2026/06/003", qprNumber: "QPR/2026/05/IKAN_BAKAR", supplierName: "PT ANUGERAH DAYA INDUSTRI KOMPONEN UTAMA", dateSent: "21/05/2026", amount: "Rp 606.480", status: "PENDING", memoStatus: "DRAFT_MEMO", reminderSentCount: 0, customText: "CLAIM NG", paymentDate: "10/07/2026", documentNo: "1800000054" }
+                                ]);
+                              }}
+                              className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 text-[10px] font-bold rounded border border-blue-200 transition-all cursor-pointer active:scale-95"
+                              title="Isi dengan Data Contoh PDF"
+                            >
+                              Isi Contoh
+                            </button>
                         </div>
                       </div>
 
@@ -1862,14 +1926,18 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                             <input type="text" value={paySigApproved1} onChange={e => setPaySigApproved1(e.target.value)} className="w-full px-1.5 py-1 border border-slate-300 rounded text-xs font-semibold text-slate-800 bg-white" />
                           </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-3 gap-2">
                           <div>
                             <label className="text-[9px] font-bold text-slate-500">Approved By 2</label>
                             <input type="text" value={paySigApproved2} onChange={e => setPaySigApproved2(e.target.value)} className="w-full px-1.5 py-1 border border-slate-300 rounded text-xs font-semibold text-slate-800 bg-white" />
                           </div>
                           <div>
-                            <label className="text-[9px] font-bold text-slate-555">Entry By</label>
+                            <label className="text-[9px] font-bold text-slate-500">Entry By</label>
                             <input type="text" value={paySigEntry} onChange={e => setPaySigEntry(e.target.value)} className="w-full px-1.5 py-1 border border-slate-300 rounded text-xs font-bold text-slate-800 bg-white" />
+                          </div>
+                          <div>
+                            <label className="text-[9px] font-bold text-slate-500">Checked By</label>
+                            <input type="text" value={paySigChecked} onChange={e => setPaySigChecked(e.target.value)} className="w-full px-1.5 py-1 border border-slate-300 rounded text-xs font-semibold text-slate-800 bg-white" />
                           </div>
                         </div>
                       </div>
@@ -1878,7 +1946,7 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
 
                     {/* Bottom Section: Live A4 Printable Sheet */}
                     {showSscPaymentPreview && (
-                      <div className="flex flex-col items-center w-full space-y-4 print:w-full print:p-0">
+                      <div className="flex flex-col items-center w-full space-y-4">
                       {/* Control Panel */}
                       <div className="w-full bg-white border border-slate-200 rounded-lg p-2 flex justify-between items-center print:hidden shadow-sm font-sans">
                         <span className="text-[11px] text-slate-500 font-bold font-sans">
@@ -1903,10 +1971,10 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                       </div>
 
                       {/* Actual Document Sheet Container */}
-                      <div className="w-full overflow-x-auto p-1 bg-slate-200 border border-slate-300 rounded-xl flex justify-center shadow-inner print:bg-white print:border-none print:p-0 print:shadow-none">
+                      <div className="w-full overflow-x-auto p-1 bg-slate-200 border border-slate-300 rounded-xl flex justify-center shadow-inner">
                         <div
                           id="internal-memo-sheet"
-                          className="bg-white text-black p-[12mm] shadow-lg border border-slate-450 w-[210mm] min-h-[297mm] text-left mx-auto relative flex flex-col print:shadow-none print:border-none print:w-[198mm] print:h-[280mm] print:p-[8mm] print:m-0"
+                          className="bg-white text-black p-[12mm] shadow-lg border border-slate-450 w-[210mm] min-h-[297mm] text-left mx-auto relative flex flex-col"
                           style={{
                             fontFamily: 'Arial, sans-serif',
                             lineHeight: '1.2'
@@ -2032,39 +2100,36 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                           </div>
 
                           {/* Signatures Panel */}
-                          <div className="border border-black overflow-hidden mb-6 text-[10px] mt-auto font-sans">
-                            <div className="grid grid-cols-4 text-center divide-x divide-black font-bold font-sans">
-                              <div className="p-1 border-b border-black bg-slate-50/50">Prepared by <sup>1)</sup></div>
-                              <div className="p-1 border-b border-black bg-slate-50/50 col-span-2">Approved by <sup>1)</sup></div>
-                              <div className="p-1 border-b border-black bg-slate-50/50">Entry by <sup>1)</sup></div>
+                          <div className="border border-black overflow-hidden mb-6 text-[11px] mt-auto font-sans print-signatures-panel">
+                            <div className="grid grid-cols-5 text-center divide-x divide-black font-bold font-sans">
+                              <div className="p-1.5 border-b border-black bg-slate-50/50">Prepared by <sup>1)</sup></div>
+                              <div className="p-1.5 border-b border-black bg-slate-50/50 col-span-2">Approved by <sup>1)</sup></div>
+                              <div className="p-1.5 border-b border-black bg-slate-50/50">Entry by <sup>1)</sup></div>
+                              <div className="p-1.5 border-b border-black bg-slate-50/50">Checked by <sup>1)</sup></div>
                             </div>
-                            <div className="grid grid-cols-4 text-center divide-x divide-black h-[58px]">
-                              {/* Prepared Signature */}
-                              <div className="flex items-end justify-center pb-2 bg-white px-1 relative">
+                            <div className="grid grid-cols-5 text-center divide-x divide-black h-[75px]">
+                              <div className="flex items-end justify-center pb-2 bg-white px-1">
+                                <span className="font-bold border-b border-dashed border-slate-400 pb-1 min-h-[18px] w-full inline-block text-center font-sans text-[11.5px]" title={paySigPrepared}>{paySigPrepared}</span>
                               </div>
-                              {/* Approved 1 Signature */}
-                              <div className="flex items-end justify-center pb-2 bg-white px-1 relative">
+                              <div className="flex items-end justify-center pb-2 bg-white px-1">
+                                <span className="font-bold border-b border-dashed border-slate-400 pb-1 min-h-[18px] w-full inline-block text-center font-sans text-[11.5px]" title={paySigApproved1}>{paySigApproved1}</span>
                               </div>
-                              {/* Approved 2 Signature */}
-                              <div className="flex items-end justify-center pb-2 bg-white px-1 relative">
+                              <div className="flex items-end justify-center pb-2 bg-white px-1">
+                                <span className="font-bold border-b border-dashed border-slate-400 pb-1 min-h-[18px] w-full inline-block text-center font-sans text-[11.5px]" title={paySigApproved2}>{paySigApproved2}</span>
                               </div>
-                              {/* Entry By Signature */}
-                              <div className="flex items-end justify-center pb-2 bg-white px-1 relative">
+                              <div className="flex items-end justify-center pb-2 bg-white px-1">
+                                <span className="font-bold border-b border-dashed border-slate-400 pb-1 min-h-[18px] w-full inline-block text-center font-sans text-[11.5px]" title={paySigEntry}>{paySigEntry}</span>
+                              </div>
+                              <div className="flex items-end justify-center pb-2 bg-white px-1">
+                                <span className="font-bold border-b border-dashed border-slate-400 pb-1 min-h-[18px] w-full inline-block text-center font-sans text-[11.5px]" title={paySigChecked}>{paySigChecked}</span>
                               </div>
                             </div>
-                            {/* Grey box names */}
-                            <div className="grid grid-cols-4 text-center divide-x divide-black text-[9px] font-bold text-black bg-[#d9d9d9] border-t border-black">
-                              <div className="p-0.5 truncate text-center h-[20px] flex items-center justify-center" title={paySigPrepared}>{paySigPrepared}</div>
-                              <div className="p-0.5 truncate text-center h-[20px] flex items-center justify-center" title={paySigApproved1}>{paySigApproved1}</div>
-                              <div className="p-0.5 truncate text-center h-[20px] flex items-center justify-center" title={paySigApproved2}>{paySigApproved2}</div>
-                              <div className="p-0.5 truncate text-center h-[20px] flex items-center justify-center" title={paySigEntry}>{paySigEntry}</div>
-                            </div>
-                            {/* Blue box roles */}
-                            <div className="grid grid-cols-4 text-center divide-x divide-black text-[9px] font-bold text-white bg-blue-600/90 border-t border-black">
-                              <div className="p-0.5 truncate text-center h-[20px] flex items-center justify-center">Accounting BU</div>
-                              <div className="p-0.5 truncate text-center h-[20px] flex items-center justify-center">Accounting Dept Head</div>
-                              <div className="p-0.5 truncate text-center h-[20px] flex items-center justify-center">Admin Div/BOD</div>
-                              <div className="p-0.5 truncate text-center h-[20px] flex items-center justify-center">Entry By Function</div>
+                            <div className="grid grid-cols-5 text-center divide-x divide-black text-[10px] font-bold text-white bg-blue-600/95 border-t border-black font-sans print-roles-row">
+                              <div className="p-1 py-2 text-center flex items-center justify-center min-h-[22px]" title={paySigPreparedRole}>{paySigPreparedRole}</div>
+                              <div className="p-1 py-2 text-center flex items-center justify-center min-h-[22px]" title={paySigApproved1Role}>{paySigApproved1Role}</div>
+                              <div className="p-1 py-2 text-center flex items-center justify-center min-h-[22px]" title={paySigApproved2Role}>{paySigApproved2Role}</div>
+                              <div className="p-1 py-2 text-center flex items-center justify-center min-h-[22px]" title={paySigEntryRole}>{paySigEntryRole}</div>
+                              <div className="p-1 py-2 text-center flex items-center justify-center min-h-[22px]" title={paySigCheckedRole}>{paySigCheckedRole}</div>
                             </div>
                           </div>
 
@@ -2216,39 +2281,174 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
       </>
       <style>{`
         @media print {
-          @page {
-            size: A4 portrait;
-            margin: 6mm !important;
+          /* ===== MODE CETAK MEMO SSC BILLING / PAYMENT ===== */
+          /* Sembunyikan elemen UI non-cetak */
+          aside,
+          nav,
+          header,
+          footer,
+          .print\:hidden,
+          button,
+          input[type="button"],
+          input[type="submit"] {
+            display: none !important;
           }
+
+          /* Reset layout parent agar sheet bisa diposisikan dengan benar */
           html, body {
-            height: auto;
+            background-color: #ffffff !important;
             margin: 0 !important;
             padding: 0 !important;
-            background: #fff !important;
+            width: 100% !important;
+            height: 100% !important;
           }
-          body * { visibility: hidden; }
-          #internal-memo-sheet, #internal-memo-sheet * { visibility: visible; }
-          #internal-memo-sheet {
-            position: absolute !important;
+
+          /* Konfigurasi lembar sheet utama */
+          html[data-printing-memo] #manual-billing-sheet,
+          html[data-printing-memo] #internal-memo-sheet {
+            position: fixed !important;
             left: 0 !important;
             top: 0 !important;
-            width: 198mm !important;
-            height: 280mm !important;
-            min-height: 0 !important;
-            margin: 0 auto !important;
-            padding: 4mm !important;
-            border: 1px solid #000 !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            height: 100% !important;
+            min-height: 100% !important;
+            max-height: 100% !important;
+            margin: 0 !important;
+            padding: 5mm !important;
+            border: none !important;
             box-shadow: none !important;
+            background-color: #ffffff !important;
+            display: flex !important;
+            flex-direction: column !important;
+            z-index: 99999 !important;
+            overflow: hidden !important;
             box-sizing: border-box !important;
+            page-break-after: avoid !important;
+            page-break-before: avoid !important;
             page-break-inside: avoid !important;
-            transform: scale(0.74) !important;
-            transform-origin: top center !important;
+          }
+
+          /* Shrink spacing when printing to prevent page overflow */
+          html[data-printing-memo] #manual-billing-sheet .mb-6,
+          html[data-printing-memo] #manual-billing-sheet .mb-4,
+          html[data-printing-memo] #internal-memo-sheet .mb-6,
+          html[data-printing-memo] #internal-memo-sheet .mb-4 {
+            margin-bottom: 8px !important;
+          }
+
+          /* Force solid black borders for all tables and their cells */
+          html[data-printing-memo] #manual-billing-sheet table,
+          html[data-printing-memo] #internal-memo-sheet table {
+            border-collapse: collapse !important;
+            border: 1px solid #000000 !important;
+          }
+          html[data-printing-memo] #manual-billing-sheet table th,
+          html[data-printing-memo] #manual-billing-sheet table td,
+          html[data-printing-memo] #internal-memo-sheet table th,
+          html[data-printing-memo] #internal-memo-sheet table td {
+            border: 1px solid #000000 !important;
+          }
+
+          /* Force Tailwind divide-x, divide-y and border borders to render in print */
+          html[data-printing-memo] .divide-x > * + * {
+            border-left: 1px solid #000000 !important;
+          }
+          html[data-printing-memo] .divide-y > * + * {
+            border-top: 1px solid #000000 !important;
+          }
+          html[data-printing-memo] #manual-billing-sheet .border,
+          html[data-printing-memo] #internal-memo-sheet .border {
+            border: 1px solid #000000 !important;
+          }
+          html[data-printing-memo] #manual-billing-sheet .border-t,
+          html[data-printing-memo] #internal-memo-sheet .border-t {
+            border-top: 1px solid #000000 !important;
+          }
+          html[data-printing-memo] #manual-billing-sheet .border-b,
+          html[data-printing-memo] #internal-memo-sheet .border-b {
+            border-bottom: 1px solid #000000 !important;
+          }
+          html[data-printing-memo] #manual-billing-sheet .border-l,
+          html[data-printing-memo] #internal-memo-sheet .border-l {
+            border-left: 1px solid #000000 !important;
+          }
+          html[data-printing-memo] #manual-billing-sheet .border-r,
+          html[data-printing-memo] #internal-memo-sheet .border-r {
+            border-right: 1px solid #000000 !important;
+          }
+
+           /* Style GL Table Header cells directly to force solid orange background and white text */
+          html[data-printing-memo] #manual-billing-sheet table thead tr th {
+            background-color: #f08a00 !important; /* solid orange background */
+            color: #ffffff !important; /* white text */
+            border-bottom: 1px solid #000000 !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
-          #internal-memo-sheet * {
+          
+          /* Style Internal Memo Header to match yellow preview styling */
+          html[data-printing-memo] #internal-memo-sheet table thead tr th {
+            background-color: #f2c811 !important; /* solid yellow background */
+            color: #000000 !important; /* black text */
+            border-bottom: 1px solid #000000 !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
+          }
+
+          /* Ensure high contrast print compatibility for colored boxes */
+          html[data-printing-memo] .print-roles-row,
+          html[data-printing-memo] .print-roles-row > div {
+            background-color: #2563eb !important; /* solid blue background */
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          html[data-printing-memo] .print-roles-row > div {
+            color: #ffffff; /* white text by default, auto-corrected to black by browser if background graphics is off */
+            border-right: 1px solid #000000 !important;
+            background-clip: padding-box !important;
+            box-sizing: border-box !important;
+          }
+          html[data-printing-memo] .print-roles-row > div:last-child {
+            border-right: none !important;
+          }
+          
+          /* Set background-clip on all signature panel cells to prevent background bleed from hiding borders */
+          html[data-printing-memo] .print-signatures-panel * {
+            background-clip: padding-box !important;
+          }
+
+          /* Force solid black borders for all signature panels and their grid cells */
+          html[data-printing-memo] .print-signatures-panel {
+            border: 1px solid #000000 !important;
+            display: flex !important;
+            flex-direction: column !important;
+          }
+          html[data-printing-memo] .print-signatures-panel .divide-x > * + * {
+            border-left: none !important;
+          }
+          html[data-printing-memo] .print-signatures-panel > div {
+            border-bottom: 1px solid #000000 !important;
+            display: grid !important;
+          }
+          html[data-printing-memo] .print-signatures-panel > div:last-child {
+            border-bottom: none !important;
+          }
+          html[data-printing-memo] .print-signatures-panel > div > div {
+            border-right: 1px solid #000000 !important;
+          }
+          html[data-printing-memo] .print-signatures-panel > div > div:last-child {
+            border-right: none !important;
+          }
+
+          html[data-printing-memo] * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+
+          @page {
+            size: A4 portrait;
+            margin: 0;
           }
         }
       `}</style>

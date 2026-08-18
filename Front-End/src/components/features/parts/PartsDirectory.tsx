@@ -66,7 +66,7 @@ export default function PartsDirectory({
                   }
 
                   return (
-                    <tr key={p.id} className="hover:bg-slate-50 transition-colors">
+                    <tr key={`${p.id}-${p.supplierId}`} className="hover:bg-slate-50 transition-colors">
                       <td className="px-3 py-1.5 font-mono font-bold text-slate-900">{p.partNumber}</td>
                       <td className="px-3 py-1.5 font-bold text-slate-800">{p.partName}</td>
                       <td className="px-3 py-1.5 font-semibold text-slate-600">{p.supplierName}</td>

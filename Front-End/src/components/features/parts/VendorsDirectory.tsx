@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Search, Building, Clock, CheckCircle } from "lucide-react";
+import { vendorService } from "@/services/vendorService";
 
 interface Vendor {
   id: string;
@@ -12,15 +13,29 @@ interface Vendor {
 
 export default function VendorsDirectory() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const vendors: Vendor[] = [
-    { id: "1", vendorCode: "VND001", vendorName: "PT TEMARU ENGINEERING INDONESIA", status: "Aktif" },
-    { id: "2", vendorCode: "VND002", vendorName: "PT SUKSES CIPTA MAKMUR", status: "Aktif" },
-    { id: "3", vendorCode: "VND003", vendorName: "PT ANUGERAH DAYA INDUSTRI KOMPONEN UTAMA", status: "Aktif" },
-    { id: "4", vendorCode: "VND004", vendorName: "PT JAYADI", status: "Aktif" },
-    { id: "5", vendorCode: "VND005", vendorName: "SHIJIAZHUANG RUICHENG TRADE CO., LTD", status: "Aktif" },
-    { id: "6", vendorCode: "VND006", vendorName: "PT IKAN BAKAR", status: "Aktif" },
-  ];
+  useEffect(() => {
+    vendorService.getAll()
+      .then((data) => {
+        if (Array.isArray(data)) {
+          const mapped = data.map((v: any) => ({
+            id: v.id,
+            vendorCode: v.vendorCode,
+            vendorName: v.vendorName || `Vendor ${v.vendorCode}`,
+            status: "Aktif",
+          }));
+          setVendors(mapped);
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to load vendors:", err);
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+  }, []);
 
   const filteredVendors = vendors.filter(
     (v) =>
