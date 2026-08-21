@@ -11,7 +11,6 @@ import {
   LogIn,
   Loader2,
   AlertCircle,
-  Zap,
 } from 'lucide-react'
 
 // ============================================================
@@ -25,11 +24,9 @@ const initialState: LoginState = { error: null }
 export default function LoginPage() {
   const [state, formAction, isPending] = useActionState(loginAction, initialState)
   const [showPassword, setShowPassword] = useState(false)
-  const [activeTab, setActiveTab] = useState<'signin' | 'quickaccess'>('signin')
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    // Trigger entrance animation after mount
     const t = setTimeout(() => setMounted(true), 80)
     return () => clearTimeout(t)
   }, [])
@@ -38,7 +35,6 @@ export default function LoginPage() {
     <>
       {/* ── Global styles scoped to login page ─────────────── */}
       <style>{`
-        /* Override global table/border rules for login page only */
         .login-root table { border: none !important; }
         .login-root [class*="border-slate-"] { border-color: #e2e8f0 !important; }
 
@@ -53,15 +49,6 @@ export default function LoginPage() {
         @keyframes float {
           0%, 100% { transform: translateY(0px);  }
           50%       { transform: translateY(-6px); }
-        }
-        @keyframes pulse-ring {
-          0%   { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(29,78,216,.4); }
-          70%  { transform: scale(1);    box-shadow: 0 0 0 8px rgba(29,78,216,0); }
-          100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(29,78,216,0); }
-        }
-        @keyframes spin-slow {
-          from { transform: rotate(0deg);   }
-          to   { transform: rotate(360deg); }
         }
 
         .card-enter {
@@ -91,23 +78,7 @@ export default function LoginPage() {
           border-color: #3b82f6 !important;
           box-shadow: 0 0 0 3px rgba(59,130,246,.18);
         }
-        .tab-active {
-          color: #1d4ed8;
-          border-bottom: 2.5px solid #2563eb;
-          background: rgba(239,246,255,0.6);
-          border-radius: 6px 6px 0 0;
-        }
-        .tab-inactive {
-          color: #94a3b8;
-          border-bottom: 2.5px solid transparent;
-          border-radius: 6px 6px 0 0;
-        }
-        .tab-inactive:hover {
-          color: #475569;
-          background: rgba(248,250,252,0.8);
-        }
 
-        /* Backdrop blur + gradient overlay */
         .bg-overlay {
           background: linear-gradient(
             135deg,
@@ -116,14 +87,12 @@ export default function LoginPage() {
           );
         }
 
-        /* Glassmorphism card */
         .glass-card {
           background: rgba(255,255,255,0.97);
           backdrop-filter: blur(20px);
           -webkit-backdrop-filter: blur(20px);
         }
 
-        /* Error shake */
         @keyframes shake {
           0%,100% { transform: translateX(0); }
           20%,60%  { transform: translateX(-5px); }
@@ -186,7 +155,7 @@ export default function LoginPage() {
           <div className="px-10 pt-8 pb-9">
 
             {/* Logo + heading */}
-            <div className="flex flex-col items-center mb-6">
+            <div className="flex flex-col items-center mb-8">
               <div className="logo-float mb-3">
                 <Image
                   src="/qpr/logo-mtm.png"
@@ -210,28 +179,8 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* Tabs: Sign In | Quick Access — centered & compact */}
-            <div className="flex justify-center border-b border-slate-100 mb-5">
-              <button
-                type="button"
-                id="tab-signin"
-                className={`flex-1 py-2 text-[12px] font-bold transition-all text-center ${activeTab === 'signin' ? 'tab-active' : 'tab-inactive'}`}
-                onClick={() => setActiveTab('signin')}
-              >
-                Sign In
-              </button>
-              <button
-                type="button"
-                id="tab-quickaccess"
-                className={`flex-1 py-2 text-[12px] font-bold transition-all text-center ${activeTab === 'quickaccess' ? 'tab-active' : 'tab-inactive'}`}
-                onClick={() => setActiveTab('quickaccess')}
-              >
-                Quick Access
-              </button>
-            </div>
-
             {/* Sign In Form */}
-            <form action={formAction} id="login-form" className={activeTab === 'signin' ? '' : 'hidden'} noValidate>
+            <form action={formAction} id="login-form" noValidate>
 
               {/* Error alert */}
               {state?.error && (
@@ -253,14 +202,14 @@ export default function LoginPage() {
                 </div>
               )}
 
-              {/* Username field */}
+              {/* ID / NPK field */}
               <div className="mb-4">
                 <label
                   htmlFor="username"
                   className="block text-[10px] font-extrabold tracking-widest uppercase mb-1.5"
                   style={{ color: '#64748b' }}
                 >
-                  Username / NPK
+                  ID / NPK Karyawan
                 </label>
                 <div
                   className="input-focus-ring flex items-center gap-2.5 px-3.5 rounded-lg border transition-all"
@@ -275,8 +224,7 @@ export default function LoginPage() {
                     name="username"
                     type="text"
                     autoComplete="username"
-                    defaultValue="admin"
-                    placeholder="Masukkan username atau NPK"
+                    placeholder="Masukkan ID atau NPK Anda"
                     required
                     className="flex-1 bg-transparent py-3 text-sm outline-none placeholder:text-slate-300 font-medium"
                     style={{ color: '#0f172a' }}
@@ -306,7 +254,6 @@ export default function LoginPage() {
                     name="password"
                     type={showPassword ? 'text' : 'password'}
                     autoComplete="current-password"
-                    defaultValue="password123"
                     placeholder="Masukkan password"
                     required
                     className="flex-1 bg-transparent py-3 text-sm outline-none placeholder:text-slate-300 font-medium"
@@ -341,96 +288,18 @@ export default function LoginPage() {
                 ) : (
                   <>
                     <LogIn size={16} />
-                    Masuk
+                    Masuk ke Sistem
                   </>
                 )}
               </button>
             </form>
-
-            {/* Quick Access tab */}
-            {activeTab === 'quickaccess' && (
-              <div className="space-y-3.5 max-h-[380px] overflow-y-auto pr-1.5 text-left">
-                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-2">PILIH AKUN LOGIN CEPAT</span>
-                
-                {[
-                  {
-                    username: "operator",
-                    role: "QA/QC Operator (Foreman)",
-                    duty: "Buat NCR & Draf QPR",
-                    color: "border-blue-200 hover:bg-blue-50/30"
-                  },
-                  {
-                    username: "sectionhead",
-                    role: "QA Section Head",
-                    duty: "Validasi & Approve NCR/QPR",
-                    color: "border-indigo-200 hover:bg-indigo-50/30"
-                  },
-                  {
-                    username: "depthead",
-                    role: "QA Dept Head",
-                    duty: "Approve NCR & QPR",
-                    color: "border-violet-200 hover:bg-violet-50/30"
-                  },
-                  {
-                    username: "divhead",
-                    role: "QA Division Head",
-                    duty: "Approve Akhir QPR",
-                    color: "border-purple-200 hover:bg-purple-50/30"
-                  },
-                  {
-                    username: "purchasing",
-                    role: "Purchasing Department",
-                    duty: "Kelola SSC Billing & Kirim CL",
-                    color: "border-amber-200 hover:bg-amber-50/30"
-                  },
-                  {
-                    username: "accounting",
-                    role: "Finance & Accounting",
-                    duty: "Input Denda & Terbitkan CL",
-                    color: "border-rose-200 hover:bg-rose-50/30"
-                  },
-                  {
-                    username: "admin",
-                    role: "System Administrator",
-                    duty: "Akses Penuh Seluruh Portal",
-                    color: "border-slate-350 hover:bg-slate-50"
-                  }
-                ].map((acc) => (
-                  <button
-                    key={acc.username}
-                    type="button"
-                    onClick={() => {
-                      const usernameEl = document.getElementById('username') as HTMLInputElement;
-                      const passwordEl = document.getElementById('password') as HTMLInputElement;
-                      if (usernameEl && passwordEl) {
-                        usernameEl.value = acc.username;
-                        passwordEl.value = 'password123';
-                        const formEl = document.getElementById('login-form') as HTMLFormElement;
-                        if (formEl) {
-                          formEl.requestSubmit();
-                        }
-                      }
-                    }}
-                    className={`w-full px-4 py-3 rounded-xl border bg-white flex items-center justify-between transition-all duration-200 active:scale-[0.98] text-left cursor-pointer shadow-sm ${acc.color}`}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between">
-                        <strong className="text-xs font-black text-slate-800">{acc.role}</strong>
-                        <span className="text-[8px] font-mono font-bold bg-slate-100 text-slate-500 px-1 py-0.2 rounded uppercase">@{acc.username}</span>
-                      </div>
-                      <p className="text-[10px] text-slate-400 font-semibold mt-0.5 leading-normal truncate">{acc.duty}</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
 
             {/* Footer */}
             <p
               className="mt-7 text-center text-[10px] font-medium"
               style={{ color: '#cbd5e1' }}
             >
-              © {new Date().getFullYear()} PT Menara Terus Makmur
+              © {new Date().getFullYear()} PT Menara Terus Makmur · Sistem QPR Internal
             </p>
           </div>
         </div>

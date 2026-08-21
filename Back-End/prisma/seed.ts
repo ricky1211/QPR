@@ -7,11 +7,13 @@ async function main() {
 
   // 1. Seed Users (Inspectors / Admins / Employees)
   const usersData = [
-    { name: 'Bagas Nur P', npk: 12345, role: 'Accounting BU / Admin', status: 'Aktif' },
-    { name: 'Anindita I', npk: 54321, role: 'Accounting Dept Head', status: 'Aktif' },
-    { name: 'Evi Sulistyorini', npk: 98765, role: 'Admin Div / BOD', status: 'Aktif' },
-    { name: 'Bagas', npk: 11111, role: 'Accounting BU', status: 'Aktif' },
-    { name: 'Anindita', npk: 22222, role: 'Accounting Dept Head', status: 'Aktif' },
+    { name: 'Administrator', npk: 999, role: 'admin', status: 'Aktif' },
+    { name: 'Septian Nugraha', npk: 2301, role: 'sect_dept_head', status: 'Aktif' },
+    { name: 'Deny Maulana', npk: 3079, role: 'foreman', status: 'Aktif' },
+    { name: 'Putu Ratna Saputra', npk: 1335, role: 'div_head', status: 'Aktif' },
+    { name: 'Cicik Andria', npk: 3790, role: 'purchasing', status: 'Aktif' },
+    { name: 'Anindita Irnilaningtyas', npk: 3123, role: 'accounting', status: 'Aktif' },
+    { name: 'Bagas Nur Pratama', npk: 3616, role: 'finance', status: 'Aktif' },
   ];
 
   const seededUsers = [];

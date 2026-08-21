@@ -15,6 +15,21 @@ export default function Topbar({
   activeTab
 }) {
   const [isSyncing, setIsSyncing] = useState(false);
+  const [displayName, setDisplayName] = useState("");
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const [isPending, startTransition] = useTransition();
+
+  const handleLogout = () => {
+    startTransition(async () => {
+      await logoutAction();
+    });
+  };
+
+  // Read display name from non-httpOnly cookie
+  React.useEffect(() => {
+    const match = document.cookie.match(/(?:^|; )mtm_display_name=([^;]*)/);
+    if (match) setDisplayName(decodeURIComponent(match[1]));
+  }, []);
 
   const handleSync = async () => {
     if (isSyncing) return;
@@ -136,41 +151,41 @@ export default function Topbar({
           )}
         </div>
 
-        {/* Logout Button */}
-        <LogoutButton />
+        {/* Logged-in user display & dropdown */}
+        {displayName && (
+          <div className="relative">
+            <button
+              onClick={() => setShowUserDropdown(!showUserDropdown)}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100/80 border border-blue-150 rounded-lg transition-all cursor-pointer shadow-sm active:scale-95 shrink-0 animate-in fade-in duration-300"
+              title="Profil Pengguna"
+            >
+              <div className="w-5.5 h-5.5 rounded-full bg-blue-600 flex items-center justify-center shrink-0 shadow-sm border border-blue-500/20">
+                <span className="text-white font-black text-[9px]">{displayName.slice(0,1).toUpperCase()}</span>
+              </div>
+              <span className="text-[11px] font-extrabold text-blue-700 max-w-[120px] truncate select-none">{displayName}</span>
+              <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-blue-500 ml-0.5"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
 
-        {/* Safety First Badge */}
-        <img
-          src="/qpr/safety-first.jpg"
-          alt="Safety First Logo"
-          className="h-[40px] sm:h-[48px] w-auto object-contain rounded-md hidden sm:block"
-        />
+            {showUserDropdown && (
+              <div className="absolute right-0 mt-2 w-44 bg-white border border-slate-200 shadow-xl rounded-lg p-2.5 z-30 animate-in fade-in slide-in-from-top-1 duration-150 text-left">
+                <div className="px-2 py-1.5 border-b border-slate-100 mb-1.5">
+                  <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Sign In As:</div>
+                  <div className="text-[11px] font-black text-slate-700 truncate">{displayName}</div>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  disabled={isPending}
+                  className="w-full flex items-center gap-2 px-2.5 py-2 text-left text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors cursor-pointer text-xs font-bold disabled:opacity-50"
+                >
+                  <LogOut size={13} className="shrink-0" />
+                  <span>{isPending ? "Keluar..." : "Logout"}</span>
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
       </div>
     </header>
-  );
-}
-
-// ── Logout Button (sub-component) ──────────────────────────────────────────────
-function LogoutButton() {
-  const [isPending, startTransition] = useTransition();
-
-  const handleLogout = () => {
-    startTransition(async () => {
-      await logoutAction();
-    });
-  };
-
-  return (
-    <button
-      onClick={handleLogout}
-      disabled={isPending}
-      title="Keluar"
-      className="flex items-center gap-1.5 px-2.5 py-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-md border border-slate-200 hover:border-red-200 transition-all touch-manipulation cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-    >
-      <LogOut size={14} />
-      <span className="text-[11px] font-bold hidden sm:block">
-        {isPending ? "Keluar..." : "Logout"}
-      </span>
-    </button>
   );
 }

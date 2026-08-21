@@ -12,7 +12,8 @@ import {
   Clock,
   X,
   Banknote,
-  ShieldCheck
+  ShieldCheck,
+  Plus
 } from "lucide-react";
 import ConfirmationLetterPrintPreview from "./ConfirmationLetterPrintPreview";
 
@@ -23,6 +24,7 @@ interface AccountingViewProps {
   handleApproveCL?: (clId: string, level: "sect" | "dept" | "div") => void;
   handleMarkClosedPaid?: (clId: string) => void;
   handleDebitNote?: (clId: string) => void;
+  handleUpdateCLPipeline?: (clId: string, data: any) => void;
   pendingQprs?: any[];
   setPendingQprs?: React.Dispatch<React.SetStateAction<any[]>>;
 }
@@ -35,6 +37,7 @@ export default function AccountingView({
   handleApproveCL,
   handleMarkClosedPaid,
   handleDebitNote,
+  handleUpdateCLPipeline,
   pendingQprs
 }: AccountingViewProps) {
   const [selectedQpr, setSelectedQpr] = useState<any>(null);
@@ -70,6 +73,7 @@ export default function AccountingView({
       id: q.id,
       qprNumber: q.qprNumber,
       supplierName: q.supplierName,
+      supplierId: q.supplierId,
       partName: q.partName || "Part Material NG",
       rejectCount: q.rejectItems || 30,
       totalQty: q.totalItems || 1000,
@@ -78,19 +82,7 @@ export default function AccountingView({
       status: q.status
     }));
 
-    if (list.length === 0 && !confirmationLetters.some(cl => cl.qprNumber === "QPR/2026/05/JAYADI")) {
-      list.push({
-        id: 10,
-        qprNumber: "QPR/2026/05/JAYADI",
-        supplierName: "PT JAYADI",
-        partName: "Motherboard X1",
-        rejectCount: 50, // Qty NG
-        totalQty: 10000, // Total Qty
-        allowanceRatio: 0.2, // allowance limit
-        period: "Mei 2026",
-        status: "APPROVED_BY_VENDOR"
-      });
-    }
+
 
     return list;
   }, [pendingQprs, confirmationLetters]);
@@ -134,7 +126,7 @@ export default function AccountingView({
       const unitPriceVal = parseFloat(String(item.unitPrice)) || 0;
 
       const stdAllowance = Math.round(totalQty * (allowanceRatio / 100));
-      const billableQty = rejectCount;
+      const billableQty = Math.max(0, rejectCount - stdAllowance);
       const subtotal = billableQty * unitPriceVal;
       
       grandSubtotal += subtotal;
@@ -234,6 +226,7 @@ export default function AccountingView({
                 id: `manual-${Date.now()}`,
                 qprNumber: `QPR/2026/06/MANUAL-${Math.floor(Math.random() * 900 + 100)}`,
                 supplierName: "PT JAYADI",
+                supplierId: "cmsy9dc0m000128sjgk0n6mbu",
                 partName: "Custom Part Material",
                 rejectCount: 30,
                 totalQty: 10000,
@@ -242,9 +235,10 @@ export default function AccountingView({
                 status: "APPROVED_INTERNAL",
                 isManual: true
               })}
-              className="w-full py-2.5 px-3 bg-gradient-to-r from-indigo-600 to-blue-650 hover:from-indigo-750 hover:to-blue-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 mb-2"
+              className="w-full py-2.5 px-3 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 mb-2"
             >
-              <span>➕ Buat CL Manual</span>
+              <Plus size={14} className="stroke-[3]" />
+              <span>Buat CL Manual</span>
             </button>
 
             {accountingQueue.length === 0 ? (
@@ -422,7 +416,8 @@ export default function AccountingView({
                     }}
                     className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold rounded-lg border border-blue-200 transition-all flex items-center gap-1 cursor-pointer active:scale-95 text-[10.5px]"
                   >
-                    ➕ Tambah Part Item
+                    <Plus size={13} className="stroke-[2.5]" />
+                    <span>Tambah Part Item</span>
                   </button>
                 </div>
 
@@ -780,7 +775,14 @@ export default function AccountingView({
                                    {/* Send CL to Vendor */}
                                    {isDeptApproved && !isPurchasingSent && (
                                      <button
-                                       onClick={() => setConfirmationLetters(prev => prev.map(c => c.id === cl.id ? { ...c, purchasingSentCl: true, purchasingSentDate: new Date().toISOString().split('T')[0] } : c))}
+                                       onClick={() => {
+                                         const payload = { purchasingSentCl: true, purchasingSentDate: new Date().toISOString().split('T')[0] };
+                                         if (handleUpdateCLPipeline) {
+                                           handleUpdateCLPipeline(cl.id, payload);
+                                         } else {
+                                           setConfirmationLetters(prev => prev.map(c => c.id === cl.id ? { ...c, ...payload } : c));
+                                         }
+                                       }}
                                        className="inline-flex items-center gap-1 px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-[8.5px] font-black cursor-pointer transition-colors active:scale-95 uppercase shadow-sm"
                                        title="Purchasing: Kirim CL ke Vendor"
                                      >
@@ -803,14 +805,26 @@ export default function AccountingView({
                                                const file = e.target.files[0];
                                                const fileUrl = URL.createObjectURL(file);
                                                alert(`File "${file.name}" berhasil diupload. Status CL berubah menjadi Vendor Approved.`);
-                                               setConfirmationLetters(prev => prev.map(c => c.id === cl.id ? { ...c, vendorApproved: true, vendorApprovedDate: new Date().toISOString().split('T')[0], signedClFileName: file.name, signedClFileUrl: fileUrl } : c));
+                                               const payload = { vendorApproved: true, vendorApprovedDate: new Date().toISOString().split('T')[0], signedClFileName: file.name, signedClFileUrl: fileUrl };
+                                               if (handleUpdateCLPipeline) {
+                                                 handleUpdateCLPipeline(cl.id, payload);
+                                               } else {
+                                                 setConfirmationLetters(prev => prev.map(c => c.id === cl.id ? { ...c, ...payload } : c));
+                                               }
                                              }
                                            }}
                                          />
                                        </label>
                                        <span className="text-slate-300">or</span>
                                        <button
-                                         onClick={() => setConfirmationLetters(prev => prev.map(c => c.id === cl.id ? { ...c, vendorApproved: true, vendorApprovedDate: new Date().toISOString().split('T')[0] } : c))}
+                                         onClick={() => {
+                                           const payload = { vendorApproved: true, vendorApprovedDate: new Date().toISOString().split('T')[0] };
+                                           if (handleUpdateCLPipeline) {
+                                             handleUpdateCLPipeline(cl.id, payload);
+                                           } else {
+                                             setConfirmationLetters(prev => prev.map(c => c.id === cl.id ? { ...c, ...payload } : c));
+                                           }
+                                         }}
                                          className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[8.5px] font-black cursor-pointer transition-colors active:scale-95 uppercase shadow-sm"
                                          title="Purchasing: Vendor Sudah Approve"
                                        >

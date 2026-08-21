@@ -244,13 +244,20 @@ export default function Dashboard({
 
     const base = baselineConfig[periodName] || { baselineClosedNcrs: 0, baselineClosedQprs: 0, aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 0, claimRejectedCount: 0 };
     
+    const pendingActiveQprs = activePeriodQprs.filter(q => 
+      q.status !== "CLOSED" && 
+      q.status !== "CLOSED_PAID" && 
+      q.status !== "REJECTED" &&
+      !activePeriodConfirmationLetters.some(cl => cl.qprNumber === q.qprNumber)
+    );
+    
     return {
       ...base,
       activeNcrs: activePeriodNcrs,
       activeQprs: activePeriodQprs,
       activeConfirmationLetters: activePeriodConfirmationLetters,
-      claimPendingCount: activePeriodQprs.length + activePeriodConfirmationLetters.length,
-      dynamicClaimsValue: activePeriodQprs.reduce((acc, q) => acc + parseInt(q.claimAmount?.replace(/[^0-9]/g, "") || "0", 10), 0) + activePeriodConfirmationLetters.reduce((acc, cl) => acc + parseInt(cl.amount?.replace(/[^0-9]/g, "") || "0", 10), 0)
+      claimPendingCount: pendingActiveQprs.length + activePeriodConfirmationLetters.filter(c => !c.closedPaid && c.status !== "CLOSED_PAID").length,
+      dynamicClaimsValue: pendingActiveQprs.reduce((acc, q) => acc + parseInt(q.claimAmount?.replace(/[^0-9]/g, "") || "0", 10), 0) + activePeriodConfirmationLetters.filter(c => !c.closedPaid && c.status !== "CLOSED_PAID").reduce((acc, cl) => acc + parseInt(cl.amount?.replace(/[^0-9]/g, "") || "0", 10), 0)
     };
   };
 
@@ -267,8 +274,10 @@ export default function Dashboard({
   const currentActiveQprs = currentConfig.activeQprs;
   const currentActiveConfirmationLetters = currentConfig.activeConfirmationLetters;
   const totalActiveQprs = currentActiveQprs.length;
-  const qprInProgress = currentActiveQprs.filter((q: any) => q.status === "WAITING_APPROVAL" || q.status === "WAITING_VENDOR").length;
-  const qprClosed = baselineClosedQprs + currentActiveQprs.filter((q: any) => q.status === "APPROVED" || q.status === "CLOSED").length;
+  
+  // QPR: status WAITING_APPROVAL, WAITING_VENDOR, APPROVED, UNDER_REVISION (basically not CLOSED/CLOSED_PAID/REJECTED) is in progress
+  const qprInProgress = currentActiveQprs.filter((q: any) => q.status !== "CLOSED" && q.status !== "CLOSED_PAID" && q.status !== "REJECTED").length;
+  const qprClosed = baselineClosedQprs + currentActiveQprs.filter((q: any) => q.status === "CLOSED" || q.status === "CLOSED_PAID").length;
   const totalQprs = qprClosed + qprInProgress;
 
   const aprilClaims = currentConfig.aprilClaims;
@@ -277,9 +286,14 @@ export default function Dashboard({
   const dynamicClaimsValue = currentConfig.dynamicClaimsValue;
   const totalClaimsVal = aprilClaims + mayClaimsClosed + mayClaimsPending + dynamicClaimsValue;
 
-  const claimClosedPaidCount = currentConfig.claimClosedPaidCount;
-  const claimPendingCount = currentConfig.claimPendingCount;
-  const claimRejectedCount = currentConfig.claimRejectedCount;
+  // CL Progress and Closed Paid dynamic calculations
+  const clLunas = currentConfig.claimClosedPaidCount + currentActiveConfirmationLetters.filter((cl: any) => cl.closedPaid || cl.status === "CLOSED_PAID").length;
+  const clProgress = currentActiveConfirmationLetters.filter((cl: any) => !cl.closedPaid && cl.status !== "CLOSED_PAID").length;
+  const totalCl = clLunas + clProgress;
+
+  const claimClosedPaidCount = clLunas;
+  const claimPendingCount = clProgress + qprInProgress;
+  const claimRejectedCount = currentConfig.claimRejectedCount + currentActiveQprs.filter((q: any) => q.status === "REJECTED").length;
   const totalClaimsCount = claimClosedPaidCount + claimPendingCount + claimRejectedCount;
 
   // Helper to calculate elapsed days dynamically
@@ -679,40 +693,7 @@ export default function Dashboard({
     })
   ];
 
-  const historicalClosedDocs = [
-    {
-      id: "hist-1",
-      docNumber: "QPR/2026/04/JAYADI",
-      type: "QPR",
-      vendor: "PT JAYADI",
-      date: "2026-04-10",
-      requiredRole: "Closed",
-      status: "APPROVED",
-      leadTime: 12,
-      isClosed: true,
-      linkedCl: {
-        clNumber: "CL/2026/04/002",
-        status: "CLOSED_PAID",
-        closedPaid: true
-      }
-    },
-    {
-      id: "hist-2",
-      docNumber: "QPR/2026/05/IKAN_BAKAR",
-      type: "QPR",
-      vendor: "PT IKAN BAKAR",
-      date: "2026-05-15",
-      requiredRole: "Closed",
-      status: "APPROVED",
-      leadTime: 11,
-      isClosed: true,
-      linkedCl: {
-        clNumber: "CL/2026/06/015",
-        status: "CLOSED_PAID",
-        closedPaid: true
-      }
-    }
-  ];
+  const historicalClosedDocs: any[] = [];
 
   const allDocPipelines = [
     ...documentPipelineList,

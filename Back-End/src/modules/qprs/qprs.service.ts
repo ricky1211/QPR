@@ -134,7 +134,43 @@ export class QprsService {
       claimAmount,
       pdfFileName,
       pdfFileBase64,
+      qprParts,
     } = data;
+
+    // Update QprParts if provided in the update request
+    if (qprParts && Array.isArray(qprParts)) {
+      for (const p of qprParts) {
+        const existingPart = await this.prisma.qprPart.findFirst({
+          where: { qprId: id, partId: p.partId },
+        });
+        if (existingPart) {
+          await this.prisma.qprPart.update({
+            where: { id: existingPart.id },
+            data: {
+              unitPrice: p.unitPrice !== undefined ? p.unitPrice : undefined,
+              taxRate: p.taxRate !== undefined ? p.taxRate : undefined,
+              totalQty: p.totalQty !== undefined ? p.totalQty : undefined,
+              qtyNg: p.qtyNg !== undefined ? p.qtyNg : undefined,
+              stdAllowance: p.stdAllowance !== undefined ? p.stdAllowance : undefined,
+              qtyClaim: p.qtyClaim !== undefined ? p.qtyClaim : undefined,
+            },
+          });
+        } else {
+          await this.prisma.qprPart.create({
+            data: {
+              qprId: id,
+              partId: p.partId,
+              totalQty: p.totalQty || 1000,
+              qtyNg: p.qtyNg || 0,
+              stdAllowance: p.stdAllowance || 0,
+              qtyClaim: p.qtyClaim || 0,
+              unitPrice: p.unitPrice || 0,
+              taxRate: p.taxRate || 0.11,
+            },
+          });
+        }
+      }
+    }
 
     return await this.prisma.qpr.update({
       where: { id },
@@ -205,25 +241,68 @@ export class QprsService {
 
   async createConfirmationLetter(data: any): Promise<any> {
     const { clNumber, dateSent, qprId, vendorId, amount, status } = data;
+
+    // Check if the referenced Qpr exists in the database
+    let qprExists = await this.prisma.qpr.findUnique({
+      where: { id: qprId },
+    });
+
+    if (!qprExists) {
+      // If it doesn't exist (e.g. mock ID or manual QPR ID), create a placeholder Qpr first
+      const clQprNumber = data.qprNumber || `QPR-CL-MOCK-${Date.now()}`;
+      
+      // Check for uniqueness of the QPR number
+      let qprNumExists = await this.prisma.qpr.findUnique({
+        where: { qprNumber: clQprNumber },
+      });
+      const finalQprNum = qprNumExists ? `${clQprNumber}-${Math.floor(Math.random() * 1000)}` : clQprNumber;
+
+      qprExists = await this.prisma.qpr.create({
+        data: {
+          id: qprId,
+          qprNumber: finalQprNum,
+          vendorId: vendorId,
+          totalQty: 1000,
+          totalQtyNg: 50,
+          totalStdAllowance: 5,
+          billableQty: 45,
+          status: 'CLOSED',
+          requiredRole: 'Closed',
+        },
+      });
+    }
+
+    const parsedAmount = typeof amount === 'number' ? amount : parseFloat(String(amount || '0').replace(/Rp/g, '').replace(/\s/g, '').replace(/\./g, '').replace(/,/g, '.')) || 0;
+
     return await this.prisma.confirmationLetter.create({
       data: {
         clNumber,
         dateSent: dateSent ? new Date(dateSent) : new Date(),
-        qprId,
-        vendorId,
-        amount: parseFloat(String(amount || '0').replace(/[^0-9.]/g, '')),
+        qpr: {
+          connect: { id: qprExists.id }
+        },
+        vendor: {
+          connect: { id: vendorId }
+        },
+        amount: parsedAmount,
         status: status || 'PENDING',
       },
     });
   }
 
   async updateConfirmationLetter(id: string, data: any): Promise<any> {
-    const { status, amount } = data;
+    const { status, amount, purchasingSentCl, vendorApproved, closedPaid, purchasingSentDate, vendorApprovedDate } = data;
+    const parsedAmount = amount !== undefined ? (typeof amount === 'number' ? amount : parseFloat(String(amount || '0').replace(/Rp/g, '').replace(/\s/g, '').replace(/\./g, '').replace(/,/g, '.')) || 0) : undefined;
     return await this.prisma.confirmationLetter.update({
       where: { id },
       data: {
         status,
-        amount: amount ? parseFloat(String(amount).replace(/[^0-9.]/g, '')) : undefined,
+        amount: parsedAmount,
+        purchasingSentCl: purchasingSentCl !== undefined ? purchasingSentCl : undefined,
+        vendorApproved: vendorApproved !== undefined ? vendorApproved : undefined,
+        closedPaid: closedPaid !== undefined ? closedPaid : undefined,
+        purchasingSentDate: purchasingSentDate !== undefined ? purchasingSentDate : undefined,
+        vendorApprovedDate: vendorApprovedDate !== undefined ? vendorApprovedDate : undefined,
       },
     });
   }

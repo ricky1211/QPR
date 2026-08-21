@@ -23,6 +23,14 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
   const isDraftTab = activeTab === "draft-ncr" || activeTab === "draft-qpr" || activeTab === "draft-cl";
   const [ncrExpanded, setNcrExpanded] = useState(activeTab === "buat-ncr" || activeTab === "approve-ncr");
   const [draftExpanded, setDraftExpanded] = useState(isDraftTab);
+  const [displayName, setDisplayName] = useState("");
+
+  useEffect(() => {
+    const match = document.cookie.match(/(?:^|; )mtm_display_name=([^;]*)/);
+    if (match) setDisplayName(decodeURIComponent(match[1]));
+  }, []);
+
+  const roleLabel = displayName || username.replace(/_/g, ' ').toUpperCase();
 
   // Sync expanded status when active tab changes externally
   useEffect(() => {
@@ -62,24 +70,30 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
 
   const isNcrActive = activeTab === "buat-ncr" || activeTab === "approve-ncr";
 
-  // Role Access Checks
+  // Role Access Checks — role values set by auth.ts
   const isAdmin = username === "admin";
-  const isOperator = username === "operator";
-  const isSectionHead = username === "sectionhead";
-  const isDeptHead = username === "depthead";
-  const isDivHead = username === "divhead";
+  const isForeman = username === "foreman";
+  const isSectDeptHead = username === "sect_dept_head";
+  const isDivHead = username === "div_head";
   const isPurchasing = username === "purchasing";
   const isAccounting = username === "accounting";
+  const isFinance = username === "finance";
 
-  const canBuatNcr = isOperator || isAdmin;
-  const canApproveNcr = isSectionHead || isDeptHead || isAdmin;
-  const hasNcrAccess = false; // canBuatNcr || canApproveNcr; // Sembunyikan navigasi NCR untuk sementara
+  // NCR is hidden for now
+  const hasNcrAccess = false;
 
-  const canBuatQpr = isOperator || isAdmin;
-  const canApproveQpr = isSectionHead || isDeptHead || isDivHead || isAdmin;
-  const canCL = isAccounting || isPurchasing || isAdmin;
-  const canIMemo = isPurchasing || isAdmin;
-  const canListQpr = isAdmin || isOperator || isAccounting || isPurchasing;
+  // Buat QPR: foreman & admin
+  const canBuatQpr = isForeman || isAdmin;
+  // Approve QPR: sect/dept head, div head, purchasing (view only), admin
+  const canApproveQpr = isSectDeptHead || isDivHead || isPurchasing || isAdmin;
+  // Buat CL: purchasing & admin
+  const canBuatCL = isPurchasing || isAdmin;
+  // Approval CL: accounting, purchasing (view only), finance (view only), admin
+  const canApproveCL = isAccounting || isPurchasing || isFinance || isAdmin;
+  // SSC Billing & Payment: finance & admin
+  const canIMemo = isFinance || isAdmin;
+  // List QPR & CL: everyone except no-one is excluded
+  const canListQpr = true;
 
   return (
     <>
@@ -110,9 +124,6 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
                   alt="MTM Logo"
                   className="h-[40px] w-auto object-contain transition-all duration-300"
                 />
-                <span className="text-[8.5px] font-black bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded uppercase tracking-wider border border-blue-200">
-                  Akses: {username.toUpperCase()}
-                </span>
               </div>
             ) : (
               <>
@@ -121,8 +132,8 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
                   alt="MTM Logo"
                   className="h-[40px] w-auto object-contain xl:hidden"
                 />
-                <div className="hidden xl:flex w-10 h-10 rounded-lg bg-blue-600 text-white font-black text-center items-center justify-center text-xs shadow-md shadow-blue-500/20 animate-in zoom-in-95 duration-200" title={`Akses: ${username.toUpperCase()}`}>
-                  {username.slice(0, 3).toUpperCase()}
+                <div className="hidden xl:flex w-10 h-10 rounded-lg bg-blue-600 text-white font-black text-center items-center justify-center text-xs shadow-md shadow-blue-500/20 animate-in zoom-in-95 duration-200" title={roleLabel}>
+                  {roleLabel.slice(0, 2).toUpperCase()}
                 </div>
               </>
             )}
@@ -190,10 +201,10 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
                   {sidebarOpen && ncrExpanded && (
                     <div className="pl-4 ml-5 border-l border-slate-100 mt-1 space-y-1 animate-slide-down">
                       {[
-                        ...(canBuatNcr ? [
+                        ...(isAdmin ? [
                           { id: "buat-ncr", name: "Buat NCR", icon: PlusCircle, color: "text-blue-600" },
                         ] : []),
-                        ...(canApproveNcr ? [{ id: "approve-ncr", name: "Approval NCR", icon: CheckSquare, color: "text-blue-600" }] : []),
+                        ...(isAdmin ? [{ id: "approve-ncr", name: "Approval NCR", icon: CheckSquare, color: "text-blue-600" }] : []),
                       ].map((sub) => {
                         const SubIcon = sub.icon;
                         const isSubActive = activeTab === sub.id;
@@ -254,7 +265,7 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
               )}
 
               {/* Buat Confirmation Letter */}
-              {canCL && (
+              {canBuatCL && (
                 <button
                   onClick={() => handleMenuClick("confirmation-letter")}
                   className={`group flex items-center w-full gap-3 text-left rounded-md transition-all duration-150 touch-manipulation cursor-pointer ${
@@ -272,7 +283,7 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
               )}
 
               {/* Approval Confirmation Letter */}
-              {canCL && (
+              {canApproveCL && (
                 <button
                   onClick={() => handleMenuClick("approve-cl")}
                   className={`group flex items-center w-full gap-3 text-left rounded-md transition-all duration-150 touch-manipulation cursor-pointer ${

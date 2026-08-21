@@ -22,9 +22,8 @@ import QprPrintPreview from "./QprPrintPreview";
 
 export default function ApproveQprDashboard({ pendingQprs, handleApproveQprAction, username = "admin", setNotifications = null }) {
   const getInitialTab = () => {
-    if (username === "sectionhead") return "section-head";
-    if (username === "depthead") return "dept-head";
-    if (username === "divhead") return "div-head";
+    if (username === "sect_dept_head") return "section-head";
+    if (username === "div_head") return "div-head";
     return "section-head";
   };
 
@@ -174,14 +173,13 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
         </div>
         
         <div className="flex items-center gap-3 shrink-0">
-          {/* Toggle Switcher — Only visible for Admin (Super User) to prevent crossing tasks */}
-          {username === "admin" ? (
+          {username === "admin" || username === "sect_dept_head" ? (
             <div className="flex bg-slate-100 p-1 rounded-md overflow-x-auto max-w-[400px] sm:max-w-none">
                {[
-                { id: "section-head", label: "SEC HEAD" },
-                { id: "dept-head", label: "DEPT HEAD" },
-                { id: "div-head", label: "DIV HEAD" }
-              ].map((tab) => (
+                 { id: "section-head", label: "SEC HEAD" },
+                 { id: "dept-head", label: "DEPT HEAD" },
+                 ...(username === "admin" ? [{ id: "div-head", label: "DIV HEAD" }] : [])
+               ].map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => {
@@ -552,6 +550,49 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
                     </div>
                   </div>
 
+                  {/* Display previous remarks/notes history */}
+                  {selectedQpr && (
+                    (selectedQpr.approvalProgress?.remarksSectionHead ||
+                     selectedQpr.approvalProgress?.remarksDeptHead ||
+                     selectedQpr.approvalProgress?.remarksDivHead ||
+                     selectedQpr.remarksSectionHead ||
+                     selectedQpr.remarksDeptHead ||
+                     selectedQpr.remarksDivHead) ? (
+                      <div className="bg-amber-50/50 border border-amber-200/60 rounded-lg p-3 space-y-2 text-[11px]">
+                        <span className="text-[9px] font-black text-amber-800 uppercase tracking-wider block">
+                          Riwayat Catatan Otorisasi Sebelumnya:
+                        </span>
+                        {/* Section Head comment */}
+                        {(selectedQpr.approvalProgress?.remarksSectionHead || selectedQpr.remarksSectionHead) && (
+                          <div>
+                            <span className="font-extrabold text-slate-700">Section Head: </span>
+                            <span className="text-slate-600 font-medium italic">
+                              "{selectedQpr.approvalProgress?.remarksSectionHead || selectedQpr.remarksSectionHead}"
+                            </span>
+                          </div>
+                        )}
+                        {/* Dept Head comment */}
+                        {(selectedQpr.approvalProgress?.remarksDeptHead || selectedQpr.remarksDeptHead) && (
+                          <div className="border-t border-amber-100/50 pt-1.5 mt-1.5">
+                            <span className="font-extrabold text-slate-700">Dept Head: </span>
+                            <span className="text-slate-600 font-medium italic">
+                              "{selectedQpr.approvalProgress?.remarksDeptHead || selectedQpr.remarksDeptHead}"
+                            </span>
+                          </div>
+                        )}
+                        {/* Div Head comment */}
+                        {(selectedQpr.approvalProgress?.remarksDivHead || selectedQpr.remarksDivHead) && (
+                          <div className="border-t border-amber-100/50 pt-1.5 mt-1.5">
+                            <span className="font-extrabold text-slate-700">Div Head: </span>
+                            <span className="text-slate-600 font-medium italic">
+                              "{selectedQpr.approvalProgress?.remarksDivHead || selectedQpr.remarksDivHead}"
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    ) : null
+                  )}
+
                   {/* Approval Notes */}
                   <div className="space-y-1.5 pt-2">
                     <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">
@@ -566,10 +607,7 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
                     />
                   </div>
 
-                  <div className="p-3.5 bg-blue-50/30 border border-blue-100/50 rounded-lg text-[10px] text-slate-550 leading-relaxed">
-                    <strong className="text-blue-700 block mb-1">Informasi Otorisasi:</strong>
-                    Persetujuan Anda akan membubuhkan tanda tangan digital pada lembar dokumen QPR ini secara otomatis untuk diteruskan ke tahap selanjutnya.
-                  </div>
+
                 </div>
 
               </div>
@@ -606,7 +644,7 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
                   Kirim Reminder
                 </button>
               </div>
-              <div className="flex flex-wrap gap-2 justify-end">
+              <div className="flex flex-wrap gap-2 justify-end items-center">
                 <button 
                   onClick={() => {
                     setSelectedQpr(null);
@@ -616,38 +654,56 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
                 >
                   Batal
                 </button>
-                <button
-                  onClick={() => {
-                    handleApproveQprAction(selectedQpr.id, selectedQpr.qprNumber, "REVISE", approvalComment);
-                    setSelectedQpr(null);
-                    setApprovalComment("");
-                  }}
-                  className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-md font-bold text-xs shadow-md transition-colors cursor-pointer"
-                >
-                  Revise
-                </button>
-                <button
-                  onClick={() => {
-                    handleApproveQprAction(selectedQpr.id, selectedQpr.qprNumber, "REJECT", approvalComment);
-                    setSelectedQpr(null);
-                    setApprovalComment("");
-                  }}
-                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md font-bold text-xs shadow-md transition-colors cursor-pointer"
-                >
-                  Reject
-                </button>
-                <button
-                  onClick={() => {
-                    handleApproveQprAction(selectedQpr.id, selectedQpr.qprNumber, "APPROVE", approvalComment);
-                    setSelectedQpr(null);
-                    setApprovalComment("");
-                  }}
-                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-bold text-xs shadow-md shadow-blue-500/10 transition-colors cursor-pointer"
-                >
-                  {levelTab === "section-head" ? "Approve QPR (Section Head)" :
-                   levelTab === "dept-head" ? "Approve QPR (Dept Head)" :
-                   "Approve QPR (Div Head)"}
-                </button>
+                {(() => {
+                  const canUserApproveQpr = username === "admin" || 
+                    (username === "sect_dept_head" && (levelTab === "section-head" || levelTab === "dept-head")) || 
+                    (username === "div_head" && levelTab === "div-head");
+
+                  if (!canUserApproveQpr) {
+                    return (
+                      <span className="px-3.5 py-2 bg-slate-100 border border-slate-200 text-slate-500 rounded-md text-xs font-bold italic select-none">
+                        Mode Memantau (Read-Only)
+                      </span>
+                    );
+                  }
+
+                  return (
+                    <>
+                      <button
+                        onClick={() => {
+                          handleApproveQprAction(selectedQpr.id, selectedQpr.qprNumber, "REVISE", approvalComment);
+                          setSelectedQpr(null);
+                          setApprovalComment("");
+                        }}
+                        className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-md font-bold text-xs shadow-md transition-colors cursor-pointer"
+                      >
+                        Revise
+                      </button>
+                      <button
+                        onClick={() => {
+                          handleApproveQprAction(selectedQpr.id, selectedQpr.qprNumber, "REJECT", approvalComment);
+                          setSelectedQpr(null);
+                          setApprovalComment("");
+                        }}
+                        className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md font-bold text-xs shadow-md transition-colors cursor-pointer"
+                      >
+                        Reject
+                      </button>
+                      <button
+                        onClick={() => {
+                          handleApproveQprAction(selectedQpr.id, selectedQpr.qprNumber, "APPROVE", approvalComment);
+                          setSelectedQpr(null);
+                          setApprovalComment("");
+                        }}
+                        className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-bold text-xs shadow-md shadow-blue-500/10 transition-colors cursor-pointer"
+                      >
+                        {levelTab === "section-head" ? "Approve QPR (Section Head)" :
+                         levelTab === "dept-head" ? "Approve QPR (Dept Head)" :
+                         "Approve QPR (Div Head)"}
+                      </button>
+                    </>
+                  );
+                })()}
               </div>
             </div>
           </div>

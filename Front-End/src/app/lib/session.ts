@@ -42,9 +42,11 @@ async function verify(data: string, signature: string): Promise<boolean> {
 // ---- Session payload ----------------------------------------
 
 export interface SessionPayload {
-  userId: string
-  username: string
-  expiresAt: number // epoch ms
+  userId: string        // login ID / NPK
+  username: string      // role key used for RBAC (e.g. 'admin', 'foreman')
+  role: string          // same as username — kept separate for clarity
+  displayName: string   // human-readable name shown in the UI
+  expiresAt: number     // epoch ms
 }
 
 async function encodeSession(payload: SessionPayload): Promise<string> {
@@ -71,9 +73,19 @@ async function decodeSession(token: string): Promise<SessionPayload | null> {
 
 // ---- Public API --------------------------------------------
 
-export async function createSession(username: string): Promise<void> {
+export async function createSession(
+  role: string,
+  loginId: string,
+  displayName: string = role,
+): Promise<void> {
   const expiresAt = Date.now() + SESSION_DURATION_MS
-  const payload: SessionPayload = { userId: username, username, expiresAt }
+  const payload: SessionPayload = {
+    userId: loginId,
+    username: role,      // username field carries the role for backward compat
+    role,
+    displayName,
+    expiresAt,
+  }
   const token = await encodeSession(payload)
 
   const cookieStore = await cookies()
@@ -85,8 +97,17 @@ export async function createSession(username: string): Promise<void> {
     path: '/',
   })
 
-  // Also set a client-readable cookie for the username (used by client components for RBAC)
-  cookieStore.set('mtm_user', username, {
+  // Client-readable cookie: stores the ROLE so client RBAC works
+  cookieStore.set('mtm_user', role, {
+    httpOnly: false,
+    secure: false,
+    expires: new Date(expiresAt),
+    sameSite: 'lax',
+    path: '/',
+  })
+
+  // Client-readable cookie: stores display name for the topbar
+  cookieStore.set('mtm_display_name', displayName, {
     httpOnly: false,
     secure: false,
     expires: new Date(expiresAt),
@@ -106,4 +127,5 @@ export async function deleteSession(): Promise<void> {
   const cookieStore = await cookies()
   cookieStore.delete(COOKIE_NAME)
   cookieStore.delete('mtm_user')
+  cookieStore.delete('mtm_display_name')
 }

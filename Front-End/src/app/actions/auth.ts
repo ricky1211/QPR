@@ -4,16 +4,25 @@ import { redirect } from 'next/navigation'
 import { createSession, deleteSession } from '@/app/lib/session'
 
 // ============================================================
-// Credential store — in production replace with a real DB/API.
+// Credential store — maps login ID → { password, role, displayName }
+// Role values used across RBAC: admin | foreman | sect_dept_head |
+//   div_head | purchasing | accounting | finance
 // ============================================================
-const VALID_USERS: Record<string, string> = {
-  admin: 'password123',
-  operator: 'password123',
-  sectionhead: 'password123',
-  depthead: 'password123',
-  divhead: 'password123',
-  purchasing: 'password123',
-  accounting: 'password123',
+const VALID_USERS: Record<string, { password: string; role: string; displayName: string }> = {
+  // Admin: full access including Master Data
+  admin: { password: 'admin123', role: 'admin', displayName: 'Administrator' },
+  // Section Head & Dept Head QPR (shared account)
+  '2301': { password: '2301', role: 'sect_dept_head', displayName: 'Septian Nugraha' },
+  // Foreman / Prepare QPR
+  '3079': { password: '3079', role: 'foreman', displayName: 'Deny Maulana' },
+  // Division Head QPR
+  '1335': { password: '1335', role: 'div_head', displayName: 'Putu Ratna Saputra' },
+  // Purchasing
+  '3790': { password: '3790', role: 'purchasing', displayName: 'Cicik Andria' },
+  // Dept Accounting
+  '3123': { password: '3123', role: 'accounting', displayName: 'Anindita Irnilaningtyas' },
+  // Finance
+  '3616': { password: '3616', role: 'finance', displayName: 'Bagas Nur Pratama' },
 }
 
 export interface LoginState {
@@ -29,20 +38,19 @@ export async function loginAction(
 
   // Basic validation
   if (!username || !password) {
-    return { error: 'Username dan password wajib diisi.' }
+    return { error: 'ID / NPK dan password wajib diisi.' }
   }
 
   // Credential check
-  const expectedPassword = VALID_USERS[username.toLowerCase()]
-  if (!expectedPassword || expectedPassword !== password) {
-    return { error: 'Username atau password salah. Silakan coba lagi.' }
+  const userEntry = VALID_USERS[username]
+  if (!userEntry || userEntry.password !== password) {
+    return { error: 'ID / NPK atau password salah. Silakan coba lagi.' }
   }
 
-  // Create session cookie
-  await createSession(username)
+  // Create session cookie — stores role in the cookie so RBAC works client-side
+  await createSession(userEntry.role, username, userEntry.displayName)
 
-  // Redirect to main dashboard — redirect() throws internally, so it must be
-  // outside of a try/catch block.
+  // Redirect to main dashboard
   redirect('/dashboard')
 }
 

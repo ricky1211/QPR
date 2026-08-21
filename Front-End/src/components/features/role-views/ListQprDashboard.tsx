@@ -280,49 +280,7 @@ export default function ListQprDashboard({
       });
     });
 
-    // Add baseline closed items if list is empty, just for UX preview
-    if (list.length === 0) {
-      list.push(
-        {
-          id: "hist-qpr-1",
-          type: "QPR",
-          docNumber: "QPR/2026/04/JAYADI",
-          date: "2026-04-10",
-          vendorName: "PT JAYADI",
-          partNumber: "MB-001",
-          partName: "Motherboard X1",
-          period: "April 2026",
-          qty: 10000,
-          reject: 50,
-          allowanceRatio: "0.5%",
-          claimAmount: "Rp 18.200.000",
-          defectType: "-",
-          disposition: "-",
-          status: "APPROVED",
-          requiredRole: "Closed",
-          approvedBy: ["Section Head", "Dept Head", "Div Head", "Accounting"]
-        },
-        {
-          id: "hist-cl-1",
-          type: "CL",
-          docNumber: "CL/2026/06/001",
-          date: "2026-06-10",
-          vendorName: "PT JAYADI",
-          partNumber: "MB-001",
-          partName: "Motherboard X1",
-          period: "Juni 2026",
-          qty: 1000,
-          reject: 10,
-          allowanceRatio: "0.5%",
-          claimAmount: "Rp 18.200.000",
-          defectType: "Dent / Scratch",
-          disposition: "-",
-          status: "APPROVED",
-          requiredRole: "Closed",
-          approvedBy: ["Vendor", "Accounting"]
-        }
-      );
-    }
+
 
     return list;
   }, [pendingNcrs, pendingQprs, confirmationLetters]);

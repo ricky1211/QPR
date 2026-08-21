@@ -89,6 +89,13 @@ export default function ApproveClDashboard({
     return cl.status === "PENDING" || cl.status === "APPROVED_BY_VENDOR" || cl.requiredRole === "Dept Accounting" || cl.status === "APPROVED_SECT";
   });
 
+  // Approved CLs
+  const approvedCls = React.useMemo(() => {
+    return confirmationLetters.filter((cl) => {
+      return cl.status === "FULLY_APPROVED" || cl.status === "CLOSED_PAID" || cl.requiredRole === "Closed";
+    });
+  }, [confirmationLetters]);
+
   // Filter based on search query & advanced filters
   const filteredCls = rolePendingCls.filter((cl) => {
     // 1. Search filter
@@ -431,6 +438,77 @@ export default function ApproveClDashboard({
         </div>
       </div>
 
+      {/* Approved Confirmation Letters List */}
+      <div className="bg-white border border-slate-150 rounded-xl shadow-sm overflow-hidden p-4 mt-6">
+        <div className="border-b border-slate-150 pb-3 mb-4 flex justify-between items-center">
+          <div>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Riwayat Dokumen</span>
+            <h4 className="text-sm font-bold text-slate-800 mt-1">Daftar Confirmation Letter yang Disetujui (Approved)</h4>
+          </div>
+          <span className="px-2.5 py-1 bg-green-50 text-green-700 text-[10px] font-bold rounded shadow-sm">
+            Total: {approvedCls.length} Disetujui
+          </span>
+        </div>
+
+        <div className="border border-slate-400 rounded-lg overflow-hidden">
+          <table className="w-full table-fixed text-left text-xs border-collapse min-w-[800px]">
+            <thead>
+              <tr className="bg-slate-100 border-b border-slate-400 text-slate-800 font-extrabold uppercase text-[10px] tracking-wider text-center">
+                <th className="px-2 py-3 border-r border-slate-400 w-[25%] text-center font-bold">No. Confirmation Letter</th>
+                <th className="px-2 py-3 border-r border-slate-400 w-[25%] text-center font-bold">Detail Vendor</th>
+                <th className="px-2 py-3 border-r border-slate-400 w-[15%] text-center font-bold">Tanggal Kirim</th>
+                <th className="px-2 py-3 border-r border-slate-400 w-[15%] text-center font-bold">Total Nilai</th>
+                <th className="px-2 py-3 border-r border-slate-400 w-[12%] text-center font-bold">Status</th>
+                <th className="px-2 py-3 w-[8%] text-center font-bold">Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              {approvedCls.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="text-center py-12 text-slate-400 font-medium">
+                    Tidak ada Confirmation Letter yang sudah disetujui.
+                  </td>
+                </tr>
+              ) : (
+                approvedCls.map((cl) => (
+                  <tr key={cl.id} className="border-b border-slate-400 hover:bg-slate-50/40 transition-colors text-center font-bold">
+                    <td className="px-2 py-3 border-r border-slate-400 text-center font-bold text-slate-800 text-[11px] whitespace-nowrap overflow-hidden text-ellipsis">
+                      {cl.clNumber}
+                    </td>
+                    <td className="px-2 py-3 border-r border-slate-400 text-left">
+                      <div className="font-bold text-slate-700 text-[11px] whitespace-nowrap overflow-hidden text-ellipsis">
+                        {cl.supplierName}
+                      </div>
+                      <div className="text-[9px] text-slate-400 font-bold mt-0.5">QPR: {cl.qprNumber}</div>
+                    </td>
+                    <td className="px-2 py-3 border-r border-slate-400 text-center text-slate-600">
+                      {cl.dateSent}
+                    </td>
+                    <td className="px-2 py-3 border-r border-slate-400 text-center text-slate-700 font-bold">
+                      {cl.amount}
+                    </td>
+                    <td className="px-2 py-3 border-r border-slate-400 text-center">
+                      <span className="inline-flex items-center px-2 py-0.5 bg-green-50 text-green-700 border border-green-200 rounded text-[9px] font-black uppercase tracking-wider">
+                        APPROVED
+                      </span>
+                    </td>
+                    <td className="px-2 py-3 text-center">
+                      <button
+                        type="button"
+                        onClick={() => setPreviewCl(cl)}
+                        className="w-full py-1.5 bg-slate-700 hover:bg-slate-800 text-white rounded text-xs font-black transition-all cursor-pointer shadow-sm text-center"
+                      >
+                        Print PDF
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       {/* Detail Otorisasi / Review Modal */}
       {selectedCl && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-[2px] z-50 flex items-center justify-center p-4">
@@ -455,53 +533,8 @@ export default function ApproveClDashboard({
                 
                 {/* Left Column: Official Cl Document Sheet */}
                 <div className="lg:col-span-2 border border-slate-200 rounded-lg overflow-hidden bg-slate-100 p-4 max-h-[60vh] overflow-y-auto shadow-inner flex items-start justify-center">
-                  <div className="w-full max-w-2xl bg-white shadow-md rounded border border-slate-300 p-6 text-black font-serif text-[11px] leading-relaxed">
-                    <div className="border-t border-black mb-4 w-full" />
-                    <h5 className="text-center font-bold uppercase text-sm mb-3">Confirmation Letter</h5>
-                    <div className="text-right text-[9.5px] mb-3">Cikarang, {selectedCl.dateSent}</div>
-                    
-                    <div className="font-bold mb-4">
-                      <div>To:</div>
-                      <div>{selectedCl.supplierName}</div>
-                      <div>Jl. Science Timur I Blok A 5H</div>
-                      <div>Cikarang Timur, Bekasi, Jawa Barat 17530</div>
-                    </div>
-
-                    <p className="mb-4 text-justify">
-                      According to quality problem report (QPR) that we have checked at Menara Terus Makmur, PT.: We would like to confirm to you that we have agreed if it is found some NG parts which are not caused by our internal process. NG parts and loss can be seen as follows:
-                    </p>
-
-                    <table className="w-full text-[9.5px] border-collapse border border-black text-black mb-4 font-sans">
-                      <thead>
-                        <tr className="border-b border-black text-center font-bold bg-slate-50">
-                          <th className="border border-black px-1.5 py-1">Description</th>
-                          <th className="border border-black px-1.5 py-1 w-24">Amount (IDR)</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr>
-                          <td className="border border-black px-2 py-1.5">Penalti Klaim Kualitas (NG Allowance Exceeded)</td>
-                          <td className="border border-black px-2 py-1.5 text-right font-mono font-bold">{selectedCl.amount}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-
-                    <p className="mb-4 text-justify">
-                      Based on the data above, we will release a debit note to {selectedCl.supplierName} if there is no any confirmation within 5 working days. We are looking forward to your confirmation.
-                    </p>
-
-                    <div className="flex justify-between font-sans text-[10px] font-bold mt-8">
-                      <div>
-                        <span>Yours Faithfully,</span>
-                        <div className="mt-1 font-bold">PT Menara Terus Makmur</div>
-                        <div className="font-normal text-slate-500">Accounting & Finance Dept.</div>
-                      </div>
-                      <div className="text-right pr-4">
-                        <span>Approved</span>
-                        <div className="w-24 border-b border-dashed border-slate-400 h-8 mt-2" />
-                        <span className="font-bold text-center w-24 block mt-1">Representative</span>
-                      </div>
-                    </div>
+                  <div className="w-full max-w-2xl bg-white shadow-md rounded border border-slate-300">
+                    <ConfirmationLetterPrintPreview cl={selectedCl} inline={true} />
                   </div>
                 </div>
 
@@ -523,7 +556,7 @@ export default function ApproveClDashboard({
                         <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase ${
                           selectedCl.clApprovalProgress?.deptAccounting ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
                         }`}>
-                          {selectedCl.clApprovalProgress?.deptAccounting ? "Signed (Budi Santoso)" : "PENDING"}
+                          {selectedCl.clApprovalProgress?.deptAccounting ? "Signed (Anindita Irnilaningtyas)" : "PENDING"}
                         </span>
                       </div>
                     </div>
@@ -546,41 +579,53 @@ export default function ApproveClDashboard({
                 <FileText size={13} />
                 Preview PDF Lengkap
               </button>
-              <div className="flex gap-2">
+              <div className="flex gap-2 items-center">
                 <button 
                   onClick={() => setSelectedCl(null)} 
                   className="px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-md text-xs font-bold transition-colors cursor-pointer"
                 >
                   Batal
                 </button>
-                <button
-                  onClick={() => {
-                    const level = "dept";
-                    handleApproveCL(selectedCl.id, level);
-                    
-                    const clCopy = { ...selectedCl };
-                    const nextProgress = { ...clCopy.clApprovalProgress };
-                    nextProgress.sectAccounting = true; // Auto-set for compat
-                    nextProgress.deptAccounting = true;
-                    
-                    const isNowFullyApproved = true;
-                    
-                    if (isNowFullyApproved) {
-                      setShowSuccessModal({
-                        clNumber: clCopy.clNumber,
-                        supplierName: clCopy.supplierName,
-                        amount: clCopy.amount,
-                        cl: { ...clCopy, clApprovalProgress: nextProgress, status: "FULLY_APPROVED" }
-                      });
-                    } else {
-                      alert(`Dokumen CL ${clCopy.clNumber} berhasil di-approve untuk level ${roleName}.`);
-                    }
-                    setSelectedCl(null);
-                  }}
-                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-bold text-xs shadow-md shadow-blue-500/10 transition-colors cursor-pointer"
-                >
-                  Approve CL ({roleName})
-                </button>
+                {(() => {
+                  const canUserApproveCl = username === "admin" || username === "accounting";
+                  if (!canUserApproveCl) {
+                    return (
+                      <span className="px-3.5 py-2 bg-slate-100 border border-slate-200 text-slate-500 rounded-md text-xs font-bold italic select-none">
+                        Mode Memantau (Read-Only)
+                      </span>
+                    );
+                  }
+                  return (
+                    <button
+                      onClick={() => {
+                        const level = "dept";
+                        handleApproveCL(selectedCl.id, level);
+                        
+                        const clCopy = { ...selectedCl };
+                        const nextProgress = { ...clCopy.clApprovalProgress };
+                        nextProgress.sectAccounting = true; // Auto-set for compat
+                        nextProgress.deptAccounting = true;
+                        
+                        const isNowFullyApproved = true;
+                        
+                        if (isNowFullyApproved) {
+                          setShowSuccessModal({
+                            clNumber: clCopy.clNumber,
+                            supplierName: clCopy.supplierName,
+                            amount: clCopy.amount,
+                            cl: { ...clCopy, clApprovalProgress: nextProgress, status: "FULLY_APPROVED" }
+                          });
+                        } else {
+                          alert(`Dokumen CL ${clCopy.clNumber} berhasil di-approve untuk level ${roleName}.`);
+                        }
+                        setSelectedCl(null);
+                      }}
+                      className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-bold text-xs shadow-md shadow-blue-500/10 transition-colors cursor-pointer"
+                    >
+                      Approve CL ({roleName})
+                    </button>
+                  );
+                })()}
               </div>
             </div>
           </div>

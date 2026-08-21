@@ -106,31 +106,21 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
     // Initial default tab routing based on role if no tab is selected
     const isMasterTab = ["parts", "vendors", "users"].includes(initialTab);
     if (isMasterTab && user !== "admin") {
-      let defaultTab = "dashboard";
-      if (user === "operator") {
-        defaultTab = "buat-ncr";
-      } else if (user === "sectionhead" || user === "depthead") {
-        defaultTab = "approve-ncr";
-      } else if (user === "divhead") {
-        defaultTab = "approve-qpr";
-      } else if (user === "purchasing") {
-        defaultTab = "i-memo";
-      } else if (user === "accounting") {
-        defaultTab = "approve-cl";
-      }
-      router.replace(`/${defaultTab}`);
+      router.replace("/dashboard");
     } else if (!initialTab) {
       let defaultTab = "dashboard";
-      if (user === "operator") {
-        defaultTab = "buat-ncr";
-      } else if (user === "sectionhead" || user === "depthead") {
-        defaultTab = "approve-ncr";
-      } else if (user === "divhead") {
+      if (user === "foreman") {
+        defaultTab = "buat-qpr";
+      } else if (user === "sect_dept_head") {
         defaultTab = "approve-qpr";
+      } else if (user === "div_head") {
+        defaultTab = "dashboard";
       } else if (user === "purchasing") {
-        defaultTab = "i-memo";
+        defaultTab = "dashboard";
       } else if (user === "accounting") {
         defaultTab = "approve-cl";
+      } else if (user === "finance") {
+        defaultTab = "i-memo";
       }
       router.replace(`/${defaultTab}`);
     } else {
@@ -282,22 +272,7 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
 
   // Notification bell state
   const [showNotifications, setShowNotifications] = useState(false);
-  const [notifications, setNotifications] = useState([
-    {
-      id: 1,
-      message: "NCR baru berhasil diterbitkan: NCR/2026/06/020 untuk PT IKAN BAKAR (Harddisk 1TB).",
-      time: "1 jam yang lalu",
-      type: "info",
-      unread: true
-    },
-    {
-      id: 2,
-      message: "Draf QPR QPR/2026/06/GL001 berhasil dibuat untuk PT JAYADI.",
-      time: "3 jam yang lalu",
-      type: "success",
-      unread: true
-    }
-  ]);
+  const [notifications, setNotifications] = useState<any[]>([]);
 
   // Selected QPR for revision editing
   const [selectedQprForEdit, setSelectedQprForEdit] = useState<any>(() => {
@@ -346,11 +321,35 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
     }
   }, [createdSscBillings]);
 
-  const handleGenerateCL = (qpr: any, amount: string, items?: any[]) => {
-    const cleanAmount = amount && amount.startsWith("Rp") ? amount : `Rp ${amount || "0"}`;
+  const handleGenerateCL = (qpr: any, amount: string | number, items?: any[]) => {
+    let numericAmount = 0;
+    if (typeof amount === "number") {
+      numericAmount = amount;
+    } else {
+      const cleanStr = String(amount || "0")
+        .replace(/Rp/g, "")
+        .replace(/\s/g, "")
+        .replace(/\./g, "")
+        .replace(/,/g, ".");
+      numericAmount = parseFloat(cleanStr) || 0;
+    }
+    const cleanAmount = `Rp ${numericAmount.toLocaleString("id-ID")}`;
     const today = new Date().toISOString().split("T")[0];
     const clNum = `CL/${today.slice(0,7).replace("-","/")}/${qpr.supplierName.replace("PT ", "").replace(/ /g, "_")}_${Math.floor(Math.random() * 900 + 100)}`;
-    const parsedAmount = parseFloat(cleanAmount.replace(/[^0-9.]/g, ""));
+    const parsedAmount = numericAmount;
+
+    // Normalize items: ensure both `amount` and `billableQty` fields exist,
+    // regardless of whether they come as `subtotal`/`rejectCount` (Buat CL)
+    // or `amount`/`qtyClaim` (DB-loaded via mapClFromDb).
+    const normalizedItems = (items || []).map(item => ({
+      ...item,
+      partName: item.partName || "Part Material NG",
+      totalQty: item.totalQty || 0,
+      billableQty: item.billableQty ?? item.qtyClaim ?? item.rejectCount ?? 0,
+      qtyNg: item.qtyNg ?? item.rejectCount ?? 0,
+      unitPrice: parseFloat(String(item.unitPrice)) || 0,
+      amount: item.amount ?? item.subtotal ?? 0,
+    }));
 
     const payload = {
       clNumber: clNum,
@@ -358,15 +357,60 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
       qprId: qpr.id,
       vendorId: qpr.supplierId,
       amount: parsedAmount,
-      status: "PENDING"
+      status: "PENDING",
+      qprNumber: qpr.qprNumber
     };
+
+    // Immediately add optimistic CL to local state so Approval CL screen
+    // receives the exact same item rows without waiting for DB round-trip.
+    const optimisticCl = {
+      id: `optimistic-${Date.now()}`,
+      clNumber: clNum,
+      qprNumber: qpr.qprNumber,
+      supplierName: qpr.supplierName,
+      dateSent: today,
+      amount: cleanAmount,
+      status: "PENDING",
+      requiredRole: "Dept Accounting",
+      memoStatus: "SENT_AOP",
+      reminderSentCount: 1,
+      sentToVendor: false,
+      vendorApproved: false,
+      vendorApprovedDocName: null,
+      readyForSSC: false,
+      clApprovalProgress: { sectAccounting: false, deptAccounting: false },
+      closedPaid: false,
+      debitNoteCount: 0,
+      reminderCount: 1,
+      items: normalizedItems,
+      partName: normalizedItems[0]?.partName || qpr.partName || "",
+    };
+    setConfirmationLetters(prev => [optimisticCl, ...prev.filter(c => c.clNumber !== clNum)]);
 
     clService.create(payload)
       .then(() => {
-        return qprService.update(qpr.id, { status: "CLOSED", requiredRole: "Closed" });
+        const updatedParts = normalizedItems.map(item => ({
+          partId: item.partId || item.id,
+          unitPrice: item.unitPrice,
+          taxRate: 0.11
+        }));
+        return qprService.update(qpr.id, { 
+          status: "CLOSED", 
+          requiredRole: "Closed",
+          qprParts: updatedParts
+        });
       })
       .then(() => {
-        clService.getAll().then(data => setConfirmationLetters(data.map(mapClFromDb)));
+        // After DB refresh, re-attach normalizedItems to any CL matching clNum
+        // (DB CL may have incomplete items if qprParts.qtyClaim not updated yet)
+        clService.getAll().then(data => {
+          const mapped = data.map(mapClFromDb);
+          setConfirmationLetters(mapped.map(cl =>
+            cl.clNumber === clNum && normalizedItems.length > 0
+              ? { ...cl, items: normalizedItems }
+              : cl
+          ));
+        });
         qprService.getAll().then(data => setPendingQprs(data.map(mapQprFromDb)));
       })
       .catch((err) => {
@@ -432,12 +476,33 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
     };
 
     if (typeof clId === "string" && clId.length > 10) {
-      clService.update(clId, { status: "APPROVED" }) // keep as approved in db but update local
+      clService.update(clId, { closedPaid: true })
         .then(() => {
           proceedWithLocalStateUpdate();
         })
         .catch(err => {
           console.error("Failed to mark CL closed paid in DB:", err);
+          proceedWithLocalStateUpdate();
+        });
+    } else {
+      proceedWithLocalStateUpdate();
+    }
+  };
+
+  const handleUpdateCLPipeline = (clId: string, data: any) => {
+    const proceedWithLocalStateUpdate = () => {
+      setConfirmationLetters(prev => prev.map(cl =>
+        cl.id === clId ? { ...cl, ...data } : cl
+      ));
+    };
+
+    if (typeof clId === "string" && clId.length > 10) {
+      clService.update(clId, data)
+        .then(() => {
+          proceedWithLocalStateUpdate();
+        })
+        .catch(err => {
+          console.error("Failed to update CL pipeline in DB:", err);
           proceedWithLocalStateUpdate();
         });
     } else {
@@ -616,59 +681,132 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
     let alertMsg = "";
     let notifMsg = "";
 
-    setPendingQprs(prev => {
-      const updated = prev.map(q => {
-        if (q.id === id) {
-          if (actionType === "REVISE") {
-            alertMsg = `Sukses: Klaim QPR ${qprNum} dikembalikan ke Operator untuk revisi dengan catatan: "${reviewComment}"`;
-            notifMsg = `Klaim QPR ${qprNum} di-revise oleh ${q.requiredRole}.`;
-            return {
-              ...q,
-              status: "UNDER_REVISION",
-              requiredRole: "Operator",
-              remarks: reviewComment || q.remarks
-            };
-          } else if (actionType === "REJECT") {
-            alertMsg = `Sukses: Klaim QPR ${qprNum} ditolak (REJECTED) dengan catatan: "${reviewComment}"`;
-            notifMsg = `Klaim QPR ${qprNum} ditolak oleh ${q.requiredRole}.`;
-            return {
-              ...q,
-              status: "REJECTED",
-              requiredRole: "Closed",
-              remarks: reviewComment || q.remarks
-            };
-          }
+    const targetQpr = pendingQprs.find(q => q.id === id);
+    if (!targetQpr) return;
 
-          // Default: APPROVE
-          if (q.requiredRole === "Section Head") {
-            alertMsg = `Sukses: Klaim QPR ${qprNum} disetujui oleh Section Head dan diteruskan ke Dept Head!`;
-            notifMsg = `Klaim QPR ${qprNum} disetujui oleh Section Head dan diteruskan ke Dept Head.`;
-            return { ...q, requiredRole: "Dept Head", remarksSectionHead: reviewComment || q.remarksSectionHead };
-          } else if (q.requiredRole === "Dept Head") {
-            alertMsg = `Sukses: Klaim QPR ${qprNum} disetujui oleh Dept Head dan diteruskan ke Div Head!`;
-            notifMsg = `Klaim QPR ${qprNum} disetujui oleh Dept Head dan diteruskan ke Div Head.`;
-            return { ...q, requiredRole: "Div Head", remarksDeptHead: reviewComment || q.remarksDeptHead };
-          } else if (q.requiredRole === "Div Head") {
-            alertMsg = `Sukses: Klaim QPR ${qprNum} disetujui oleh Div Head dan diteruskan ke Purchasing untuk pembuatan CL!`;
-            notifMsg = `Klaim QPR ${qprNum} disetujui oleh Div Head dan diteruskan ke Purchasing.`;
-            return { ...q, requiredRole: "Purchasing", status: "APPROVED", remarksDivHead: reviewComment || q.remarksDivHead };
+    const currentRole = targetQpr.requiredRole;
+
+    const proceedWithStateUpdate = (dbApprovalData: any = null) => {
+      setPendingQprs(prev => {
+        const updated = prev.map(q => {
+          if (q.id === id) {
+            let nextRole = q.requiredRole;
+            let nextStatus = q.status;
+
+            if (actionType === "REVISE") {
+              alertMsg = `Sukses: Klaim QPR ${qprNum} dikembalikan ke Operator untuk revisi dengan catatan: "${reviewComment}"`;
+              notifMsg = `Klaim QPR ${qprNum} di-revise oleh ${q.requiredRole}.`;
+              nextRole = "Operator";
+              nextStatus = "UNDER_REVISION";
+            } else if (actionType === "REJECT") {
+              alertMsg = `Sukses: Klaim QPR ${qprNum} ditolak (REJECTED) dengan catatan: "${reviewComment}"`;
+              notifMsg = `Klaim QPR ${qprNum} ditolak oleh ${q.requiredRole}.`;
+              nextRole = "Closed";
+              nextStatus = "REJECTED";
+            } else {
+              // APPROVE
+              if (currentRole === "Section Head") {
+                alertMsg = `Sukses: Klaim QPR ${qprNum} disetujui oleh Section Head dan diteruskan ke Div Head!`;
+                notifMsg = `Klaim QPR ${qprNum} disetujui oleh Section Head dan diteruskan ke Div Head.`;
+                nextRole = "Div Head";
+              } else if (currentRole === "Dept Head") {
+                alertMsg = `Sukses: Klaim QPR ${qprNum} disetujui oleh Dept Head dan diteruskan ke Div Head!`;
+                notifMsg = `Klaim QPR ${qprNum} disetujui oleh Dept Head dan diteruskan ke Div Head.`;
+                nextRole = "Div Head";
+              } else if (currentRole === "Div Head") {
+                alertMsg = `Sukses: Klaim QPR ${qprNum} disetujui oleh Div Head dan diteruskan ke Purchasing untuk pembuatan CL!`;
+                notifMsg = `Klaim QPR ${qprNum} disetujui oleh Div Head dan diteruskan ke Purchasing.`;
+                nextRole = "Purchasing";
+                nextStatus = "APPROVED";
+              }
+            }
+
+            const currentApprovalProgress = q.approvalProgress || {};
+            const newApprovalProgress = {
+              ...currentApprovalProgress,
+              remarksSectionHead: currentRole === "Section Head" ? reviewComment : currentApprovalProgress.remarksSectionHead,
+              remarksDeptHead: currentRole === "Dept Head" ? reviewComment : currentApprovalProgress.remarksDeptHead,
+              remarksDivHead: currentRole === "Div Head" ? reviewComment : currentApprovalProgress.remarksDivHead,
+            };
+
+            return {
+              ...q,
+              status: nextStatus,
+              requiredRole: nextRole,
+              approvalProgress: newApprovalProgress,
+              remarksSectionHead: newApprovalProgress.remarksSectionHead,
+              remarksDeptHead: newApprovalProgress.remarksDeptHead,
+              remarksDivHead: newApprovalProgress.remarksDivHead,
+              remarks: newApprovalProgress.remarksSectionHead || ""
+            };
           }
+          return q;
+        });
+
+        const newNotif = {
+          id: Date.now() + 1,
+          message: notifMsg || `Klaim QPR ${qprNum} telah diproses.`,
+          time: "Baru saja",
+          type: actionType === "APPROVE" ? "success" : actionType === "REVISE" ? "info" : "danger",
+          unread: true
+        };
+        setNotifications(prevNotifs => [newNotif, ...prevNotifs]);
+        if (alertMsg) alert(alertMsg);
+
+        return updated;
+      });
+    };
+
+    if (typeof id === "string" && id.length > 10) {
+      let nextRole = currentRole;
+      let nextStatus = targetQpr.status;
+
+      if (actionType === "REVISE") {
+        nextRole = "Operator";
+        nextStatus = "UNDER_REVISION";
+      } else if (actionType === "REJECT") {
+        nextRole = "Closed";
+        nextStatus = "REJECTED";
+      } else {
+        if (currentRole === "Section Head") {
+          nextRole = "Div Head";
+        } else if (currentRole === "Dept Head") {
+          nextRole = "Div Head";
+        } else if (currentRole === "Div Head") {
+          nextRole = "Purchasing";
+          nextStatus = "APPROVED";
         }
-        return q;
-      }).filter(Boolean);
+      }
 
-      const newNotif = {
-        id: Date.now() + 1,
-        message: notifMsg || `Klaim QPR ${qprNum} telah diproses.`,
-        time: "Baru saja",
-        type: actionType === "APPROVE" ? "success" : actionType === "REVISE" ? "info" : "danger",
-        unread: true
-      };
-      setNotifications(prevNotifs => [newNotif, ...prevNotifs]);
-      if (alertMsg) alert(alertMsg);
+      qprService.update(id, { requiredRole: nextRole, status: nextStatus })
+        .then(() => {
+          const progressPayload: any = {};
+          if (currentRole === "Section Head") {
+            progressPayload.checksumSectionHead = `APPROVED_BY_SECTION_HEAD_${Date.now()}`;
+            progressPayload.remarksSectionHead = reviewComment;
+            // Auto-approve Dept Head stage since accounts are unified
+            progressPayload.checksumDeptHead = `APPROVED_BY_DEPT_HEAD_AUTO_${Date.now()}`;
+            progressPayload.remarksDeptHead = "Auto-approved via unified Sect/Dept Head account";
+          } else if (currentRole === "Dept Head") {
+            progressPayload.checksumDeptHead = `APPROVED_BY_DEPT_HEAD_${Date.now()}`;
+            progressPayload.remarksDeptHead = reviewComment;
+          } else if (currentRole === "Div Head") {
+            progressPayload.checksumDivHead = `APPROVED_BY_DIV_HEAD_${Date.now()}`;
+            progressPayload.remarksDivHead = reviewComment;
+          }
 
-      return updated;
-    });
+          return qprService.updateApprovalProgress(id, progressPayload);
+        })
+        .then((dbApprovalData) => {
+          proceedWithStateUpdate(dbApprovalData);
+        })
+        .catch(err => {
+          console.error("Failed to persist QPR approval in DB:", err);
+          alert(`Gagal menyimpan approval QPR ke database: ${err.message}`);
+        });
+    } else {
+      proceedWithStateUpdate();
+    }
   };
 
   const getDaysInMonth = (month, year) => {
@@ -797,7 +935,7 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
               />
             )}
 
-            {activeTab === "buat-ncr" && (username === "operator" || username === "admin") && (
+            {activeTab === "buat-ncr" && (username === "foreman" || username === "admin") && (
               <OperatorView
                 pendingNcrs={pendingNcrs}
                 setPendingNcrs={setPendingNcrs}
@@ -807,7 +945,7 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
               />
             )}
 
-            {activeTab === "draft-ncr" && (username === "operator" || username === "admin") && (
+            {activeTab === "draft-ncr" && (username === "foreman" || username === "admin") && (
               <DraftNcrView
                 pendingNcrs={pendingNcrs}
                 setPendingNcrs={setPendingNcrs}
@@ -815,7 +953,7 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
               />
             )}
 
-            {activeTab === "approve-ncr" && (username === "sectionhead" || username === "depthead" || username === "admin") && (
+            {activeTab === "approve-ncr" && (username === "sect_dept_head" || username === "admin") && (
               <ApproveNcrDashboard
                 pendingNcrs={pendingNcrs}
                 handleApproveNcrAction={handleApproveNcrAction}
@@ -823,7 +961,7 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
               />
             )}
 
-            {activeTab === "approve-qpr" && (username === "sectionhead" || username === "depthead" || username === "divhead" || username === "admin") && (
+            {activeTab === "approve-qpr" && (username === "sect_dept_head" || username === "div_head" || username === "purchasing" || username === "admin") && (
               <ApproveQprDashboard
                 pendingQprs={pendingQprs}
                 handleApproveQprAction={handleApproveQprAction}
@@ -832,7 +970,7 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
               />
             )}
 
-            {activeTab === "buat-qpr" && (username === "operator" || username === "admin") && (
+            {activeTab === "buat-qpr" && (username === "foreman" || username === "admin") && (
               <BuatQprView
                 pendingQprs={pendingQprs}
                 setPendingQprs={setPendingQprs}
@@ -842,7 +980,7 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
               />
             )}
 
-            {activeTab === "draft-qpr" && (username === "operator" || username === "admin") && (
+            {activeTab === "draft-qpr" && (username === "foreman" || username === "admin") && (
               <DraftQprView
                 pendingQprs={pendingQprs}
                 setPendingQprs={setPendingQprs}
@@ -850,7 +988,7 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
               />
             )}
 
-            {activeTab === "draft-cl" && (username === "accounting" || username === "purchasing" || username === "admin") && (
+            {activeTab === "draft-cl" && (username === "purchasing" || username === "admin") && (
               <DraftClView
                 confirmationLetters={confirmationLetters}
                 setConfirmationLetters={setConfirmationLetters}
@@ -858,7 +996,7 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
               />
             )}
 
-            {activeTab === "confirmation-letter" && (username === "accounting" || username === "purchasing" || username === "admin") && (
+            {activeTab === "confirmation-letter" && (username === "purchasing" || username === "admin") && (
               <AccountingView 
                 confirmationLetters={confirmationLetters}
                 setConfirmationLetters={setConfirmationLetters}
@@ -866,12 +1004,13 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
                 handleApproveCL={handleApproveCL}
                 handleMarkClosedPaid={handleMarkClosedPaid}
                 handleDebitNote={handleDebitNote}
+                handleUpdateCLPipeline={handleUpdateCLPipeline}
                 pendingQprs={pendingQprs}
                 setPendingQprs={setPendingQprs}
               />
             )}
 
-            {activeTab === "approve-cl" && (username === "accounting" || username === "admin") && (
+            {activeTab === "approve-cl" && (username === "accounting" || username === "purchasing" || username === "finance" || username === "admin") && (
               <ApproveClDashboard
                 confirmationLetters={confirmationLetters}
                 handleApproveCL={handleApproveCL}
@@ -881,7 +1020,7 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
               />
             )}
 
-            {activeTab === "i-memo" && (username === "purchasing" || username === "admin") && (
+            {activeTab === "i-memo" && (username === "finance" || username === "admin") && (
               <IMemoView
                 confirmationLetters={confirmationLetters}
                 setConfirmationLetters={setConfirmationLetters}
@@ -891,7 +1030,7 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
               />
             )}
 
-            {activeTab === "list-qpr" && (username === "admin" || username === "operator" || username === "accounting" || username === "purchasing") && (
+            {activeTab === "list-qpr" && (
               <ListQprDashboard
                 pendingNcrs={pendingNcrs}
                 pendingQprs={pendingQprs}

@@ -459,7 +459,17 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
             contentEditable 
             suppressContentEditableWarning
             className="focus:bg-yellow-50 focus:outline-none print:bg-transparent"
-            style={{ fontSize: "8.5px", minHeight: "45px", flexGrow: 1, outline: "none", whiteSpace: "pre-wrap", color: "#1f2937" }}
+            style={{ 
+              fontSize: "8.5px", 
+              lineHeight: "16px",
+              minHeight: "320px", 
+              flexGrow: 1, 
+              outline: "none", 
+              whiteSpace: "pre-wrap", 
+              color: "#1f2937",
+              backgroundImage: "linear-gradient(to bottom, transparent 15px, rgba(0, 0, 0, 0.35) 15px, rgba(0, 0, 0, 0.35) 16px, transparent 16px)",
+              backgroundSize: "100% 16px"
+            }}
           >
             {qpr.remarks || ""}
           </div>
@@ -494,7 +504,7 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
               {[
                 { 
                   type: "Prepared", 
-                  name: qpr.user?.name || "QPR Creator", 
+                  name: "Deny M.", 
                   role: "(Creator)",
                   isSigned: true,
                   sigSvg: (
