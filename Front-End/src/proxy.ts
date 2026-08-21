@@ -35,6 +35,21 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(dashboardUrl)
   }
 
+  // Role-based protection: /parts, /vendors, /users can ONLY be accessed by admin
+  const masterRoutes = ['/parts', '/vendors', '/users']
+  const isMasterRoute = masterRoutes.some(
+    (route) => pathname === route || pathname.startsWith(route + '/'),
+  )
+
+  if (isMasterRoute) {
+    const mtmUser = request.cookies.get('mtm_user')?.value
+    if (mtmUser !== 'admin') {
+      const dashboardUrl = request.nextUrl.clone()
+      dashboardUrl.pathname = '/dashboard'
+      return NextResponse.redirect(dashboardUrl)
+    }
+  }
+
   return NextResponse.next()
 }
 

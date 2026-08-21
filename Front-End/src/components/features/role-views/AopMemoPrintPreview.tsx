@@ -16,6 +16,16 @@ interface AopMemoPreviewProps {
 }
 
 export default function AopMemoPrintPreview({ memo, onClose, onSend }: AopMemoPreviewProps) {
+  React.useEffect(() => {
+    document.body.classList.add("print-aop-active");
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.classList.remove("print-aop-active");
+      document.body.style.overflow = originalOverflow;
+    };
+  }, []);
+
   const handlePrint = () => {
     window.print();
   };
@@ -23,7 +33,7 @@ export default function AopMemoPrintPreview({ memo, onClose, onSend }: AopMemoPr
   const memoNum = `MEMO-MTM/AOP/${memo.clNumber.replace(/[^0-9]/g, "") || "20260601"}`;
 
   return (
-    <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-start justify-center p-4 overflow-y-auto">
+    <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-start justify-center p-4 overflow-y-auto print:p-0 print:bg-white print:block">
       {/* Action Bar */}
       <div className="fixed top-4 right-4 flex gap-2 z-50 print:hidden">
         {onSend && (
@@ -206,7 +216,7 @@ export default function AopMemoPrintPreview({ memo, onClose, onSend }: AopMemoPr
         @media print {
           @page {
             size: A4 portrait;
-            margin: 6mm !important;
+            margin: 8mm !important;
           }
           html, body {
             height: auto;
@@ -214,23 +224,26 @@ export default function AopMemoPrintPreview({ memo, onClose, onSend }: AopMemoPr
             padding: 0 !important;
             background: #fff !important;
           }
-          body * { visibility: hidden; }
-          #aop-memo-print-area, #aop-memo-print-area * { visibility: visible; }
-          #aop-memo-print-area {
-            position: relative !important;
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          body.print-aop-active * { visibility: hidden; }
+          body.print-aop-active #aop-memo-print-area, body.print-aop-active #aop-memo-print-area * { visibility: visible; }
+          body.print-aop-active #aop-memo-print-area {
+            position: absolute !important;
             left: 0 !important;
             top: 0 !important;
-            width: 198mm !important;
-            height: 285mm !important;
+            width: 194mm !important;
+            height: 281mm !important;
             min-height: 0 !important;
-            margin: 0 auto !important;
-            padding: 6mm !important;
+            margin: 0 !important;
+            padding: 7mm !important;
             border: 1px solid #000 !important;
             box-shadow: none !important;
             box-sizing: border-box !important;
             page-break-inside: avoid !important;
-            transform: scale(0.83) !important;
-            transform-origin: top center !important;
+            transform: none !important;
           }
         }
       `}</style>

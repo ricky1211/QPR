@@ -18,12 +18,26 @@ interface ClPreviewProps {
     reminderSentCount?: number;
     items?: any[];
     clApprovalProgress?: { sectAccounting?: boolean; deptAccounting?: boolean };
+    partName?: string;
   };
   onClose?: () => void;
   inline?: boolean;
 }
 
 export default function ConfirmationLetterPrintPreview({ cl, onClose, inline = false }: ClPreviewProps) {
+  React.useEffect(() => {
+    document.body.classList.add("print-cl-active");
+    if (inline) return () => {
+      document.body.classList.remove("print-cl-active");
+    };
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.classList.remove("print-cl-active");
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [inline]);
+
   const handlePrint = () => {
     window.print();
   };
@@ -50,7 +64,7 @@ export default function ConfirmationLetterPrintPreview({ cl, onClose, inline = f
   const supplierInfo = getSupplierAddress(cl.supplierName);
 
   const formatEnglishDate = (dateStr?: string) => {
-    if (!dateStr) return "02 December 2025";
+    if (!dateStr) return "December 2, 2025";
     const parts = dateStr.split("-");
     if (parts.length !== 3) return dateStr;
     const months = [
@@ -60,28 +74,13 @@ export default function ConfirmationLetterPrintPreview({ cl, onClose, inline = f
     const day = parseInt(parts[2], 10);
     const month = months[parseInt(parts[1], 10) - 1];
     const year = parts[0];
-    return `${day < 10 ? '0' + day : day} ${month} ${year}`;
+    return `${month} ${day}, ${year}`;
   };
-
-  // Parse amount for dynamic table calculation
-  const totalAmountVal = parseInt(cl.amount?.replace(/[^0-9]/g, "") || "1144283", 10);
-  const subtotalVal = Math.round(totalAmountVal / 1.11);
-  const taxVal = totalAmountVal - subtotalVal;
-
-  const qtyTotal = cl.reject || 20;
-  const qty1 = Math.round(qtyTotal * 0.7) || 14;
-  const qty2 = qtyTotal - qty1 || 6;
-
-  const cost1 = Math.round((subtotalVal * 0.67) / qty1) || 49516;
-  const cost2 = Math.round((subtotalVal * 0.33) / qty2) || 56277;
-
-  const amount1 = qty1 * cost1;
-  const amount2 = subtotalVal - amount1; // ensure exact subtotal sum
 
   const hasCustomItems = cl.items && cl.items.length > 0;
 
   return (
-    <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 overflow-y-auto flex flex-col items-center p-4">
+    <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 overflow-y-auto flex flex-col items-center p-4 print:p-0 print:bg-white print:block">
       {/* Action Bar */}
       <div className="fixed top-4 right-4 flex gap-2 z-50 print:hidden">
         <button
@@ -100,7 +99,7 @@ export default function ConfirmationLetterPrintPreview({ cl, onClose, inline = f
         </button>
       </div>
 
-      <div className="pt-16 pb-8 w-full flex justify-center">
+      <div className="pt-16 pb-8 w-full flex justify-center print:pt-0 print:pb-0 print:block">
         {/* Confirmation Letter PDF Document Layout */}
         <div
           id="cl-print-area"
@@ -158,95 +157,61 @@ export default function ConfirmationLetterPrintPreview({ cl, onClose, inline = f
           </div>
 
           {/* Greeting and Intro text */}
-          <div className="space-y-4 text-xs leading-relaxed mb-6 font-serif text-justify">
-            <p>
-              According to quality problem report (QPR) that we have checked at Menara Terus Makmur, PT.:
-            </p>
-            <p>
-              We would like to confirm to you that we have agreed if it is found some NG parts which are not caused by our internal process. NG parts and loss can be seen as follows:
-            </p>
+          <div className="mb-6 font-serif">
+            Dear Sir/Madam,
           </div>
 
-          {/* Parts Table */}
-          <div className="mb-6">
-            <table className="w-full text-xs text-left border-collapse border border-black font-serif text-black">
+          <div className="mb-6 font-serif">
+            We are writing to officially confirm the financial claim regarding the quality issues identified in your supplied parts. As previously communicated via our Quality Problem Report (QPR), the details of the non-conforming items and their associated costs are detailed below:
+          </div>
+
+          {/* Breakdown Table */}
+          <div className="mb-8">
+            <table className="w-full border-collapse border border-black text-xs font-serif">
               <thead>
-                <tr className="border-b border-black text-center font-bold">
-                  <th className="border border-black px-2 py-1 w-10 text-center">No</th>
-                  <th className="border border-black px-2 py-1 text-center">Description</th>
-                  <th className="border border-black px-2 py-1 w-14 text-center">Qty</th>
-                  <th className="border border-black px-2 py-1 w-24 text-center">Claim Cost</th>
-                  <th className="border border-black px-2 py-1 w-28 text-center">Amount (IDR)</th>
+                <tr className="bg-slate-50">
+                  <th className="border border-black p-2 text-center font-bold font-serif w-12">No.</th>
+                  <th className="border border-black p-2 text-left font-bold font-serif">Part Name / Description</th>
+                  <th className="border border-black p-2 text-center font-bold font-serif w-24">QTY NG</th>
+                  <th className="border border-black p-2 text-right font-bold font-serif w-32">Unit Price</th>
+                  <th className="border border-black p-2 text-right font-bold font-serif w-36">Total Amount</th>
                 </tr>
               </thead>
               <tbody>
-                 {hasCustomItems ? (
-                  cl.items.map((item: any, idx: number) => {
-                    const totalQty = parseFloat(String(item.totalQty)) || 0;
-                    const rejectCount = parseFloat(String(item.qtyNG ?? item.rejectCount)) || 0;
-                    const allowanceRatio = parseFloat(String(item.allowanceRatio ?? item.stdAllowance)) || 0;
-                    const billableQty = item.qtyClaim ?? item.qty ?? item.billableQty ?? Math.max(0, rejectCount - Math.round(totalQty * (allowanceRatio / 100)));
-                    const unitPriceVal = parseFloat(String(item.unitPrice ?? item.claimCost)) || 0;
-                    const subtotal = item.amount ?? item.subtotal ?? (billableQty * unitPriceVal);
-
-                    return (
-                      <tr key={item.id || idx}>
-                        <td className="border border-black px-2 py-1 text-center">{idx + 1}</td>
-                        <td className="border border-black px-2.5 py-1.5 font-bold text-slate-900" style={{ wordBreak: "break-word", whiteSpace: "normal", lineHeight: "1.35" }}>{item.partName}</td>
-                        <td className="border border-black px-2 py-1 text-center font-mono">{billableQty}</td>
-                        <td className="border border-black px-2 py-1 text-right font-mono">{unitPriceVal.toLocaleString("en-US")}</td>
-                        <td className="border border-black px-2 py-1 text-right font-mono">{subtotal.toLocaleString("en-US")}</td>
-                      </tr>
-                    );
-                  })
+                {hasCustomItems ? (
+                  cl.items?.map((item: any, idx: number) => (
+                    <tr key={idx}>
+                      <td className="border border-black p-2 text-center font-serif">{idx + 1}</td>
+                      <td className="border border-black p-2 text-left font-serif">{item.partName}</td>
+                      <td className="border border-black p-2 text-center font-serif">{item.billableQty || item.qty || 0} Pcs</td>
+                      <td className="border border-black p-2 text-right font-serif">Rp {item.unitPrice?.toLocaleString("id-ID")}</td>
+                      <td className="border border-black p-2 text-right font-serif font-bold">Rp {item.amount?.toLocaleString("id-ID")}</td>
+                    </tr>
+                  ))
                 ) : (
-                  <>
-                    <tr>
-                      <td className="border border-black px-2 py-1 text-center">1</td>
-                      <td className="border border-black px-2 py-1">HUB CLUTCH, IMV 683N</td>
-                      <td className="border border-black px-2 py-1 text-center font-mono">{qty1}</td>
-                      <td className="border border-black px-2 py-1 text-right font-mono">{cost1.toLocaleString("en-US")}</td>
-                      <td className="border border-black px-2 py-1 text-right font-mono">{amount1.toLocaleString("en-US")}</td>
-                    </tr>
-                    <tr>
-                      <td className="border border-black px-2 py-1 text-center">2</td>
-                      <td className="border border-black px-2 py-1">HUB CLUTCH, RZN</td>
-                      <td className="border border-black px-2 py-1 text-center font-mono">{qty2}</td>
-                      <td className="border border-black px-2 py-1 text-right font-mono">{cost2.toLocaleString("en-US")}</td>
-                      <td className="border border-black px-2 py-1 text-right font-mono">{amount2.toLocaleString("en-US")}</td>
-                    </tr>
-                  </>
+                  <tr>
+                    <td className="border border-black p-2 text-center font-serif">1</td>
+                    <td className="border border-black p-2 text-left font-serif">{cl.partName || "CONE RACE ALL TYPE"}</td>
+                    <td className="border border-black p-2 text-center font-serif">{cl.reject || 0} Pcs</td>
+                    <td className="border border-black p-2 text-right font-serif">-</td>
+                    <td className="border border-black p-2 text-right font-serif font-bold">{cl.amount}</td>
+                  </tr>
                 )}
-                {/* VAT Row */}
-                <tr>
-                  <td className="border-l border-t-0 border-b-0 border-black px-2 py-1 text-center"></td>
-                  <td className="border-l border-black px-2 py-1" colSpan={3}>VAT</td>
-                  <td className="border border-black px-2 py-1 text-right font-mono">{taxVal.toLocaleString("en-US")}</td>
-                </tr>
                 {/* Total Row */}
-                <tr className="font-bold">
-                  <td className="border-l border-t-0 border-b border-black px-2 py-1 text-center"></td>
-                  <td className="border-l border-b border-black px-2 py-1" colSpan={3}>Total</td>
-                  <td className="border border-black px-2 py-1 text-right font-mono">{totalAmountVal.toLocaleString("en-US")}</td>
+                <tr className="bg-slate-50 font-bold">
+                  <td colSpan={4} className="border border-black p-2 text-right font-serif font-bold">Total Claim:</td>
+                  <td className="border border-black p-2 text-right font-serif font-black text-red-650">{cl.amount}</td>
                 </tr>
               </tbody>
             </table>
           </div>
 
-          {/* Terms text */}
-          <div className="space-y-4 text-xs leading-relaxed mb-6 font-serif text-justify">
-            <p>
-              Based on the data above, we will release a debit note to {cl.supplierName.toUpperCase().endsWith(", PT.") ? cl.supplierName : `${cl.supplierName}, PT.`} if there is no any confirmation within 5 working days. We are looking forward for your confirmation
-            </p>
-            <div className="space-y-1 pt-2">
-              <div>Attachment :</div>
-              <div className="font-bold">QPR Number : {cl.qprNumber}</div>
-            </div>
+          <div className="mb-8 leading-relaxed font-serif">
+            This claim has been processed in accordance with our quality agreement. The total amount of <strong className="font-serif font-bold text-black">{cl.amount}</strong> will be settled based on the finalized vendor decision. Please sign and return this confirmation letter as an acknowledgment of this agreement.
           </div>
 
-          {/* Signature & Approval blocks */}
-          <div className="mt-10 font-serif text-[12px]">
-            {/* Header row: Yours Faithfully */}
+          {/* Signatures Footer */}
+          <div className="mt-auto space-y-6 pt-6 font-serif">
             <span className="block">Yours Faithfully,</span>
             <strong className="block font-serif font-bold text-black mt-1">MenaraTerusMakmur, PT</strong>
             <span className="block text-slate-700 text-[11px] mt-0.5">Accounting &amp; Finance Departement</span>
@@ -304,7 +269,7 @@ export default function ConfirmationLetterPrintPreview({ cl, onClose, inline = f
         @media print {
           @page {
             size: A4 portrait;
-            margin: 6mm !important;
+            margin: 8mm !important;
           }
           html, body {
             height: auto;
@@ -312,16 +277,20 @@ export default function ConfirmationLetterPrintPreview({ cl, onClose, inline = f
             padding: 0 !important;
             background: #fff !important;
           }
-          body * { visibility: hidden; }
-          #cl-print-area, #cl-print-area * { visibility: visible; }
-          #cl-print-area {
-            position: relative !important;
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          body.print-cl-active * { visibility: hidden; }
+          body.print-cl-active #cl-print-area, body.print-cl-active #cl-print-area * { visibility: visible; }
+          body.print-cl-active #cl-print-area {
+            position: absolute !important;
             left: 0 !important;
             top: 0 !important;
-            width: 198mm !important;
-            height: 285mm !important;
+            width: 194mm !important;
+            height: 281mm !important;
             min-height: 0 !important;
-            margin: 0 auto !important;
+            margin: 0 !important;
             padding: 0mm !important;
             display: flex !important;
             flex-direction: column !important;
@@ -330,8 +299,7 @@ export default function ConfirmationLetterPrintPreview({ cl, onClose, inline = f
             box-shadow: none !important;
             box-sizing: border-box !important;
             page-break-inside: avoid !important;
-            transform: scale(0.83) !important;
-            transform-origin: top center !important;
+            transform: none !important;
           }
         }
       `}</style>

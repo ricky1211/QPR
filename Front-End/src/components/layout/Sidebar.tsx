@@ -362,34 +362,36 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
           )}
 
           {/* Sidebar Menus - Master Data */}
-          <div className={`border-t border-slate-100 mt-2 shrink-0 transition-all duration-300 ${sidebarOpen ? "px-4 py-2" : "px-4 py-2 xl:px-2"}`}>
-            <span className={`px-3 text-xs font-bold text-slate-400 tracking-widest uppercase block mb-2 transition-all ${sidebarOpen ? "block animate-in fade-in" : "xl:hidden"}`}>
-              Master Data
-            </span>
-            <nav className="space-y-1">
-              {masterMenus.map((menu) => {
-                const IconComp = menu.icon;
-                const isActive = activeTab === menu.id;
-                return (
-                  <button
-                    key={menu.id}
-                    onClick={() => handleMenuClick(menu.id)}
-                    className={`group flex items-center w-full gap-3 text-left rounded-md transition-all duration-150 touch-manipulation cursor-pointer ${
-                      sidebarOpen ? "px-3 py-3" : "px-3 py-3 xl:px-0 xl:justify-center"
-                    } ${
-                      isActive
-                        ? "bg-blue-600 text-white shadow-sm"
-                        : "text-slate-500 hover:text-white hover:bg-blue-600"
-                    }`}
-                    title={!sidebarOpen ? menu.name : undefined}
-                  >
-                    <IconComp size={18} className={isActive ? "text-white shrink-0" : "text-blue-500 group-hover:text-white transition-colors shrink-0"} />
-                    <span className={`text-sm font-bold truncate transition-all ${sidebarOpen ? "block animate-in fade-in" : "xl:hidden"}`}>{menu.name}</span>
-                  </button>
-                );
-              })}
-            </nav>
-          </div>
+          {isAdmin && (
+            <div className={`border-t border-slate-100 mt-2 shrink-0 transition-all duration-300 ${sidebarOpen ? "px-4 py-2" : "px-4 py-2 xl:px-2"}`}>
+              <span className={`px-3 text-xs font-bold text-slate-400 tracking-widest uppercase block mb-2 transition-all ${sidebarOpen ? "block animate-in fade-in" : "xl:hidden"}`}>
+                Master Data
+              </span>
+              <nav className="space-y-1">
+                {masterMenus.map((menu) => {
+                  const IconComp = menu.icon;
+                  const isActive = activeTab === menu.id;
+                  return (
+                    <button
+                      key={menu.id}
+                      onClick={() => handleMenuClick(menu.id)}
+                      className={`group flex items-center w-full gap-3 text-left rounded-md transition-all duration-150 touch-manipulation cursor-pointer ${
+                        sidebarOpen ? "px-3 py-3" : "px-3 py-3 xl:px-0 xl:justify-center"
+                      } ${
+                        isActive
+                          ? "bg-blue-600 text-white shadow-sm"
+                          : "text-slate-500 hover:text-white hover:bg-blue-600"
+                      }`}
+                      title={!sidebarOpen ? menu.name : undefined}
+                    >
+                      <IconComp size={18} className={isActive ? "text-white shrink-0" : "text-blue-500 group-hover:text-white transition-colors shrink-0"} />
+                      <span className={`text-sm font-bold truncate transition-all ${sidebarOpen ? "block animate-in fade-in" : "xl:hidden"}`}>{menu.name}</span>
+                    </button>
+                  );
+                })}
+              </nav>
+            </div>
+          )}
 
           {/* Bottom spacer */}
           <div className="flex-1" />

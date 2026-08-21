@@ -9,7 +9,13 @@ export class PartsService {
   async findOne(id: string): Promise<Part | null> {
     return this.prisma.part.findUnique({
       where: { id },
-      include: { vendorParts: true },
+      include: {
+        vendorParts: {
+          include: {
+            vendor: true,
+          },
+        },
+      },
     });
   }
 
@@ -21,7 +27,13 @@ export class PartsService {
 
   async findAll(): Promise<Part[]> {
     return this.prisma.part.findMany({
-      include: { vendorParts: true },
+      include: {
+        vendorParts: {
+          include: {
+            vendor: true,
+          },
+        },
+      },
     });
   }
 

@@ -88,6 +88,26 @@ export const mapQprFromDb = (dbQpr: any) => {
     }
   }
 
+  // Parse pdfFiles
+  let pdfFiles: Array<{ name: string; base64: string }> = [];
+  if (dbQpr.pdfFileBase64) {
+    try {
+      if (dbQpr.pdfFileBase64.startsWith('[')) {
+        pdfFiles = JSON.parse(dbQpr.pdfFileBase64);
+      } else {
+        pdfFiles = [{
+          name: dbQpr.pdfFileName || "attachment.pdf",
+          base64: dbQpr.pdfFileBase64
+        }];
+      }
+    } catch {
+      pdfFiles = [{
+        name: dbQpr.pdfFileName || "attachment.pdf",
+        base64: dbQpr.pdfFileBase64
+      }];
+    }
+  }
+
   return {
     id: dbQpr.id,
     qprNumber: dbQpr.qprNumber,
@@ -105,8 +125,9 @@ export const mapQprFromDb = (dbQpr: any) => {
     refNcrNumber: dbQpr.refNcrNumber,
     problem: dbQpr.problem,
     claimType: parsedClaimType,
-    pdfFileName: dbQpr.pdfFileName,
-    pdfFileBase64: dbQpr.pdfFileBase64,
+    pdfFileName: pdfFiles.map(f => f.name).join(", "),
+    pdfFileBase64: pdfFiles.length > 0 ? pdfFiles[0].base64 : "",
+    pdfFiles,
     remarks: dbQpr.approvalProgress?.remarksSectionHead || "", // fallback to remarks
     approvalProgress: dbQpr.approvalProgress || null,
   };

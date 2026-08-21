@@ -34,10 +34,14 @@ export default function NcrPrintPreview({ ncr, onClose, inline = false }: NcrPre
   };
 
   React.useEffect(() => {
-    if (inline) return;
+    document.body.classList.add("print-ncr-active");
+    if (inline) return () => {
+      document.body.classList.remove("print-ncr-active");
+    };
     const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
+      document.body.classList.remove("print-ncr-active");
       document.body.style.overflow = originalOverflow;
     };
   }, [inline]);
@@ -542,13 +546,17 @@ export default function NcrPrintPreview({ ncr, onClose, inline = false }: NcrPre
               padding: 0 !important;
               background: #fff !important;
             }
-            body * {
+            * {
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            body.print-ncr-active * {
               visibility: hidden !important;
             }
-            #ncr-print-area, #ncr-print-area * {
+            body.print-ncr-active #ncr-print-area, body.print-ncr-active #ncr-print-area * {
               visibility: visible !important;
             }
-            #ncr-print-area {
+            body.print-ncr-active #ncr-print-area {
               position: absolute !important;
               left: 0 !important;
               top: 0 !important;
@@ -597,7 +605,7 @@ export default function NcrPrintPreview({ ncr, onClose, inline = false }: NcrPre
         @media print {
           @page {
             size: A4 portrait;
-            margin: 10mm;
+            margin: 10mm !important;
           }
           html, body {
             height: auto;
@@ -605,29 +613,32 @@ export default function NcrPrintPreview({ ncr, onClose, inline = false }: NcrPre
             padding: 0 !important;
             background: #fff !important;
           }
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
           /* Hide all page content visually */
-          body * {
+          body.print-ncr-active * {
             visibility: hidden !important;
           }
           /* Show only the NCR print area */
-          #ncr-print-area, #ncr-print-area * {
+          body.print-ncr-active #ncr-print-area, body.print-ncr-active #ncr-print-area * {
             visibility: visible !important;
           }
-          #ncr-print-area {
-            position: relative !important;
+          body.print-ncr-active #ncr-print-area {
+            position: absolute !important;
             left: 0 !important;
             top: 0 !important;
             width: 190mm !important;
             height: 277mm !important;
             border: 1.5px solid #000 !important;
-            margin: 0 auto !important;
+            margin: 0 !important;
             padding: 0 !important;
             box-sizing: border-box !important;
             background: #fff !important;
             page-break-inside: avoid !important;
             display: block !important;
-            transform: scale(0.92) !important;
-            transform-origin: top center !important;
+            transform: none !important;
           }
         }
       `}</style>

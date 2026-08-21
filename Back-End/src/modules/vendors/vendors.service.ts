@@ -42,4 +42,11 @@ export class VendorsService {
       data,
     });
   }
+
+  async updateVendor(id: string, data: Prisma.VendorUpdateInput): Promise<Vendor> {
+    return this.prisma.vendor.update({
+      where: { id },
+      data,
+    });
+  }
 }

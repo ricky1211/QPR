@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param } from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, Param } from '@nestjs/common';
 import { VendorsService } from './vendors.service';
 import { Vendor } from '@prisma/client';
 
@@ -17,10 +17,37 @@ export class VendorsController {
   }
 
   @Post()
-  async createVendor(@Body() data: { vendorCode: string; vendorName?: string }): Promise<Vendor> {
+  async createVendor(
+    @Body() data: {
+      vendorCode: string;
+      vendorName?: string;
+      email?: string;
+      status?: string;
+    }
+  ): Promise<Vendor> {
     return this.vendorsService.createVendor({
       vendorCode: data.vendorCode,
       vendorName: data.vendorName,
+      email: data.email,
+      status: data.status || 'Aktif',
+    });
+  }
+
+  @Put(':id')
+  async updateVendor(
+    @Param('id') id: string,
+    @Body() data: {
+      vendorCode?: string;
+      vendorName?: string;
+      email?: string;
+      status?: string;
+    }
+  ): Promise<Vendor> {
+    return this.vendorsService.updateVendor(id, {
+      vendorCode: data.vendorCode,
+      vendorName: data.vendorName,
+      email: data.email,
+      status: data.status,
     });
   }
 }

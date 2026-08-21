@@ -17,18 +17,50 @@ export class PartsController {
   }
 
   @Post()
-  async createPart(@Body() data: { partNumber: string; partDesc?: string }): Promise<Part> {
+  async createPart(
+    @Body() data: {
+      partNumber: string;
+      partDesc?: string;
+      allowanceRatio?: number | null;
+      status?: string;
+      supplierId?: string;
+    }
+  ): Promise<Part> {
     return this.partsService.createPart({
       partNumber: data.partNumber,
       partDesc: data.partDesc,
+      allowanceRatio: data.allowanceRatio !== undefined && data.allowanceRatio !== null ? Number(data.allowanceRatio) : null,
+      status: data.status || 'Aktif',
+      vendorParts: data.supplierId ? {
+        create: {
+          vendorId: data.supplierId
+        }
+      } : undefined
     });
   }
 
   @Put(':id')
   async updatePart(
     @Param('id') id: string,
-    @Body() data: { partNumber?: string; partDesc?: string },
+    @Body() data: {
+      partNumber?: string;
+      partDesc?: string;
+      allowanceRatio?: number | null;
+      status?: string;
+      supplierId?: string;
+    },
   ): Promise<Part> {
-    return this.partsService.updatePart(id, data);
+    return this.partsService.updatePart(id, {
+      partNumber: data.partNumber,
+      partDesc: data.partDesc,
+      allowanceRatio: data.allowanceRatio !== undefined ? (data.allowanceRatio === null ? null : Number(data.allowanceRatio)) : undefined,
+      status: data.status,
+      vendorParts: data.supplierId ? {
+        deleteMany: {},
+        create: {
+          vendorId: data.supplierId
+        }
+      } : undefined
+    });
   }
 }

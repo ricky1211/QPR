@@ -104,7 +104,22 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
     setUsername(user);
 
     // Initial default tab routing based on role if no tab is selected
-    if (!initialTab) {
+    const isMasterTab = ["parts", "vendors", "users"].includes(initialTab);
+    if (isMasterTab && user !== "admin") {
+      let defaultTab = "dashboard";
+      if (user === "operator") {
+        defaultTab = "buat-ncr";
+      } else if (user === "sectionhead" || user === "depthead") {
+        defaultTab = "approve-ncr";
+      } else if (user === "divhead") {
+        defaultTab = "approve-qpr";
+      } else if (user === "purchasing") {
+        defaultTab = "i-memo";
+      } else if (user === "accounting") {
+        defaultTab = "approve-cl";
+      }
+      router.replace(`/${defaultTab}`);
+    } else if (!initialTab) {
       let defaultTab = "dashboard";
       if (user === "operator") {
         defaultTab = "buat-ncr";
@@ -900,22 +915,17 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
               />
             )}
 
-            {activeTab === "parts" && (
+            {activeTab === "parts" && username === "admin" && (
               <PartsDirectory
-                parts={parts}
-                searchQuery={searchQuery}
-                setSearchQuery={setSearchQuery}
-                setEditingPart={setEditingPart}
-                setEditAllowanceVal={setEditAllowanceVal}
                 handleCreateQpr={handleCreateQpr}
               />
             )}
 
-            {activeTab === "vendors" && (
+            {activeTab === "vendors" && username === "admin" && (
               <VendorsDirectory />
             )}
 
-            {activeTab === "users" && (
+            {activeTab === "users" && username === "admin" && (
               <UsersDirectory />
             )}
 
@@ -1003,14 +1013,6 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
               </div>
             )}
 
-            {/* EDIT NG ALLOWANCE MODAL */}
-            <EditAllowanceModal
-              editingPart={editingPart}
-              setEditingPart={setEditingPart}
-              editAllowanceVal={editAllowanceVal}
-              setEditAllowanceVal={setEditAllowanceVal}
-              handleSaveAllowance={handleSaveAllowance}
-            />
 
             {/* ERROR POPUP: NO ALLOWANCE CONFIG */}
             {showAllowanceError && (

@@ -8,14 +8,16 @@ generator client {
 }
 
 model Part {
-  id          String       @id @default(cuid())
-  partNumber  String       @unique
-  partDesc    String?
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  vendorParts VendorPart[]
-  ncrs        Ncr[]
-  qprParts    QprPart[]
+  id             String       @id @default(cuid())
+  partNumber     String       @unique
+  partDesc       String?
+  allowanceRatio Float?       @default(0.5)
+  status         String       @default("Aktif")
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  vendorParts    VendorPart[]
+  ncrs           Ncr[]
+  qprParts       QprPart[]
 }
 
 model Vendor {
@@ -23,6 +25,7 @@ model Vendor {
   vendorCode          String               @unique
   vendorName          String?              @unique
   email               String?
+  status              String               @default("Aktif")
   createdAt           DateTime?            @default(now())
   updatedAt           DateTime?            @updatedAt
   vendorParts         VendorPart[]
@@ -85,6 +88,8 @@ model User {
   name  String
   npk   Int     @unique
   email String? @unique
+  role  String?
+  status String  @default("Aktif")
 
   // Relasi Terbalik Many-to-Many ke Ncr
   inspectedNcrs Ncr[] @relation("NcrInspectors")

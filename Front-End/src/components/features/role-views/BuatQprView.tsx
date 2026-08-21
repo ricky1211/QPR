@@ -54,8 +54,8 @@ export default function BuatQprView({
     { id: Date.now(), partId: "", totalQty: "", qtyNg: "", stdAllowance: "0" }
   ]);
   const [previewQpr, setPreviewQpr] = useState<any>(null);
-  const [pdfFile, setPdfFile] = useState<File | null>(null);
-  const [pdfBase64, setPdfBase64] = useState<string | null>(null);
+  const [attachments, setAttachments] = useState<Array<{ name: string; base64: string }>>([]);
+  const [activePreviewIdx, setActivePreviewIdx] = useState<number>(0);
   const [remarks, setRemarks] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [submittedNum, setSubmittedNum] = useState("");
@@ -83,10 +83,11 @@ export default function BuatQprView({
   };
 
   const pdfBlobUrl = React.useMemo(() => {
-    if (!pdfBase64) return "";
-    const url = base64ToBlobUrl(pdfBase64);
+    const activeAttachment = attachments[activePreviewIdx];
+    if (!activeAttachment || !activeAttachment.base64) return "";
+    const url = base64ToBlobUrl(activeAttachment.base64);
     return `${url}#toolbar=0&navpanes=0`;
-  }, [pdfBase64]);
+  }, [attachments, activePreviewIdx]);
 
   // Fetch real vendors and parts mapping on mount
   useEffect(() => {
@@ -110,6 +111,7 @@ export default function BuatQprView({
                     id: vp.part.id,
                     partNumber: vp.part.partNumber,
                     partName: vp.part.partDesc || vp.part.partNumber,
+                    allowanceRatio: vp.part.allowanceRatio !== undefined && vp.part.allowanceRatio !== null ? vp.part.allowanceRatio : 0.5,
                   });
                 }
               });
@@ -182,13 +184,26 @@ export default function BuatQprView({
       setProblem(selectedQprForEdit.problem || "");
       setClaimType(Array.isArray(selectedQprForEdit.claimType) ? selectedQprForEdit.claimType : []);
       setRemarks(selectedQprForEdit.remarks || "");
-      // Mock pdf file to bypass missing field check
-      setPdfFile(new File([""], selectedQprForEdit.pdfFileName || "revision_attachment.pdf"));
       if (selectedQprForEdit.pdfFileBase64) {
-        setPdfBase64(selectedQprForEdit.pdfFileBase64);
+        try {
+          if (selectedQprForEdit.pdfFileBase64.startsWith("[")) {
+            setAttachments(JSON.parse(selectedQprForEdit.pdfFileBase64));
+          } else {
+            setAttachments([{
+              name: selectedQprForEdit.pdfFileName || "revision_attachment.pdf",
+              base64: selectedQprForEdit.pdfFileBase64
+            }]);
+          }
+        } catch (e) {
+          setAttachments([{
+            name: selectedQprForEdit.pdfFileName || "revision_attachment.pdf",
+            base64: selectedQprForEdit.pdfFileBase64
+          }]);
+        }
       } else {
-        setPdfBase64(null);
+        setAttachments([]);
       }
+      setActivePreviewIdx(0);
     }
   }, [selectedQprForEdit, suppliers, partsBySupplier]);
 
@@ -256,12 +271,13 @@ export default function BuatQprView({
           const matchedPart = supParts.find(
             sp => sp.partNumber === p.partNumber || sp.partName.toLowerCase() === p.partName.toLowerCase()
           );
+          const ratio = matchedPart?.allowanceRatio !== undefined && matchedPart?.allowanceRatio !== null ? matchedPart.allowanceRatio : 0.5;
           return {
             id: Date.now() + index,
             partId: matchedPart ? String(matchedPart.id) : "",
             totalQty: String(p.qtyNG * 20 || 10000), // Default total Qty matching standard delivery sizing
             qtyNg: String(p.qtyNG || 0),
-            stdAllowance: String(Math.round((p.qtyNG * 20 || 10000) * 0.005))
+            stdAllowance: String(Math.round((p.qtyNG * 20 || 10000) * (ratio / 100)))
           };
         });
         setPartRows(rows);
@@ -269,12 +285,13 @@ export default function BuatQprView({
         const matchedPart = supParts.find(
           p => p.partNumber === ncr.partNumber || p.partName.toLowerCase() === (ncr.partName || "").toLowerCase()
         );
+        const ratio = matchedPart?.allowanceRatio !== undefined && matchedPart?.allowanceRatio !== null ? matchedPart.allowanceRatio : 0.5;
         setPartRows([{
           id: Date.now(),
           partId: matchedPart ? String(matchedPart.id) : "",
           totalQty: String(ncr.qty * 20 || 10000),
           qtyNg: String(ncr.reject || ncr.qty || 0),
-          stdAllowance: String(Math.round((ncr.qty * 20 || 10000) * 0.005))
+          stdAllowance: String(Math.round((ncr.qty * 20 || 10000) * (ratio / 100)))
         }]);
       }
     }
@@ -302,9 +319,11 @@ export default function BuatQprView({
     setPartRows(prev => prev.map(r => {
       if (r.id === id) {
         const updated = { ...r, [field]: value };
-        if (field === "totalQty") {
-          const qty = parseInt(value) || 0;
-          updated.stdAllowance = String(Math.round(qty * 0.005));
+        if (field === "totalQty" || field === "partId") {
+          const qty = parseInt(updated.totalQty) || 0;
+          const matchedPart = availableParts.find(p => String(p.id) === String(updated.partId));
+          const ratio = matchedPart?.allowanceRatio !== undefined && matchedPart?.allowanceRatio !== null ? matchedPart.allowanceRatio : 0.5;
+          updated.stdAllowance = String(Math.round(qty * (ratio / 100)));
         }
         return updated;
       }
@@ -322,11 +341,10 @@ export default function BuatQprView({
 
   const totalQtyNg = partRows.reduce((acc, r) => acc + (parseInt(r.qtyNg) || 0), 0);
   const totalQty = partRows.reduce((acc, r) => acc + (parseInt(r.totalQty) || 0), 0);
-  const totalStdAllowance = partRows.reduce((acc, r) => acc + Math.round((parseInt(r.totalQty) || 0) * 0.005), 0);
+  const totalStdAllowance = partRows.reduce((acc, r) => acc + (parseInt(r.stdAllowance) || 0), 0);
   const billableQty = partRows.reduce((acc, r) => {
-    const qty = parseInt(r.totalQty) || 0;
     const ng = parseInt(r.qtyNg) || 0;
-    const std = Math.round(qty * 0.005);
+    const std = parseInt(r.stdAllowance) || 0;
     return acc + Math.max(0, ng - std);
   }, 0);
 
@@ -343,7 +361,7 @@ export default function BuatQprView({
     if (!date) missing.push("Tanggal Dokumen");
     if (!refNcrNumber) missing.push("Ref. No NCR");
     if (!problem) missing.push("Problem / Defect");
-    if (!pdfFile) missing.push("Upload PDF Lampiran");
+    if (attachments.length === 0) missing.push("Upload PDF Lampiran");
     
     if (isSubmit) {
       const partsIncomplete = partRows.some(r => !r.partId || !r.totalQty || !r.qtyNg);
@@ -367,7 +385,7 @@ export default function BuatQprView({
       return;
     }
 
-    if (!supplierId || !period || !date || !refNcrNumber || !problem || !pdfFile || partRows.some(r => !r.partId || !r.totalQty || !r.qtyNg)) {
+    if (!supplierId || !period || !date || !refNcrNumber || !problem || attachments.length === 0 || partRows.some(r => !r.partId || !r.totalQty || !r.qtyNg)) {
       const missingList = getMissingFields(true);
       alert(`Harap lengkapi field wajib berikut terlebih dahulu: ${missingList}.`);
       return;
@@ -387,7 +405,7 @@ export default function BuatQprView({
     const qprPartsPayload = partRows.map((row) => {
       const totalVal = parseInt(row.totalQty) || 0;
       const ngVal = parseInt(row.qtyNg) || 0;
-      const stdVal = Math.round(totalVal * 0.005);
+      const stdVal = parseInt(row.stdAllowance) || 0;
       const qtyClaim = Math.max(0, ngVal - stdVal);
       const price = partPrices[row.partId] || 50000;
       calculatedClaimVal += qtyClaim * price;
@@ -421,8 +439,8 @@ export default function BuatQprView({
       totalStdAllowance: totalStdAllowance,
       billableQty: billableQty,
       claimAmount: calculatedClaimVal,
-      pdfFileName: pdfFile ? pdfFile.name : null,
-      pdfFileBase64: pdfBase64 || undefined,
+      pdfFileName: attachments.map(a => a.name).join(", "),
+      pdfFileBase64: JSON.stringify(attachments),
       qprParts: qprPartsPayload
     };
 
@@ -465,8 +483,8 @@ export default function BuatQprView({
     setClaimType([]);
     setRemarks("");
     setPartRows([{ id: Date.now(), partId: "", totalQty: "", qtyNg: "", stdAllowance: "0" }]);
-    setPdfFile(null);
-    setPdfBase64(null);
+    setAttachments([]);
+    setActivePreviewIdx(0);
     setSubmitted(false);
     setSubmittedNum("");
     // Clear sessionStorage revision data
@@ -704,45 +722,84 @@ export default function BuatQprView({
                     <input
                       type="file"
                       accept="application/pdf"
+                      multiple
                       onChange={e => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          if (file.type !== "application/pdf") {
-                            alert("Hanya diperbolehkan mengupload file PDF!");
-                            return;
-                          }
-                          setPdfFile(file);
+                        const files = Array.from(e.target.files || []);
+                        if (files.length === 0) return;
+                        
+                        const nonPdf = files.find(f => f.type !== "application/pdf");
+                        if (nonPdf) {
+                          alert("Hanya diperbolehkan mengupload file PDF!");
+                          return;
+                        }
+
+                        let loadedCount = 0;
+                        const newAttachments: Array<{ name: string; base64: string }> = [];
+
+                        files.forEach(file => {
                           const reader = new FileReader();
                           reader.onload = (event) => {
-                            setPdfBase64(event.target?.result as string);
+                            const base64 = event.target?.result as string;
+                            newAttachments.push({ name: file.name, base64 });
+                            loadedCount++;
+                            if (loadedCount === files.length) {
+                              setAttachments(prev => {
+                                const updated = [...prev, ...newAttachments];
+                                setActivePreviewIdx(updated.length - files.length);
+                                return updated;
+                              });
+                            }
                           };
                           reader.readAsDataURL(file);
-                        }
+                        });
+                        
+                        e.target.value = "";
                       }}
                       className="hidden"
                     />
                   </label>
-                  {pdfFile && (
-                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 border border-slate-200 rounded-lg text-xs font-bold text-slate-700">
-                      <span className="truncate max-w-[200px]">{pdfFile.name}</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPdfFile(null);
-                          setPdfBase64(null);
-                        }}
-                        className="text-red-500 hover:text-red-700 font-bold ml-1 cursor-pointer"
-                        title="Hapus file"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  )}
                 </div>
-                {pdfBase64 && (
+
+                {attachments.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {attachments.map((file, idx) => (
+                      <div
+                        key={idx}
+                        onClick={() => setActivePreviewIdx(idx)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          activePreviewIdx === idx
+                            ? "bg-blue-50 border border-blue-300 text-blue-700 shadow-sm"
+                            : "bg-slate-100 border border-slate-200 text-slate-700 hover:bg-slate-200"
+                        }`}
+                      >
+                        <FileText size={12} className={activePreviewIdx === idx ? "text-blue-600" : "text-slate-400"} />
+                        <span className="truncate max-w-[150px]">{file.name}</span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setAttachments(prev => {
+                              const filtered = prev.filter((_, i) => i !== idx);
+                              if (activePreviewIdx >= filtered.length) {
+                                setActivePreviewIdx(Math.max(0, filtered.length - 1));
+                              }
+                              return filtered;
+                            });
+                          }}
+                          className="text-red-500 hover:text-red-750 font-bold ml-1 cursor-pointer"
+                          title="Hapus file"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {attachments.length > 0 && attachments[activePreviewIdx] && (
                   <div className="w-full h-[250px] bg-slate-50 border border-slate-250 rounded-lg overflow-hidden relative shadow-inner mt-3">
                     <div className="absolute top-2 right-2 z-10 bg-slate-900/60 text-white text-[9px] font-black px-2 py-1 rounded backdrop-blur-[1.5px] uppercase tracking-wider select-none">
-                      Preview File Upload
+                      Preview File: {attachments[activePreviewIdx].name}
                     </div>
                     <iframe
                       src={pdfBlobUrl}
@@ -967,7 +1024,7 @@ export default function BuatQprView({
                   alert("Peringatan: Qty NG tidak boleh melebihi Total Qty. Harap periksa kembali.");
                   return;
                 }
-                if (!supplierId || !period || !date || !refNcrNumber || !problem || !pdfFile) {
+                if (!supplierId || !period || !date || !refNcrNumber || !problem || attachments.length === 0) {
                   const missingList = getMissingFields(false);
                   alert(`Harap lengkapi field wajib berikut terlebih dahulu: ${missingList}.`);
                   return;
@@ -1003,7 +1060,7 @@ export default function BuatQprView({
                     const matchedPart = availableParts.find(p => String(p.id) === String(row.partId));
                     const totalVal = parseInt(row.totalQty) || 0;
                     const ngVal = parseInt(row.qtyNg) || 0;
-                    const stdVal = Math.round(totalVal * 0.005);
+                    const stdVal = parseInt(row.stdAllowance) || 0;
                     return {
                       no: idx + 1,
                       partName: matchedPart ? matchedPart.partName : "ALL TYPE PART FINISH",
@@ -1018,8 +1075,9 @@ export default function BuatQprView({
                   problem,
                   claimType,
                   remarks,
-                  pdfFileName: pdfFile ? pdfFile.name : null,
-                  pdfFileBase64: pdfBase64
+                  pdfFileName: attachments.map(a => a.name).join(", "),
+                  pdfFileBase64: JSON.stringify(attachments),
+                  pdfFiles: attachments
                 });
               }}
               className="w-full py-2 border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer"

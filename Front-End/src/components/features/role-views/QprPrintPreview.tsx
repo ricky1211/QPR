@@ -104,11 +104,30 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
     }
   };
 
+  const parsedAttachments = React.useMemo(() => {
+    if (qpr.pdfFiles && Array.isArray(qpr.pdfFiles)) {
+      return qpr.pdfFiles;
+    }
+    if (qpr.pdfFileBase64) {
+      try {
+        if (qpr.pdfFileBase64.startsWith('[')) {
+          return JSON.parse(qpr.pdfFileBase64);
+        }
+      } catch (e) {}
+      return [{ name: qpr.pdfFileName || "attachment.pdf", base64: qpr.pdfFileBase64 }];
+    }
+    return [];
+  }, [qpr.pdfFiles, qpr.pdfFileBase64, qpr.pdfFileName]);
+
+  const [activeAttachmentIdx, setActiveAttachmentIdx] = React.useState(0);
+
+  const activeAttachment = parsedAttachments[activeAttachmentIdx] || null;
+
   const pdfBlobUrl = React.useMemo(() => {
-    if (!qpr.pdfFileBase64) return "";
-    const url = base64ToBlobUrl(qpr.pdfFileBase64);
+    if (!activeAttachment || !activeAttachment.base64) return "";
+    const url = base64ToBlobUrl(activeAttachment.base64);
     return `${url}#toolbar=0&navpanes=0`;
-  }, [qpr.pdfFileBase64]);
+  }, [activeAttachment]);
 
   // Check if this vendor has been claimed > 1 times
   const getClaimCountForVendor = (supplierName: string) => {
@@ -556,15 +575,34 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
         {documentContent}
 
         {/* Lampiran PDF check block (inline) */}
-        {qpr.pdfFileName && (
-          <div className="w-full max-w-[210mm] mt-4 print:hidden flex flex-col gap-3">
+        {parsedAttachments.length > 0 && (
+          <div className="w-full max-w-[210mm] mt-4 print:hidden flex flex-col gap-2">
+            {parsedAttachments.length > 1 && (
+              <div className="flex flex-wrap gap-1.5 p-1.5 bg-slate-100 border border-slate-200 rounded-lg w-full">
+                {parsedAttachments.map((file: any, idx: number) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setActiveAttachmentIdx(idx)}
+                    className={`px-3 py-1.5 text-[10px] font-bold rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
+                      activeAttachmentIdx === idx
+                        ? "bg-blue-600 text-white shadow-sm"
+                        : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
+                    }`}
+                  >
+                    <FileText size={11} />
+                    <span className="truncate max-w-[150px]">{file.name}</span>
+                  </button>
+                ))}
+              </div>
+            )}
             {/* Direct File View (PDF Embed or Simulation) - Inline version */}
             <div className="w-full h-[450px] bg-slate-50 rounded-lg overflow-hidden border border-slate-200 relative shadow-sm">
-              {qpr.pdfFileBase64 ? (
+              {activeAttachment && activeAttachment.base64 ? (
                 <iframe
                   src={pdfBlobUrl}
                   className="w-full h-full border-0"
-                  title="Uploaded PDF Attachment"
+                  title={`Uploaded PDF Attachment: ${activeAttachment.name}`}
                 />
               ) : (
                 <div className="w-full h-full pt-9 px-6 pb-4 overflow-y-auto flex flex-col items-center">
@@ -706,15 +744,34 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
       <div className="pt-16 pb-8 w-full flex flex-col items-center gap-4">
         {documentContent}
         {/* Lampiran PDF check block */}
-        {qpr.pdfFileName && (
-          <div className="w-full max-w-[210mm] mx-auto print:hidden mt-4 flex flex-col gap-3">
+        {parsedAttachments.length > 0 && (
+          <div className="w-full max-w-[210mm] mx-auto print:hidden mt-4 flex flex-col gap-2">
+            {parsedAttachments.length > 1 && (
+              <div className="flex flex-wrap gap-1.5 p-1.5 bg-slate-100 border border-slate-200 rounded-lg w-full">
+                {parsedAttachments.map((file: any, idx: number) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setActiveAttachmentIdx(idx)}
+                    className={`px-3 py-1.5 text-[10px] font-bold rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
+                      activeAttachmentIdx === idx
+                        ? "bg-blue-600 text-white shadow-sm"
+                        : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
+                    }`}
+                  >
+                    <FileText size={11} />
+                    <span className="truncate max-w-[150px]">{file.name}</span>
+                  </button>
+                ))}
+              </div>
+            )}
             {/* Direct File View (PDF Simulation) */}
             <div className="w-full h-[600px] bg-slate-50 rounded-lg overflow-hidden border border-slate-300 relative shadow-sm">
-              {qpr.pdfFileBase64 ? (
+              {activeAttachment && activeAttachment.base64 ? (
                 <iframe
                   src={pdfBlobUrl}
                   className="w-full h-full border-0"
-                  title="Uploaded PDF Attachment"
+                  title={`Uploaded PDF Attachment: ${activeAttachment.name}`}
                 />
               ) : (
                 <div className="w-full h-full pt-9 px-8 pb-4 overflow-y-auto flex flex-col items-center">

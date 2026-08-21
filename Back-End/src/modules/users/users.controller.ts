@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param } from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, Param } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { User } from '@prisma/client';
 
@@ -17,10 +17,43 @@ export class UsersController {
   }
 
   @Post()
-  async createUser(@Body() data: { name: string; npk: number }): Promise<User> {
+  async createUser(
+    @Body()
+    data: {
+      name: string;
+      npk: number;
+      email?: string;
+      role?: string;
+      status?: string;
+    },
+  ): Promise<User> {
     return this.usersService.createUser({
       name: data.name,
-      npk: data.npk,
+      npk: Number(data.npk),
+      email: data.email || null,
+      role: data.role || null,
+      status: data.status || 'Aktif',
+    });
+  }
+
+  @Put(':id')
+  async updateUser(
+    @Param('id') id: string,
+    @Body()
+    data: {
+      name?: string;
+      npk?: number;
+      email?: string;
+      role?: string;
+      status?: string;
+    },
+  ): Promise<User> {
+    return this.usersService.updateUser(id, {
+      name: data.name,
+      npk: data.npk !== undefined ? Number(data.npk) : undefined,
+      email: data.email === '' ? null : data.email,
+      role: data.role,
+      status: data.status,
     });
   }
 }
