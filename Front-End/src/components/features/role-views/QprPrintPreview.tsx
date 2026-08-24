@@ -515,13 +515,15 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
                 },
                 { 
                   type: "Checked", 
-                  name: "Heru S.", 
+                  name: "Septian N.", 
                   role: "(Section Head)",
                   isSigned: isSectionHeadSigned,
                   sigSvg: (
-                    <svg width="40" height="24" viewBox="0 0 100 60" style={{ opacity: 0.85 }}>
-                      <path d="M15,40 Q30,15 45,40 T75,40 M35,10 L35,50 M25,25 L85,25" stroke="#1e293b" strokeWidth="2.2" fill="none" />
-                    </svg>
+                    <img 
+                      src="/qpr/TTD-PakSeptian.jpeg" 
+                      alt="Septian N. Signature" 
+                      style={{ height: "28px", width: "auto", objectFit: "contain" }} 
+                    />
                   )
                 },
                 { 
@@ -530,9 +532,11 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
                   role: "(Dept. Head Quality)",
                   isSigned: isDeptHeadSigned,
                   sigSvg: (
-                    <svg width="40" height="24" viewBox="0 0 100 60" style={{ opacity: 0.85 }}>
-                      <path d="M15,45 Q30,20 45,45 T75,45 M35,15 L35,55 M25,30 L85,30" stroke="#1e293b" strokeWidth="2.2" fill="none" />
-                    </svg>
+                    <img 
+                      src="/qpr/TTD-PakSeptian.jpeg" 
+                      alt="Septian N. Signature" 
+                      style={{ height: "28px", width: "auto", objectFit: "contain" }} 
+                    />
                   )
                 },
                 { 
@@ -541,9 +545,11 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
                   role: "(Div. Head)",
                   isSigned: isDivHeadSigned,
                   sigSvg: (
-                    <svg width="40" height="24" viewBox="0 0 100 60" style={{ opacity: 0.85 }}>
-                      <path d="M10,25 Q30,5 50,25 T90,25 M50,10 L50,50" stroke="#0f172a" strokeWidth="2.2" fill="none" />
-                    </svg>
+                    <img 
+                      src="/qpr/TTD-PakPutu.jpeg" 
+                      alt="Putu R. S. Signature" 
+                      style={{ height: "28px", width: "auto", objectFit: "contain" }} 
+                    />
                   )
                 }
               ].map((sig, i) => (
