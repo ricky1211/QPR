@@ -30,11 +30,6 @@ async function main() {
   // 2. Seed Vendors
   const vendorsData = [
     { vendorCode: '31012100', vendorName: 'PT TEMARU ENGINEERING INDONESIA', status: 'Aktif' },
-    { vendorCode: 'VND002', vendorName: 'PT SUKSES CIPTA MAKMUR', status: 'Aktif' },
-    { vendorCode: 'VND003', vendorName: 'Anugerah Daya Industri Komponen Utama, PT.', status: 'Aktif' },
-    { vendorCode: 'VND004', vendorName: 'PT JAYADI', status: 'Aktif' },
-    { vendorCode: 'VND005', vendorName: 'SHIJIAZHUANG RUICHENG TRADE CO., LTD', status: 'Aktif' },
-    { vendorCode: 'VND006', vendorName: 'PT IKAN BAKAR', status: 'Aktif' },
   ];
 
   const seededVendors = [];
@@ -64,10 +59,7 @@ async function main() {
 
   // 3. Seed Parts
   const partsData = [
-    { partNumber: 'MB-001', partDesc: 'Motherboard X1', allowanceRatio: 0.5 },
-    { partNumber: 'HD-002', partDesc: 'Harddisk 1TB', allowanceRatio: 0.8 },
     { partNumber: 'IT-650', partDesc: 'INNER TUBE,650 A', allowanceRatio: 0.5 },
-    { partNumber: 'PARTS-001', partDesc: 'ALL TYPE PART FINISH', allowanceRatio: null },
   ];
 
   const seededParts = [];

@@ -166,10 +166,10 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
                     ? "bg-blue-600 text-white shadow-sm"
                     : "text-slate-500 hover:text-white hover:bg-blue-600"
                 }`}
-                title={!sidebarOpen ? "Dashboard Utama" : undefined}
+                title={!sidebarOpen ? "DASHBOARD" : undefined}
               >
                 <LayoutDashboard size={20} className={activeTab === "dashboard" ? "text-white shrink-0" : "text-blue-500 group-hover:text-white transition-colors shrink-0"} />
-                <span className={`text-sm font-bold truncate transition-all ${sidebarOpen ? "block animate-in fade-in" : "xl:hidden"}`}>Dashboard Utama</span>
+                <span className={`text-sm font-bold truncate transition-all ${sidebarOpen ? "block animate-in fade-in" : "xl:hidden"}`}>DASHBOARD</span>
               </button>
 
               {/* NCR Group Accordion */}

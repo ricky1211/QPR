@@ -192,56 +192,56 @@ export default function PartsDirectory({ handleCreateQpr }: { handleCreateQpr: (
       </div>
 
       {/* Parts Table */}
-      <div className="bg-white border border-slate-400 rounded-lg shadow-sm overflow-hidden">
+      <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           {isLoading ? (
-            <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-500">
-              <Loader2 size={32} className="animate-spin text-blue-600" />
+            <div className="flex flex-col items-center justify-center py-16 gap-3 text-slate-500">
+              <Loader2 size={24} className="animate-spin text-blue-600" />
               <span className="text-xs font-bold">Memuat data part...</span>
             </div>
           ) : (
             <table className="w-full text-left border-collapse text-xs">
-              <thead className="bg-slate-200 text-slate-900 font-extrabold border-b border-slate-600">
+              <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 text-[10px] tracking-wider uppercase whitespace-nowrap">
                 <tr>
-                  <th className="px-4 py-3">Part Number</th>
-                  <th className="px-4 py-3">Part Name</th>
-                  <th className="px-4 py-3">Supplier</th>
-                  <th className="px-4 py-3 text-center">NG Allowance (%)</th>
-                  <th className="px-4 py-3 text-center">Status</th>
-                  <th className="px-4 py-3 text-right">Opsi</th>
+                  <th className="px-3 py-2">Part Number</th>
+                  <th className="px-3 py-2">Part Name</th>
+                  <th className="px-3 py-2">Supplier</th>
+                  <th className="px-3 py-2 text-center">NG Allowance (%)</th>
+                  <th className="px-3 py-2 text-center">Status</th>
+                  <th className="px-3 py-2 text-right">Opsi</th>
                 </tr>
               </thead>
 
-              <tbody className="divide-y divide-slate-300">
+              <tbody className="divide-y divide-slate-100">
                 {filteredParts.map((p, idx) => {
                   const hasAllowance = p.allowanceRatio !== null;
                   return (
-                    <tr key={`${p.id}-${p.supplierId || 'none'}-${idx}`} className="hover:bg-slate-50 transition-colors font-semibold">
-                      <td className="px-4 py-3 font-mono font-bold text-slate-900">{p.partNumber}</td>
-                      <td className="px-4 py-3 text-slate-800 font-extrabold">{p.partName}</td>
-                      <td className="px-4 py-3 text-slate-600 font-bold">{p.supplierName}</td>
-                      <td className="px-4 py-3 text-center">
+                    <tr key={`${p.id}-${p.supplierId || 'none'}-${idx}`} className="hover:bg-slate-50/50 transition-colors font-medium">
+                      <td className="px-3 py-1.5 font-mono font-bold text-slate-900">{p.partNumber}</td>
+                      <td className="px-3 py-1.5 text-slate-800 font-semibold">{p.partName}</td>
+                      <td className="px-3 py-1.5 text-slate-500 font-medium">{p.supplierName}</td>
+                      <td className="px-3 py-1.5 text-center">
                         {hasAllowance ? (
-                          <span className="font-bold text-emerald-800 bg-emerald-50 border border-emerald-250 px-2 py-0.5 rounded-lg">
+                          <span className="font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-lg text-[10.5px]">
                             {p.allowanceRatio}%
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg font-bold text-[10px]">
-                            <AlertTriangle size={10} />
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg font-bold text-[9.5px]">
+                            <AlertTriangle size={9} />
                             Belum diatur
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-center">
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                      <td className="px-3 py-1.5 text-center">
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9.5px] font-bold border ${
                           p.status === "Aktif"
-                            ? "bg-emerald-50 text-emerald-700 border-emerald-250"
+                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                             : "bg-red-50 text-red-700 border-red-200"
                         }`}>
                           {p.status}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-right space-x-2">
+                      <td className="px-3 py-1.5 text-right space-x-2 whitespace-nowrap">
                         {isAdmin && (
                           <button
                             onClick={() => handleEditClick(p)}
@@ -255,11 +255,11 @@ export default function PartsDirectory({ handleCreateQpr }: { handleCreateQpr: (
                         <button
                           onClick={() => handleCreateQpr(p)}
                           disabled={p.status !== "Aktif"}
-                          className="px-3 py-1 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white font-bold rounded-lg transition-colors inline-flex items-center gap-1 cursor-pointer text-[11px]"
+                          className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white font-bold rounded-md transition-colors inline-flex items-center gap-1 cursor-pointer text-[10.5px]"
                           title="Buat Dokumen QPR"
                         >
                           <span>Buat QPR</span>
-                          <ArrowRight size={11} />
+                          <ArrowRight size={10} />
                         </button>
                       </td>
                     </tr>
@@ -267,7 +267,7 @@ export default function PartsDirectory({ handleCreateQpr }: { handleCreateQpr: (
                 })}
                 {filteredParts.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-4 py-12 text-center text-slate-400 font-bold italic bg-slate-50">
+                    <td colSpan={6} className="px-3 py-8 text-center text-slate-400 font-bold italic bg-slate-50">
                       Tidak ditemukan data part yang cocok.
                     </td>
                   </tr>

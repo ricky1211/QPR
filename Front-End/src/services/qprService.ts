@@ -130,5 +130,6 @@ export const mapQprFromDb = (dbQpr: any) => {
     pdfFiles,
     remarks: dbQpr.approvalProgress?.remarksSectionHead || "", // fallback to remarks
     approvalProgress: dbQpr.approvalProgress || null,
+    updatedAt: dbQpr.updatedAt,
   };
 };

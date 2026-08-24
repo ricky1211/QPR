@@ -277,11 +277,11 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
               <div style={{ fontSize: "8.5px", lineHeight: "1.5", fontWeight: "bold", color: "#334155" }}>
                 <div style={{ display: "grid", gridTemplateColumns: "85px 1fr" }}>
                   <span>Part Name</span>
-                  <span>: <span contentEditable suppressContentEditableWarning className="focus:bg-yellow-50 focus:outline-none print:bg-transparent">{qpr.partName || "ALL TYPE PART FINISH"}</span></span>
+                  <span>: <span contentEditable suppressContentEditableWarning className="focus:bg-yellow-50 focus:outline-none print:bg-transparent">{qpr.partName || qpr.parts?.[0]?.partName || "ALL TYPE PART FINISH"}</span></span>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "85px 1fr" }}>
                   <span>Part Number</span>
-                  <span>: <span contentEditable suppressContentEditableWarning className="focus:bg-yellow-50 focus:outline-none print:bg-transparent">{qpr.partNumber || ""}</span></span>
+                  <span>: <span contentEditable suppressContentEditableWarning className="focus:bg-yellow-50 focus:outline-none print:bg-transparent">{qpr.partNumber || qpr.parts?.[0]?.partNumber || "-"}</span></span>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "85px 1fr" }}>
                   <span>Model</span>

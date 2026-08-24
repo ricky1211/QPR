@@ -97,8 +97,18 @@ export default function LeadTimeTracker({ pendingQprs = [], confirmationLetters 
 
   // Dynamically calculate stages for active QPRs
   const activeDocs = pendingQprs.map(qpr => {
-    const docDate = new Date(qpr.date || "2026-07-01");
-    const diffTime = Math.abs(today.getTime() - docDate.getTime());
+    const docDate = new Date(qpr.date || new Date());
+    
+    // Determine if document is closed
+    const isClosed = 
+      qpr.status === "APPROVED" || 
+      qpr.status === "CLOSED" || 
+      qpr.status === "CLOSED_PAID" || 
+      qpr.status === "FULLY_APPROVED";
+
+    const endDate = isClosed && qpr.updatedAt ? new Date(qpr.updatedAt) : new Date();
+    
+    const diffTime = Math.max(0, endDate.getTime() - docDate.getTime());
     const totalDaysElapsed = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
 
     // Determine current role index

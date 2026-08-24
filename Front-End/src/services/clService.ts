@@ -8,6 +8,7 @@ export interface CreateClPayload {
   vendorId: string;
   amount: number;
   status?: string;
+  closedPaid?: boolean;
 }
 
 export const clService = {
@@ -81,6 +82,7 @@ export const mapClFromDb = (dbCl: any) => {
       rejectItems: dbCl.qpr?.totalQtyNg || 0,
       allowanceRatio: `${(((dbCl.qpr?.totalStdAllowance || 0) / (dbCl.qpr?.totalQty || 1)) * 100).toFixed(1)}%`,
       remarks: ""
-    }
+    },
+    updatedAt: dbCl.updatedAt,
   };
 };

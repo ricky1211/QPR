@@ -202,9 +202,69 @@ export default function Dashboard({
     "Desember 2026"
   ];
   
-  // Default active period index set to 5 ("Juni 2026") where current system active data resides
-  const [periodIndex, setPeriodIndex] = useState(5);
+  // Set default period index based on the latest activity in QPR/NCR/CL
+  const getInitialPeriodIndex = () => {
+    const months = [
+      "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+      "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+    ];
+
+    let latestPeriodName = "Juni 2026";
+    let latestTime = 0;
+
+    const checkDate = (dateStr?: string) => {
+      if (!dateStr) return;
+      const d = new Date(dateStr);
+      if (!isNaN(d.getTime()) && d.getTime() > latestTime) {
+        latestTime = d.getTime();
+        latestPeriodName = `${months[d.getMonth()]} ${d.getFullYear()}`;
+      }
+    };
+
+    pendingNcrs.forEach(n => checkDate(n.date));
+    pendingQprs.forEach(q => checkDate(q.date));
+    confirmationLetters.forEach(cl => checkDate(cl.dateSent || cl.date));
+
+    const idx = periods.indexOf(latestPeriodName);
+    return idx !== -1 ? idx : 5;
+  };
+
+  const [periodIndex, setPeriodIndex] = useState(getInitialPeriodIndex);
   const activePeriod = periods[periodIndex];
+
+  const hasAutoAdjustedRef = React.useRef(false);
+
+  React.useEffect(() => {
+    const hasData = pendingNcrs.length > 0 || pendingQprs.length > 0 || confirmationLetters.length > 0;
+    if (hasData && !hasAutoAdjustedRef.current) {
+      const months = [
+        "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+        "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+      ];
+
+      let latestPeriodName = "Juni 2026";
+      let latestTime = 0;
+
+      const checkDate = (dateStr?: string) => {
+        if (!dateStr) return;
+        const d = new Date(dateStr);
+        if (!isNaN(d.getTime()) && d.getTime() > latestTime) {
+          latestTime = d.getTime();
+          latestPeriodName = `${months[d.getMonth()]} ${d.getFullYear()}`;
+        }
+      };
+
+      pendingNcrs.forEach(n => checkDate(n.date));
+      pendingQprs.forEach(q => checkDate(q.date));
+      confirmationLetters.forEach(cl => checkDate(cl.dateSent || cl.date));
+
+      const idx = periods.indexOf(latestPeriodName);
+      if (idx !== -1) {
+        setPeriodIndex(idx);
+        hasAutoAdjustedRef.current = true;
+      }
+    }
+  }, [pendingNcrs, pendingQprs, confirmationLetters, periods]);
 
   const getDynamicPeriodConfig = (periodName: string) => {
     const getPeriodFromDate = (dateStr?: string) => {
@@ -234,12 +294,12 @@ export default function Dashboard({
     });
 
     const baselineConfig: { [key: string]: any } = {
-      "Januari 2026": { baselineClosedNcrs: 8, baselineClosedQprs: 2, aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 2, claimRejectedCount: 0 },
-      "Februari 2026": { baselineClosedNcrs: 11, baselineClosedQprs: 3, aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 3, claimRejectedCount: 1 },
-      "Maret 2026": { baselineClosedNcrs: 14, baselineClosedQprs: 4, aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 4, claimRejectedCount: 0 },
-      "April 2026": { baselineClosedNcrs: 18, baselineClosedQprs: 5, aprilClaims: 18200000, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 1, claimRejectedCount: 0 },
-      "Mei 2026": { baselineClosedNcrs: 15, baselineClosedQprs: 7, aprilClaims: 0, mayClaimsClosed: 24000000, mayClaimsPending: 12500000, claimClosedPaidCount: 1, claimRejectedCount: 0 },
-      "Juni 2026": { baselineClosedNcrs: 20, baselineClosedQprs: 4, aprilClaims: 0, mayClaimsClosed: 18200000, mayClaimsPending: 68500000, claimClosedPaidCount: 2, claimRejectedCount: 0 },
+      "Januari 2026": { baselineClosedNcrs: 0, baselineClosedQprs: 0, aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 0, claimRejectedCount: 0 },
+      "Februari 2026": { baselineClosedNcrs: 0, baselineClosedQprs: 0, aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 0, claimRejectedCount: 0 },
+      "Maret 2026": { baselineClosedNcrs: 0, baselineClosedQprs: 0, aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 0, claimRejectedCount: 0 },
+      "April 2026": { baselineClosedNcrs: 0, baselineClosedQprs: 0, aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 0, claimRejectedCount: 0 },
+      "Mei 2026": { baselineClosedNcrs: 0, baselineClosedQprs: 0, aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 0, claimRejectedCount: 0 },
+      "Juni 2026": { baselineClosedNcrs: 0, baselineClosedQprs: 0, aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 0, claimRejectedCount: 0 },
     };
 
     const base = baselineConfig[periodName] || { baselineClosedNcrs: 0, baselineClosedQprs: 0, aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 0, claimRejectedCount: 0 };
@@ -298,9 +358,21 @@ export default function Dashboard({
 
   // Helper to calculate elapsed days dynamically
   const getDocLeadTimes = (doc: any) => {
-    const docDate = new Date(doc.date || doc.dateSent || "2026-07-01");
-    const today = new Date("2026-07-23");
-    const diffTime = Math.abs(today.getTime() - docDate.getTime());
+    const docDate = new Date(doc.date || doc.dateSent || new Date());
+    
+    // Determine if document is closed/completed
+    const isClosed = 
+      doc.status === "APPROVED" || 
+      doc.status === "CLOSED" || 
+      doc.status === "CLOSED_PAID" || 
+      doc.status === "FULLY_APPROVED" || 
+      doc.closedPaid === true;
+
+    // Use updatedAt as closure date if closed, otherwise use current live system time
+    const endDate = isClosed && doc.updatedAt ? new Date(doc.updatedAt) : new Date();
+    
+    // Calculate difference (with a minimum of 0 to prevent negative values)
+    const diffTime = Math.max(0, endDate.getTime() - docDate.getTime());
     const diffDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
 
     if (doc.clNumber || doc.type === "CL" || doc.type === "Confirmation Letter") {
@@ -801,15 +873,10 @@ export default function Dashboard({
             : 7;
           return (
             <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-3">
-              <div className="flex justify-between items-start">
-                <div>
-                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Quality Problem Report</span>
-                  <h4 className="text-2xl font-black text-slate-900 mt-1 leading-none">{totalQprs}</h4>
-                  <span className="text-xs text-slate-600 font-bold mt-1 block">Total QPR</span>
-                </div>
-                <div className="p-2 bg-indigo-50 rounded-lg border border-indigo-100">
-                  <FileCheck size={18} className="text-indigo-600" />
-                </div>
+              <div>
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Quality Problem Report</span>
+                <h4 className="text-2xl font-black text-slate-900 mt-1 leading-none">{totalQprs}</h4>
+                <span className="text-xs text-slate-600 font-bold mt-1 block">Total QPR</span>
               </div>
               <div className="space-y-1.5">
                 <div className="flex justify-between text-xs font-bold text-slate-700">
@@ -826,9 +893,6 @@ export default function Dashboard({
 
         {/* CL Card */}
         {(() => {
-          const totalCl = currentActiveConfirmationLetters.length + claimClosedPaidCount;
-          const clLunas = claimClosedPaidCount;
-          const clProgress = currentActiveConfirmationLetters.length;
           const clPct = totalCl > 0 ? Math.round((clLunas / totalCl) * 100) : 0;
           const avgClLt = currentActiveConfirmationLetters.length > 0
             ? Math.round(currentActiveConfirmationLetters.reduce((s: number, cl: any) => s + getDocLeadTimes(cl).totalLeadTime, 0) / currentActiveConfirmationLetters.length)
@@ -838,15 +902,10 @@ export default function Dashboard({
             : "-";
           return (
             <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-3">
-              <div className="flex justify-between items-start">
-                <div>
-                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Confirmation Letter</span>
-                  <h4 className="text-2xl font-black text-slate-900 mt-1 leading-none">{totalCl}</h4>
-                  <span className="text-xs text-slate-600 font-bold mt-1 block">Total CL</span>
-                </div>
-                <div className="p-2 bg-blue-50 rounded-lg border border-blue-100">
-                  <ShieldCheck size={18} className="text-blue-600" />
-                </div>
+              <div>
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Confirmation Letter</span>
+                <h4 className="text-2xl font-black text-slate-900 mt-1 leading-none">{totalCl}</h4>
+                <span className="text-xs text-slate-600 font-bold mt-1 block">Total CL</span>
               </div>
               <div className="space-y-1.5">
                 <div className="flex justify-between text-xs font-bold text-slate-700">

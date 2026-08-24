@@ -149,51 +149,54 @@ export default function VendorsDirectory() {
       </div>
 
       {/* Vendors Table */}
-      <div className="bg-white border border-slate-400 rounded-lg shadow-sm overflow-hidden">
+      <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           {isLoading ? (
-            <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-500">
-              <Loader2 size={32} className="animate-spin text-blue-600" />
+            <div className="flex flex-col items-center justify-center py-16 gap-3 text-slate-500">
+              <Loader2 size={24} className="animate-spin text-blue-600" />
               <span className="text-xs font-bold">Memuat data vendor...</span>
             </div>
           ) : (
             <table className="w-full text-left border-collapse text-xs">
-              <thead className="bg-slate-200 text-slate-900 font-extrabold border-b border-slate-600">
+              <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 text-[10px] tracking-wider uppercase whitespace-nowrap">
                 <tr>
-                  <th className="px-4 py-3 w-16 text-center">No</th>
-                  <th className="px-4 py-3 w-32">Vendor Code</th>
-                  <th className="px-4 py-3">Vendor Name</th>
-                  <th className="px-4 py-3">Email Address</th>
-                  <th className="px-4 py-3 text-center w-28">Status</th>
-                  {isAdmin && <th className="px-4 py-3 text-center w-24">Aksi</th>}
+                  <th className="px-3 py-2 w-16 text-center">No</th>
+                  <th className="px-3 py-2 w-32">Vendor Code</th>
+                  <th className="px-3 py-2">Vendor Name</th>
+                  <th className="px-3 py-2">Email Address</th>
+                  <th className="px-3 py-2 text-center w-28">Status</th>
+                  {isAdmin && <th className="px-3 py-2 text-right">Opsi</th>}
                 </tr>
               </thead>
 
-              <tbody className="divide-y divide-slate-300">
+              <tbody className="divide-y divide-slate-100">
                 {filteredVendors.map((v, idx) => (
-                  <tr key={v.id} className="hover:bg-slate-50 transition-colors font-semibold">
-                    <td className="px-4 py-3 text-center text-slate-400 font-mono font-bold">{idx + 1}</td>
-                    <td className="px-4 py-3 font-mono font-bold text-blue-700">{v.vendorCode}</td>
-                    <td className="px-4 py-3 text-slate-800 font-extrabold flex items-center gap-2">
-                      <Building size={14} className="text-slate-400 shrink-0" />
-                      {v.vendorName}
+                  <tr key={v.id} className="hover:bg-slate-50/50 transition-colors font-medium">
+                    <td className="px-3 py-1.5 text-center text-slate-400 font-mono font-medium">{idx + 1}</td>
+                    <td className="px-3 py-1.5 font-mono font-bold text-slate-900">{v.vendorCode}</td>
+                    <td className="px-3 py-1.5 text-slate-800 font-semibold">
+                      <div className="flex items-center gap-2">
+                        <Building size={13} className="text-slate-400 shrink-0" />
+                        <span>{v.vendorName}</span>
+                      </div>
                     </td>
-                    <td className="px-4 py-3 text-slate-500 font-mono">{v.email || "-"}</td>
-                    <td className="px-4 py-3 text-center">
-                      <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                    <td className="px-3 py-1.5 text-slate-500 font-mono">{v.email || "-"}</td>
+                    <td className="px-3 py-1.5 text-center">
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9.5px] font-bold border ${
                         v.status === "Aktif"
-                          ? "bg-emerald-50 text-emerald-700 border-emerald-250"
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                           : "bg-red-50 text-red-700 border-red-200"
                       }`}>
-                        <CheckCircle size={10} />
+                        <CheckCircle size={9} />
                         {v.status}
                       </span>
                     </td>
                     {isAdmin && (
-                      <td className="px-4 py-3 text-center">
+                      <td className="px-3 py-1.5 text-right whitespace-nowrap">
                         <button
                           onClick={() => handleEditClick(v)}
-                          className="text-blue-600 hover:text-blue-800 font-bold text-xs cursor-pointer hover:underline flex items-center justify-center gap-1 mx-auto"
+                          className="p-1 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all inline-flex items-center gap-0.5 cursor-pointer font-bold text-xs"
+                          title="Edit Vendor"
                         >
                           <Edit size={12} />
                           Edit
@@ -204,7 +207,7 @@ export default function VendorsDirectory() {
                 ))}
                 {filteredVendors.length === 0 && (
                   <tr>
-                    <td colSpan={isAdmin ? 6 : 5} className="px-4 py-12 text-center text-slate-400 font-bold italic bg-slate-50">
+                    <td colSpan={isAdmin ? 6 : 5} className="px-3 py-8 text-center text-slate-400 font-bold italic bg-slate-50">
                       Tidak ditemukan data vendor yang cocok.
                     </td>
                   </tr>

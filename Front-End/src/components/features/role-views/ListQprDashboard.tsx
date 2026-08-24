@@ -24,6 +24,8 @@ import {
 
 import ClPrintPreview from "./ClPrintPreview";
 import QprPrintPreview from "./QprPrintPreview";
+import { clService } from "@/services/clService";
+import { sscService } from "@/services/sscService";
 
 
 // Helper to map requiredRole -> human-readable stage label
@@ -148,6 +150,8 @@ interface ListQprDashboardProps {
   setCreatedSscBillings?: React.Dispatch<React.SetStateAction<any[]>>;
   setSelectedQprForEdit?: (qpr: any) => void;
   parentSetActiveTab?: (tab: string) => void;
+  setConfirmationLetters?: React.Dispatch<React.SetStateAction<any[]>>;
+  setPendingQprs?: React.Dispatch<React.SetStateAction<any[]>>;
 }
 
 export default function ListQprDashboard({
@@ -157,7 +161,9 @@ export default function ListQprDashboard({
   createdSscBillings = [],
   setCreatedSscBillings = () => {},
   setSelectedQprForEdit = () => {},
-  parentSetActiveTab = () => {}
+  parentSetActiveTab = () => {},
+  setConfirmationLetters,
+  setPendingQprs
 }: ListQprDashboardProps) {
   // Calculate claim count for each vendor dynamically based on QPRs and Confirmation Letters
   const vendorClaimCounts = React.useMemo(() => {
@@ -183,9 +189,17 @@ export default function ListQprDashboard({
   // Combine all NCR, QPR, and CL documents dynamically from active state (drafts & in-progress) + fallback baseline data
   const allDocuments = React.useMemo(() => {
     const list: any[] = [];
+    const months = [
+      "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+      "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+    ];
 
-
-
+    const getPeriodFromDate = (dateStr?: string) => {
+      if (!dateStr) return "";
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return "";
+      return `${months[d.getMonth()]} ${d.getFullYear()}`;
+    };
 
     // 2. Add QPRs
     pendingQprs.forEach((qpr) => {
@@ -197,7 +211,7 @@ export default function ListQprDashboard({
         vendorName: qpr.supplierName,
         partNumber: qpr.parts?.[0]?.partNumber || qpr.partNumber || "MB-001",
         partName: qpr.parts?.[0]?.partName || qpr.partName || "Motherboard X1",
-        period: qpr.period || "Juni 2026",
+        period: qpr.period || getPeriodFromDate(qpr.date) || "Juni 2026",
         qty: qpr.totalItems || 1000,
         reject: qpr.rejectItems || 30,
         allowanceRatio: qpr.allowanceRatio || "0.5%",
@@ -221,7 +235,7 @@ export default function ListQprDashboard({
         vendorName: cl.supplierName,
         partNumber: cl.qprSourceData?.parts?.[0]?.partNumber || cl.partNumber || "MB-001",
         partName: cl.qprSourceData?.parts?.[0]?.partName || cl.partName || "Motherboard X1",
-        period: "Juni 2026",
+        period: cl.qprSourceData?.period || getPeriodFromDate(cl.dateSent || cl.date) || "Juni 2026",
         qty: cl.qty || 1000,
         reject: cl.reject || 10,
         allowanceRatio: "0.5%",
@@ -236,6 +250,8 @@ export default function ListQprDashboard({
 
     // 4. Add I-Memos from createdSscBillings
     createdSscBillings.forEach((bill) => {
+      const billPeriod = bill.memoPeriod || getPeriodFromDate(bill.dateSent) || "—";
+      
       // Split into SSC Billing vs SSC Payment representation
       list.push({
         id: `billing-${bill.id}`,
@@ -245,7 +261,7 @@ export default function ListQprDashboard({
         vendorName: bill.supplierName || "—",
         partNumber: "—",
         partName: bill.memoTitle || "Manual Billing",
-        period: bill.memoPeriod || "—",
+        period: billPeriod,
         qty: 1,
         reject: 0,
         allowanceRatio: "—",
@@ -266,7 +282,7 @@ export default function ListQprDashboard({
         vendorName: bill.supplierName || "—",
         partNumber: "—",
         partName: "Permohonan Pemotongan Invoice",
-        period: bill.memoPeriod || "—",
+        period: billPeriod,
         qty: 1,
         reject: 0,
         allowanceRatio: "—",
@@ -283,7 +299,7 @@ export default function ListQprDashboard({
 
 
     return list;
-  }, [pendingNcrs, pendingQprs, confirmationLetters]);
+  }, [pendingNcrs, pendingQprs, confirmationLetters, createdSscBillings]);
   // Filter states
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("qpr"); // 'cl' or 'qpr'
@@ -375,7 +391,7 @@ export default function ListQprDashboard({
       {/* KPI Counters Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Documents */}
-        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex items-center justify-between group hover:shadow-md transition-all">
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex items-center group hover:shadow-md transition-all">
           <div className="space-y-1.5 text-left">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Total Arsip Dokumen</span>
             <h4 className="text-2xl font-black text-slate-800">{totalCount}</h4>
@@ -383,13 +399,10 @@ export default function ListQprDashboard({
               QPR &amp; CL
             </span>
           </div>
-          <div className="w-10 h-10 bg-indigo-50 text-indigo-600 group-hover:bg-indigo-650 group-hover:text-white rounded-xl flex items-center justify-center transition-all duration-300">
-            <Layers size={18} />
-          </div>
         </div>
 
         {/* Total CL */}
-        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex items-center justify-between group hover:shadow-md transition-all">
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex items-center group hover:shadow-md transition-all">
           <div className="space-y-1.5 text-left">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Total Laporan CL</span>
             <h4 className="text-2xl font-black text-slate-800">{clCount}</h4>
@@ -397,13 +410,10 @@ export default function ListQprDashboard({
               Confirmation Letter
             </span>
           </div>
-          <div className="w-10 h-10 bg-orange-50 text-orange-600 group-hover:bg-orange-600 group-hover:text-white rounded-xl flex items-center justify-center transition-all duration-300">
-            <AlertCircle size={18} />
-          </div>
         </div>
 
         {/* Total QPR */}
-        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex items-center justify-between group hover:shadow-md transition-all">
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex items-center group hover:shadow-md transition-all">
           <div className="space-y-1.5 text-left">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Total Klaim QPR</span>
             <h4 className="text-2xl font-black text-slate-800">{qprCount}</h4>
@@ -411,22 +421,16 @@ export default function ListQprDashboard({
               Semua Status
             </span>
           </div>
-          <div className="w-10 h-10 bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white rounded-xl flex items-center justify-center transition-all duration-300">
-            <FileText size={18} />
-          </div>
         </div>
 
         {/* Proses Approval */}
-        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex items-center justify-between group hover:shadow-md transition-all">
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex items-center group hover:shadow-md transition-all">
           <div className="space-y-1.5 text-left">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Proses Approval</span>
             <h4 className="text-2xl font-black text-amber-600">{pendingCount}</h4>
             <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full inline-block">
               Menunggu Tanda Tangan
             </span>
-          </div>
-          <div className="w-10 h-10 bg-amber-50 text-amber-600 group-hover:bg-amber-600 group-hover:text-white rounded-xl flex items-center justify-center transition-all duration-300">
-            <Clock size={18} />
           </div>
         </div>
       </div>
@@ -815,12 +819,52 @@ export default function ListQprDashboard({
                             <button
                               onClick={() => {
                                 const matchedId = doc.id.replace("billing-", "").replace("payment-", "");
+                                const billingObj = doc.refObject;
+                                const clNumber = billingObj?.clNumber;
+                                
+                                // Find the corresponding CL to retrieve correct CL ID and QPR Number
+                                const targetCl = confirmationLetters.find(cl => cl.clNumber === clNumber);
+                                const clId = targetCl?.id || billingObj?.clId;
+                                const qprNumber = targetCl?.qprNumber;
+
+                                // 1. Update SscBilling status to PAID in DB
+                                sscService.updateBilling(matchedId, { status: "PAID" })
+                                  .catch(err => console.error("Failed to update billing in DB:", err));
+
+                                // 2. Update ConfirmationLetter status to closedPaid: true in DB
+                                if (clId) {
+                                  clService.update(clId, { closedPaid: true })
+                                    .catch(err => console.error("Failed to update CL in DB:", err));
+                                }
+
+                                // 3. Update local state createdSscBillings
                                 setCreatedSscBillings(prev => prev.map(bill => {
                                   if (bill.id === matchedId) {
                                     return { ...bill, closedPaid: true, status: "CLOSED_PAID" };
                                   }
                                   return bill;
                                 }));
+
+                                // 4. Update local state confirmationLetters
+                                if (clId && setConfirmationLetters) {
+                                  setConfirmationLetters(prev => prev.map(cl => {
+                                    if (cl.id === clId) {
+                                      return { ...cl, closedPaid: true, status: "CLOSED_PAID" };
+                                    }
+                                    return cl;
+                                  }));
+                                }
+
+                                // 5. Update local state pendingQprs
+                                if (qprNumber && setPendingQprs) {
+                                  setPendingQprs(prev => prev.map(q => {
+                                    if (q.qprNumber === qprNumber) {
+                                      return { ...q, status: "CLOSED_PAID", requiredRole: "Closed" };
+                                    }
+                                    return q;
+                                  }));
+                                }
+
                                 alert(`Status ${doc.type} ${doc.docNumber} berhasil diubah secara manual menjadi Close Paid.`);
                               }}
                               className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md transition-all cursor-pointer flex items-center gap-1 text-[10px] font-bold shadow-sm"

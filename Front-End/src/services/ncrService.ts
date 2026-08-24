@@ -94,6 +94,7 @@ export const mapNcrFromDb = (dbNcr: any) => {
     foundBy: dbNcr.inspectors && Array.isArray(dbNcr.inspectors) && dbNcr.inspectors.length > 0
       ? dbNcr.inspectors.map((ins: any) => ins.name).join(", ")
       : (dbNcr.foundBy || "-"),
+    updatedAt: dbNcr.updatedAt,
   };
 };
 

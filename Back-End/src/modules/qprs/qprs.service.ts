@@ -289,11 +289,11 @@ export class QprsService {
       },
     });
   }
-
   async updateConfirmationLetter(id: string, data: any): Promise<any> {
     const { status, amount, purchasingSentCl, vendorApproved, closedPaid, purchasingSentDate, vendorApprovedDate } = data;
     const parsedAmount = amount !== undefined ? (typeof amount === 'number' ? amount : parseFloat(String(amount || '0').replace(/Rp/g, '').replace(/\s/g, '').replace(/\./g, '').replace(/,/g, '.')) || 0) : undefined;
-    return await this.prisma.confirmationLetter.update({
+    
+    const updatedCl = await this.prisma.confirmationLetter.update({
       where: { id },
       data: {
         status,
@@ -305,5 +305,17 @@ export class QprsService {
         vendorApprovedDate: vendorApprovedDate !== undefined ? vendorApprovedDate : undefined,
       },
     });
+
+    if (closedPaid === true && updatedCl.qprId) {
+      await this.prisma.qpr.update({
+        where: { id: updatedCl.qprId },
+        data: {
+          status: 'CLOSED_PAID',
+          requiredRole: 'Closed',
+        },
+      });
+    }
+
+    return updatedCl;
   }
 }

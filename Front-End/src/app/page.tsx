@@ -473,6 +473,14 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
       setConfirmationLetters(prev => prev.map(cl =>
         cl.id === clId ? { ...cl, closedPaid: true, status: "CLOSED_PAID" } : cl
       ));
+
+      // Keep QPR state in sync
+      const targetCl = confirmationLetters.find(cl => cl.id === clId);
+      if (targetCl?.qprNumber) {
+        setPendingQprs(prev => prev.map(q =>
+          q.qprNumber === targetCl.qprNumber ? { ...q, status: "CLOSED_PAID", requiredRole: "Closed" } : q
+        ));
+      }
     };
 
     if (typeof clId === "string" && clId.length > 10) {
@@ -1039,6 +1047,8 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
                 setCreatedSscBillings={setCreatedSscBillings}
                 setSelectedQprForEdit={setSelectedQprForEdit}
                 parentSetActiveTab={handleTabChange}
+                setConfirmationLetters={setConfirmationLetters}
+                setPendingQprs={setPendingQprs}
               />
             )}
 
