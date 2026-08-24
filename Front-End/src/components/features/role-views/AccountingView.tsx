@@ -63,10 +63,17 @@ export default function AccountingView({
 
   // List of QPRs ready for accounting action, dynamically compiled from pendingQprs
   const accountingQueue = React.useMemo(() => {
+    const existingQprNumbers = new Set(
+      confirmationLetters
+        .map((cl: any) => cl.qprNumber)
+        .filter(Boolean)
+    );
+
     const qprs = pendingQprs ? pendingQprs.filter((q: any) => 
       (q.status === "APPROVED_INTERNAL" || q.status === "WAITING_VENDOR" || q.status === "APPROVED_BY_VENDOR" || q.requiredRole === "Purchasing" || q.requiredRole === "Vendor" || q.requiredRole === "Accounting") && 
       q.status !== "CLOSED" && 
-      q.requiredRole !== "Closed"
+      q.requiredRole !== "Closed" &&
+      !existingQprNumbers.has(q.qprNumber)
     ) : [];
     
     const list = qprs.map((q: any) => ({
@@ -81,8 +88,6 @@ export default function AccountingView({
       period: q.period,
       status: q.status
     }));
-
-
 
     return list;
   }, [pendingQprs, confirmationLetters]);

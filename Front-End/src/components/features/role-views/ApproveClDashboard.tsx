@@ -86,7 +86,7 @@ export default function ApproveClDashboard({
     if (cl.status === "FULLY_APPROVED" || cl.status === "CLOSED_PAID" || cl.requiredRole === "Closed") {
       return false;
     }
-    return cl.status === "PENDING" || cl.status === "APPROVED_BY_VENDOR" || cl.requiredRole === "Dept Accounting" || cl.status === "APPROVED_SECT";
+    return true; // Any pending CL is waiting for Dept Accounting
   });
 
   // Approved CLs
@@ -588,6 +588,7 @@ export default function ApproveClDashboard({
                 </button>
                 {(() => {
                   const canUserApproveCl = username === "admin" || username === "accounting";
+
                   if (!canUserApproveCl) {
                     return (
                       <span className="px-3.5 py-2 bg-slate-100 border border-slate-200 text-slate-500 rounded-md text-xs font-bold italic select-none">
