@@ -9,6 +9,8 @@ export interface CreateClPayload {
   amount: number;
   status?: string;
   closedPaid?: boolean;
+  items?: any[];
+  qprNumber?: string;
 }
 
 export const clService = {
@@ -37,31 +39,39 @@ export const mapClFromDb = (dbCl: any) => {
     requiredRole: isApproved ? "Closed" : "Dept Accounting",
     memoStatus: "SENT_AOP",
     reminderSentCount: 1,
-    purchasingSentCl: dbCl.purchasingSentCl || isApproved,
+    purchasingSentCl: !!dbCl.purchasingSentCl,
     purchasingSentDate: dbCl.purchasingSentDate || null,
-    sentToVendor: dbCl.purchasingSentCl || isApproved,
-    vendorApproved: dbCl.vendorApproved || isApproved,
+    sentToVendor: !!dbCl.purchasingSentCl,
+    vendorApproved: !!dbCl.vendorApproved,
     vendorApprovedDate: dbCl.vendorApprovedDate || null,
-    vendorApprovedDocName: null,
-    readyForSSC: dbCl.vendorApproved || isApproved,
+    vendorApprovedDocName: dbCl.signedClFileName || null,
+    readyForSSC: !!dbCl.vendorApproved,
     clApprovalProgress: { 
       sectAccounting: isApproved, 
       deptAccounting: isApproved 
     },
-    closedPaid: dbCl.closedPaid,
+    closedPaid: !!dbCl.closedPaid,
     debitNoteCount: 0,
     reminderCount: 1,
-    items: (dbCl.qpr?.qprParts || []).map((qp: any) => ({
-      id: qp.id,
-      partId: qp.partId,
-      partName: qp.part?.partDesc || qp.part?.partNumber || "ALL TYPE PART FINISH",
-      partNumber: qp.part?.partNumber || "",
-      totalQty: qp.totalQty || 0,
-      qtyNg: qp.qtyNg || 0,
-      qtyClaim: qp.qtyClaim || 0,
-      unitPrice: qp.unitPrice || 250000,
-      amount: qp.qtyClaim * (qp.unitPrice || 250000)
-    })),
+    items: (dbCl.qpr?.qprParts || []).map((qp: any) => {
+      const qtyClaim = qp.qtyClaim !== undefined && qp.qtyClaim !== null ? qp.qtyClaim : (qp.qtyNg ? Math.max(0, qp.qtyNg - (qp.stdAllowance || 0)) : 0);
+      const unitPrice = qp.unitPrice || 250000;
+      return {
+        id: qp.id,
+        partId: qp.partId,
+        partName: qp.part?.partDesc || qp.part?.partNumber || "Part Material NG",
+        partNumber: qp.part?.partNumber || "",
+        totalQty: qp.totalQty || 0,
+        qtyNg: qp.qtyNg || 0,
+        qtyNG: qp.qtyNg || 0,
+        stdAllowance: qp.stdAllowance || 0,
+        qtyClaim: qtyClaim,
+        billableQty: qtyClaim,
+        unitPrice: unitPrice,
+        amount: qtyClaim * unitPrice,
+        subtotal: qtyClaim * unitPrice,
+      };
+    }),
     qprSourceData: {
       parts: (dbCl.qpr?.qprParts || []).map((qp: any) => ({
         partName: qp.part?.partDesc || qp.part?.partNumber || "ALL TYPE PART FINISH",

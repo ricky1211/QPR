@@ -1283,7 +1283,7 @@ export default function ListQprDashboard({
                     </div>
                     <div className="flex divide-x divide-black">
                       <div className="w-[180px] p-2 font-bold bg-slate-50/50 shrink-0 font-sans">Instruction</div>
-                      <div className="flex-1 p-2 bg-white leading-relaxed font-sans pr-4">{selectedDoc.refObject?.memoInstruction || `Mohon diproses untuk pemotongan tagihan terhadap vendor PT JAYADI sebesar ${selectedDoc.claimAmount} atas denda kualitas reject part.`}</div>
+                      <div className="flex-1 p-2 bg-white leading-relaxed font-sans pr-4">{selectedDoc.refObject?.memoInstruction || `Mohon diproses untuk pemotongan tagihan terhadap vendor ${selectedDoc.supplierName || "terkait"} sebesar ${selectedDoc.claimAmount || selectedDoc.amount || "-"} atas denda kualitas reject part.`}</div>
                     </div>
                     
                     {/* Gold nested table matching ssc payment template preview */}

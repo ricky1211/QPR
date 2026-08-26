@@ -37,14 +37,6 @@ import UsersDirectory from "@/components/features/parts/UsersDirectory";
 
 
 // Mock Data
-import {
-  mockParts,
-  mockDeliveries,
-  mockNotifications,
-  mockPendingNcrs,
-  mockPendingQprs
-} from "@/utils/mockData";
-
 export default function Home({ initialTab = "" }: { initialTab?: string }) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState(initialTab || "dashboard");
@@ -148,6 +140,7 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
     vendorService.getAll()
       .then((vendorsList) => {
         if (Array.isArray(vendorsList)) {
+          setVendors(vendorsList);
           const mappedParts: any[] = [];
           vendorsList.forEach((v: any) => {
             if (v.vendorParts && Array.isArray(v.vendorParts)) {
@@ -296,6 +289,7 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
   // NOTE: pendingQprs and confirmationLetters are persisted to sessionStorage
   // so they survive Next.js route changes (each sub-route remounts <Home />).
   const [pendingNcrs, setPendingNcrs] = useState([]);
+  const [vendors, setVendors] = useState<any[]>([]);
   const [pendingQprs, setPendingQprs] = useState<any[]>([]);
   const [confirmationLetters, setConfirmationLetters] = useState<any[]>([]);
   const [createdSscBillings, setCreatedSscBillings] = useState<any[]>([]);
@@ -358,7 +352,8 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
       vendorId: qpr.supplierId,
       amount: parsedAmount,
       status: "PENDING",
-      qprNumber: qpr.qprNumber
+      qprNumber: qpr.qprNumber,
+      items: normalizedItems,
     };
 
     // Immediately add optimistic CL to local state so Approval CL screen
@@ -391,6 +386,10 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
       .then(() => {
         const updatedParts = normalizedItems.map(item => ({
           partId: item.partId || item.id,
+          totalQty: item.totalQty,
+          qtyNg: item.qtyNg,
+          stdAllowance: item.stdAllowance,
+          qtyClaim: item.billableQty,
           unitPrice: item.unitPrice,
           taxRate: 0.11
         }));
@@ -838,7 +837,7 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
   };
 
   const currentMonthKey = `${selectedYear}-${String(monthList.indexOf(selectedMonth) + 1).padStart(2, "0")}`;
-  const monthlyDeliveries = mockDeliveries[currentMonthKey] || [];
+  const monthlyDeliveries: any[] = [];
 
   const calendarDays = getDaysInMonth(selectedMonth, selectedYear);
   const weekdays = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"];
@@ -1021,9 +1020,11 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
             {activeTab === "approve-cl" && (username === "accounting" || username === "purchasing" || username === "finance" || username === "admin") && (
               <ApproveClDashboard
                 confirmationLetters={confirmationLetters}
+                setConfirmationLetters={setConfirmationLetters}
                 handleApproveCL={handleApproveCL}
                 handleMarkClosedPaid={handleMarkClosedPaid}
                 handleDebitNote={handleDebitNote}
+                handleUpdateCLPipeline={handleUpdateCLPipeline}
                 username={username}
               />
             )}

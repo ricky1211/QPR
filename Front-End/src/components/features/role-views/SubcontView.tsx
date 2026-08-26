@@ -41,11 +41,11 @@ export default function SubcontView({ pendingQprs = [], setPendingQprs }: Subcon
     if (selectedQprId === "static-30") {
       return {
         id: 30,
-        qprNumber: "QPR/2026/05/JAYADI",
+        qprNumber: "QPR/2026/05/TEMARU",
         ncrNumber: "NCR/2026/05/008",
-        supplierName: "PT JAYADI",
+        supplierName: "PT TEMARU ENGINEERING INDONESIA",
         period: "Mei 2026",
-        partName: "Motherboard X1",
+        partName: "PART MATERIAL NG",
         qtyNG: 15,
         amount: "Rp 12.500.000",
         status: "WAITING_VENDOR"
@@ -171,7 +171,7 @@ export default function SubcontView({ pendingQprs = [], setPendingQprs }: Subcon
                 {q.supplierName} ({q.qprNumber})
               </option>
             ))}
-            <option value="static-30">PT JAYADI (QPR/2026/05/JAYADI) [Demo]</option>
+            <option value="static-30">PT TEMARU ENGINEERING INDONESIA (QPR/2026/05/TEMARU)</option>
           </select>
         </div>
       </div>

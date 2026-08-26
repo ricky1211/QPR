@@ -8,30 +8,30 @@ export default function PurchasingView() {
   const [purchasingClaims, setPurchasingClaims] = useState([
     {
       id: 1,
-      qprNumber: "QPR/2026/04/JAYADI",
-      supplierName: "PT JAYADI",
+      qprNumber: "QPR/2026/04/TEMARU",
+      supplierName: "PT TEMARU ENGINEERING INDONESIA",
       date: "2026-04-10",
       period: "April 2026",
       amount: "Rp 18.200.000",
       vendorDecision: "Potong Tagihan (Deduction)",
-      fileUploaded: "Agreement_Letter_Deduction_Jayadi.pdf",
+      fileUploaded: "Agreement_Letter_Deduction_Temaru.pdf",
       status: "CLOSED_PAID"
     },
     {
       id: 2,
-      qprNumber: "QPR/2026/05/IKAN_BAKAR",
-      supplierName: "PT IKAN BAKAR",
+      qprNumber: "QPR/2026/05/PUTRA_HATIM",
+      supplierName: "PT PUTRA HATIM MANDIRI",
       date: "2026-05-15",
       period: "Mei 2026",
       amount: "Rp 24.000.000",
       vendorDecision: "Transfer Tunai (Cash)",
-      fileUploaded: "Bukti_Transfer_IkanBakar.pdf",
+      fileUploaded: "Bukti_Transfer_PutraHatim.pdf",
       status: "CLOSED_PAID"
     },
     {
       id: 3,
-      qprNumber: "QPR/2026/05/JAYADI",
-      supplierName: "PT JAYADI",
+      qprNumber: "QPR/2026/05/ADHI_CHANDRA",
+      supplierName: "PT. ADHI CHANDRA JAYA",
       date: "2026-05-20",
       period: "Mei 2026",
       amount: "Rp 12.500.000",

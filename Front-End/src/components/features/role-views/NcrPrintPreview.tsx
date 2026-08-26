@@ -126,7 +126,7 @@ export default function NcrPrintPreview({ ncr, onClose, inline = false }: NcrPre
         {/* To / CC Section */}
         <div className="grid grid-cols-2 border-b border-black text-[9px] font-bold text-left leading-normal font-sans">
           <div className="p-2 border-r border-black uppercase text-slate-700">
-            <span>TO : {ncr.supplierName || "SHIJIAZHUANG RUICHENG TRADE CO., LTD"}</span>
+            <span>TO : {ncr.supplierName || "VENDOR SUPPLIER"}</span>
           </div>
           <div className="p-2 text-slate-700">
             <span>CC : PURCHASE & PPIC PT. MTM</span>

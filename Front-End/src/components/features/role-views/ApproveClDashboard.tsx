@@ -24,17 +24,21 @@ import ConfirmationLetterPrintPreview from "./ConfirmationLetterPrintPreview";
 
 interface ApproveClDashboardProps {
   confirmationLetters: any[];
+  setConfirmationLetters?: React.Dispatch<React.SetStateAction<any[]>>;
   handleApproveCL: (clId: string, level: "sect" | "dept" | "div") => void;
   handleMarkClosedPaid?: (clId: string) => void;
   handleDebitNote?: (clId: string) => void;
+  handleUpdateCLPipeline?: (clId: string, data: any) => void;
   username?: string;
 }
 
 export default function ApproveClDashboard({ 
   confirmationLetters, 
+  setConfirmationLetters,
   handleApproveCL, 
   handleMarkClosedPaid, 
   handleDebitNote, 
+  handleUpdateCLPipeline,
   username = "admin" 
 }: ApproveClDashboardProps) {
   
@@ -61,6 +65,51 @@ export default function ApproveClDashboard({
   const [selectedCl, setSelectedCl] = useState<any>(null);
   const [previewCl, setPreviewCl] = useState<any>(null);
   const [showSuccessModal, setShowSuccessModal] = useState<any>(null);
+
+  // Upload modal state for Purchasing / Vendor flow
+  const [uploadModalCl, setUploadModalCl] = useState<any | null>(null);
+  const [uploadType, setUploadType] = useState<"send_to_vendor" | "vendor_approved">("send_to_vendor");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  const handlePurchasingSendCl = (cl: any, file?: File) => {
+    const payload: any = {
+      purchasingSentCl: true,
+      purchasingSentDate: new Date().toISOString().split("T")[0],
+      sentToVendor: true,
+    };
+    if (file) {
+      payload.signedClFileName = file.name;
+      payload.signedClFileUrl = URL.createObjectURL(file);
+    }
+    if (handleUpdateCLPipeline) {
+      handleUpdateCLPipeline(cl.id, payload);
+    } else if (setConfirmationLetters) {
+      setConfirmationLetters(prev => prev.map(c => c.id === cl.id ? { ...c, ...payload } : c));
+    }
+    setUploadModalCl(null);
+    setSelectedFile(null);
+    alert(`CL ${cl.clNumber} berhasil dikirim ke Vendor! Status kini beralih ke "4. WAITING VENDOR APPROVAL".`);
+  };
+
+  const handleVendorApproveCl = (cl: any, file?: File) => {
+    const payload: any = {
+      vendorApproved: true,
+      vendorApprovedDate: new Date().toISOString().split("T")[0],
+      readyForSSC: true,
+    };
+    if (file) {
+      payload.vendorApprovedDocName = file.name;
+      payload.vendorApprovedDocUrl = URL.createObjectURL(file);
+    }
+    if (handleUpdateCLPipeline) {
+      handleUpdateCLPipeline(cl.id, payload);
+    } else if (setConfirmationLetters) {
+      setConfirmationLetters(prev => prev.map(c => c.id === cl.id ? { ...c, ...payload } : c));
+    }
+    setUploadModalCl(null);
+    setSelectedFile(null);
+    alert(`CL ${cl.clNumber} berhasil disetujui Vendor! Dokumen diteruskan ke modul SSC Billing (I-Memo).`);
+  };
 
   // Calculate claim count for each vendor dynamically based on CLs
   const vendorClaimCounts = React.useMemo(() => {
@@ -311,14 +360,14 @@ export default function ApproveClDashboard({
       {/* Table Container */}
       <div className="bg-white border border-slate-150 rounded-xl shadow-sm overflow-hidden p-4">
         <div className="border border-slate-400 rounded-lg overflow-hidden">
-          <table className="w-full table-fixed text-left text-xs border-collapse min-w-[800px]">
+          <table className="w-full table-fixed text-left text-xs border-collapse min-w-[950px]">
             <thead>
               <tr className="bg-slate-100 border-b border-slate-400 text-slate-800 font-extrabold uppercase text-[10px] tracking-wider text-center">
-                <th className="px-2 py-3 border-r border-slate-400 w-[28%] text-center font-bold">No. Confirmation Letter</th>
-                <th className="px-2 py-3 border-r border-slate-400 w-[28%] text-center font-bold">Detail Vendor</th>
-                <th className="px-2 py-3 border-r border-slate-400 w-[14%] text-center font-bold">Tanggal Kirim</th>
-                <th className="px-2 py-3 border-r border-slate-400 w-[20%] text-center font-bold">Status Verifikasi</th>
-                <th className="px-2 py-3 w-[10%] text-center font-bold">Aksi</th>
+                <th className="px-2 py-3 border-r border-slate-400 w-[18%] text-center font-bold">No. Confirmation Letter</th>
+                <th className="px-2 py-3 border-r border-slate-400 w-[18%] text-center font-bold">Detail Vendor</th>
+                <th className="px-2 py-3 border-r border-slate-400 w-[10%] text-center font-bold">Tanggal Kirim</th>
+                <th className="px-2 py-3 border-r border-slate-400 w-[38%] text-center font-bold">Status Pipeline CL</th>
+                <th className="px-2 py-3 w-[16%] text-center font-bold">Aksi & Kontrol</th>
               </tr>
             </thead>
             <tbody>
@@ -331,7 +380,34 @@ export default function ApproveClDashboard({
                 </tr>
               ) : (
                 currentItems.map((cl) => {
-                  const statusText = `Menunggu Approval ${roleName}`;
+                  const isDeptApproved = !!(cl.clApprovalProgress?.deptAccounting || cl.status === "FULLY_APPROVED" || cl.status === "CLOSED_PAID");
+                  const isPurchasingSent = !!(cl.purchasingSentCl || cl.status === "CLOSED_PAID");
+                  const isVendorApproved = !!(cl.vendorApproved || cl.status === "CLOSED_PAID");
+                  const isClosedPaid = !!(cl.closedPaid || cl.status === "CLOSED_PAID");
+
+                  const stages = [
+                    {
+                      name: "1. WAITING DEPT ACCOUNTING",
+                      status: isDeptApproved ? "APPROVED" : "PENDING"
+                    },
+                    {
+                      name: "2. DEPT ACCOUNTING APPROVE",
+                      status: isDeptApproved ? "APPROVED" : "UPCOMING"
+                    },
+                    {
+                      name: "3. PURCHASING SEND CL",
+                      status: isPurchasingSent ? "APPROVED" : (isDeptApproved ? "PENDING" : "UPCOMING")
+                    },
+                    {
+                      name: "4. WAITING VENDOR APPROVAL",
+                      status: isVendorApproved ? "APPROVED" : (isPurchasingSent ? "PENDING" : "UPCOMING")
+                    },
+                    {
+                      name: "5. VENDOR APPROVED",
+                      status: isVendorApproved ? "APPROVED" : "UPCOMING"
+                    }
+                  ];
+
                   return (
                     <tr key={cl.id} className="border-b border-slate-400 hover:bg-slate-50/40 transition-colors text-center font-bold">
                       {/* No. Confirmation Letter */}
@@ -368,23 +444,100 @@ export default function ApproveClDashboard({
                         {cl.dateSent}
                       </td>
 
-                      {/* Status Verifikasi */}
+                      {/* Status Pipeline CL (5 Tahap) */}
                       <td className="px-2 py-3 border-r border-slate-400 text-center">
-                        <div className="flex items-center justify-center gap-1.5 text-blue-600 text-[10px] font-bold leading-tight">
-                          <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
-                          <span>{statusText}</span>
+                        <div className="flex items-center gap-1 justify-center py-1 whitespace-nowrap flex-wrap">
+                          {stages.map((stage, i, arr) => (
+                            <React.Fragment key={i}>
+                              <span
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[8.5px] font-extrabold transition-all border shrink-0 ${
+                                  stage.status === "APPROVED"
+                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                    : stage.status === "PENDING"
+                                    ? "bg-amber-50 text-amber-700 border-amber-300 ring-1 ring-amber-100 animate-pulse"
+                                    : "bg-slate-50 text-slate-400 border-slate-200 opacity-60"
+                                }`}
+                              >
+                                {stage.status === "APPROVED" && <CheckCircle2 size={9} className="text-emerald-600 shrink-0" />}
+                                {stage.status === "PENDING" && <Clock size={9} className="text-amber-500 shrink-0" />}
+                                {stage.name}
+                              </span>
+                              {i < arr.length - 1 && (
+                                <span className="text-slate-300 text-xs font-black select-none">:</span>
+                              )}
+                            </React.Fragment>
+                          ))}
                         </div>
                       </td>
 
-                      {/* Aksi Button */}
+                      {/* Aksi & Kontrol */}
                       <td className="px-2 py-3 text-center">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedCl(cl)}
-                          className="w-full py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-black transition-all cursor-pointer active:scale-95 shadow-sm shadow-blue-500/5 text-center"
-                        >
-                          Review
-                        </button>
+                        <div className="flex flex-col gap-1.5 items-center justify-center">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedCl(cl)}
+                            className="w-full py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-[10.5px] font-black transition-all cursor-pointer active:scale-95 shadow-sm text-center"
+                          >
+                            Review
+                          </button>
+
+                          {/* Purchasing Controls */}
+                          {(username === "purchasing" || username === "admin") && isDeptApproved && !isPurchasingSent && (
+                            <div className="flex items-center gap-1 w-full">
+                              <button
+                                type="button"
+                                onClick={() => handlePurchasingSendCl(cl)}
+                                className="flex-1 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-[8.5px] font-extrabold uppercase shadow-sm cursor-pointer transition-all active:scale-95"
+                                title="Kirim CL ke Vendor"
+                              >
+                                Kirim ke Vendor
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setUploadModalCl(cl);
+                                  setUploadType("send_to_vendor");
+                                  setSelectedFile(null);
+                                }}
+                                className="px-1.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded text-[8.5px] font-extrabold uppercase shadow-sm cursor-pointer transition-all active:scale-95"
+                                title="Upload File Dokumen CL Signed"
+                              >
+                                Upload
+                              </button>
+                            </div>
+                          )}
+
+                          {(username === "purchasing" || username === "admin") && isPurchasingSent && !isVendorApproved && (
+                            <div className="flex items-center gap-1 w-full">
+                              <button
+                                type="button"
+                                onClick={() => handleVendorApproveCl(cl)}
+                                className="flex-1 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[8.5px] font-extrabold uppercase shadow-sm cursor-pointer transition-all active:scale-95"
+                                title="Vendor Menyetujui CL"
+                              >
+                                Vendor Approve
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setUploadModalCl(cl);
+                                  setUploadType("vendor_approved");
+                                  setSelectedFile(null);
+                                }}
+                                className="px-1.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded text-[8.5px] font-extrabold uppercase shadow-sm cursor-pointer transition-all active:scale-95"
+                                title="Upload Bukti Persetujuan Vendor"
+                              >
+                                Upload
+                              </button>
+                            </div>
+                          )}
+
+                          {isVendorApproved && !isClosedPaid && (
+                            <span className="w-full text-center text-[8.5px] font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 py-0.5 rounded">
+                              ✓ Siap ke SSC Billing
+                            </span>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -718,6 +871,107 @@ export default function ApproveClDashboard({
           cl={previewCl}
           onClose={() => setPreviewCl(null)}
         />
+      )}
+
+      {/* Modal Upload File CL / Bukti Kirim Vendor */}
+      {uploadModalCl && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-[2px] z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl w-full max-w-md shadow-2xl p-6 border border-slate-150 text-left space-y-4">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <div>
+                <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider block">
+                  {uploadType === "send_to_vendor" ? "Purchasing: Kirim Dokumen CL ke Vendor" : "Purchasing: Upload Persetujuan Vendor"}
+                </span>
+                <h4 className="text-sm font-extrabold text-slate-900 mt-0.5">{uploadModalCl.clNumber}</h4>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setUploadModalCl(null);
+                  setSelectedFile(null);
+                }}
+                className="p-1.5 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-700 cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-600 space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Vendor:</span>
+                  <span className="font-bold text-slate-800">{uploadModalCl.supplierName}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Total Claim:</span>
+                  <span className="font-bold text-blue-600">{uploadModalCl.amount}</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  {uploadType === "send_to_vendor" ? "Upload Dokumen Confirmation Letter (Signed PDF):" : "Upload Bukti Konfirmasi Vendor (PDF / Gambar):"}
+                </label>
+                <div className="border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-lg p-5 text-center bg-slate-50 hover:bg-blue-50/30 transition-all cursor-pointer relative">
+                  <input
+                    type="file"
+                    accept="application/pdf,image/*"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files.length > 0) {
+                        setSelectedFile(e.target.files[0]);
+                      }
+                    }}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  />
+                  {selectedFile ? (
+                    <div className="flex items-center justify-center gap-2 text-emerald-600 font-bold text-xs">
+                      <FileText size={16} />
+                      <span className="truncate max-w-[200px]">{selectedFile.name}</span>
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      <Download size={20} className="mx-auto text-slate-400" />
+                      <p className="text-xs font-bold text-slate-600">Klik atau Drag & Drop file di sini</p>
+                      <p className="text-[10px] text-slate-400 font-semibold">Format: PDF, PNG, JPG (Maks. 10MB)</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-[10.5px] font-semibold text-amber-800 leading-relaxed">
+                {uploadType === "send_to_vendor" 
+                  ? "Mengunggah file dan mengirim CL akan mengubah status dokumen menjadi '4. WAITING VENDOR APPROVAL'."
+                  : "Mengunggah bukti persetujuan vendor akan mengubah status menjadi '5. VENDOR APPROVED' dan otomatis meneruskan data ke antrean SSC Billing."}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => {
+                  setUploadModalCl(null);
+                  setSelectedFile(null);
+                }}
+                className="px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-lg text-xs font-bold transition-all cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (uploadType === "send_to_vendor") {
+                    handlePurchasingSendCl(uploadModalCl, selectedFile || undefined);
+                  } else {
+                    handleVendorApproveCl(uploadModalCl, selectedFile || undefined);
+                  }
+                }}
+                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-all shadow-md cursor-pointer"
+              >
+                {uploadType === "send_to_vendor" ? "Kirim CL ke Vendor" : "Simpan Persetujuan Vendor"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>

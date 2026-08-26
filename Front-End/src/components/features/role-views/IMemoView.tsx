@@ -471,11 +471,9 @@ export default function IMemoView({
   };
 
   const getClaimText = (cl: any) => {
-    const name = cl?.supplierName?.toUpperCase() || "";
-    if (name.includes("JAYADI")) return "CLAIM PART NG CONE RACE ALL TYPE";
-    if (name.includes("IKAN BAKAR")) return "CLAIM PART NG HARDDISK 1TB";
-    if (name.includes("RUICHENG")) return "CLAIM PART NG CONE RACE ALL TYPE";
-    return "CLAIM PART NG";
+    const partName = cl?.items?.[0]?.partName || cl?.partName;
+    if (partName) return `CLAIM PART NG ${partName.toUpperCase()}`;
+    return "CLAIM PART MATERIAL NG";
   };
 
   const formatSscDate = (dateStr: string) => {
@@ -734,26 +732,27 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
         setSelectedClId(newId);
         alert(`File PDF berhasil di-upload dan diproses! Mendeteksi vendor: ${parsed.supplierName || "Unknown"}`);
       }).catch((err) => {
-        console.error("Failed to parse PDF, running template fallback: ", err);
-        const lowerName = file.name.toLowerCase();
-        const isIkanBakar = lowerName.includes("ikan") || lowerName.includes("bakar") || lowerName.includes("cl12") || lowerName.includes("cl11") || lowerName.includes("denda");
-        const isJayadi = lowerName.includes("jayadi");
-        if (isIkanBakar) {
-          const rowId = `cl-auto-ikanbakar-${Date.now()}-${randSuffix}`;
-          const row = { id: rowId, clNumber: "CL/2026/06/001", qprNumber: "QPR/2026/05/IKAN_BAKAR", supplierName: "PT IKAN BAKAR", dateSent: "2026-06-18", amount: "Rp 24.000.000", status: "PENDING", memoStatus: "DRAFT_MEMO", reminderSentCount: 0, customText: "POTONG TAGIH CLAIM PART NG", paymentDate: "10/08/2026", customerCode: "OTC08002", documentNo: "202606001", items: [{ no: 1, partName: "Harddisk 1TB", totalQty: 2000, qtyNG: 20, ngActual: 1.0, stdAllowance: 10, qtyClaim: 20, qty: 20, claimCost: 1081081, unitPrice: 1081081, amount: 21621620, subtotal: 21621620 }] };
-          setSscFiles(prev => [...prev, { file, rowId }]);
-          setSscBillingRows(prev => [...prev, row]); setSelectedClId(rowId); alert(`File PDF berhasil di-upload: ${file.name}. Mendeteksi vendor PT IKAN BAKAR.`);
-        } else if (isJayadi) {
-          const rowId = `cl-auto-jayadi-${Date.now()}-${randSuffix}`;
-          const row = { id: rowId, clNumber: "CL/2026/07/001", qprNumber: "QPR/2026/06/JAYADI_1", supplierName: "PT JAYADI", dateSent: new Date().toISOString().split("T")[0], amount: "Rp 18.200.000", status: "PENDING", memoStatus: "DRAFT_MEMO", reminderSentCount: 0, customText: "POTONG TAGIH CLAIM PT JAYADI", paymentDate: "10/10/2026", customerCode: "OTC08002", documentNo: "202512006", items: [{ no: 1, partName: "Motherboard X1", totalQty: 1000, qtyNG: 10, ngActual: 1.0, stdAllowance: 5, qtyClaim: 10, qty: 10, claimCost: 1500000, unitPrice: 1500000, amount: 15000000, subtotal: 15000000 }] };
-          setSscFiles(prev => [...prev, { file, rowId: rowId }]);
-          setSscBillingRows(prev => [...prev, row]); setSelectedClId(rowId); alert(`File PDF berhasil di-upload: ${file.name}. Mendeteksi vendor PT JAYADI.`);
-        } else {
-          const rowId = `cl-auto-anugerah-${Date.now()}-${randSuffix}`;
-          const row = { id: rowId, clNumber: "CL/2025/12/006", qprNumber: "004/QI/QPR/SUB/11/25, 009/QI/QPR/SUB/11/25, 014/QI/QPR/SUB/11/25", supplierName: "Anugerah Daya Industri Komponen Utama, PT.", dateSent: "2025-12-02", amount: "Rp 1.144.283", status: "PENDING", memoStatus: "DRAFT_MEMO", reminderSentCount: 0, customText: "POTONG TAGIH CLAIM HUB CLUTCH", paymentDate: "10/02/2026", customerCode: "OTC08002", documentNo: "202512006", items: [{ no: 1, partName: "HUB CLUTCH, IMV 683N", totalQty: 1000, qtyNG: 14, ngActual: 1.4, stdAllowance: 5, qtyClaim: 14, qty: 14, claimCost: 49516, unitPrice: 49516, amount: 693224, subtotal: 693224 }, { no: 2, partName: "HUB CLUTCH, RZN", totalQty: 500, qtyNG: 6, ngActual: 1.2, stdAllowance: 5, qtyClaim: 6, qty: 6, claimCost: 56277, unitPrice: 56277, amount: 337662, subtotal: 337662 }] };
-          setSscFiles(prev => [...prev, { file, rowId }]);
-          setSscBillingRows(prev => [...prev, row]); setSelectedClId(rowId); alert(`File PDF berhasil di-upload: ${file.name}. Mendeteksi vendor Anugerah Daya Industri Komponen Utama, PT.`);
-        }
+        const rowId = `cl-auto-${Date.now()}-${randSuffix}`;
+        const row = {
+          id: rowId,
+          clNumber: `CL/2026/06/${Math.floor(Math.random() * 900 + 100)}`,
+          qprNumber: `QPR/2026/06/${Math.floor(Math.random() * 900 + 100)}`,
+          supplierName: "PT TEMARU ENGINEERING INDONESIA",
+          dateSent: new Date().toISOString().split("T")[0],
+          amount: "Rp 18.200.000",
+          status: "PENDING",
+          memoStatus: "DRAFT_MEMO",
+          reminderSentCount: 0,
+          customText: "POTONG TAGIH CLAIM PART NG",
+          paymentDate: "10/08/2026",
+          customerCode: "OTC08002",
+          documentNo: "202606001",
+          items: [{ no: 1, partName: "PART MATERIAL NG", totalQty: 1000, qtyNG: 10, ngActual: 1.0, stdAllowance: 5, qtyClaim: 5, qty: 5, claimCost: 1500000, unitPrice: 1500000, amount: 7500000, subtotal: 7500000 }]
+        };
+        setSscFiles(prev => [...prev, { file, rowId }]);
+        setSscBillingRows(prev => [...prev, row]);
+        setSelectedClId(rowId);
+        alert(`File PDF berhasil di-upload: ${file.name}.`);
       });
     }
   };
@@ -2425,21 +2424,9 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
         const viewCl = viewPartsCl;
         let partItems: any[] = viewCl.items || [];
         if (partItems.length === 0) {
-          if (viewCl.supplierName?.includes("JAYADI")) {
-            partItems = [
-              { no: 1, partName: "Motherboard X1", totalQty: 1000, qtyNG: 10, ngActual: 1.0, stdAllowance: 5, qtyClaim: 5 },
-              { no: 2, partName: "Gelas Kaca", totalQty: 500, qtyNG: 3, ngActual: 0.6, stdAllowance: 3, qtyClaim: 0 }
-            ];
-          } else if (viewCl.supplierName?.includes("IKAN BAKAR")) {
-            partItems = [
-              { no: 1, partName: "Harddisk 1TB", totalQty: 2000, qtyNG: 20, ngActual: 1.0, stdAllowance: 10, qtyClaim: 10 },
-              { no: 2, partName: "CPU Fan Cooler", totalQty: 800, qtyNG: 4, ngActual: 0.5, stdAllowance: 4, qtyClaim: 0 }
-            ];
-          } else {
-            partItems = [
-              { no: 1, partName: "CONE RACE ALL TYPE", totalQty: 3000, qtyNG: 15, ngActual: 0.5, stdAllowance: 15, qtyClaim: 0 }
-            ];
-          }
+          partItems = [
+            { no: 1, partName: viewCl.partName || "PART MATERIAL NG", totalQty: viewCl.totalQty || 1000, qtyNG: viewCl.qtyNG || 10, ngActual: 1.0, stdAllowance: 5, qtyClaim: viewCl.qtyClaim || 5 }
+          ];
         }
 
         return (

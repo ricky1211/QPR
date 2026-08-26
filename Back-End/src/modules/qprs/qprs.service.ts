@@ -80,28 +80,41 @@ export class QprsService {
       qprParts,
     } = data;
 
-    // Create main QPR first
+    // Filter only valid parts that have non-empty partId
+    const validParts = qprParts && Array.isArray(qprParts)
+      ? qprParts.filter((p: any) => p && p.partId && String(p.partId).trim() !== "")
+      : [];
+
+    // Ensure unique qprNumber if a duplicate exists
+    let finalQprNumber = qprNumber || `QPR/${new Date().getFullYear()}/${Date.now()}`;
+    const existing = await this.prisma.qpr.findUnique({
+      where: { qprNumber: finalQprNumber },
+    });
+    if (existing) {
+      finalQprNumber = `${finalQprNumber}-${Math.floor(Math.random() * 900 + 100)}`;
+    }
+
     return await this.prisma.qpr.create({
       data: {
-        qprNumber,
+        qprNumber: finalQprNumber,
         date: date ? new Date(date) : new Date(),
         vendorId,
-        userId,
+        userId: userId || undefined,
         status: status || QprStatus.WAITING_APPROVAL,
-        requiredRole,
+        requiredRole: requiredRole || 'Section Head',
         refNcrNumber,
         problem,
         claimType,
-        totalQty,
-        totalQtyNg,
-        totalStdAllowance,
-        billableQty,
-        claimAmount,
+        totalQty: totalQty || 0,
+        totalQtyNg: totalQtyNg || 0,
+        totalStdAllowance: totalStdAllowance || 0,
+        billableQty: billableQty || 0,
+        claimAmount: claimAmount || 0,
         pdfFileName,
         pdfFileBase64,
-        qprParts: qprParts && Array.isArray(qprParts) ? {
-          create: qprParts.map((part: any) => ({
-            partId: part.partId,
+        qprParts: validParts.length > 0 ? {
+          create: validParts.map((part: any) => ({
+            partId: String(part.partId),
             totalQty: part.totalQty || 0,
             qtyNg: part.qtyNg || 0,
             stdAllowance: part.stdAllowance || 0,
@@ -228,7 +241,15 @@ export class QprsService {
       return await this.prisma.confirmationLetter.findMany({
         include: {
           vendor: true,
-          qpr: true,
+          qpr: {
+            include: {
+              qprParts: {
+                include: {
+                  part: true,
+                },
+              },
+            },
+          },
           sscBilling: true,
           sscPayment: true,
         },
@@ -240,11 +261,12 @@ export class QprsService {
   }
 
   async createConfirmationLetter(data: any): Promise<any> {
-    const { clNumber, dateSent, qprId, vendorId, amount, status } = data;
+    const { clNumber, dateSent, qprId, vendorId, amount, status, items } = data;
 
     // Check if the referenced Qpr exists in the database
     let qprExists = await this.prisma.qpr.findUnique({
       where: { id: qprId },
+      include: { qprParts: true },
     });
 
     if (!qprExists) {
@@ -269,7 +291,64 @@ export class QprsService {
           status: 'CLOSED',
           requiredRole: 'Closed',
         },
+        include: { qprParts: true },
       });
+    }
+
+    // Save/update items to qprParts if provided
+    if (items && Array.isArray(items)) {
+      for (const item of items) {
+        let targetPartId = item.partId;
+        if (!targetPartId && item.partName) {
+          const matchedPart = await this.prisma.part.findFirst({
+            where: {
+              OR: [
+                { partDesc: item.partName },
+                { partNumber: item.partName },
+                { partNumber: item.partNumber || "" }
+              ]
+            }
+          });
+          if (matchedPart) targetPartId = matchedPart.id;
+        }
+
+        if (!targetPartId) {
+          const fallbackPart = await this.prisma.part.findFirst();
+          targetPartId = fallbackPart?.id;
+        }
+
+        if (targetPartId) {
+          const existingQprPart = await this.prisma.qprPart.findFirst({
+            where: { qprId: qprExists.id, partId: targetPartId },
+          });
+
+          if (existingQprPart) {
+            await this.prisma.qprPart.update({
+              where: { id: existingQprPart.id },
+              data: {
+                unitPrice: typeof item.unitPrice === 'number' ? item.unitPrice : parseFloat(item.unitPrice) || 0,
+                totalQty: item.totalQty !== undefined ? item.totalQty : undefined,
+                qtyNg: item.qtyNg !== undefined ? item.qtyNg : (item.rejectCount !== undefined ? item.rejectCount : undefined),
+                stdAllowance: item.stdAllowance !== undefined ? item.stdAllowance : undefined,
+                qtyClaim: item.billableQty !== undefined ? item.billableQty : (item.qtyClaim !== undefined ? item.qtyClaim : undefined),
+              },
+            });
+          } else {
+            await this.prisma.qprPart.create({
+              data: {
+                qprId: qprExists.id,
+                partId: targetPartId,
+                totalQty: item.totalQty || 1000,
+                qtyNg: item.qtyNg || item.rejectCount || 0,
+                stdAllowance: item.stdAllowance || 0,
+                qtyClaim: item.billableQty || item.qtyClaim || 0,
+                unitPrice: typeof item.unitPrice === 'number' ? item.unitPrice : parseFloat(item.unitPrice) || 0,
+                taxRate: 0.11,
+              },
+            });
+          }
+        }
+      }
     }
 
     const parsedAmount = typeof amount === 'number' ? amount : parseFloat(String(amount || '0').replace(/Rp/g, '').replace(/\s/g, '').replace(/\./g, '').replace(/,/g, '.')) || 0;
@@ -286,6 +365,18 @@ export class QprsService {
         },
         amount: parsedAmount,
         status: status || 'PENDING',
+      },
+      include: {
+        vendor: true,
+        qpr: {
+          include: {
+            qprParts: {
+              include: {
+                part: true,
+              },
+            },
+          },
+        },
       },
     });
   }

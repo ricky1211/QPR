@@ -30,70 +30,11 @@ interface LeadTimeTrackerProps {
 }
 
 export default function LeadTimeTracker({ pendingQprs = [], confirmationLetters = [] }: LeadTimeTrackerProps) {
-  const [selectedDocId, setSelectedDocId] = useState<string>("hist-1");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL"); // ALL, ACTIVE, CLOSED_PAID
 
   // Today reference matching Dashboard.tsx
   const today = new Date("2026-07-10");
-
-  // Historical Closed Paid Documents
-  const historicalDocs = [
-    {
-      id: "hist-1",
-      docNumber: "QPR/2026/04/JAYADI",
-      supplierName: "PT JAYADI",
-      dateCreated: "2026-04-10",
-      dateClosed: "2026-04-22",
-      claimAmount: "Rp 18.200.000",
-      status: "CLOSED_PAID",
-      requiredRole: "Closed",
-      period: "April 2026",
-      stages: {
-        draft: { days: 1, status: "APPROVED", date: "2026-04-11" },
-        approvals: { days: 4, status: "APPROVED", date: "2026-04-15" },
-        cl: { days: 2, status: "APPROVED", date: "2026-04-17" },
-        vendor: { days: 3, status: "APPROVED", date: "2026-04-20" },
-        closePaid: { days: 2, status: "APPROVED", date: "2026-04-22" }
-      }
-    },
-    {
-      id: "hist-2",
-      docNumber: "QPR/2026/05/IKAN_BAKAR",
-      supplierName: "PT IKAN BAKAR",
-      dateCreated: "2026-05-15",
-      dateClosed: "2026-05-26",
-      claimAmount: "Rp 24.000.000",
-      status: "CLOSED_PAID",
-      requiredRole: "Closed",
-      period: "Mei 2026",
-      stages: {
-        draft: { days: 1, status: "APPROVED", date: "2026-05-16" },
-        approvals: { days: 3, status: "APPROVED", date: "2026-05-19" },
-        cl: { days: 2, status: "APPROVED", date: "2026-05-21" },
-        vendor: { days: 4, status: "APPROVED", date: "2026-05-25" },
-        closePaid: { days: 1, status: "APPROVED", date: "2026-05-26" }
-      }
-    },
-    {
-      id: "hist-3",
-      docNumber: "QPR/2026/03/RUICHENG",
-      supplierName: "SHIJIAZHUANG RUICHENG TRADE CO., LTD",
-      dateCreated: "2026-03-05",
-      dateClosed: "2026-03-19",
-      claimAmount: "Rp 32.000.000",
-      status: "CLOSED_PAID",
-      requiredRole: "Closed",
-      period: "Maret 2026",
-      stages: {
-        draft: { days: 2, status: "APPROVED", date: "2026-03-07" },
-        approvals: { days: 5, status: "APPROVED", date: "2026-03-12" },
-        cl: { days: 3, status: "APPROVED", date: "2026-03-15" },
-        vendor: { days: 3, status: "APPROVED", date: "2026-03-18" },
-        closePaid: { days: 1, status: "APPROVED", date: "2026-03-19" }
-      }
-    }
-  ];
 
   // Dynamically calculate stages for active QPRs
   const activeDocs = pendingQprs.map(qpr => {
@@ -131,13 +72,22 @@ export default function LeadTimeTracker({ pendingQprs = [], confirmationLetters 
     let closePaidStatus: "APPROVED" | "PENDING" | "UPCOMING" = "UPCOMING";
 
     // Sub-stage breakdown logic
-    if (currentIdx < 3) {
+    if (isClosed) {
+      approvalsDays = 4;
+      approvalsStatus = "APPROVED";
+      clDays = 3;
+      clStatus = "APPROVED";
+      vendorDays = 4;
+      vendorStatus = "APPROVED";
+      closePaidDays = Math.max(1, totalDaysElapsed - draftDays - approvalsDays - clDays - vendorDays);
+      closePaidStatus = "APPROVED";
+    } else if (currentIdx < 3) {
       // Still in internal approvals (Section Head, Dept Head, Div Head)
       approvalsDays = Math.max(1, totalDaysElapsed - draftDays);
       approvalsStatus = "PENDING";
     } else if (currentIdx === 3) {
       // In Purchasing Acknowledge / CL creation
-      approvalsDays = 4; // Mock internal approvals took 4 days
+      approvalsDays = 4;
       approvalsStatus = "APPROVED";
       
       clDays = Math.max(1, totalDaysElapsed - draftDays - approvalsDays);
@@ -186,8 +136,15 @@ export default function LeadTimeTracker({ pendingQprs = [], confirmationLetters 
     };
   });
 
-  // Combine lists
-  const allDocs = [...activeDocs, ...historicalDocs];
+  // Active documents from DB
+  const allDocs = activeDocs;
+  const [selectedDocId, setSelectedDocId] = useState<string>("");
+
+  React.useEffect(() => {
+    if (allDocs.length > 0 && (!selectedDocId || !allDocs.some(d => d.id === selectedDocId))) {
+      setSelectedDocId(allDocs[0].id);
+    }
+  }, [allDocs, selectedDocId]);
 
   // Apply filters
   const filteredDocs = allDocs.filter(doc => {

@@ -16,6 +16,7 @@ import {
   Plus
 } from "lucide-react";
 import ConfirmationLetterPrintPreview from "./ConfirmationLetterPrintPreview";
+import { vendorService } from "@/services/vendorService";
 
 interface AccountingViewProps {
   confirmationLetters: any[];
@@ -50,6 +51,19 @@ export default function AccountingView({
   const [previewReminderCl, setPreviewReminderCl] = useState<any | null>(null);
   const [justGeneratedCl, setJustGeneratedCl] = useState<any | null>(null);
   const [previewClDoc, setPreviewClDoc] = useState<any | null>(null);
+  const [qprSearchTerm, setQprSearchTerm] = useState("");
+  const [dbVendors, setDbVendors] = useState<any[]>([]);
+
+  // Fetch real database vendors
+  React.useEffect(() => {
+    vendorService.getAll()
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setDbVendors(data);
+        }
+      })
+      .catch((err) => console.error("Failed to load vendors:", err));
+  }, []);
 
   const handleUpdateManualQpr = (field: string, value: any) => {
     setSelectedQpr((prev: any) => {
@@ -61,7 +75,7 @@ export default function AccountingView({
     });
   };
 
-  // List of QPRs ready for accounting action, dynamically compiled from pendingQprs
+  // List of QPRs ready for confirmation letter (Full Approved)
   const accountingQueue = React.useMemo(() => {
     const existingQprNumbers = new Set(
       confirmationLetters
@@ -70,42 +84,88 @@ export default function AccountingView({
     );
 
     const qprs = pendingQprs ? pendingQprs.filter((q: any) => 
-      (q.status === "APPROVED_INTERNAL" || q.status === "WAITING_VENDOR" || q.status === "APPROVED_BY_VENDOR" || q.requiredRole === "Purchasing" || q.requiredRole === "Vendor" || q.requiredRole === "Accounting") && 
-      q.status !== "CLOSED" && 
-      q.requiredRole !== "Closed" &&
+      (q.status === "APPROVED" || q.status === "APPROVED_BY_VENDOR" || q.status === "APPROVED_INTERNAL" || q.requiredRole === "Purchasing" || q.requiredRole === "Vendor" || q.requiredRole === "Accounting" || q.requiredRole === "Closed") && 
+      q.status !== "CLOSED_PAID" &&
       !existingQprNumbers.has(q.qprNumber)
     ) : [];
     
-    const list = qprs.map((q: any) => ({
+    return qprs.map((q: any) => ({
       id: q.id,
       qprNumber: q.qprNumber,
       supplierName: q.supplierName,
       supplierId: q.supplierId,
-      partName: q.partName || "Part Material NG",
-      rejectCount: q.rejectItems || 30,
-      totalQty: q.totalItems || 1000,
-      allowanceRatio: parseFloat(q.allowanceRatio?.replace("%", "") || "0.5"),
+      partName: q.partName || (q.parts && q.parts[0]?.partName) || "Part Material NG",
+      rejectCount: q.rejectItems || (q.parts ? q.parts.reduce((acc: number, p: any) => acc + (p.qtyNG || p.qtyNg || 0), 0) : 30),
+      totalQty: q.totalItems || (q.parts ? q.parts.reduce((acc: number, p: any) => acc + (p.totalQty || 0), 0) : 1000),
+      allowanceRatio: parseFloat(String(q.allowanceRatio || "0.5").replace("%", "")) || 0.5,
       period: q.period,
-      status: q.status
+      status: q.status,
+      parts: q.parts || [],
+      refNcrNumber: q.refNcrNumber,
+      problem: q.problem
     }));
-
-    return list;
   }, [pendingQprs, confirmationLetters]);
+
+  const filteredQueue = React.useMemo(() => {
+    if (!qprSearchTerm.trim()) return accountingQueue;
+    const term = qprSearchTerm.toLowerCase();
+    return accountingQueue.filter(q => 
+      q.qprNumber.toLowerCase().includes(term) ||
+      q.supplierName.toLowerCase().includes(term) ||
+      (q.partName && q.partName.toLowerCase().includes(term))
+    );
+  }, [accountingQueue, qprSearchTerm]);
 
   const [clItems, setClItems] = useState<any[]>([]);
 
+  // Auto-detect part items when a QPR is selected
   React.useEffect(() => {
     if (selectedQpr) {
-      setClItems([
-        {
-          id: `item-${Date.now()}`,
-          partName: selectedQpr.partName || "Motherboard X1",
-          totalQty: selectedQpr.totalQty || 1000,
-          rejectCount: selectedQpr.rejectCount || 30,
-          allowanceRatio: selectedQpr.allowanceRatio || 0.5,
-          unitPrice: "250000"
-        }
-      ]);
+      if (selectedQpr.parts && Array.isArray(selectedQpr.parts) && selectedQpr.parts.length > 0) {
+        setClItems(
+          selectedQpr.parts.map((p: any, idx: number) => {
+            const totalQty = p.totalQty || selectedQpr.totalQty || 1000;
+            const rejectCount = p.qtyNG !== undefined ? p.qtyNG : (p.qtyNg !== undefined ? p.qtyNg : (p.rejectCount || 0));
+            const allowanceRatio = p.allowanceRatio !== undefined ? p.allowanceRatio : (selectedQpr.allowanceRatio || 0.5);
+            const stdAllowance = p.stdAllowance !== undefined ? p.stdAllowance : Math.round(totalQty * (allowanceRatio / 100));
+            const billableQty = p.qtyClaim !== undefined ? p.qtyClaim : Math.max(0, rejectCount - stdAllowance);
+            const unitPrice = p.unitPrice ? String(p.unitPrice) : "250000";
+
+            return {
+              id: `item-${idx}-${Date.now()}`,
+              partId: p.partId || p.id,
+              partName: p.partName || p.partNumber || `Part NG #${idx + 1}`,
+              partNumber: p.partNumber || "",
+              totalQty,
+              rejectCount,
+              allowanceRatio,
+              stdAllowance,
+              billableQty,
+              unitPrice
+            };
+          })
+        );
+      } else {
+        const totalQty = selectedQpr.totalQty || 1000;
+        const rejectCount = selectedQpr.rejectCount || 30;
+        const allowanceRatio = selectedQpr.allowanceRatio || 0.5;
+        const stdAllowance = Math.round(totalQty * (allowanceRatio / 100));
+        const billableQty = Math.max(0, rejectCount - stdAllowance);
+
+        setClItems([
+          {
+            id: `item-${Date.now()}`,
+            partName: selectedQpr.partName || "Part Material NG",
+            partNumber: selectedQpr.partNumber || "",
+            totalQty,
+            rejectCount,
+            allowanceRatio,
+            stdAllowance,
+            billableQty,
+            unitPrice: "250000"
+          }
+        ]);
+      }
     } else {
       setClItems([]);
     }
@@ -140,7 +200,10 @@ export default function AccountingView({
         ...item,
         stdAllowance,
         billableQty,
-        subtotal
+        qtyClaim: billableQty,
+        qtyNg: rejectCount,
+        subtotal,
+        amount: subtotal
       };
     });
 
@@ -212,385 +275,398 @@ export default function AccountingView({
       
       {/* Page Title */}
       <div className="pl-1">
-        <h4 className="text-lg font-black text-slate-800">Eksekusi Finansial QPR & Penutupan Kasus</h4>
+        <h4 className="text-lg font-black text-slate-800">Buat Confirmation Letter (CL) &amp; Eksekusi Finansial</h4>
+        <p className="text-xs text-slate-400 font-semibold mt-1">
+          Auto-deteksi part dan kuantitas claim dari QPR Full-Approved, atur harga satuan komersial, dan terbitkan Confirmation Letter.
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* TOP SECTION: DIVIDED INTO 2 BALANCED COLUMNS */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
-        {/* Left: Queue List */}
-        <div className="lg:col-span-1 bg-white border border-slate-100 rounded-lg shadow-sm overflow-hidden flex flex-col">
-          <div className="p-4 border-b border-slate-100 bg-slate-50/30">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Antrean Pembuatan CL (Purchasing)</span>
-            <h4 className="text-xs font-bold text-slate-800 mt-1">Klaim QPR Siap di-CL</h4>
+        {/* COLUMN 1 (KIRI): Sumber QPR & Seleksi Dokumen */}
+        <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
+          <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+            <div>
+              <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest block">Langkah 1</span>
+              <h4 className="text-xs font-black text-slate-800 mt-0.5">Pilih QPR Sumber Klaim (Full Approved)</h4>
+            </div>
+            <button
+              onClick={() => {
+                const defaultVendor = dbVendors.length > 0 ? dbVendors[0] : null;
+                setSelectedQpr({
+                  id: `manual-${Date.now()}`,
+                  qprNumber: `QPR/2026/06/MANUAL-${Math.floor(Math.random() * 900 + 100)}`,
+                  supplierName: defaultVendor?.vendorName || "PT. ADHI CHANDRA JAYA",
+                  supplierId: defaultVendor?.id || "default-vendor-id",
+                  partName: "Custom Part Material",
+                  rejectCount: 30,
+                  totalQty: 10000,
+                  allowanceRatio: 0.5,
+                  period: "Juni 2026",
+                  status: "APPROVED",
+                  isManual: true,
+                  parts: []
+                });
+              }}
+              className="py-1.5 px-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-[10.5px] font-bold transition-all flex items-center gap-1 cursor-pointer active:scale-95"
+            >
+              <Plus size={12} className="stroke-[3]" />
+              <span>CL Manual</span>
+            </button>
           </div>
 
-          <div className="p-4 space-y-2.5 flex-1">
-            {/* Manual CL Creation Button */}
-            <button
-              onClick={() => setSelectedQpr({
-                id: `manual-${Date.now()}`,
-                qprNumber: `QPR/2026/06/MANUAL-${Math.floor(Math.random() * 900 + 100)}`,
-                supplierName: "PT JAYADI",
-                supplierId: "cmsy9dc0m000128sjgk0n6mbu",
-                partName: "Custom Part Material",
-                rejectCount: 30,
-                totalQty: 10000,
-                allowanceRatio: 0.5,
-                period: "Juni 2026",
-                status: "APPROVED_INTERNAL",
-                isManual: true
-              })}
-              className="w-full py-2.5 px-3 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 mb-2"
-            >
-              <Plus size={14} className="stroke-[3]" />
-              <span>Buat CL Manual</span>
-            </button>
+          <div className="p-4 space-y-3 flex-1 flex flex-col justify-between">
+            {/* Search filter for queue */}
+            <div className="relative">
+              <input
+                type="text"
+                value={qprSearchTerm}
+                onChange={(e) => setQprSearchTerm(e.target.value)}
+                placeholder="Cari No. QPR / Vendor / Part..."
+                className="w-full pl-3 pr-8 py-2 text-xs border border-slate-200 rounded-lg bg-slate-50/60 font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+              {qprSearchTerm && (
+                <button
+                  onClick={() => setQprSearchTerm("")}
+                  className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 text-xs"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
 
-            {accountingQueue.length === 0 ? (
-              <div className="text-center py-8 space-y-2">
-                <CheckCircle2 size={28} className="text-green-500 mx-auto" />
-                <p className="text-xs font-bold text-slate-800">Antrean Kosong</p>
-                <p className="text-[9px] text-slate-400">Semua draf klaim finansial QPR telah diproses & diselesaikan.</p>
+            {/* Queue items list */}
+            {filteredQueue.length === 0 ? (
+              <div className="text-center py-6 border border-dashed border-slate-200 rounded-lg space-y-1">
+                <CheckCircle2 size={24} className="text-green-500 mx-auto" />
+                <p className="text-xs font-bold text-slate-700">Tidak ada antrean QPR</p>
+                <p className="text-[9px] text-slate-400">Semua QPR full-approved telah dibuatkan Confirmation Letter atau tidak sesuai filter.</p>
               </div>
             ) : (
-              <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
-                {accountingQueue.map((qpr) => (
+              <div className="space-y-2 max-h-[160px] overflow-y-auto pr-1">
+                {filteredQueue.map((qpr) => (
                   <button
                     key={qpr.id}
                     onClick={() => setSelectedQpr(qpr)}
-                    className={`w-full text-left p-3.5 rounded-md border transition-all flex justify-between items-center ${
+                    className={`w-full text-left p-3 rounded-lg border transition-all flex justify-between items-center ${
                       selectedQpr && selectedQpr.id === qpr.id
-                        ? "bg-blue-50/50 border-blue-200"
-                        : "bg-slate-50 border-slate-100 hover:bg-slate-150 cursor-pointer"
+                        ? "bg-blue-50/70 border-blue-400 shadow-sm"
+                        : "bg-slate-50/60 border-slate-200 hover:bg-slate-100/70 cursor-pointer"
                     }`}
                   >
                     <div className="overflow-hidden">
-                      <span className="font-mono text-[9px] font-bold text-slate-800 block">{qpr.qprNumber}</span>
-                      <strong className="text-xs font-bold text-slate-900 block mt-1">{qpr.supplierName}</strong>
-                      <span className="text-[10px] text-slate-400 block">{qpr.partName} • {qpr.rejectCount} pcs NG / {qpr.totalQty} Total</span>
-
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-mono text-[9px] font-black text-blue-700 bg-blue-100/60 px-1.5 py-0.5 rounded">{qpr.qprNumber}</span>
+                        <span className="text-[8.5px] font-black text-green-700 bg-green-100/60 px-1.5 py-0.5 rounded uppercase">Full Approved</span>
+                      </div>
+                      <strong className="text-xs font-bold text-slate-800 block mt-1">{qpr.supplierName}</strong>
+                      <span className="text-[9.5px] text-slate-500 block truncate">
+                        {qpr.parts && qpr.parts.length > 1 
+                          ? `${qpr.parts.length} Part Items (${qpr.parts.map((p: any) => p.partName).join(", ")})` 
+                          : `${qpr.partName} • ${qpr.rejectCount} pcs NG / ${qpr.totalQty} pcs Total`}
+                      </span>
                     </div>
-                    <ChevronRight size={14} className="text-slate-400 shrink-0" />
+                    <ChevronRight size={14} className="text-slate-400 shrink-0 ml-2" />
                   </button>
                 ))}
               </div>
             )}
-          </div>
-        </div>
 
-        {/* Right: Pricing Calculator panel */}
-        <div className="lg:col-span-2 bg-white border border-slate-100 rounded-lg shadow-sm overflow-hidden flex flex-col">
-          <div className="p-5 border-b border-slate-100 bg-slate-50/10 flex justify-between items-center">
-            <div className="flex items-center gap-2">
-              <Calculator size={18} className="text-blue-500" />
-              <h4 className="text-sm font-bold text-slate-800">Konfigurasi & Kalkulator Formula Klaim</h4>
-            </div>
+            {/* Selected QPR detail preview card */}
             {selectedQpr && (
-              <button
-                onClick={() => setSelectedQpr(null)}
-                className="text-xs font-bold text-red-600 hover:text-red-700 px-2.5 py-1.5 rounded-lg bg-red-50 hover:bg-red-100/70 border border-red-200 transition-all flex items-center gap-1 cursor-pointer active:scale-95"
-                title="Batal pilih / Bersihkan pilihan"
-              >
-                <X size={13} className="stroke-[2.5]" />
-                Batal Pilih
-              </button>
-            )}
-          </div>
-
-          {selectedQpr ? (
-            <div className="p-6 space-y-6 flex-1">
-
-              
-              {/* Manual Document Input Form */}
-              {selectedQpr.isManual ? (
-                <div className="bg-indigo-50/20 p-4 border border-indigo-150/60 rounded-xl space-y-4 text-xs">
-                  <div className="flex items-center gap-1.5 border-b border-indigo-100/50 pb-2 mb-1">
-                    <span className="p-1 bg-indigo-600 text-white rounded-md"><FileText size={10} /></span>
-                    <strong className="text-indigo-900 font-extrabold uppercase tracking-wide">Form Dokumen Manual</strong>
+              <div className="p-3.5 bg-blue-50/40 border border-blue-200 rounded-lg text-xs space-y-2.5">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <span className="text-[9px] font-black text-blue-700 uppercase tracking-wide block">QPR Aktif Terpilih:</span>
+                    <strong className="text-xs font-extrabold text-slate-900 font-mono block">{selectedQpr.qprNumber}</strong>
                   </div>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    <div className="space-y-1">
-                      <label className="block font-bold text-slate-700">Nomor QPR</label>
-                      <input
-                        type="text"
-                        value={selectedQpr.qprNumber}
-                        onChange={(e) => handleUpdateManualQpr("qprNumber", e.target.value)}
-                        className="w-full px-3 py-1.5 border border-slate-200 bg-white rounded-lg font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                        placeholder="QPR/2026/06/CUSTOM"
-                      />
-                    </div>
-                    
-                    <div className="space-y-1">
-                      <label className="block font-bold text-slate-700">Nama Supplier / Vendor</label>
-                      <select
-                        value={selectedQpr.supplierName}
-                        onChange={(e) => handleUpdateManualQpr("supplierName", e.target.value)}
-                        className="w-full px-3 py-1.5 border border-slate-200 bg-white rounded-lg font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                      >
-                        <option value="PT JAYADI">PT JAYADI</option>
-                        <option value="PT IKAN BAKAR">PT IKAN BAKAR</option>
-                        <option value="SHIJIAZHUANG RUICHENG TRADE CO., LTD">SHIJIAZHUANG RUICHENG TRADE CO., LTD</option>
-                        <option value="PT MENARA TERUS MAKMUR">PT MENARA TERUS MAKMUR</option>
-                      </select>
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="block font-bold text-slate-700">Nama Part</label>
-                      <input
-                        type="text"
-                        value={selectedQpr.partName}
-                        onChange={(e) => handleUpdateManualQpr("partName", e.target.value)}
-                        className="w-full px-3 py-1.5 border border-slate-200 bg-white rounded-lg font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                        placeholder="Motherboard X1"
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="block font-bold text-slate-700">Periode Evaluasi</label>
-                      <select
-                        value={selectedQpr.period}
-                        onChange={(e) => handleUpdateManualQpr("period", e.target.value)}
-                        className="w-full px-3 py-1.5 border border-slate-200 bg-white rounded-lg font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                      >
-                        <option value="Januari 2026">Januari 2026</option>
-                        <option value="Februari 2026">Februari 2026</option>
-                        <option value="Maret 2026">Maret 2026</option>
-                        <option value="April 2026">April 2026</option>
-                        <option value="Mei 2026">Mei 2026</option>
-                        <option value="Juni 2026">Juni 2026</option>
-                        <option value="Juli 2026">Juli 2026</option>
-                        <option value="Agustus 2026">Agustus 2026</option>
-                      </select>
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-3 gap-3 border-t border-indigo-100/30 pt-3">
-                    <div className="space-y-1">
-                      <label className="block font-bold text-slate-700">Total Qty Kirim</label>
-                      <input
-                        type="number"
-                        value={selectedQpr.totalQty}
-                        onChange={(e) => handleUpdateManualQpr("totalQty", parseInt(e.target.value) || 0)}
-                        className="w-full px-3 py-1.5 border border-slate-200 bg-white rounded-lg font-mono font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="block font-bold text-slate-700">Kuantitas NG</label>
-                      <input
-                        type="number"
-                        value={selectedQpr.rejectCount}
-                        onChange={(e) => handleUpdateManualQpr("rejectCount", parseInt(e.target.value) || 0)}
-                        className="w-full px-3 py-1.5 border border-slate-200 bg-white rounded-lg font-mono font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="block font-bold text-slate-700">Allowance limit (%)</label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        value={selectedQpr.allowanceRatio}
-                        onChange={(e) => handleUpdateManualQpr("allowanceRatio", parseFloat(e.target.value) || 0)}
-                        className="w-full px-3 py-1.5 border border-slate-200 bg-white rounded-lg font-mono font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                      />
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-
-              {/* Part Items List Configuration Table */}
-              <div className="space-y-3.5 text-xs text-left">
-                <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-                  <strong className="text-slate-800 font-extrabold uppercase tracking-wide">
-                    Konfigurasi Part & Harga per Item
-                  </strong>
                   <button
-                    type="button"
-                    onClick={() => {
-                      setClItems(prev => [
-                        ...prev,
-                        {
-                          id: `item-${Date.now()}`,
-                          partName: "Custom Part",
-                          totalQty: 1000,
-                          rejectCount: 10,
-                          allowanceRatio: 0.5,
-                          unitPrice: "250000"
-                        }
-                      ]);
-                    }}
-                    className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold rounded-lg border border-blue-200 transition-all flex items-center gap-1 cursor-pointer active:scale-95 text-[10.5px]"
+                    onClick={() => setSelectedQpr(null)}
+                    className="text-[10px] font-bold text-red-600 hover:text-red-700 px-2 py-1 rounded bg-red-50 hover:bg-red-100 border border-red-200 flex items-center gap-1 transition-all cursor-pointer"
                   >
-                    <Plus size={13} className="stroke-[2.5]" />
-                    <span>Tambah Part Item</span>
+                    <X size={11} /> Batal Pilih
                   </button>
                 </div>
 
-                <div className="overflow-x-auto border border-slate-200 rounded-lg">
-                  <table className="w-full text-[11px] text-left border-collapse min-w-[900px]">
-                    <thead className="bg-slate-50 text-slate-750 font-black border-b border-slate-200">
-                      <tr>
-                        <th className="px-3 py-3">Nama Part / Deskripsi</th>
-                        <th className="px-3 py-3 w-28 text-right">Total Qty</th>
-                        <th className="px-3 py-3 w-28 text-right">Qty NG</th>
-                        <th className="px-3 py-3 w-24 text-right">Limit (%)</th>
-                        <th className="px-3 py-3 w-24 text-right">Allow. Qty</th>
-                        <th className="px-3 py-3 w-24 text-right">Qty Denda</th>
-                        <th className="px-3 py-3 w-40 text-right">Harga Satuan (Rp)</th>
-                        <th className="px-3 py-3 w-36 text-right">Subtotal (Rp)</th>
-                        <th className="px-3 py-3 w-10 text-center"></th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-150 font-bold">
-                      {calc.items.map((item) => (
-                        <tr key={item.id} className="hover:bg-slate-55">
-                          <td className="p-2">
-                            <input
-                              type="text"
-                              value={item.partName}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                setClItems(prev => prev.map(x => x.id === item.id ? { ...x, partName: val } : x));
-                              }}
-                              className="w-full px-2.5 py-1.5 border border-slate-200 rounded text-slate-855 font-bold focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            />
-                          </td>
-                          <td className="p-2">
-                            <input
-                              type="number"
-                              value={item.totalQty}
-                              onChange={(e) => {
-                                const val = parseInt(e.target.value) || 0;
-                                setClItems(prev => prev.map(x => x.id === item.id ? { ...x, totalQty: val } : x));
-                              }}
-                              className="w-full px-2.5 py-1.5 border border-slate-200 rounded text-right font-mono text-slate-855 font-bold focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            />
-                          </td>
-                          <td className="p-2">
-                            <input
-                              type="number"
-                              value={item.rejectCount}
-                              onChange={(e) => {
-                                const val = parseInt(e.target.value) || 0;
-                                setClItems(prev => prev.map(x => x.id === item.id ? { ...x, rejectCount: val } : x));
-                              }}
-                              className="w-full px-2.5 py-1.5 border border-slate-200 rounded text-right font-mono text-slate-855 font-bold focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            />
-                          </td>
-                          <td className="p-2">
-                            <input
-                              type="number"
-                              step="0.1"
-                              value={item.allowanceRatio}
-                              onChange={(e) => {
-                                const val = parseFloat(e.target.value) || 0;
-                                setClItems(prev => prev.map(x => x.id === item.id ? { ...x, allowanceRatio: val } : x));
-                              }}
-                              className="w-full px-2.5 py-1.5 border border-slate-200 rounded text-right font-mono text-slate-855 font-bold focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            />
-                          </td>
-                          <td className="p-2 text-right font-mono text-slate-500 pr-4">
-                            {item.stdAllowance}
-                          </td>
-                          <td className="p-2 text-right font-mono text-blue-650 pr-4">
-                            {item.billableQty}
-                          </td>
-                          <td className="p-2">
-                            <div className="relative">
-                              <span className="absolute left-2 top-2 text-[10px] text-slate-400">Rp</span>
-                              <input
-                                type="number"
-                                value={item.unitPrice}
-                                onChange={(e) => {
-                                  const val = e.target.value;
-                                  setClItems(prev => prev.map(x => x.id === item.id ? { ...x, unitPrice: val } : x));
-                                }}
-                                className="w-full pl-8 pr-2.5 py-1.5 border border-slate-200 rounded text-right font-mono text-slate-855 font-bold focus:outline-none focus:ring-1 focus:ring-blue-500"
-                              />
-                            </div>
-                          </td>
-                          <td className="p-2 text-right font-mono text-slate-855 pr-4">
-                            Rp {item.subtotal.toLocaleString("id-ID")}
-                          </td>
-                          <td className="p-2 text-center">
-                            <button
-                              type="button"
-                              disabled={clItems.length <= 1}
-                              onClick={() => {
-                                setClItems(prev => prev.filter(x => x.id !== item.id));
-                              }}
-                              className="p-1 text-red-500 hover:text-red-700 disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed text-xs"
-                            >
-                              ❌
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Tax PPN Configuration */}
-              <div className="w-full max-w-[200px] text-left">
-                <label className="block text-xs font-bold text-slate-750 mb-1">PPN (%)</label>
-                <div className="relative text-xs">
-                  <input
-                    type="number"
-                    value={taxRate}
-                    onChange={(e) => setTaxRate(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-850"
-                  />
-                  <span className="absolute right-3 top-2 text-slate-400 font-bold">%</span>
-                </div>
-              </div>
-
-              {/* Calculation Summary with Formula visual */}
-              <div className="p-4 bg-slate-50 border border-slate-100 rounded-lg space-y-3.5">
-                <div className="flex justify-between items-center border-b border-slate-200/50 pb-2">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Ringkasan Total Klaim</span>
-                  <span className="text-[8px] bg-slate-200 text-slate-700 font-black px-1.5 py-0.5 rounded uppercase">
-                    (Qty NG - Std Allowance) x Harga Satuan per Part
-                  </span>
-                </div>
-                
-                <div className="space-y-2 text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Subtotal Seluruh Part</span>
-                    <span className="font-bold text-slate-850">Rp {calc.subtotal}</span>
+                <div className="grid grid-cols-2 gap-2 text-[10px] bg-white p-2.5 rounded border border-blue-100">
+                  <div className="col-span-2 sm:col-span-1">
+                    <span className="text-slate-400 block font-semibold mb-0.5">Vendor:</span>
+                    {selectedQpr.isManual && dbVendors.length > 0 ? (
+                      <select
+                        value={selectedQpr.supplierId}
+                        onChange={(e) => {
+                          const v = dbVendors.find(vend => vend.id === e.target.value);
+                          if (v) {
+                            setSelectedQpr((prev: any) => ({
+                              ...prev,
+                              supplierId: v.id,
+                              supplierName: v.vendorName || `Vendor ${v.vendorCode}`
+                            }));
+                          }
+                        }}
+                        className="w-full text-[10.5px] font-bold py-1 px-1.5 border border-slate-300 rounded bg-slate-50 focus:bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      >
+                        {dbVendors.map((v) => (
+                          <option key={v.id} value={v.id}>
+                            {v.vendorName || v.vendorCode}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="font-bold text-slate-800 truncate block">{selectedQpr.supplierName}</span>
+                    )}
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">PPN ({taxRate}%)</span>
-                    <span className="font-bold text-slate-850">Rp {calc.tax}</span>
+                  <div>
+                    <span className="text-slate-400 block font-semibold">Periode:</span>
+                    <span className="font-bold text-slate-800">{selectedQpr.period || "Juni 2026"}</span>
                   </div>
-                  <div className="flex justify-between pt-2 border-t border-slate-200/50">
-                    <span className="font-extrabold text-slate-900">Total Claim Denda Akhir</span>
-                    <span className="font-black text-sm text-red-650">Rp {calc.total}</span>
+                  <div>
+                    <span className="text-slate-400 block font-semibold">Ref. NCR:</span>
+                    <span className="font-bold text-slate-800 font-mono">{selectedQpr.refNcrNumber || "-"}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block font-semibold">Jumlah Part:</span>
+                    <span className="font-bold text-blue-700 font-mono">{clItems.length} Part Terdeteksi</span>
                   </div>
                 </div>
               </div>
+            )}
+          </div>
+        </div>
 
-              {/* Generate PDF action */}
-              <div className="flex justify-end pt-2">
-                <button
-                  onClick={handleGeneratePdf}
-                  disabled={isGenerated}
-                  className="flex items-center gap-1.5 px-6 py-3 rounded-md text-xs font-bold shadow-md transition-colors cursor-pointer bg-rose-600 hover:bg-rose-700 text-white shadow-rose-600/10"
-                >
-                  <FileText size={14} />
-                  {isGenerated ? "Generating PDF..." : "Generate Confirmation Letter & Kirim ke Vendor"}
-                </button>
-              </div>
-
+        {/* COLUMN 2 (KANAN): Parameter Finansial, PPN & Kalkulator Ringkasan */}
+        <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col justify-between">
+          <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+            <div>
+              <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest block">Langkah 2</span>
+              <h4 className="text-xs font-black text-slate-800 mt-0.5">Parameter Finansial &amp; Otorisasi Penagihan</h4>
             </div>
-          ) : (
-            <div className="p-12 text-center text-slate-400 italic text-xs flex-1 flex items-center justify-center">
-              Silakan pilih salah satu draf QPR di antrean sebelah kiri untuk menginput nominal denda keuangan.
+            <div className="flex items-center gap-1 bg-emerald-50 text-emerald-700 px-2 py-1 rounded border border-emerald-200 text-[10px] font-black">
+              <Calculator size={12} />
+              <span>Auto-Calculated</span>
             </div>
-          )}
+          </div>
+
+          <div className="p-4 space-y-4 flex-1 flex flex-col justify-between">
+            {/* PPN Input */}
+            <div className="flex items-center justify-between p-3 bg-slate-50/70 border border-slate-200 rounded-lg">
+              <div>
+                <label className="block text-xs font-extrabold text-slate-800">Tarif Pajak Pertambahan Nilai (PPN)</label>
+                <span className="text-[9.5px] text-slate-400 font-semibold block">Dikenakan pada total denda material part NG</span>
+              </div>
+              <div className="relative w-24">
+                <input
+                  type="number"
+                  value={taxRate}
+                  onChange={(e) => setTaxRate(e.target.value)}
+                  className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-right font-black text-slate-800 text-xs focus:ring-1 focus:ring-blue-500 focus:outline-none bg-white"
+                />
+                <span className="absolute right-2 top-1.5 text-slate-400 text-xs font-bold">%</span>
+              </div>
+            </div>
+
+            {/* Financial Summary Card */}
+            <div className="p-4 bg-gradient-to-br from-slate-50 to-slate-100/70 border border-slate-200 rounded-xl space-y-3">
+              <div className="flex justify-between items-center border-b border-slate-200 pb-2">
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Ringkasan Nilai Komersial</span>
+                <span className="text-[8.5px] bg-blue-100 text-blue-800 font-bold px-1.5 py-0.5 rounded">
+                  Formula: Σ (Qty Denda × Harga Satuan) + PPN
+                </span>
+              </div>
+
+              <div className="space-y-2 text-xs font-semibold">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Subtotal Nilai Part ({clItems.length} Item)</span>
+                  <span className="font-mono font-bold text-slate-800">Rp {calc.subtotal}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Pajak PPN ({taxRate}%)</span>
+                  <span className="font-mono font-bold text-slate-800">Rp {calc.tax}</span>
+                </div>
+                <div className="flex justify-between pt-2.5 border-t border-slate-300 items-baseline">
+                  <div>
+                    <span className="font-black text-slate-900 block text-xs">Total Nilai Tagihan (CL)</span>
+                    <span className="text-[9px] text-slate-400 font-normal">Klaim pemotongan invoice vendor</span>
+                  </div>
+                  <span className="font-mono font-black text-lg text-red-650">Rp {calc.total}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Generate Action Button */}
+            <div>
+              <button
+                onClick={handleGeneratePdf}
+                disabled={isGenerated || !selectedQpr || clItems.length === 0}
+                className={`w-full py-3 px-4 rounded-xl text-xs font-black shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                  !selectedQpr || clItems.length === 0
+                    ? "bg-slate-200 text-slate-400 cursor-not-allowed shadow-none"
+                    : isGenerated
+                    ? "bg-blue-500 text-white animate-pulse"
+                    : "bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 text-white shadow-rose-600/20 active:scale-[0.99]"
+                }`}
+              >
+                <FileText size={15} />
+                <span>
+                  {isGenerated 
+                    ? "Memproses Dokumen Confirmation Letter..." 
+                    : selectedQpr 
+                    ? `Generate CL (${selectedQpr.supplierName}) & Kirim ke Vendor` 
+                    : "Pilih QPR Terlebih Dahulu untuk Generate CL"}
+                </span>
+              </button>
+            </div>
+          </div>
         </div>
 
       </div>
+
+      {/* BOTTOM SECTION: FULL-WIDTH WIDE PART ITEMS TABLE */}
+      {selectedQpr && (
+        <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden p-5 space-y-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-150 pb-3">
+            <div>
+              <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest block">Langkah 3 (Detail Part)</span>
+              <h4 className="text-sm font-black text-slate-800 mt-0.5">
+                Konfigurasi Part &amp; Kalkulator Komersial per Item (Auto-Detect dari QPR: {selectedQpr.qprNumber})
+              </h4>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setClItems(prev => [
+                  ...prev,
+                  {
+                    id: `item-${Date.now()}`,
+                    partName: "Custom Part NG",
+                    partNumber: "",
+                    totalQty: 1000,
+                    rejectCount: 10,
+                    allowanceRatio: 0.5,
+                    stdAllowance: 5,
+                    billableQty: 5,
+                    unitPrice: "250000"
+                  }
+                ]);
+              }}
+              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-sm transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 text-xs"
+            >
+              <Plus size={13} className="stroke-[3]" />
+              <span>Tambah Part Item</span>
+            </button>
+          </div>
+
+          {/* Wide responsive table */}
+          <div className="overflow-x-auto border border-slate-200 rounded-lg shadow-inner">
+            <table className="w-full text-xs text-left border-collapse min-w-[980px]">
+              <thead className="bg-slate-100 text-slate-800 font-black border-b border-slate-200 uppercase text-[9.5px] tracking-wider">
+                <tr>
+                  <th className="px-3 py-3 w-12 text-center">No</th>
+                  <th className="px-3 py-3 min-w-[200px]">Nama Part / Deskripsi</th>
+                  <th className="px-3 py-3 w-32 text-right">Total Qty (Pcs)</th>
+                  <th className="px-3 py-3 w-32 text-right">Qty NG (Pcs)</th>
+                  <th className="px-3 py-3 w-28 text-right">Limit (%)</th>
+                  <th className="px-3 py-3 w-28 text-right bg-slate-150/40">Std Allow (Pcs)</th>
+                  <th className="px-3 py-3 w-28 text-right bg-red-50 text-red-700">Qty Denda (Pcs)</th>
+                  <th className="px-3 py-3 w-44 text-right">Harga Satuan (Rp)</th>
+                  <th className="px-3 py-3 w-40 text-right bg-emerald-50 text-emerald-800">Subtotal (Rp)</th>
+                  <th className="px-3 py-3 w-12 text-center">Aksi</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200 font-bold bg-white">
+                {calc.items.map((item, idx) => (
+                  <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="p-2.5 text-center font-mono text-slate-400 font-bold">{idx + 1}</td>
+                    <td className="p-2">
+                      <input
+                        type="text"
+                        value={item.partName}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setClItems(prev => prev.map(x => x.id === item.id ? { ...x, partName: val } : x));
+                        }}
+                        className="w-full px-2.5 py-1.5 border border-slate-200 rounded-md text-slate-850 font-bold text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+                        placeholder="Nama Part..."
+                      />
+                    </td>
+                    <td className="p-2">
+                      <input
+                        type="number"
+                        value={item.totalQty}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value) || 0;
+                          setClItems(prev => prev.map(x => x.id === item.id ? { ...x, totalQty: val } : x));
+                        }}
+                        className="w-full px-2.5 py-1.5 border border-slate-200 rounded-md text-right font-mono text-slate-850 font-bold text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+                      />
+                    </td>
+                    <td className="p-2">
+                      <input
+                        type="number"
+                        value={item.rejectCount}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value) || 0;
+                          setClItems(prev => prev.map(x => x.id === item.id ? { ...x, rejectCount: val } : x));
+                        }}
+                        className="w-full px-2.5 py-1.5 border border-slate-200 rounded-md text-right font-mono text-slate-850 font-bold text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+                      />
+                    </td>
+                    <td className="p-2">
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={item.allowanceRatio}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value) || 0;
+                          setClItems(prev => prev.map(x => x.id === item.id ? { ...x, allowanceRatio: val } : x));
+                        }}
+                        className="w-full px-2.5 py-1.5 border border-slate-200 rounded-md text-right font-mono text-slate-850 font-bold text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+                      />
+                    </td>
+                    <td className="p-2.5 text-right font-mono text-slate-600 bg-slate-50/50 pr-3">
+                      {item.stdAllowance.toLocaleString("id-ID")}
+                    </td>
+                    <td className="p-2.5 text-right font-mono font-black text-red-650 bg-red-50/40 pr-3">
+                      {item.billableQty.toLocaleString("id-ID")}
+                    </td>
+                    <td className="p-2">
+                      <div className="relative">
+                        <span className="absolute left-2.5 top-2 text-[10px] text-slate-400 font-bold">Rp</span>
+                        <input
+                          type="number"
+                          value={item.unitPrice}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setClItems(prev => prev.map(x => x.id === item.id ? { ...x, unitPrice: val } : x));
+                          }}
+                          className="w-full pl-8 pr-2.5 py-1.5 border border-slate-200 rounded-md text-right font-mono text-slate-850 font-bold text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+                        />
+                      </div>
+                    </td>
+                    <td className="p-2.5 text-right font-mono font-black text-emerald-800 bg-emerald-50/40 pr-3">
+                      Rp {item.subtotal.toLocaleString("id-ID")}
+                    </td>
+                    <td className="p-2.5 text-center">
+                      <button
+                        type="button"
+                        disabled={clItems.length <= 1}
+                        onClick={() => {
+                          setClItems(prev => prev.filter(x => x.id !== item.id));
+                        }}
+                        className="p-1 text-red-500 hover:text-red-700 disabled:opacity-20 cursor-pointer disabled:cursor-not-allowed text-xs transition-colors"
+                        title="Hapus baris item"
+                      >
+                        ✕
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* MONITORING PANEL FOR CONFIRMATION LETTERS SENT */}
       <div className="bg-white border border-slate-300 rounded-xl shadow-sm overflow-hidden mt-6">

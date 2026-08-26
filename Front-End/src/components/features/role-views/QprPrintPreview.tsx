@@ -182,12 +182,11 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
 
   const getShortVendorName = (fullName: string) => {
     if (!fullName) return "VENDOR";
-    const upper = fullName.toUpperCase();
-    if (upper.includes("JAYADI")) return "PT. JAYADI";
-    if (upper.includes("IKAN BAKAR")) return "PT. IKAN BAKAR";
-    if (upper.includes("RUICHENG")) return "SZJR TR.CO.";
-    if (upper.includes("MENARA TERUS MAKMUR")) return "PT. MTM";
-    return fullName.replace("PT ", "PT. ").substring(0, 15);
+    const clean = fullName.replace(/^PT\.?\s+/i, "PT. ").trim();
+    if (clean.length > 20) {
+      return clean.substring(0, 18) + "...";
+    }
+    return clean;
   };
   const shortVendorName = getShortVendorName(qpr.supplierName);
 
@@ -272,7 +271,7 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
             </div>
             <div style={{ padding: "6px 8px", flex: 1 }}>
               <div style={{ fontWeight: "900", fontSize: "10.5px", color: "#1e293b", textTransform: "uppercase", marginBottom: "6px" }}>
-                <span contentEditable suppressContentEditableWarning className="focus:bg-yellow-50 focus:outline-none print:bg-transparent">{qpr.supplierName || "SHIJIAZHUANG RUICHENG TR.CO.LTD."}</span>
+                <span contentEditable suppressContentEditableWarning className="focus:bg-yellow-50 focus:outline-none print:bg-transparent">{qpr.supplierName || "VENDOR SUPPLIER"}</span>
               </div>
               <div style={{ fontSize: "8.5px", lineHeight: "1.5", fontWeight: "bold", color: "#334155" }}>
                 <div style={{ display: "grid", gridTemplateColumns: "85px 1fr" }}>

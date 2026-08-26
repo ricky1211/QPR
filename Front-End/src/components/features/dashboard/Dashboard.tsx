@@ -813,7 +813,7 @@ export default function Dashboard({
         } else {
           headers = ["Customer", "DocumentNo", "Text", "Vendor", "Doc. Date", "Local Crcy Amt", "Potong tagih payment date"];
           sampleData = [
-            { Customer: "OTC08002", DocumentNo: "18000000053", Text: "POTONG TAGIH CLAIM PT JAYADI", Vendor: "PT JAYADI", "Doc. Date": "6/10/2026", "Local Crcy Amt": 18200000, "Potong tagih payment date": "8/10/2026" }
+            { Customer: "OTC08002", DocumentNo: "18000000053", Text: "POTONG TAGIH CLAIM VENDOR", Vendor: "PT TEMARU ENGINEERING INDONESIA", "Doc. Date": "6/10/2026", "Local Crcy Amt": 18200000, "Potong tagih payment date": "8/10/2026" }
           ];
           fileName = "Template_Upload_Confirmation_Letter.xlsx";
         }

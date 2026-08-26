@@ -19,6 +19,8 @@ interface ClPreviewProps {
     items?: any[];
     clApprovalProgress?: { sectAccounting?: boolean; deptAccounting?: boolean };
     partName?: string;
+    supplierAddress?: string;
+    supplierCity?: string;
   };
   onClose?: () => void;
   inline?: boolean;
@@ -43,22 +45,10 @@ export default function ConfirmationLetterPrintPreview({ cl, onClose, inline = f
   };
 
   const getSupplierAddress = (name: string) => {
-    if (name.includes("JAYADI")) {
-      return {
-        address: "Jl. Industri No. 12, Cikarang",
-        city: "Cikarang Timur, Bekasi, Jawa Barat 17530"
-      };
-    } else if (name.includes("IKAN BAKAR")) {
-      return {
-        address: "Kawasan Jababeka Blok A No. 8",
-        city: "Cikarang Utara, Bekasi, Jawa Barat 17530"
-      };
-    } else {
-      return {
-        address: "Jl. Science Timur I Blok A 5H",
-        city: "Cikarang Timur, Bekasi, Jawa Barat 17530"
-      };
-    }
+    return {
+      address: cl.supplierAddress || "Kawasan Industri MM2100 Blok C",
+      city: cl.supplierCity || "Cikarang Barat, Bekasi, Jawa Barat 17530"
+    };
   };
 
   const supplierInfo = getSupplierAddress(cl.supplierName);
