@@ -508,9 +508,11 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
                   role: "(Creator)",
                   isSigned: true,
                   sigSvg: (
-                    <svg width="40" height="24" viewBox="0 0 100 60" style={{ opacity: 0.85 }}>
-                      <path d="M15,35 Q30,10 45,35 T75,35 M35,5 L35,45" stroke="#1e293b" strokeWidth="2.2" fill="none" />
-                    </svg>
+                    <img 
+                      src="/qpr/TTD-DENY.M.png" 
+                      alt="Deny M. Signature" 
+                      style={{ height: "28px", width: "auto", objectFit: "contain" }} 
+                    />
                   )
                 },
                 { 
