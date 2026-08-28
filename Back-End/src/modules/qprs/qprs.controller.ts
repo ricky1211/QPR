@@ -11,6 +11,21 @@ export class QprsController {
     return this.qprsService.findAll();
   }
 
+  @Get('confirmation-letters/all')
+  async getAllConfirmationLetters(): Promise<any[]> {
+    return this.qprsService.findAllConfirmationLetters();
+  }
+
+  @Post('confirmation-letters')
+  async createConfirmationLetter(@Body() data: any): Promise<any> {
+    return this.qprsService.createConfirmationLetter(data);
+  }
+
+  @Put('confirmation-letters/:id')
+  async updateConfirmationLetter(@Param('id') id: string, @Body() data: any): Promise<any> {
+    return this.qprsService.updateConfirmationLetter(id, data);
+  }
+
   @Get(':id')
   async getQprById(@Param('id') id: string): Promise<any> {
     return this.qprsService.findOne(id);
@@ -83,20 +98,5 @@ export class QprsController {
     },
   ): Promise<QprApprovalProgress> {
     return this.qprsService.updateApprovalProgress(qprId, data);
-  }
-
-  @Get('confirmation-letters/all')
-  async getAllConfirmationLetters(): Promise<any[]> {
-    return this.qprsService.findAllConfirmationLetters();
-  }
-
-  @Post('confirmation-letters')
-  async createConfirmationLetter(@Body() data: any): Promise<any> {
-    return this.qprsService.createConfirmationLetter(data);
-  }
-
-  @Put('confirmation-letters/:id')
-  async updateConfirmationLetter(@Param('id') id: string, @Body() data: any): Promise<any> {
-    return this.qprsService.updateConfirmationLetter(id, data);
   }
 }
