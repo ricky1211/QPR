@@ -45,18 +45,63 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(dashboardUrl)
   }
 
-  // Role-based protection: /parts, /vendors, /users can ONLY be accessed by admin
-  const masterRoutes = ['/parts', '/vendors', '/users']
-  const isMasterRoute = masterRoutes.some(
-    (route) => pathname === route || pathname.startsWith(route + '/'),
-  )
+  // Role-based protection (RBAC)
+  const mtmUser = request.cookies.get('mtm_user')?.value || ''
 
-  if (isMasterRoute) {
-    const mtmUser = request.cookies.get('mtm_user')?.value
-    if (mtmUser !== 'admin') {
-      const dashboardUrl = request.nextUrl.clone()
-      dashboardUrl.pathname = '/dashboard'
-      return NextResponse.redirect(dashboardUrl)
+  const isMatch = (routes: string[]) =>
+    routes.some((route) => pathname === route || pathname.startsWith(route + '/'))
+
+  const redirectToDashboard = () => {
+    const dashboardUrl = request.nextUrl.clone()
+    dashboardUrl.pathname = '/dashboard'
+    return NextResponse.redirect(dashboardUrl)
+  }
+
+  // Admin has access to all routes; apply strict RBAC for non-admin users:
+  if (mtmUser !== 'admin') {
+    // 1. Master Data: Admin only
+    if (isMatch(['/parts', '/vendors', '/users'])) {
+      return redirectToDashboard()
+    }
+
+    // 2. NCR Routes: Admin only (currently inactive)
+    if (isMatch(['/buat-ncr', '/approve-ncr', '/draft-ncr'])) {
+      return redirectToDashboard()
+    }
+
+    // 3. Buat QPR & Draft QPR: Foreman only
+    if (isMatch(['/buat-qpr', '/draft-qpr'])) {
+      if (mtmUser !== 'foreman') {
+        return redirectToDashboard()
+      }
+    }
+
+    // 4. Approval QPR: Section/Dept Head, Division Head, Purchasing (Acknowledge)
+    if (isMatch(['/approve-qpr'])) {
+      if (!['sect_dept_head', 'div_head', 'purchasing'].includes(mtmUser)) {
+        return redirectToDashboard()
+      }
+    }
+
+    // 5. Buat Confirmation Letter (CL) & Draft CL: Purchasing only
+    if (isMatch(['/confirmation-letter', '/draft-cl'])) {
+      if (mtmUser !== 'purchasing') {
+        return redirectToDashboard()
+      }
+    }
+
+    // 6. Approval Confirmation Letter (CL): Accounting, Purchasing (Ack), Finance (Ack)
+    if (isMatch(['/approve-cl'])) {
+      if (!['accounting', 'purchasing', 'finance'].includes(mtmUser)) {
+        return redirectToDashboard()
+      }
+    }
+
+    // 7. SSC Billing & Payments (I-Memo): Finance only
+    if (isMatch(['/i-memo'])) {
+      if (mtmUser !== 'finance') {
+        return redirectToDashboard()
+      }
     }
   }
 
