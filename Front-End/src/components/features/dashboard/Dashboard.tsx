@@ -280,17 +280,17 @@ export default function Dashboard({
 
     const activePeriodQprs = pendingQprs.filter(q => {
       const p = q.period || getPeriodFromDate(q.date);
-      return p === periodName || (periodName === "Juni 2026" && (q.period === "Mei 2026" || q.date?.includes("2026-06")));
+      return p === periodName;
     });
 
     const activePeriodConfirmationLetters = confirmationLetters.filter(cl => {
       const p = cl.period || getPeriodFromDate(cl.dateSent || cl.date);
-      return p === periodName || (!p && periodName === "Juni 2026") || cl.dateSent?.includes("2026-06");
+      return p === periodName;
     });
 
     const activePeriodNcrs = pendingNcrs.filter(n => {
       const p = n.period || getPeriodFromDate(n.date);
-      return p === periodName || (!p && periodName === "Juni 2026") || n.date?.includes("2026-06");
+      return p === periodName;
     });
 
     const baselineConfig: { [key: string]: any } = {
@@ -300,14 +300,22 @@ export default function Dashboard({
       "April 2026": { baselineClosedNcrs: 0, baselineClosedQprs: 0, aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 0, claimRejectedCount: 0 },
       "Mei 2026": { baselineClosedNcrs: 0, baselineClosedQprs: 0, aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 0, claimRejectedCount: 0 },
       "Juni 2026": { baselineClosedNcrs: 0, baselineClosedQprs: 0, aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 0, claimRejectedCount: 0 },
+      "Juli 2026": { baselineClosedNcrs: 0, baselineClosedQprs: 0, aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 0, claimRejectedCount: 0 },
+      "Agustus 2026": { baselineClosedNcrs: 0, baselineClosedQprs: 0, aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 0, claimRejectedCount: 0 },
+      "September 2026": { baselineClosedNcrs: 0, baselineClosedQprs: 0, aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 0, claimRejectedCount: 0 },
+      "Oktober 2026": { baselineClosedNcrs: 0, baselineClosedQprs: 0, aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 0, claimRejectedCount: 0 },
+      "November 2026": { baselineClosedNcrs: 0, baselineClosedQprs: 0, aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 0, claimRejectedCount: 0 },
+      "Desember 2026": { baselineClosedNcrs: 0, baselineClosedQprs: 0, aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 0, claimRejectedCount: 0 },
     };
 
     const base = baselineConfig[periodName] || { baselineClosedNcrs: 0, baselineClosedQprs: 0, aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 0, claimRejectedCount: 0 };
     
     const pendingActiveQprs = activePeriodQprs.filter(q => 
+      q.status !== "APPROVED" &&
       q.status !== "CLOSED" && 
       q.status !== "CLOSED_PAID" && 
       q.status !== "REJECTED" &&
+      q.requiredRole !== "Closed" &&
       !activePeriodConfirmationLetters.some(cl => cl.qprNumber === q.qprNumber)
     );
     
@@ -335,9 +343,24 @@ export default function Dashboard({
   const currentActiveConfirmationLetters = currentConfig.activeConfirmationLetters;
   const totalActiveQprs = currentActiveQprs.length;
   
-  // QPR: status WAITING_APPROVAL, WAITING_VENDOR, APPROVED, UNDER_REVISION (basically not CLOSED/CLOSED_PAID/REJECTED) is in progress
-  const qprInProgress = currentActiveQprs.filter((q: any) => q.status !== "CLOSED" && q.status !== "CLOSED_PAID" && q.status !== "REJECTED").length;
-  const qprClosed = baselineClosedQprs + currentActiveQprs.filter((q: any) => q.status === "CLOSED" || q.status === "CLOSED_PAID").length;
+  // QPR: WAITING_APPROVAL / DRAFT / UNDER_REVISION is in progress, while APPROVED / CLOSED / CLOSED_PAID is completed (Selesai)
+  const qprInProgress = currentActiveQprs.filter((q: any) => 
+    q.status === "WAITING_APPROVAL" || 
+    q.status === "DRAFT" || 
+    q.status === "UNDER_REVISION" || 
+    q.status === "REVISE" ||
+    (q.status !== "APPROVED" && q.status !== "CLOSED" && q.status !== "CLOSED_PAID" && q.status !== "REJECTED" && q.requiredRole !== "Closed")
+  ).length;
+
+  const qprClosed = baselineClosedQprs + currentActiveQprs.filter((q: any) => 
+    q.status === "APPROVED" || 
+    q.status === "CLOSED" || 
+    q.status === "CLOSED_PAID" || 
+    q.status === "APPROVED_BY_VENDOR" || 
+    q.status === "FULLY_APPROVED" ||
+    q.requiredRole === "Closed"
+  ).length;
+
   const totalQprs = qprClosed + qprInProgress;
 
   const aprilClaims = currentConfig.aprilClaims;
@@ -591,7 +614,8 @@ export default function Dashboard({
     // Purchasing
     if (role.key === "Purchasing") {
       currentActiveQprs.forEach(qpr => {
-        if (qpr.status !== "APPROVED" && qpr.status !== "CLOSED" && qpr.requiredRole === "Purchasing") {
+        const hasCl = currentActiveConfirmationLetters.some(cl => cl.qprNumber === qpr.qprNumber);
+        if (!hasCl && (qpr.requiredRole === "Purchasing" || (qpr.status === "APPROVED" && qpr.requiredRole !== "Closed"))) {
           const lt = getDocLeadTimes(qpr);
           const daysStuck = lt.totalLeadTime;
           docs.push({
@@ -600,7 +624,7 @@ export default function Dashboard({
             type: "QPR",
             vendor: qpr.supplierName,
             date: qpr.date,
-            requiredRole: qpr.requiredRole,
+            requiredRole: "Purchasing",
             daysStuck,
             amount: qpr.claimAmount || "-",
             activeTab: "i-memo"
@@ -612,7 +636,8 @@ export default function Dashboard({
     // Accounting
     if (role.key === "Accounting") {
       currentActiveQprs.forEach(qpr => {
-        if (qpr.status !== "APPROVED" && qpr.status !== "CLOSED" && qpr.requiredRole === "Accounting") {
+        const hasCl = currentActiveConfirmationLetters.some(cl => cl.qprNumber === qpr.qprNumber);
+        if (!hasCl && qpr.requiredRole === "Accounting") {
           const lt = getDocLeadTimes(qpr);
           const daysStuck = lt.totalLeadTime;
           docs.push({
@@ -629,7 +654,7 @@ export default function Dashboard({
         }
       });
       currentActiveConfirmationLetters.forEach(cl => {
-        if (cl.status === "PENDING" || cl.status === "APPROVED_SECT") {
+        if (cl.status === "PENDING" || cl.status === "APPROVED_SECT" || !cl.clApprovalProgress?.deptAccounting) {
           const lt = getDocLeadTimes(cl);
           const daysStuck = lt.totalLeadTime;
           docs.push({
@@ -666,12 +691,29 @@ export default function Dashboard({
           });
         }
       });
+      currentActiveConfirmationLetters.forEach(cl => {
+        if (!cl.vendorApproved && cl.status !== "REJECTED" && !cl.closedPaid && cl.status !== "CLOSED_PAID") {
+          const lt = getDocLeadTimes(cl);
+          const daysStuck = lt.totalLeadTime;
+          docs.push({
+            id: `cl-${cl.id}`,
+            docNumber: cl.clNumber,
+            type: "CL",
+            vendor: cl.supplierName,
+            date: cl.dateSent || cl.date,
+            requiredRole: "Vendor Confirmation",
+            daysStuck,
+            amount: cl.amount,
+            activeTab: "approve-cl"
+          });
+        }
+      });
     }
 
     // Finance
     if (role.key === "Finance") {
       currentActiveConfirmationLetters.forEach(cl => {
-        if (cl.status === "FULLY_APPROVED" && !cl.closedPaid) {
+        if ((cl.status === "FULLY_APPROVED" || cl.status === "APPROVED") && !cl.closedPaid && cl.status !== "CLOSED_PAID") {
           const lt = getDocLeadTimes(cl);
           const daysStuck = lt.totalLeadTime;
           docs.push({
@@ -683,7 +725,7 @@ export default function Dashboard({
             requiredRole: "Finance Payment",
             daysStuck,
             amount: cl.amount,
-            activeTab: "approve-cl"
+            activeTab: "i-memo"
           });
         }
       });
