@@ -19,16 +19,7 @@ const nextConfig = {
   images: {
     qualities: [75, 90],
   },
-  async redirects() {
-    return [
-      {
-        source: '/',
-        destination: '/qpr/',
-        basePath: false,
-        permanent: false,
-      },
-    ];
-  },
+
   async rewrites() {
     return [
       {

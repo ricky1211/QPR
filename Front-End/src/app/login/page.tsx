@@ -109,7 +109,7 @@ export default function LoginPage() {
         {/* Background photo */}
         <div className="absolute inset-0 z-0">
           <Image
-            src="/qpr/mtm-factory.jpg"
+            src="/mtm-factory.jpg"
             alt="PT Menara Terus Makmur Factory"
             fill
             priority
@@ -138,7 +138,7 @@ export default function LoginPage() {
         {/* ── Login Card ──────────────────────────────────────── */}
         <div
           className={`glass-card relative z-10 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden
-            ${mounted ? 'card-enter' : 'opacity-0'}`}
+            ${mounted ? 'card-enter' : ''}`}
           style={{
             boxShadow: '0 32px 64px rgba(0,0,0,.32), 0 0 0 1px rgba(255,255,255,.15)',
           }}
@@ -158,7 +158,7 @@ export default function LoginPage() {
             <div className="flex flex-col items-center mb-8">
               <div className="logo-float mb-3">
                 <Image
-                  src="/qpr/logo-mtm.png"
+                  src="/logo-mtm.png"
                   alt="MTM — Menara Terus Makmur"
                   width={210}
                   height={60}

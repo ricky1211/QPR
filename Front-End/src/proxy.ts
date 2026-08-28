@@ -9,7 +9,7 @@ import type { NextRequest } from 'next/server'
 const COOKIE_NAME = 'mtm_session'
 
 // Routes that do NOT require authentication
-const PUBLIC_ROUTES = ['/login']
+const PUBLIC_ROUTES = ['/login', '/login/']
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -32,16 +32,25 @@ export function proxy(request: NextRequest) {
   // Unauthenticated user trying to access a protected route → redirect to login
   if (!isPublicRoute && !sessionCookie) {
     const loginUrl = request.nextUrl.clone()
-    loginUrl.pathname = '/login'
+    loginUrl.pathname = '/login/'
     // Preserve the original destination so we can redirect back after login
-    loginUrl.searchParams.set('callbackUrl', pathname)
+    if (pathname !== '/' && pathname !== '') {
+      loginUrl.searchParams.set('callbackUrl', pathname)
+    }
     return NextResponse.redirect(loginUrl)
   }
 
   // Authenticated user visiting /login → redirect to dashboard
   if (isPublicRoute && sessionCookie) {
     const dashboardUrl = request.nextUrl.clone()
-    dashboardUrl.pathname = '/dashboard'
+    dashboardUrl.pathname = '/dashboard/'
+    return NextResponse.redirect(dashboardUrl)
+  }
+
+  // Authenticated user visiting root / → redirect to dashboard
+  if ((pathname === '/' || pathname === '') && sessionCookie) {
+    const dashboardUrl = request.nextUrl.clone()
+    dashboardUrl.pathname = '/dashboard/'
     return NextResponse.redirect(dashboardUrl)
   }
 
@@ -49,11 +58,11 @@ export function proxy(request: NextRequest) {
   const mtmUser = request.cookies.get('mtm_user')?.value || ''
 
   const isMatch = (routes: string[]) =>
-    routes.some((route) => pathname === route || pathname.startsWith(route + '/'))
+    routes.some((route) => pathname === route || pathname.startsWith(route + '/') || pathname.startsWith(route))
 
   const redirectToDashboard = () => {
     const dashboardUrl = request.nextUrl.clone()
-    dashboardUrl.pathname = '/dashboard'
+    dashboardUrl.pathname = '/dashboard/'
     return NextResponse.redirect(dashboardUrl)
   }
 
