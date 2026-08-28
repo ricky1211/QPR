@@ -13,6 +13,16 @@ const PUBLIC_ROUTES = ['/login']
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
+
+  // 1. Bypass API routes so proxy / rewrites to backend are never intercepted or redirected to /login
+  if (
+    pathname.startsWith('/api') ||
+    pathname.startsWith('/qpr/api') ||
+    pathname.includes('/api/')
+  ) {
+    return NextResponse.next()
+  }
+
   const sessionCookie = request.cookies.get(COOKIE_NAME)?.value
 
   const isPublicRoute = PUBLIC_ROUTES.some(
@@ -60,8 +70,8 @@ export const config = {
      * - _next/static  (Next.js static assets)
      * - _next/image   (image optimisation)
      * - favicon.ico, public assets (*.svg, *.png, *.jpg, *.jpeg, *.webp, *.ico)
-     * - /api routes   (handled server-side)
+     * - /api routes   (handled server-side / rewrites)
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|webp|ico)$|api).*)',
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|webp|ico)$|api|qpr/api).*)',
   ],
 }

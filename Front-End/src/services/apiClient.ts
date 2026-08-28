@@ -1,6 +1,16 @@
-const BASE_URL = typeof window !== 'undefined' 
-  ? '/qpr/api' 
-  : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001');
+const getBaseUrl = () => {
+  if (typeof window !== 'undefined') {
+    return '/qpr/api';
+  }
+  const envUrl =
+    process.env.BACKEND_INTERNAL_URL ||
+    process.env.NEXT_PUBLIC_API_URL ||
+    'http://localhost:3001';
+  const cleanUrl = envUrl.replace(/\/api\/?$/, '').replace(/\/+$/, '');
+  return `${cleanUrl}/api`;
+};
+
+const BASE_URL = getBaseUrl();
 
 export async function apiRequest<T = any>(
   path: string,

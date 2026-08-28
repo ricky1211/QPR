@@ -6,11 +6,13 @@ export interface UserPayload {
   npk: number;
   email?: string;
   role?: string;
+  roles?: string[];
   status?: string;
 }
 
 export const userService = {
   getAll: () => apiRequest('/users'),
+  getRoles: () => apiRequest('/users/roles'),
   getById: (id: string) => apiRequest(`/users/${id}`),
   create: (data: UserPayload) => apiRequest('/users', {
     method: 'POST',
