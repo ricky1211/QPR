@@ -1,7 +1,6 @@
 'use client'
 
 import React, { useActionState, useState, useEffect } from 'react'
-import Image from 'next/image'
 import { loginAction, LoginState } from '@/app/actions/auth'
 import {
   User,
@@ -108,13 +107,10 @@ export default function LoginPage() {
       >
         {/* Background photo */}
         <div className="absolute inset-0 z-0">
-          <Image
-            src="/mtm-factory.jpg"
+          <img
+            src="/qpr/mtm-factory.jpg"
             alt="PT Menara Terus Makmur Factory"
-            fill
-            priority
-            quality={90}
-            style={{ objectFit: 'cover', objectPosition: 'center' }}
+            className="w-full h-full object-cover object-center"
           />
           <div className="bg-overlay absolute inset-0" />
         </div>
@@ -138,7 +134,7 @@ export default function LoginPage() {
         {/* ── Login Card ──────────────────────────────────────── */}
         <div
           className={`glass-card relative z-10 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden
-            ${mounted ? 'card-enter' : ''}`}
+            ${mounted ? 'card-enter' : 'opacity-0'}`}
           style={{
             boxShadow: '0 32px 64px rgba(0,0,0,.32), 0 0 0 1px rgba(255,255,255,.15)',
           }}
@@ -157,13 +153,12 @@ export default function LoginPage() {
             {/* Logo + heading */}
             <div className="flex flex-col items-center mb-8">
               <div className="logo-float mb-3">
-                <Image
-                  src="/logo-mtm.png"
+                <img
+                  src="/qpr/logo-mtm.jpg"
                   alt="MTM — Menara Terus Makmur"
                   width={210}
                   height={60}
-                  priority
-                  style={{ objectFit: 'contain', height: 'auto' }}
+                  className="w-[210px] h-auto object-contain"
                 />
               </div>
               <div className="mt-1 text-center">

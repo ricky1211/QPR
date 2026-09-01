@@ -51,29 +51,65 @@ const getDocPipelineStages = (
       return { name, status: "UPCOMING" };
     });
   } else {
-    // QPR or merged QPR/CL! Use 12-step pipeline
+    // QPR or merged QPR/CL pipeline: 10-step streamlined flow
     const stages: { name: string; status: "APPROVED" | "PENDING" | "UPCOMING" }[] = [
       { name: "CREATE QPR", status: "UPCOMING" },
       { name: "SECTION HEAD QA", status: "UPCOMING" },
       { name: "DEPT. HEAD QA", status: "UPCOMING" },
       { name: "DIV. HEAD", status: "UPCOMING" },
-      { name: "SECTION HEAD PURCHASING", status: "UPCOMING" },
-      { name: "DEPT. HEAD ACCOUNTING", status: "UPCOMING" },
-      { name: "ACCOUNTING CREATE CL", status: "UPCOMING" },
-      { name: "DEPT. HEAD ACCOUNTING", status: "UPCOMING" },
-      { name: "PURCHASING KIRIM CL KE VENDOR", status: "UPCOMING" },
-      { name: "VENDOR APPROVE", status: "UPCOMING" },
-      { name: "FINANCE CREATE IM", status: "UPCOMING" },
+      { name: "CREATE CL", status: "UPCOMING" },
+      { name: "APPROVAL CL DEPT ACCOUNTING", status: "UPCOMING" },
+      { name: "KIRIM VENDOR", status: "UPCOMING" },
+      { name: "VENDOR APPROVAL", status: "UPCOMING" },
+      { name: "CREATE SSC BILLING", status: "UPCOMING" },
       { name: "PAID", status: "UPCOMING" }
     ];
 
+    if (type === "CL" && !linkedCl) {
+      // Pure CL document (no separate QPR predecessor)
+      stages[0].status = "APPROVED";
+      stages[1].status = "APPROVED";
+      stages[2].status = "APPROVED";
+      stages[3].status = "APPROVED";
+      stages[4].status = "APPROVED";
+
+      const isDeptApproved = !!(clApprovalProgress?.deptAccounting || status === "FULLY_APPROVED" || status === "CLOSED_PAID");
+      if (!isDeptApproved) {
+        stages[5].status = "PENDING";
+        return stages;
+      }
+      stages[5].status = "APPROVED";
+
+      const isSent = status === "APPROVED_BY_VENDOR" || status === "FULLY_APPROVED" || status === "CLOSED_PAID";
+      if (!isSent) {
+        stages[6].status = "PENDING";
+        return stages;
+      }
+      stages[6].status = "APPROVED";
+
+      const isVendorAppr = status === "APPROVED_BY_VENDOR" || status === "FULLY_APPROVED" || status === "CLOSED_PAID";
+      if (!isVendorAppr) {
+        stages[7].status = "PENDING";
+        return stages;
+      }
+      stages[7].status = "APPROVED";
+
+      const isPaid = status === "CLOSED_PAID";
+      if (!isPaid) {
+        stages[8].status = "PENDING";
+        return stages;
+      }
+      stages[8].status = "APPROVED";
+      stages[9].status = "APPROVED";
+      return stages;
+    }
+
     // 1. CREATE QPR
     stages[0].status = status === "DRAFT" ? "PENDING" : "APPROVED";
-
     if (status === "DRAFT") return stages;
 
     // 2. SECTION HEAD QA
-    if (requiredRole === "Section Head") {
+    if (requiredRole === "Section Head" && status !== "APPROVED") {
       stages[1].status = "PENDING";
       return stages;
     } else {
@@ -81,7 +117,7 @@ const getDocPipelineStages = (
     }
 
     // 3. DEPT. HEAD QA
-    if (requiredRole === "Dept Head") {
+    if (requiredRole === "Dept Head" && status !== "APPROVED") {
       stages[2].status = "PENDING";
       return stages;
     } else {
@@ -89,75 +125,63 @@ const getDocPipelineStages = (
     }
 
     // 4. DIV. HEAD
-    if (requiredRole === "Div Head") {
+    if (requiredRole === "Div Head" && status !== "APPROVED") {
       stages[3].status = "PENDING";
       return stages;
     } else {
       stages[3].status = "APPROVED";
     }
 
-    // 5. SECTION HEAD PURCHASING
-    if (requiredRole === "Purchasing") {
+    // 5. CREATE CL (Immediate after Div Head approval)
+    if (!linkedCl) {
       stages[4].status = "PENDING";
       return stages;
     } else {
       stages[4].status = "APPROVED";
     }
 
-    // 6. DEPT. HEAD ACCOUNTING (Before CL)
-    if (requiredRole === "Accounting" && !linkedCl) {
+    // 6. APPROVAL CL DEPT ACCOUNTING
+    const clProg = linkedCl.clApprovalProgress || clApprovalProgress || { sectAccounting: false, deptAccounting: false };
+    const isDeptApproved = !!(clProg.deptAccounting || linkedCl.status === "APPROVED_DEPT" || linkedCl.status === "FULLY_APPROVED" || linkedCl.status === "CLOSED_PAID" || linkedCl.closedPaid);
+    if (!isDeptApproved) {
       stages[5].status = "PENDING";
       return stages;
     } else {
       stages[5].status = "APPROVED";
     }
 
-    // 7. ACCOUNTING CREATE CL
-    if (!linkedCl) {
+    // 7. KIRIM VENDOR (Purchasing Kirim ke Vendor)
+    const isPurchasingSent = !!(linkedCl.purchasingSentCl || linkedCl.sentToVendor || linkedCl.status === "APPROVED_BY_VENDOR" || linkedCl.status === "FULLY_APPROVED" || linkedCl.status === "CLOSED_PAID" || linkedCl.closedPaid);
+    if (!isPurchasingSent) {
       stages[6].status = "PENDING";
       return stages;
     } else {
       stages[6].status = "APPROVED";
     }
 
-    // 8. DEPT. HEAD ACCOUNTING (CL Approval)
-    const clProg = linkedCl.clApprovalProgress || clApprovalProgress || { sectAccounting: false, deptAccounting: false };
-    if (!clProg.deptAccounting && linkedCl.status !== "FULLY_APPROVED" && linkedCl.status !== "CLOSED_PAID") {
+    // 8. VENDOR APPROVAL
+    const isVendorApproved = !!(linkedCl.vendorApproved || linkedCl.status === "APPROVED_BY_VENDOR" || linkedCl.status === "FULLY_APPROVED" || linkedCl.status === "CLOSED_PAID" || linkedCl.closedPaid);
+    if (!isVendorApproved) {
       stages[7].status = "PENDING";
       return stages;
     } else {
       stages[7].status = "APPROVED";
     }
 
-    // 9. PURCHASING KIRIM CL KE VENDOR
-    if (!linkedCl.sentToVendor && linkedCl.status !== "APPROVED_BY_VENDOR" && linkedCl.status !== "FULLY_APPROVED" && linkedCl.status !== "CLOSED_PAID") {
+    // 9. CREATE SSC BILLING
+    const isClosedPaid = !!(linkedCl.status === "CLOSED_PAID" || linkedCl.closedPaid);
+    if (!isClosedPaid) {
       stages[8].status = "PENDING";
       return stages;
     } else {
       stages[8].status = "APPROVED";
     }
 
-    // 10. VENDOR APPROVE
-    if (linkedCl.status === "PENDING" || linkedCl.status === "APPROVED_SECT") {
-      stages[9].status = "PENDING";
-      return stages;
-    } else {
+    // 10. PAID
+    if (isClosedPaid) {
       stages[9].status = "APPROVED";
-    }
-
-    // 11. FINANCE CREATE IM
-    if (linkedCl.status === "FULLY_APPROVED") {
-      stages[10].status = "PENDING";
-      return stages;
     } else {
-      stages[10].status = "APPROVED";
-    }
-
-    // 12. PAID
-    if (linkedCl.status === "CLOSED_PAID" || linkedCl.closedPaid) {
-      stages[11].status = "APPROVED";
-    } else {
-      stages[11].status = "PENDING";
+      stages[9].status = "PENDING";
     }
 
     return stages;
@@ -485,9 +509,9 @@ export default function Dashboard({
       type: "PURCHASING"
     },
     {
-      key: "Accounting",
-      title: "Accounting",
-      roles: ["Sect Accounting", "Dept Accounting", "Accounting Approval", "Accounting"],
+      key: "Dept Accounting",
+      title: "Dept Accounting",
+      roles: ["Dept Accounting", "Sect Accounting", "Accounting Approval", "Accounting"],
       color: "border-emerald-200 hover:border-emerald-500 bg-emerald-50/30 text-emerald-800",
       iconColor: "bg-emerald-500 text-white",
       type: "ACCOUNTING"
@@ -501,9 +525,9 @@ export default function Dashboard({
       type: "VENDOR"
     },
     {
-      key: "Finance",
-      title: "Finance",
-      roles: ["Finance"],
+      key: "Finance Accounting",
+      title: "Finance Accounting",
+      roles: ["Finance", "Finance Accounting"],
       color: "border-teal-200 hover:border-teal-500 bg-teal-50/30 text-teal-800",
       iconColor: "bg-teal-500 text-white",
       type: "FINANCE"
@@ -611,7 +635,7 @@ export default function Dashboard({
       });
     }
 
-    // Purchasing
+    // Purchasing (Handling QPR CL preparation & Sending CL to Vendor)
     if (role.key === "Purchasing") {
       currentActiveQprs.forEach(qpr => {
         const hasCl = currentActiveConfirmationLetters.some(cl => cl.qprNumber === qpr.qprNumber);
@@ -627,14 +651,33 @@ export default function Dashboard({
             requiredRole: "Purchasing",
             daysStuck,
             amount: qpr.claimAmount || "-",
-            activeTab: "i-memo"
+            activeTab: "buat-cl"
+          });
+        }
+      });
+      currentActiveConfirmationLetters.forEach(cl => {
+        const isDeptApproved = !!(cl.clApprovalProgress?.deptAccounting || cl.status === "FULLY_APPROVED" || cl.status === "CLOSED_PAID");
+        const isSent = !!(cl.purchasingSentCl || cl.sentToVendor);
+        if (isDeptApproved && !isSent && !cl.closedPaid && cl.status !== "CLOSED_PAID") {
+          const lt = getDocLeadTimes(cl);
+          const daysStuck = lt.totalLeadTime;
+          docs.push({
+            id: `cl-${cl.id}`,
+            docNumber: cl.clNumber,
+            type: "CL",
+            vendor: cl.supplierName,
+            date: cl.dateSent || cl.date,
+            requiredRole: "Kirim ke Vendor",
+            daysStuck,
+            amount: cl.amount,
+            activeTab: "approve-cl"
           });
         }
       });
     }
 
-    // Accounting
-    if (role.key === "Accounting") {
+    // Dept Accounting (Handling CL creation & approval)
+    if (role.key === "Dept Accounting") {
       currentActiveQprs.forEach(qpr => {
         const hasCl = currentActiveConfirmationLetters.some(cl => cl.qprNumber === qpr.qprNumber);
         if (!hasCl && qpr.requiredRole === "Accounting") {
@@ -654,7 +697,8 @@ export default function Dashboard({
         }
       });
       currentActiveConfirmationLetters.forEach(cl => {
-        if (cl.status === "PENDING" || cl.status === "APPROVED_SECT" || !cl.clApprovalProgress?.deptAccounting) {
+        const isDeptApproved = !!(cl.clApprovalProgress?.deptAccounting || cl.status === "FULLY_APPROVED" || cl.status === "CLOSED_PAID");
+        if (!isDeptApproved && !cl.closedPaid && cl.status !== "CLOSED_PAID") {
           const lt = getDocLeadTimes(cl);
           const daysStuck = lt.totalLeadTime;
           docs.push({
@@ -663,7 +707,7 @@ export default function Dashboard({
             type: "CL",
             vendor: cl.supplierName,
             date: cl.dateSent || cl.date,
-            requiredRole: cl.requiredRole || "Dept Accounting",
+            requiredRole: "Dept Accounting Approval",
             daysStuck,
             amount: cl.amount,
             activeTab: "approve-cl"
@@ -672,7 +716,7 @@ export default function Dashboard({
       });
     }
 
-    // Vendor
+    // Vendor (Handling Vendor confirmation & PICA)
     if (role.key === "Vendor") {
       currentActiveQprs.forEach(qpr => {
         if (qpr.status === "WAITING_VENDOR" || qpr.requiredRole === "Vendor") {
@@ -692,7 +736,9 @@ export default function Dashboard({
         }
       });
       currentActiveConfirmationLetters.forEach(cl => {
-        if (!cl.vendorApproved && cl.status !== "REJECTED" && !cl.closedPaid && cl.status !== "CLOSED_PAID") {
+        const isSent = !!(cl.purchasingSentCl || cl.sentToVendor);
+        const isVendorApproved = !!(cl.vendorApproved || cl.status === "APPROVED_BY_VENDOR" || cl.status === "FULLY_APPROVED");
+        if (isSent && !isVendorApproved && cl.status !== "REJECTED" && !cl.closedPaid && cl.status !== "CLOSED_PAID") {
           const lt = getDocLeadTimes(cl);
           const daysStuck = lt.totalLeadTime;
           docs.push({
@@ -710,10 +756,11 @@ export default function Dashboard({
       });
     }
 
-    // Finance
-    if (role.key === "Finance") {
+    // Finance Accounting (Handling SSC Billing, Payment settlement, and Closed Paid)
+    if (role.key === "Finance Accounting") {
       currentActiveConfirmationLetters.forEach(cl => {
-        if ((cl.status === "FULLY_APPROVED" || cl.status === "APPROVED") && !cl.closedPaid && cl.status !== "CLOSED_PAID") {
+        const isVendorApproved = !!(cl.vendorApproved || cl.status === "APPROVED_BY_VENDOR" || cl.status === "FULLY_APPROVED" || cl.status === "APPROVED");
+        if (isVendorApproved && !cl.closedPaid && cl.status !== "CLOSED_PAID") {
           const lt = getDocLeadTimes(cl);
           const daysStuck = lt.totalLeadTime;
           docs.push({
@@ -722,7 +769,7 @@ export default function Dashboard({
             type: "CL",
             vendor: cl.supplierName,
             date: cl.dateSent || cl.date,
-            requiredRole: "Finance Payment",
+            requiredRole: "Finance SSC Billing / Payment",
             daysStuck,
             amount: cl.amount,
             activeTab: "i-memo"
@@ -971,7 +1018,7 @@ export default function Dashboard({
           </h4>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
           {authRoles.map((role) => {
             const docs = getPendingDocsForRole(role);
             const totalStuckDocs = docs.length;
