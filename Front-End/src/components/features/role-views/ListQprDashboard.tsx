@@ -191,6 +191,30 @@ export default function ListQprDashboard({
   const allDocuments = React.useMemo(() => {
     const list: any[] = [];
 
+    // 1. Add NCRs
+    pendingNcrs.forEach((ncr) => {
+      list.push({
+        id: `ncr-${ncr.id}`,
+        type: "NCR",
+        docNumber: ncr.ncrNumber,
+        date: ncr.date,
+        vendorName: ncr.supplierName,
+        partNumber: ncr.partNumber || "—",
+        partName: ncr.partName || "—",
+        period: ncr.period || getPeriodFromDate(ncr.date),
+        qty: ncr.totalItems || ncr.qty || 1000,
+        reject: ncr.rejectItems || ncr.qtyNg || 30,
+        allowanceRatio: ncr.allowanceRatio || "—",
+        claimAmount: "—",
+        defectType: ncr.problem || "—",
+        disposition: ncr.disposition || "—",
+        status: ncr.status,
+        requiredRole: ncr.requiredRole,
+        approvedBy: ncr.status === "APPROVED" || ncr.status === "CLOSED" ? ["Foreman", "Section Head", "Dept Head"] : [],
+        refObject: ncr
+      });
+    });
+
     // 2. Add QPRs
     pendingQprs.forEach((qpr) => {
       list.push({

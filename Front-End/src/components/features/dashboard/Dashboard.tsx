@@ -771,9 +771,30 @@ export default function Dashboard({
         status: q.status,
         leadTime: lt.totalLeadTime,
         isClosed: q.status === "APPROVED" || q.status === "CLOSED" || q.status === "CLOSED_PAID" || (linkedCl && (linkedCl.status === "CLOSED_PAID" || linkedCl.closedPaid)),
+        closedPaid: linkedCl?.closedPaid || q.status === "CLOSED_PAID",
+        refObject: linkedCl || q,
         linkedCl: linkedCl,
         debitNoteCount: linkedCl?.debitNoteCount || 0,
         clApprovalProgress: linkedCl?.clApprovalProgress || { sectAccounting: false, deptAccounting: false }
+      };
+    }),
+    ...currentActiveConfirmationLetters.filter(cl => !currentActiveQprs.some(q => q.qprNumber === cl.qprNumber)).map(cl => {
+      const lt = getDocLeadTimes(cl);
+      return {
+        id: `cl-${cl.id}`,
+        docNumber: cl.clNumber,
+        type: "CL",
+        vendor: cl.supplierName,
+        date: cl.dateSent || cl.date,
+        requiredRole: cl.requiredRole || (cl.closedPaid ? "Closed" : "Dept Accounting"),
+        status: cl.status,
+        leadTime: lt.totalLeadTime,
+        isClosed: cl.status === "CLOSED_PAID" || cl.closedPaid === true,
+        closedPaid: cl.closedPaid,
+        refObject: cl,
+        linkedCl: cl,
+        debitNoteCount: cl.debitNoteCount || 0,
+        clApprovalProgress: cl.clApprovalProgress || { sectAccounting: false, deptAccounting: false }
       };
     })
   ];
