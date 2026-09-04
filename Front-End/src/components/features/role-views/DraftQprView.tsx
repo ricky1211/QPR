@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { CheckCircle2, Clock, Search, Eye, AlertCircle, Trash2, Send } from "lucide-react";
 import QprPrintPreview from "./QprPrintPreview";
+import { getPeriodFromDate } from "@/services/qprService";
 
 interface DraftQprViewProps {
   pendingQprs: any[];
@@ -153,7 +154,7 @@ export default function DraftQprView({ pendingQprs, setPendingQprs, setActiveTab
                         })()}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-slate-650">{qpr.period || "Juni 2026"}</td>
+                    <td className="px-4 py-3 text-slate-650">{qpr.period || getPeriodFromDate(qpr.date)}</td>
                     <td className="px-4 py-3 text-slate-500 font-semibold">{qpr.date}</td>
                     <td className="px-4 py-3 text-right font-mono font-bold text-slate-850">{qpr.claimAmount}</td>
                     <td className="px-4 py-3 text-center">

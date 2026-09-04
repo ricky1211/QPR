@@ -54,11 +54,17 @@ export const qprService = {
   }),
 };
 
-export const getPeriodFromDate = (dateStr: string) => {
-  if (!dateStr) return "";
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return "";
+export const getPeriodFromDate = (dateStr?: string) => {
   const months = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+  if (!dateStr) {
+    const d = new Date();
+    return `${months[d.getMonth()]} ${d.getFullYear()}`;
+  }
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) {
+    const now = new Date();
+    return `${months[now.getMonth()]} ${now.getFullYear()}`;
+  }
   return `${months[d.getMonth()]} ${d.getFullYear()}`;
 };
 

@@ -29,7 +29,9 @@ export default function DraftClView({ confirmationLetters, setConfirmationLetter
       } else if (filterStatus === "WAITING_APPROVAL") {
         matchesStatus = cl.status === "APPROVED_SECT" || cl.status === "PENDING";
       } else if (filterStatus === "APPROVED") {
-        matchesStatus = cl.status === "FULLY_APPROVED" || cl.status === "CLOSED_PAID";
+        matchesStatus = cl.status === "FULLY_APPROVED" || cl.status === "APPROVED";
+      } else if (filterStatus === "CLOSED_PAID") {
+        matchesStatus = cl.status === "CLOSED_PAID" || cl.closedPaid === true;
       }
     }
     return matchesSearch && matchesSupplier && matchesStatus;
@@ -56,8 +58,8 @@ export default function DraftClView({ confirmationLetters, setConfirmationLetter
   return (
     <div className="space-y-6 text-left">
       <div className="pl-1">
-        <h4 className="text-lg font-black text-slate-800">Draf &amp; Status Laporan Confirmation Letter</h4>
-        <p className="text-xs text-slate-400 font-semibold mt-1">Review, kirim ke approval, atau cetak dokumen Confirmation Letter.</p>
+        <h4 className="text-lg font-black text-slate-800">Draf &amp; Riwayat Status Confirmation Letter</h4>
+        <p className="text-xs text-slate-400 font-semibold mt-1">Review, kirim ke approval, cek riwayat status lunas, atau cetak dokumen Confirmation Letter.</p>
       </div>
 
       <div className="bg-white border border-slate-100 rounded-xl shadow-sm p-6 space-y-4">
@@ -90,7 +92,8 @@ export default function DraftClView({ confirmationLetters, setConfirmationLetter
             <option value="ALL">Semua Status</option>
             <option value="DRAFT">Draf (Belum Dikirim)</option>
             <option value="WAITING_APPROVAL">Menunggu Approval</option>
-            <option value="APPROVED">Disetujui / Selesai</option>
+            <option value="APPROVED">Disetujui</option>
+            <option value="CLOSED_PAID">Lunas (Paid)</option>
           </select>
         </div>
 
@@ -124,14 +127,18 @@ export default function DraftClView({ confirmationLetters, setConfirmationLetter
                     <td className="px-4 py-3 text-slate-500 font-semibold">{cl.dateSent}</td>
                     <td className="px-4 py-3 text-right font-mono font-bold text-slate-850">{cl.amount}</td>
                     <td className="px-4 py-3 text-center">
-                      {cl.status === "PENDING" ? (
+                      {cl.closedPaid || cl.status === "CLOSED_PAID" ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded text-[9px] font-black uppercase">
+                          <CheckCircle2 size={9} /> Lunas (Paid)
+                        </span>
+                      ) : cl.status === "PENDING" ? (
                         <span className="inline-flex items-center px-2 py-0.5 bg-slate-100 text-slate-600 border border-slate-200 rounded text-[9px] font-black uppercase">Draf</span>
                       ) : cl.status === "APPROVED_SECT" ? (
                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-250 rounded text-[9px] font-black uppercase">
                           ⏳ Waiting Dept
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-50 text-green-700 border border-green-200 rounded text-[9px] font-black uppercase">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-green-50 text-green-700 border border-green-200 rounded text-[9px] font-black uppercase">
                           <CheckCircle2 size={9} /> Disetujui
                         </span>
                       )}

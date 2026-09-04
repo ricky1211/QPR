@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import ConfirmationLetterPrintPreview from "./ConfirmationLetterPrintPreview";
 import { vendorService } from "@/services/vendorService";
+import { getPeriodFromDate } from "@/services/qprService";
 
 interface AccountingViewProps {
   confirmationLetters: any[];
@@ -28,6 +29,7 @@ interface AccountingViewProps {
   handleUpdateCLPipeline?: (clId: string, data: any) => void;
   pendingQprs?: any[];
   setPendingQprs?: React.Dispatch<React.SetStateAction<any[]>>;
+  username?: string;
 }
 
 export default function AccountingView({
@@ -39,7 +41,8 @@ export default function AccountingView({
   handleMarkClosedPaid,
   handleDebitNote,
   handleUpdateCLPipeline,
-  pendingQprs
+  pendingQprs,
+  username = "purchasing"
 }: AccountingViewProps) {
   const [selectedQpr, setSelectedQpr] = useState<any>(null);
   const [unitPrice, setUnitPrice] = useState("250000");
@@ -303,7 +306,7 @@ export default function AccountingView({
                   rejectCount: 30,
                   totalQty: 10000,
                   allowanceRatio: 0.5,
-                  period: "Juni 2026",
+                  period: getPeriodFromDate(new Date().toISOString()),
                   status: "APPROVED",
                   isManual: true,
                   parts: []
@@ -419,7 +422,7 @@ export default function AccountingView({
                   </div>
                   <div>
                     <span className="text-slate-400 block font-semibold">Periode:</span>
-                    <span className="font-bold text-slate-800">{selectedQpr.period || "Juni 2026"}</span>
+                    <span className="font-bold text-slate-800">{selectedQpr.period || getPeriodFromDate(selectedQpr.date)}</span>
                   </div>
                   <div>
                     <span className="text-slate-400 block font-semibold">Ref. NCR:</span>
@@ -915,11 +918,11 @@ export default function AccountingView({
                                      </div>
                                    )}
                                    {/* Close Paid */}
-                                   {isVendorApproved && !closedPaid && handleMarkClosedPaid && (
+                                   {!closedPaid && handleMarkClosedPaid && (username === "purchasing" || username === "admin") && (
                                      <button
                                        onClick={() => handleMarkClosedPaid(cl.id)}
                                        className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-[8.5px] font-black cursor-pointer transition-colors active:scale-95 uppercase shadow-sm"
-                                       title="Tandai sebagai Close Paid"
+                                       title="Purchasing: Tandai sebagai Close Paid (Lunas)"
                                      >
                                        <Banknote size={9} />
                                        Close Paid

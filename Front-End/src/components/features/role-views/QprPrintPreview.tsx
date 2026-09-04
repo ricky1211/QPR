@@ -2,6 +2,7 @@
 
 import React from "react";
 import { X, Printer, Edit, FileText } from "lucide-react";
+import { qprService, mapQprFromDb } from "@/services/qprService";
 
 interface QprPreviewProps {
   qpr: {
@@ -104,8 +105,47 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
     }
   };
 
+  const [fetchedAttachments, setFetchedAttachments] = React.useState<Array<{ name: string; base64: string }> | null>(null);
+
+  React.useEffect(() => {
+    // If attachments already exist in props, use them
+    if (qpr.pdfFiles && qpr.pdfFiles.length > 0 && qpr.pdfFiles[0].base64) {
+      setFetchedAttachments(qpr.pdfFiles);
+      return;
+    }
+    if (qpr.pdfFileBase64) {
+      try {
+        if (qpr.pdfFileBase64.startsWith('[')) {
+          setFetchedAttachments(JSON.parse(qpr.pdfFileBase64));
+          return;
+        }
+      } catch (e) {}
+      setFetchedAttachments([{ name: qpr.pdfFileName || "attachment.pdf", base64: qpr.pdfFileBase64 }]);
+      return;
+    }
+
+    // If not present and ID exists, fetch full detail on demand
+    if (qpr.id) {
+      qprService.getById(qpr.id)
+        .then((dbDetail) => {
+          if (dbDetail) {
+            const mapped = mapQprFromDb(dbDetail);
+            if (mapped.pdfFiles && mapped.pdfFiles.length > 0) {
+              setFetchedAttachments(mapped.pdfFiles);
+            }
+          }
+        })
+        .catch((err) => {
+          console.warn("[QprPrintPreview] Could not fetch detailed PDF attachments:", err);
+        });
+    }
+  }, [qpr.id, qpr.pdfFiles, qpr.pdfFileBase64, qpr.pdfFileName]);
+
   const parsedAttachments = React.useMemo(() => {
-    if (qpr.pdfFiles && Array.isArray(qpr.pdfFiles)) {
+    if (fetchedAttachments && fetchedAttachments.length > 0) {
+      return fetchedAttachments;
+    }
+    if (qpr.pdfFiles && Array.isArray(qpr.pdfFiles) && qpr.pdfFiles.length > 0) {
       return qpr.pdfFiles;
     }
     if (qpr.pdfFileBase64) {
@@ -117,7 +157,7 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
       return [{ name: qpr.pdfFileName || "attachment.pdf", base64: qpr.pdfFileBase64 }];
     }
     return [];
-  }, [qpr.pdfFiles, qpr.pdfFileBase64, qpr.pdfFileName]);
+  }, [fetchedAttachments, qpr.pdfFiles, qpr.pdfFileBase64, qpr.pdfFileName]);
 
   const [activeAttachmentIdx, setActiveAttachmentIdx] = React.useState(0);
 

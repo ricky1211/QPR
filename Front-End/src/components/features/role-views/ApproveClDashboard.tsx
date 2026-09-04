@@ -21,6 +21,7 @@ import {
   Printer
 } from "lucide-react";
 import ConfirmationLetterPrintPreview from "./ConfirmationLetterPrintPreview";
+import { getPeriodFromDate } from "@/services/qprService";
 
 interface ApproveClDashboardProps {
   confirmationLetters: any[];
@@ -288,7 +289,7 @@ export default function ApproveClDashboard({
                 className="flex-1 px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white font-bold text-slate-800 cursor-pointer h-9"
               >
                 <option value="ALL">ALL PERIODS</option>
-                {Array.from(new Set(confirmationLetters.map(cl => cl.period || "Juni 2026"))).map(per => (
+                {Array.from(new Set(confirmationLetters.map(cl => cl.period || getPeriodFromDate(cl.dateSent || cl.date)))).map(per => (
                   <option key={String(per)} value={String(per)}>{String(per)}</option>
                 ))}
               </select>

@@ -9,7 +9,25 @@ export class QprsService {
   async findAll(): Promise<any[]> {
     try {
       return await this.prisma.qpr.findMany({
-        include: {
+        select: {
+          id: true,
+          qprNumber: true,
+          date: true,
+          vendorId: true,
+          userId: true,
+          status: true,
+          requiredRole: true,
+          refNcrNumber: true,
+          problem: true,
+          claimType: true,
+          totalQty: true,
+          totalQtyNg: true,
+          totalStdAllowance: true,
+          billableQty: true,
+          claimAmount: true,
+          pdfFileName: true,
+          createdAt: true,
+          updatedAt: true,
           vendor: true,
           user: true,
           qprParts: {
@@ -24,6 +42,9 @@ export class QprsService {
               sscPayment: true,
             },
           },
+        },
+        orderBy: {
+          createdAt: 'desc',
         },
       });
     } catch (error) {
@@ -242,7 +263,25 @@ export class QprsService {
         include: {
           vendor: true,
           qpr: {
-            include: {
+            select: {
+              id: true,
+              qprNumber: true,
+              date: true,
+              vendorId: true,
+              userId: true,
+              status: true,
+              requiredRole: true,
+              refNcrNumber: true,
+              problem: true,
+              claimType: true,
+              totalQty: true,
+              totalQtyNg: true,
+              totalStdAllowance: true,
+              billableQty: true,
+              claimAmount: true,
+              pdfFileName: true,
+              createdAt: true,
+              updatedAt: true,
               qprParts: {
                 include: {
                   part: true,

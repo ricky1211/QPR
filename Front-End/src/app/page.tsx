@@ -23,7 +23,7 @@ import DraftQprView from "@/components/features/role-views/DraftQprView";
 import DraftClView from "@/components/features/role-views/DraftClView";
 import { ncrService, mapNcrFromDb } from "@/services/ncrService";
 import { vendorService } from "@/services/vendorService";
-import { qprService, mapQprFromDb } from "@/services/qprService";
+import { qprService, mapQprFromDb, getPeriodFromDate } from "@/services/qprService";
 import { clService, mapClFromDb } from "@/services/clService";
 import { sscService, mapBillingFromDb } from "@/services/sscService";
 
@@ -466,11 +466,16 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
     }
   };
 
-  // Handler: Mark CL as Close Paid
+  // Handler: Mark CL as Close Paid (Purchasing only)
   const handleMarkClosedPaid = (clId: string) => {
+    if (username !== "purchasing" && username !== "admin") {
+      alert("Akses Ditolak: Hanya Purchasing yang memiliki wewenang untuk mengubah status Confirmation Letter menjadi Lunas (Paid)!");
+      return;
+    }
+
     const proceedWithLocalStateUpdate = () => {
       setConfirmationLetters(prev => prev.map(cl =>
-        cl.id === clId ? { ...cl, closedPaid: true, status: "CLOSED_PAID" } : cl
+        cl.id === clId ? { ...cl, closedPaid: true, status: "CLOSED_PAID", requiredRole: "Closed" } : cl
       ));
 
       // Keep QPR state in sync
@@ -480,10 +485,20 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
           q.qprNumber === targetCl.qprNumber ? { ...q, status: "CLOSED_PAID", requiredRole: "Closed" } : q
         ));
       }
+
+      setNotifications(prev => [{
+        id: Date.now(),
+        message: `Status Confirmation Letter ${targetCl?.clNumber || clId} telah diubah menjadi LUNAS (Closed Paid) oleh Purchasing.`,
+        time: "Baru saja",
+        type: "success" as const,
+        unread: true
+      }, ...prev]);
+
+      alert(`Sukses: Status Confirmation Letter ${targetCl?.clNumber || ""} berhasil diubah menjadi Lunas (Closed Paid) dan dipindahkan ke riwayat!`);
     };
 
     if (typeof clId === "string" && clId.length > 10) {
-      clService.update(clId, { closedPaid: true })
+      clService.update(clId, { closedPaid: true, status: "APPROVED" })
         .then(() => {
           proceedWithLocalStateUpdate();
         })
@@ -559,14 +574,16 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
       setShowAllowanceError(true);
     } else {
       // 1. Generate new QPR draft
+      const now = new Date();
+      const monthPadded = String(now.getMonth() + 1).padStart(2, '0');
       const newQprId = Date.now();
-      const newQprNum = `QPR/2026/06/${part.partNumber.replace("-", "")}`;
+      const newQprNum = `QPR/${now.getFullYear()}/${monthPadded}/${part.partNumber.replace("-", "")}`;
       const newQpr = {
         id: newQprId,
         qprNumber: newQprNum,
-        date: new Date().toISOString().split("T")[0],
+        date: now.toISOString().split("T")[0],
         supplierName: part.supplierName,
-        period: "Juni 2026",
+        period: getPeriodFromDate(now.toISOString()),
         totalItems: 1000,
         rejectItems: 30,
         allowanceRatio: `${part.allowanceRatio}%`,
@@ -764,6 +781,9 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
       });
     };
 
+    // Optimistic UI update: update local state immediately so user experiences 0ms lag
+    proceedWithStateUpdate();
+
     if (typeof id === "string" && id.length > 10) {
       let nextRole = currentRole;
       let nextStatus = targetQpr.status;
@@ -804,15 +824,10 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
 
           return qprService.updateApprovalProgress(id, progressPayload);
         })
-        .then((dbApprovalData) => {
-          proceedWithStateUpdate(dbApprovalData);
-        })
         .catch(err => {
           console.error("Failed to persist QPR approval in DB:", err);
           alert(`Gagal menyimpan approval QPR ke database: ${err.message}`);
         });
-    } else {
-      proceedWithStateUpdate();
     }
   };
 
@@ -939,6 +954,8 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
                 setActiveTab={handleTabChange}
                 confirmationLetters={confirmationLetters}
                 setConfirmationLetters={setConfirmationLetters}
+                username={username}
+                handleMarkClosedPaid={handleMarkClosedPaid}
               />
             )}
 
@@ -1014,6 +1031,7 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
                 handleUpdateCLPipeline={handleUpdateCLPipeline}
                 pendingQprs={pendingQprs}
                 setPendingQprs={setPendingQprs}
+                username={username}
               />
             )}
 

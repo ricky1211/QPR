@@ -19,6 +19,7 @@ import {
 import ConfirmationLetterPrintPreview from "./ConfirmationLetterPrintPreview";
 import { parseCLPdf } from "@/utils/parseCLPdf";
 import { sscService, mapBillingFromDb } from "@/services/sscService";
+import { clService } from "@/services/clService";
 
 interface IMemoViewProps {
   confirmationLetters: any[];
@@ -365,6 +366,72 @@ export default function IMemoView({
     setTimeout(() => {
       window.print();
       // Hapus atribut setelah print selesai / dibatalkan
+      document.documentElement.removeAttribute("data-printing-memo");
+    }, 100);
+  };
+
+  const handlePrintPayment = () => {
+    const selectedBilling = createdSscBillings.find((r: any) => r.id === selectedPaymentClId);
+    const targetCl = confirmationLetters.find(cl => cl.id === selectedPaymentClId || cl.clNumber === selectedBilling?.clNumber);
+    const clId = targetCl?.id || selectedBilling?.clId || selectedPaymentClId;
+    const clNumVal = selectedBilling?.clNumber || targetCl?.clNumber || `CL-${Date.now()}`;
+    const rawAmt = selectedBilling?.memoAmount || selectedBilling?.amount?.replace(/[^0-9]/g, "") || "0";
+    const parsedAmount = parseFloat(rawAmt);
+
+    const paymentPayload = {
+      clId,
+      paymentNo: `PAY/${clNumVal.replace("CL/", "")}`,
+      paymentDate: new Date().toISOString(),
+      amountPaid: parsedAmount,
+      status: "PENDING",
+      payCompany,
+      payBusinessArea,
+      payTitle,
+      payTo,
+      payInstruction,
+      payRequestDate,
+      paySigPrepared,
+      paySigApproved1,
+      paySigApproved2,
+      paySigEntry
+    };
+
+    if (clId && clId.length > 10) {
+      sscService.createPayment(paymentPayload)
+        .catch((err) => {
+          console.warn("Notice: SscPayment persisted or already exists:", err?.message || err);
+        });
+
+      // Trigger vendor sent & lead time progress update in CL
+      clService.update(clId, {
+        purchasingSentCl: true,
+        purchasingSentDate: new Date().toISOString()
+      }).catch(err => console.warn("Notice: CL sent status update:", err));
+    }
+
+    // Trigger local state synchronization for Dashboard and Lead Time
+    setConfirmationLetters(prev => prev.map(cl => {
+      if (cl.id === clId || cl.clNumber === clNumVal) {
+        return {
+          ...cl,
+          purchasingSentCl: true,
+          purchasingSentDate: cl.purchasingSentDate || new Date().toISOString(),
+          status: cl.status === "CLOSED_PAID" ? "CLOSED_PAID" : "APPROVED_BY_VENDOR"
+        };
+      }
+      return cl;
+    }));
+
+    const sheetId = "internal-memo-sheet";
+    const el = document.getElementById(sheetId);
+    if (!el) {
+      console.error("Print sheet element tidak ditemukan");
+      return;
+    }
+
+    document.documentElement.setAttribute("data-printing-memo", sheetId);
+    setTimeout(() => {
+      window.print();
       document.documentElement.removeAttribute("data-printing-memo");
     }, 100);
   };
@@ -1923,7 +1990,7 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                             Export Excel
                           </button>
                           <button
-                            onClick={handlePrint}
+                            onClick={handlePrintPayment}
                             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs rounded-lg shadow-md hover:shadow-blue-600/20 flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 font-sans"
                           >
                             <Printer size={13} />

@@ -195,6 +195,8 @@ interface DashboardProps {
   setActiveTab: (tab: string) => void;
   confirmationLetters?: any[];
   setConfirmationLetters?: React.Dispatch<React.SetStateAction<any[]>>;
+  username?: string;
+  handleMarkClosedPaid?: (clId: string) => void;
 }
 
 export default function Dashboard({
@@ -203,7 +205,9 @@ export default function Dashboard({
   parts,
   setActiveTab,
   confirmationLetters = [],
-  setConfirmationLetters
+  setConfirmationLetters,
+  username = "admin",
+  handleMarkClosedPaid
 }: DashboardProps) {
   const [previewClDoc, setPreviewClDoc] = useState<any | null>(null);
   const [selectedRoleCard, setSelectedRoleCard] = useState<string | null>(null);
@@ -211,92 +215,27 @@ export default function Dashboard({
   const [selectedPipelineDoc, setSelectedPipelineDoc] = useState<any | null>(null);
   const [showPipeline, setShowPipeline] = useState(false);
 
-  const periods = [
-    "Januari 2026",
-    "Februari 2026",
-    "Maret 2026",
-    "April 2026",
-    "Mei 2026",
-    "Juni 2026",
-    "Juli 2026",
-    "Agustus 2026",
-    "September 2026",
-    "Oktober 2026",
-    "November 2026",
-    "Desember 2026"
-  ];
+  const months = React.useMemo(() => [
+    "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+    "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+  ], []);
+
+  const currentYear = new Date().getFullYear();
+  const periods = React.useMemo(() => {
+    return months.map(m => `${m} ${currentYear}`);
+  }, [months, currentYear]);
   
-  // Set default period index based on the latest activity in QPR/NCR/CL
-  const getInitialPeriodIndex = () => {
-    const months = [
-      "Januari", "Februari", "Maret", "April", "Mei", "Juni",
-      "Juli", "Agustus", "September", "Oktober", "November", "Desember"
-    ];
-
-    let latestPeriodName = "Juni 2026";
-    let latestTime = 0;
-
-    const checkDate = (dateStr?: string) => {
-      if (!dateStr) return;
-      const d = new Date(dateStr);
-      if (!isNaN(d.getTime()) && d.getTime() > latestTime) {
-        latestTime = d.getTime();
-        latestPeriodName = `${months[d.getMonth()]} ${d.getFullYear()}`;
-      }
-    };
-
-    pendingNcrs.forEach(n => checkDate(n.date));
-    pendingQprs.forEach(q => checkDate(q.date));
-    confirmationLetters.forEach(cl => checkDate(cl.dateSent || cl.date));
-
-    const idx = periods.indexOf(latestPeriodName);
-    return idx !== -1 ? idx : 5;
-  };
-
-  const [periodIndex, setPeriodIndex] = useState(getInitialPeriodIndex);
-  const activePeriod = periods[periodIndex];
-
-  const hasAutoAdjustedRef = React.useRef(false);
-
-  React.useEffect(() => {
-    const hasData = pendingNcrs.length > 0 || pendingQprs.length > 0 || confirmationLetters.length > 0;
-    if (hasData && !hasAutoAdjustedRef.current) {
-      const months = [
-        "Januari", "Februari", "Maret", "April", "Mei", "Juni",
-        "Juli", "Agustus", "September", "Oktober", "November", "Desember"
-      ];
-
-      let latestPeriodName = "Juni 2026";
-      let latestTime = 0;
-
-      const checkDate = (dateStr?: string) => {
-        if (!dateStr) return;
-        const d = new Date(dateStr);
-        if (!isNaN(d.getTime()) && d.getTime() > latestTime) {
-          latestTime = d.getTime();
-          latestPeriodName = `${months[d.getMonth()]} ${d.getFullYear()}`;
-        }
-      };
-
-      pendingNcrs.forEach(n => checkDate(n.date));
-      pendingQprs.forEach(q => checkDate(q.date));
-      confirmationLetters.forEach(cl => checkDate(cl.dateSent || cl.date));
-
-      const idx = periods.indexOf(latestPeriodName);
-      if (idx !== -1) {
-        setPeriodIndex(idx);
-        hasAutoAdjustedRef.current = true;
-      }
-    }
-  }, [pendingNcrs, pendingQprs, confirmationLetters, periods]);
+  // Set default period index based on CURRENT active calendar month
+  const [periodIndex, setPeriodIndex] = useState(() => {
+    const currentMonth = new Date().getMonth();
+    return Math.max(0, Math.min(periods.length - 1, currentMonth));
+  });
+  
+  const activePeriod = periods[periodIndex] || `${months[new Date().getMonth()]} ${currentYear}`;
 
   const getDynamicPeriodConfig = (periodName: string) => {
     const getPeriodFromDate = (dateStr?: string) => {
       if (!dateStr) return "";
-      const months = [
-        "Januari", "Februari", "Maret", "April", "Mei", "Juni",
-        "Juli", "Agustus", "September", "Oktober", "November", "Desember"
-      ];
       const d = new Date(dateStr);
       if (isNaN(d.getTime())) return "";
       return `${months[d.getMonth()]} ${d.getFullYear()}`;
@@ -317,22 +256,7 @@ export default function Dashboard({
       return p === periodName;
     });
 
-    const baselineConfig: { [key: string]: any } = {
-      "Januari 2026": { baselineClosedNcrs: 0, baselineClosedQprs: 0, aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 0, claimRejectedCount: 0 },
-      "Februari 2026": { baselineClosedNcrs: 0, baselineClosedQprs: 0, aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 0, claimRejectedCount: 0 },
-      "Maret 2026": { baselineClosedNcrs: 0, baselineClosedQprs: 0, aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 0, claimRejectedCount: 0 },
-      "April 2026": { baselineClosedNcrs: 0, baselineClosedQprs: 0, aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 0, claimRejectedCount: 0 },
-      "Mei 2026": { baselineClosedNcrs: 0, baselineClosedQprs: 0, aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 0, claimRejectedCount: 0 },
-      "Juni 2026": { baselineClosedNcrs: 0, baselineClosedQprs: 0, aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 0, claimRejectedCount: 0 },
-      "Juli 2026": { baselineClosedNcrs: 0, baselineClosedQprs: 0, aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 0, claimRejectedCount: 0 },
-      "Agustus 2026": { baselineClosedNcrs: 0, baselineClosedQprs: 0, aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 0, claimRejectedCount: 0 },
-      "September 2026": { baselineClosedNcrs: 0, baselineClosedQprs: 0, aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 0, claimRejectedCount: 0 },
-      "Oktober 2026": { baselineClosedNcrs: 0, baselineClosedQprs: 0, aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 0, claimRejectedCount: 0 },
-      "November 2026": { baselineClosedNcrs: 0, baselineClosedQprs: 0, aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 0, claimRejectedCount: 0 },
-      "Desember 2026": { baselineClosedNcrs: 0, baselineClosedQprs: 0, aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 0, claimRejectedCount: 0 },
-    };
-
-    const base = baselineConfig[periodName] || { baselineClosedNcrs: 0, baselineClosedQprs: 0, aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 0, claimRejectedCount: 0 };
+    const base = { baselineClosedNcrs: 0, baselineClosedQprs: 0, aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 0, claimRejectedCount: 0 };
     
     const pendingActiveQprs = activePeriodQprs.filter(q => 
       q.status !== "APPROVED" &&
@@ -969,11 +893,11 @@ export default function Dashboard({
               </div>
               <div className="space-y-1.5">
                 <div className="flex justify-between text-xs font-bold text-slate-700">
-                  <span>{qprClosed} Selesai</span>
                   <span className="text-indigo-600">{qprInProgress} Proses</span>
+                  <span className="text-emerald-600">{qprClosed} Selesai</span>
                 </div>
                 <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                  <div className="bg-indigo-500 h-full rounded-full transition-all duration-500" style={{ width: `${qprPct}%` }} />
+                  <div className="bg-emerald-500 h-full rounded-full transition-all duration-500" style={{ width: `${qprPct}%` }} />
                 </div>
               </div>
             </div>
@@ -998,11 +922,11 @@ export default function Dashboard({
               </div>
               <div className="space-y-1.5">
                 <div className="flex justify-between text-xs font-bold text-slate-700">
-                  <span>{clLunas} Lunas</span>
                   <span className="text-blue-600">{clProgress} Proses</span>
+                  <span className="text-emerald-600">{clLunas} Lunas</span>
                 </div>
                 <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                  <div className="bg-blue-600 h-full rounded-full transition-all duration-500" style={{ width: `${clPct}%` }} />
+                  <div className="bg-emerald-500 h-full rounded-full transition-all duration-500" style={{ width: `${clPct}%` }} />
                 </div>
               </div>
             </div>
@@ -1272,14 +1196,29 @@ export default function Dashboard({
                         </div>
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <div className="flex flex-col items-center gap-1">
+                        <div className="flex flex-col items-center gap-1.5">
                           <button
                             onClick={() => setSelectedPipelineDoc(doc)}
-                            className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 rounded font-bold text-xs shadow-sm transition-all cursor-pointer inline-flex items-center gap-1.5"
+                            className="px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 rounded font-bold text-xs shadow-sm transition-all cursor-pointer inline-flex items-center gap-1.5"
                           >
                             <Eye size={12} />
                             Detail
                           </button>
+                          {doc.type === "CL" && !doc.closedPaid && (username === "purchasing" || username === "admin") && (
+                            <button
+                              onClick={() => {
+                                const clId = doc.refObject?.id || doc.id?.replace("cl-", "");
+                                if (clId && handleMarkClosedPaid) {
+                                  handleMarkClosedPaid(clId);
+                                }
+                              }}
+                              className="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-bold shadow-sm transition-all inline-flex items-center gap-1 cursor-pointer active:scale-95"
+                              title="Purchasing: Tandai Dokumen CL ini Lunas (Paid)"
+                            >
+                              <CheckCircle2 size={10} />
+                              Tandai Lunas
+                            </button>
+                          )}
                           {doc.linkedCl && (
                             <span className="text-[9px] font-mono font-black text-slate-500 bg-slate-100 border border-slate-200 px-1 py-0.5 rounded shadow-2xs">
                               {doc.linkedCl.clNumber}

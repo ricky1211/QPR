@@ -9,6 +9,10 @@ export interface CreateClPayload {
   amount: number;
   status?: string;
   closedPaid?: boolean;
+  purchasingSentCl?: boolean;
+  purchasingSentDate?: string;
+  vendorApproved?: boolean;
+  vendorApprovedDate?: string;
   items?: any[];
   qprNumber?: string;
 }

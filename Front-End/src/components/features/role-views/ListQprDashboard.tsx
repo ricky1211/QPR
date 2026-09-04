@@ -26,6 +26,7 @@ import ClPrintPreview from "./ClPrintPreview";
 import QprPrintPreview from "./QprPrintPreview";
 import { clService } from "@/services/clService";
 import { sscService } from "@/services/sscService";
+import { getPeriodFromDate } from "@/services/qprService";
 
 
 // Helper to map requiredRole -> human-readable stage label
@@ -189,17 +190,6 @@ export default function ListQprDashboard({
   // Combine all NCR, QPR, and CL documents dynamically from active state (drafts & in-progress) + fallback baseline data
   const allDocuments = React.useMemo(() => {
     const list: any[] = [];
-    const months = [
-      "Januari", "Februari", "Maret", "April", "Mei", "Juni",
-      "Juli", "Agustus", "September", "Oktober", "November", "Desember"
-    ];
-
-    const getPeriodFromDate = (dateStr?: string) => {
-      if (!dateStr) return "";
-      const d = new Date(dateStr);
-      if (isNaN(d.getTime())) return "";
-      return `${months[d.getMonth()]} ${d.getFullYear()}`;
-    };
 
     // 2. Add QPRs
     pendingQprs.forEach((qpr) => {
@@ -211,7 +201,7 @@ export default function ListQprDashboard({
         vendorName: qpr.supplierName,
         partNumber: qpr.parts?.[0]?.partNumber || qpr.partNumber || "MB-001",
         partName: qpr.parts?.[0]?.partName || qpr.partName || "Motherboard X1",
-        period: qpr.period || getPeriodFromDate(qpr.date) || "Juni 2026",
+        period: qpr.period || getPeriodFromDate(qpr.date),
         qty: qpr.totalItems || 1000,
         reject: qpr.rejectItems || 30,
         allowanceRatio: qpr.allowanceRatio || "0.5%",
@@ -235,7 +225,7 @@ export default function ListQprDashboard({
         vendorName: cl.supplierName,
         partNumber: cl.qprSourceData?.parts?.[0]?.partNumber || cl.partNumber || "MB-001",
         partName: cl.qprSourceData?.parts?.[0]?.partName || cl.partName || "Motherboard X1",
-        period: cl.qprSourceData?.period || getPeriodFromDate(cl.dateSent || cl.date) || "Juni 2026",
+        period: cl.qprSourceData?.period || getPeriodFromDate(cl.dateSent || cl.date),
         qty: cl.qty || 1000,
         reject: cl.reject || 10,
         allowanceRatio: "0.5%",
@@ -892,7 +882,7 @@ export default function ListQprDashboard({
             supplierName: selectedDoc.vendorName,
             partName: selectedDoc.partName,
             partNumber: selectedDoc.partNumber,
-            period: selectedDoc.period || "Juni 2026",
+            period: selectedDoc.period || getPeriodFromDate(selectedDoc.date),
             date: selectedDoc.date,
             totalItems: selectedDoc.qty,
             rejectItems: selectedDoc.reject,

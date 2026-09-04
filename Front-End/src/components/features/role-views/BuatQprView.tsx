@@ -45,7 +45,10 @@ export default function BuatQprView({
   const [supplierId, setSupplierId] = useState<string | "">("");
   const [supplierSearchQuery, setSupplierSearchQuery] = useState("");
   const [isSupplierDropdownOpen, setIsSupplierDropdownOpen] = useState(false);
-  const [period, setPeriod] = useState("");
+  const [period, setPeriod] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  });
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [refNcrNumber, setRefNcrNumber] = useState("");
   const [problem, setProblem] = useState("");

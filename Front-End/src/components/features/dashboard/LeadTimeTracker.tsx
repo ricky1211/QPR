@@ -23,6 +23,7 @@ import {
   CreditCard,
   Check
 } from "lucide-react";
+import { getPeriodFromDate } from "@/services/qprService";
 
 interface LeadTimeTrackerProps {
   pendingQprs: any[];
@@ -97,18 +98,23 @@ export default function LeadTimeTracker({ pendingQprs = [], confirmationLetters 
       approvalsDays = 4;
       approvalsStatus = "APPROVED";
       
-      const assocCl = confirmationLetters.find(cl => cl.qprNumber === qpr.qprNumber);
+      const assocCl = confirmationLetters.find(cl => cl.qprNumber === qpr.qprNumber || cl.id === qpr.id);
       if (assocCl) {
         clDays = 3;
         clStatus = "APPROVED";
-        if (assocCl.status === "PENDING") {
-          vendorDays = Math.max(1, totalDaysElapsed - draftDays - approvalsDays - clDays);
-          vendorStatus = "PENDING";
-        } else {
+        if (assocCl.closedPaid || assocCl.status === "CLOSED_PAID") {
+          vendorDays = 4;
+          vendorStatus = "APPROVED";
+          closePaidDays = Math.max(1, totalDaysElapsed - draftDays - approvalsDays - clDays - vendorDays);
+          closePaidStatus = "APPROVED";
+        } else if (assocCl.purchasingSentCl || assocCl.vendorApproved || assocCl.status === "APPROVED_BY_VENDOR" || assocCl.status === "FULLY_APPROVED") {
           vendorDays = 4;
           vendorStatus = "APPROVED";
           closePaidDays = Math.max(1, totalDaysElapsed - draftDays - approvalsDays - clDays - vendorDays);
           closePaidStatus = "PENDING";
+        } else {
+          vendorDays = Math.max(1, totalDaysElapsed - draftDays - approvalsDays - clDays);
+          vendorStatus = "PENDING";
         }
       } else {
         clDays = Math.max(1, totalDaysElapsed - draftDays - approvalsDays);
@@ -125,7 +131,7 @@ export default function LeadTimeTracker({ pendingQprs = [], confirmationLetters 
       claimAmount: qpr.claimAmount || "-",
       status: qpr.status === "APPROVED" ? "CLOSED_PAID" : "ACTIVE",
       requiredRole: qpr.requiredRole,
-      period: qpr.period || "Juni 2026",
+      period: qpr.period || getPeriodFromDate(qpr.date),
       stages: {
         draft: { days: draftDays, status: "APPROVED" as const },
         approvals: { days: approvalsDays, status: approvalsStatus },
