@@ -18,7 +18,7 @@ const VALID_USERS: Record<string, { password: string; role: string; displayName:
   // Division Head QPR
   '1335': { password: '1335', role: 'div_head', displayName: 'Putu Ratna Saputra' },
   // Purchasing
-  '3790': { password: '3790', role: 'purchasing', displayName: 'Cicik Andria' },
+  '3790': { password: '3790', role: 'purchasing', displayName: 'Irvan H. N.' },
   // Dept Accounting
   '3123': { password: '3123', role: 'accounting', displayName: 'Anindita Irnilaningtyas' },
   // Finance

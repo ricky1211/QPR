@@ -235,11 +235,15 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
   };
 
   React.useEffect(() => {
-    if (inline) return;
+    if (inline) {
+      return () => {
+        document.body.style.overflow = "unset";
+      };
+    }
     const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
-      document.body.style.overflow = originalOverflow;
+      document.body.style.overflow = "unset";
     };
   }, [inline]);
 
@@ -257,12 +261,62 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
     return `${day} ${month} ${year}`;
   };
 
-  // QPR Signature states based on workflow role
-  const isSectionHeadSigned = qpr.requiredRole !== "Section Head" || qpr.status === "APPROVED";
-  const isDeptHeadSigned = (qpr.requiredRole !== "Section Head" && qpr.requiredRole !== "Dept Head") || qpr.status === "APPROVED";
-  const isDivHeadSigned = (qpr.requiredRole !== "Section Head" && qpr.requiredRole !== "Dept Head" && qpr.requiredRole !== "Div Head") || qpr.status === "APPROVED";
-  const isPurchasingSigned = qpr.requiredRole === "Closed" || qpr.status === "APPROVED" || qpr.status === "CLOSED";
-  const isAccountingSigned = qpr.requiredRole === "Closed" || qpr.status === "APPROVED" || qpr.status === "CLOSED";
+  // QPR Signature states strictly aligned with pipeline approval progress
+  const isDraftOrRevise = qpr.status === "DRAFT" || qpr.status === "UNDER_REVISION" || qpr.status === "REVISE";
+
+  const isSectionHeadSigned = !isDraftOrRevise && (
+    !!qpr.approvalProgress?.approvedAtSectionHead ||
+    !!qpr.approvalProgress?.checksumSectionHead ||
+    qpr.status === "APPROVED" ||
+    qpr.status === "CLOSED" ||
+    qpr.status === "CLOSED_PAID" ||
+    qpr.requiredRole === "Dept Head" ||
+    qpr.requiredRole === "Div Head" ||
+    qpr.requiredRole === "Purchasing" ||
+    qpr.requiredRole === "Closed" ||
+    qpr.requiredRole === "CLOSED" ||
+    qpr.requiredRole === "Vendor" ||
+    (Array.isArray(qpr.approvedBy) && qpr.approvedBy.includes("Section Head"))
+  );
+
+  const isDeptHeadSigned = !isDraftOrRevise && (
+    !!qpr.approvalProgress?.approvedAtDeptHead ||
+    !!qpr.approvalProgress?.checksumDeptHead ||
+    qpr.status === "APPROVED" ||
+    qpr.status === "CLOSED" ||
+    qpr.status === "CLOSED_PAID" ||
+    qpr.requiredRole === "Div Head" ||
+    qpr.requiredRole === "Purchasing" ||
+    qpr.requiredRole === "Closed" ||
+    qpr.requiredRole === "CLOSED" ||
+    qpr.requiredRole === "Vendor" ||
+    (Array.isArray(qpr.approvedBy) && qpr.approvedBy.includes("Dept Head"))
+  );
+
+  const isDivHeadSigned = !isDraftOrRevise && (
+    !!qpr.approvalProgress?.approvedAtDivHead ||
+    !!qpr.approvalProgress?.checksumDivHead ||
+    qpr.status === "APPROVED" ||
+    qpr.status === "CLOSED" ||
+    qpr.status === "CLOSED_PAID" ||
+    qpr.requiredRole === "Purchasing" ||
+    qpr.requiredRole === "Closed" ||
+    qpr.requiredRole === "CLOSED" ||
+    qpr.requiredRole === "Vendor" ||
+    (Array.isArray(qpr.approvedBy) && qpr.approvedBy.includes("Div Head"))
+  );
+
+  const isPurchasingSigned = !isDraftOrRevise && (
+    !!qpr.approvalProgress?.approvedAtPurchasing ||
+    !!qpr.approvalProgress?.checksumPurchasing ||
+    qpr.status === "CLOSED" ||
+    qpr.status === "CLOSED_PAID" ||
+    qpr.requiredRole === "Closed" ||
+    qpr.requiredRole === "CLOSED" ||
+    qpr.requiredRole === "Vendor" ||
+    (Array.isArray(qpr.approvedBy) && qpr.approvedBy.includes("Purchasing")) ||
+    (qpr.status === "APPROVED" && qpr.requiredRole !== "Purchasing")
+  );
 
   const documentContent = (
     <div
@@ -539,7 +593,7 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
             <div style={{ borderBottom: "1px solid #000", textAlign: "center", padding: "4px", fontSize: "8px", fontWeight: "bold", color: "#1e293b" }}>
               Cikarang, {formatDateIndo(qpr.date)}
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr" }}>
               {[
                 { 
                   type: "Prepared", 
@@ -551,6 +605,13 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
                       src="/qpr/TTD-DENY.M.png" 
                       alt="Deny M. Signature" 
                       style={{ height: "28px", width: "auto", objectFit: "contain" }} 
+                      onError={(e) => {
+                        if (!e.currentTarget.src.includes("/qpr/")) {
+                          e.currentTarget.src = "/qpr/TTD-DENY.M.png";
+                        } else {
+                          e.currentTarget.src = "/TTD-DENY.M.png";
+                        }
+                      }}
                     />
                   )
                 },
@@ -564,6 +625,13 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
                       src="/qpr/TTD-PakSeptian.jpeg" 
                       alt="Septian N. Signature" 
                       style={{ height: "28px", width: "auto", objectFit: "contain" }} 
+                      onError={(e) => {
+                        if (!e.currentTarget.src.includes("/qpr/")) {
+                          e.currentTarget.src = "/qpr/TTD-PakSeptian.jpeg";
+                        } else {
+                          e.currentTarget.src = "/TTD-PakSeptian.jpeg";
+                        }
+                      }}
                     />
                   )
                 },
@@ -577,6 +645,13 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
                       src="/qpr/TTD-PakSeptian.jpeg" 
                       alt="Septian N. Signature" 
                       style={{ height: "28px", width: "auto", objectFit: "contain" }} 
+                      onError={(e) => {
+                        if (!e.currentTarget.src.includes("/qpr/")) {
+                          e.currentTarget.src = "/qpr/TTD-PakSeptian.jpeg";
+                        } else {
+                          e.currentTarget.src = "/TTD-PakSeptian.jpeg";
+                        }
+                      }}
                     />
                   )
                 },
@@ -590,11 +665,38 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
                       src="/qpr/TTD-PakPutu.jpeg" 
                       alt="Putu R. S. Signature" 
                       style={{ height: "28px", width: "auto", objectFit: "contain" }} 
+                      onError={(e) => {
+                        if (!e.currentTarget.src.includes("/qpr/")) {
+                          e.currentTarget.src = "/qpr/TTD-PakPutu.jpeg";
+                        } else {
+                          e.currentTarget.src = "/TTD-PakPutu.jpeg";
+                        }
+                      }}
+                    />
+                  )
+                },
+                { 
+                  type: "Acknowledged", 
+                  name: "Irvan H. N.", 
+                  role: "(Purchasing)",
+                  isSigned: isPurchasingSigned,
+                  sigSvg: (
+                    <img 
+                      src="/TTD-PURCHASING.jpeg" 
+                      alt="Irvan H. N. Signature" 
+                      style={{ height: "28px", width: "auto", objectFit: "contain" }} 
+                      onError={(e) => {
+                        if (!e.currentTarget.src.includes("/qpr/")) {
+                          e.currentTarget.src = "/qpr/TTD-PURCHASING.jpeg";
+                        } else {
+                          e.currentTarget.src = "/TTD-PURCHASING.jpeg";
+                        }
+                      }}
                     />
                   )
                 }
               ].map((sig, i) => (
-                <div key={i} style={{ borderRight: i < 3 ? "1px solid #000" : "none", textAlign: "center", display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: "60px" }}>
+                <div key={i} style={{ borderRight: i < 4 ? "1px solid #000" : "none", textAlign: "center", display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: "60px" }}>
                   <div style={{ borderBottom: "1px solid #000", padding: "1px 2px", fontWeight: "bold", fontSize: "7px", background: "#f8fafc" }}>{sig.type}</div>
                   <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", minHeight: "30px", padding: "1px" }}>
                     {sig.isSigned ? (

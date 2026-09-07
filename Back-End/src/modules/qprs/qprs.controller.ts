@@ -93,6 +93,8 @@ export class QprsController {
       remarksDeptHead?: string;
       checksumDivHead?: string;
       remarksDivHead?: string;
+      checksumPurchasing?: string;
+      remarksPurchasing?: string;
       checksumVendor?: string;
       remarksVendor?: string;
     },

@@ -35,14 +35,17 @@ export default function NcrPrintPreview({ ncr, onClose, inline = false }: NcrPre
 
   React.useEffect(() => {
     document.body.classList.add("print-ncr-active");
-    if (inline) return () => {
-      document.body.classList.remove("print-ncr-active");
-    };
+    if (inline) {
+      return () => {
+        document.body.classList.remove("print-ncr-active");
+        document.body.style.overflow = "unset";
+      };
+    }
     const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.classList.remove("print-ncr-active");
-      document.body.style.overflow = originalOverflow;
+      document.body.style.overflow = "unset";
     };
   }, [inline]);
 
@@ -66,10 +69,10 @@ export default function NcrPrintPreview({ ncr, onClose, inline = false }: NcrPre
   const isRepair = dispType.includes("REPAIR");
   const isRegrade = dispType.includes("REGRADE");
 
-  // Signature status flags
-  const isPreparedSigned = ncr.requiredRole !== "Foreman" || ncr.status === "APPROVED";
-  const isCheckedSigned = ncr.requiredRole === "Dept Head" || ncr.requiredRole === "Closed" || ncr.status === "APPROVED";
-  const isApprovedSigned = ncr.requiredRole === "Closed" || ncr.status === "APPROVED";
+  // Signature status flags - strictly require approval
+  const isPreparedSigned = true; // Creator (Inspector / QC) creates the NCR
+  const isCheckedSigned = (ncr.requiredRole !== "Section Head" && ncr.requiredRole !== "Foreman") || ncr.status === "APPROVED" || ncr.status === "CLOSED" || !!ncr.ncrApprovalProgress?.checksumApprovalSectionHead || !!ncr.ncrApprovalProgress?.approvedAtSectionHead;
+  const isApprovedSigned = (ncr.requiredRole !== "Section Head" && ncr.requiredRole !== "Dept Head" && ncr.requiredRole !== "Foreman") || ncr.status === "APPROVED" || ncr.status === "CLOSED" || !!ncr.ncrApprovalProgress?.checksumApprovalDeptHead || !!ncr.ncrApprovalProgress?.approvedAtDeptHead;
 
   const documentContent = (
     <div

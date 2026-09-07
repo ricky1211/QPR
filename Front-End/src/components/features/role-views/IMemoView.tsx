@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import ConfirmationLetterPrintPreview from "./ConfirmationLetterPrintPreview";
 import { parseCLPdf } from "@/utils/parseCLPdf";
-import { sscService, mapBillingFromDb } from "@/services/sscService";
+import { sscService, mapBillingFromDb, mapPaymentFromDb } from "@/services/sscService";
 import { clService } from "@/services/clService";
 
 interface IMemoViewProps {
@@ -27,6 +27,7 @@ interface IMemoViewProps {
   parts?: any[];
   createdSscBillings?: any[];
   setCreatedSscBillings?: React.Dispatch<React.SetStateAction<any[]>>;
+  setActiveTab?: (tab: string) => void;
 }
 
 export default function IMemoView({
@@ -34,12 +35,18 @@ export default function IMemoView({
   setConfirmationLetters,
   parts = [],
   createdSscBillings = [],
-  setCreatedSscBillings = () => {}
+  setCreatedSscBillings = () => {},
+  setActiveTab
 }: IMemoViewProps) {
   const [sscBillingRows, setSscBillingRows] = useState<any[]>([]);
   const [selectedClId, setSelectedClId] = useState<string>("");
   const [selectedBillingClId, setSelectedBillingClId] = useState<string>("");
-  const [activeSubTab, setActiveSubTab] = useState<"ssc_purchasing" | "buat_ssc_payment" | "reminder" | "kirim_cl" | "parts_per_vendor">("ssc_purchasing");
+  const [createdSscPayments, setCreatedSscPayments] = useState<any[]>([]);
+  const [draftSearchTerm, setDraftSearchTerm] = useState<string>("");
+  const [draftFilterSupplier, setDraftFilterSupplier] = useState<string>("ALL");
+  const [activeSubTab, setActiveSubTab] = useState<
+    "ssc_purchasing" | "buat_ssc_payment" | "draft_ssc_billing" | "draft_ssc_payment" | "reminder" | "kirim_cl" | "parts_per_vendor"
+  >("ssc_purchasing");
   const [copied, setCopied] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [showSscBillingPreview, setShowSscBillingPreview] = useState(false);
@@ -519,6 +526,109 @@ export default function IMemoView({
     alert(`Sukses: Data SSC Billing untuk ${clNumVal} berhasil dikonfirmasi (Confirm) tanpa ada perubahan data. Dialihkan ke tab SSC Payment.`);
   };
 
+  // Load created SSC Payments on mount
+  useEffect(() => {
+    sscService.getAllPayments()
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setCreatedSscPayments(data.map(mapPaymentFromDb));
+        }
+      })
+      .catch((err) => {
+        console.warn("Could not fetch payments on mount:", err);
+      });
+  }, []);
+
+  const handleConfirmPaymentFinish = () => {
+    const selectedBilling = createdSscBillings.find((r: any) => r.id === selectedPaymentClId);
+    const targetCl = confirmationLetters.find(cl => cl.id === selectedPaymentClId || cl.clNumber === selectedBilling?.clNumber);
+    const clId = targetCl?.id || selectedBilling?.clId || selectedPaymentClId;
+    const clNumVal = selectedBilling?.clNumber || targetCl?.clNumber || `CL-${Date.now()}`;
+    const rawAmt = selectedBilling?.memoAmount || selectedBilling?.amount?.replace(/[^0-9]/g, "") || "0";
+    const parsedAmount = parseFloat(rawAmt);
+
+    const paymentPayload = {
+      clId,
+      paymentNo: `PAY/${clNumVal.replace("CL/", "")}`,
+      paymentDate: new Date().toISOString(),
+      amountPaid: parsedAmount,
+      status: "SUCCESS",
+      payCompany,
+      payBusinessArea,
+      payTitle,
+      payTo,
+      payInstruction,
+      payRequestDate,
+      paySigPrepared,
+      paySigApproved1,
+      paySigApproved2,
+      paySigEntry
+    };
+
+    if (clId && clId.length > 10) {
+      sscService.createPayment(paymentPayload)
+        .then(() => {
+          sscService.getAllPayments().then(data => {
+            if (Array.isArray(data)) {
+              setCreatedSscPayments(data.map(mapPaymentFromDb));
+            }
+          });
+        })
+        .catch((err) => {
+          console.warn("Notice: SscPayment persisted or already exists:", err?.message || err);
+        });
+
+      // Update ConfirmationLetter to CLOSED_PAID in DB
+      clService.update(clId, {
+        closedPaid: true,
+        status: "CLOSED_PAID",
+        vendorApproved: true
+      }).catch(err => console.warn("Notice: CL status update:", err));
+    }
+
+    // Trigger local state synchronization for Dashboard and Lead Time
+    setConfirmationLetters(prev => prev.map(cl => {
+      if (cl.id === clId || cl.clNumber === clNumVal) {
+        return {
+          ...cl,
+          closedPaid: true,
+          status: "CLOSED_PAID",
+          vendorApproved: true,
+          purchasingSentCl: true
+        };
+      }
+      return cl;
+    }));
+
+    // Update local createdSscPayments state
+    const newPaymentRecord = {
+      id: `pay-${Date.now()}`,
+      clId,
+      clNumber: clNumVal,
+      paymentNo: `PAY/${clNumVal.replace("CL/", "")}`,
+      supplierName: targetCl?.supplierName || selectedBilling?.supplierName || "PT TEMARU ENGINEERING INDONESIA",
+      paymentDate: new Date().toISOString().split("T")[0],
+      amountPaid: `Rp ${parsedAmount.toLocaleString("id-ID")}`,
+      status: "CLOSED_PAID",
+      payCompany,
+      payBusinessArea,
+      payTitle,
+      payTo,
+      payInstruction,
+      payRequestDate,
+      paySigPrepared,
+      paySigApproved1,
+      paySigApproved2,
+      paySigEntry
+    };
+    setCreatedSscPayments(prev => [newPaymentRecord, ...prev.filter(p => p.clNumber !== clNumVal)]);
+
+    alert(`Sukses: SSC Payment untuk ${clNumVal} berhasil dikonfirmasi (CLOSED_PAID)! Data telah terlempar dan tersimpan ke Daftar QPR dan Daftar CL.`);
+    
+    // Switch to dedicated draft/history view
+    setActiveSubTab("draft_ssc_payment");
+  };
+
   const handleCopyText = (text: string) => {
     navigator.clipboard.writeText(text);
     setCopied(true);
@@ -842,10 +952,10 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
       <>
           {/* Centered Horizontal Navigation Subtabs */}
           <div className="flex justify-center print:hidden">
-          <div className="flex bg-slate-100 p-1.5 rounded-xl border border-slate-200 gap-1.5 overflow-x-auto shadow-sm max-w-4xl w-full">
+          <div className="flex bg-slate-100 p-1.5 rounded-xl border border-slate-200 gap-1.5 overflow-x-auto shadow-sm max-w-5xl w-full">
             <button
               onClick={() => setActiveSubTab("ssc_purchasing")}
-              className={`flex-1 py-2.5 px-4 rounded-lg font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap ${
+              className={`flex-1 py-2.5 px-3 rounded-lg font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
                 activeSubTab === "ssc_purchasing"
                   ? "bg-white text-blue-750 shadow-sm border border-slate-200/50"
                   : "text-slate-500 hover:text-slate-800 hover:bg-slate-50/50"
@@ -856,7 +966,7 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
             </button>
             <button
               onClick={() => setActiveSubTab("buat_ssc_payment")}
-              className={`flex-1 py-2.5 px-4 rounded-lg font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap ${
+              className={`flex-1 py-2.5 px-3 rounded-lg font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
                 activeSubTab === "buat_ssc_payment"
                   ? "bg-white text-blue-750 shadow-sm border border-slate-200/50"
                   : "text-slate-500 hover:text-slate-800 hover:bg-slate-50/50"
@@ -866,8 +976,30 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
               BUAT SSC PAYMENT
             </button>
             <button
+              onClick={() => setActiveSubTab("draft_ssc_billing")}
+              className={`flex-1 py-2.5 px-3 rounded-lg font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                activeSubTab === "draft_ssc_billing"
+                  ? "bg-white text-blue-750 shadow-sm border border-slate-200/50"
+                  : "text-slate-500 hover:text-slate-800 hover:bg-slate-50/50"
+              }`}
+            >
+              <FileText size={13} />
+              DRAF SSC BILLING
+            </button>
+            <button
+              onClick={() => setActiveSubTab("draft_ssc_payment")}
+              className={`flex-1 py-2.5 px-3 rounded-lg font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                activeSubTab === "draft_ssc_payment"
+                  ? "bg-white text-blue-750 shadow-sm border border-slate-200/50"
+                  : "text-slate-500 hover:text-slate-800 hover:bg-slate-50/50"
+              }`}
+            >
+              <FileCheck2 size={13} />
+              DRAF SSC PAYMENT
+            </button>
+            <button
               onClick={() => setActiveSubTab("reminder")}
-              className={`flex-1 py-2.5 px-4 rounded-lg font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap ${
+              className={`flex-1 py-2.5 px-3 rounded-lg font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
                 activeSubTab === "reminder"
                   ? "bg-white text-blue-750 shadow-sm border border-slate-200/50"
                   : "text-slate-500 hover:text-slate-800 hover:bg-slate-50/50"
@@ -878,25 +1010,25 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
             </button>
             <button
               onClick={() => setActiveSubTab("kirim_cl")}
-              className={`flex-1 py-2.5 px-4 rounded-lg font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap ${
+              className={`flex-1 py-2.5 px-3 rounded-lg font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
                 activeSubTab === "kirim_cl"
                   ? "bg-white text-blue-750 shadow-sm border border-slate-200/50"
                   : "text-slate-500 hover:text-slate-800 hover:bg-slate-50/50"
               }`}
             >
               <Send size={13} />
-              KIRIM CL KE VENDOR
+              KIRIM CL
             </button>
             <button
               onClick={() => setActiveSubTab("parts_per_vendor")}
-              className={`flex-1 py-2.5 px-4 rounded-lg font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap ${
+              className={`flex-1 py-2.5 px-3 rounded-lg font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
                 activeSubTab === "parts_per_vendor"
                   ? "bg-white text-blue-750 shadow-sm border border-slate-200/50"
                   : "text-slate-500 hover:text-slate-800 hover:bg-slate-50/50"
               }`}
             >
               <Building size={13} />
-              PARTS PER VENDOR
+              PARTS VENDOR
             </button>
           </div>
         </div>
@@ -1969,6 +2101,16 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                             <input type="text" value={paySigChecked} onChange={e => setPaySigChecked(e.target.value)} className="w-full px-1.5 py-1 border border-slate-300 rounded text-xs font-semibold text-slate-800 bg-white" />
                           </div>
                         </div>
+                        <div className="pt-2 flex gap-2">
+                          <button
+                            type="button"
+                            onClick={handleConfirmPaymentFinish}
+                            className="w-full py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold text-xs rounded-lg shadow-md flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95 font-sans"
+                          >
+                            <CheckCircle2 size={13} />
+                            Confirm (Selesaikan &amp; Terlempar ke List QPR/CL)
+                          </button>
+                        </div>
                       </div>
                     </div>
                     </div>
@@ -1977,11 +2119,18 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                     {showSscPaymentPreview && (
                       <div className="flex flex-col items-center w-full space-y-4">
                       {/* Control Panel */}
-                      <div className="w-full bg-white border border-slate-200 rounded-lg p-2 flex justify-between items-center print:hidden shadow-sm font-sans">
+                      <div className="w-full bg-white border border-slate-200 rounded-lg p-2 flex justify-between items-center print:hidden shadow-sm font-sans gap-2">
                         <span className="text-[11px] text-slate-500 font-bold font-sans">
                           Pratinjau Live: <strong>A4 Portrait Sheet</strong>
                         </span>
                         <div className="flex gap-2">
+                          <button
+                            onClick={handleConfirmPaymentFinish}
+                            className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold text-xs rounded-lg shadow-md flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 font-sans"
+                          >
+                            <CheckCircle2 size={13} />
+                            Confirm (Selesaikan &amp; Terlempar ke List QPR/CL)
+                          </button>
                           <button
                             onClick={() => handleExportExcel("buat_ssc_payment")}
                             className="px-3 py-2 bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-800 font-extrabold text-xs rounded-lg transition-all cursor-pointer active:scale-95 flex items-center gap-1"
@@ -2178,6 +2327,262 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                   </div>
                 )}
 
+                {activeSubTab === "draft_ssc_billing" && (
+                  <div className="w-full bg-white rounded-xl shadow-md border border-slate-200 p-6 text-left space-y-6">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-150 pb-4 gap-3">
+                      <div>
+                        <h4 className="text-base font-extrabold text-slate-850 uppercase tracking-wide">
+                          📋 Draf &amp; Riwayat SSC Billing
+                        </h4>
+                        <p className="text-xs text-slate-400 font-semibold mt-0.5">
+                          Daftar seluruh memo penagihan invoice claim part NG yang telah dibuat dan diajukan ke SSC Billing.
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setActiveSubTab("ssc_purchasing")}
+                          className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
+                        >
+                          <FileCheck2 size={13} />
+                          + Buat SSC Billing Baru
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Filter & Search Bar */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="relative">
+                        <input
+                          type="text"
+                          placeholder="Cari No. Billing, No. CL, Vendor..."
+                          value={draftSearchTerm}
+                          onChange={e => setDraftSearchTerm(e.target.value)}
+                          className="w-full pl-3 pr-4 py-2 border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50"
+                        />
+                      </div>
+                      <div className="flex justify-end">
+                        <span className="text-xs font-bold text-slate-500 self-center">
+                          Total: <strong>{createdSscBillings.length} Dokumen</strong>
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Table */}
+                    <div className="overflow-x-auto border border-slate-200 rounded-lg">
+                      <table className="w-full text-xs text-left border-collapse">
+                        <thead className="bg-slate-50 text-slate-750 font-black border-b border-slate-200">
+                          <tr>
+                            <th className="px-3.5 py-3 w-10 text-center">No</th>
+                            <th className="px-3.5 py-3">No. Billing</th>
+                            <th className="px-3.5 py-3">No. CL Ref</th>
+                            <th className="px-3.5 py-3">Supplier / Vendor</th>
+                            <th className="px-3.5 py-3 font-mono">Tgl Permintaan</th>
+                            <th className="px-3.5 py-3 text-right font-mono">Total Nilai</th>
+                            <th className="px-3.5 py-3 text-center">Status</th>
+                            <th className="px-3.5 py-3 text-right">Aksi</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-150 font-semibold">
+                          {createdSscBillings.filter(b => {
+                            const term = draftSearchTerm.toLowerCase();
+                            return (
+                              !term ||
+                              b.clNumber?.toLowerCase().includes(term) ||
+                              b.supplierName?.toLowerCase().includes(term) ||
+                              b.memoCustomerName?.toLowerCase().includes(term) ||
+                              b.billingNo?.toLowerCase().includes(term)
+                            );
+                          }).length === 0 ? (
+                            <tr>
+                              <td colSpan={8} className="px-4 py-8 text-center text-slate-400 italic">
+                                Belum ada draf SSC Billing yang tersimpan. Buat draf baru di tab <strong>SSC BILLING</strong>.
+                              </td>
+                            </tr>
+                          ) : (
+                            createdSscBillings
+                              .filter(b => {
+                                const term = draftSearchTerm.toLowerCase();
+                                return (
+                                  !term ||
+                                  b.clNumber?.toLowerCase().includes(term) ||
+                                  b.supplierName?.toLowerCase().includes(term) ||
+                                  b.memoCustomerName?.toLowerCase().includes(term) ||
+                                  b.billingNo?.toLowerCase().includes(term)
+                                );
+                              })
+                              .map((billing, idx) => (
+                                <tr key={billing.id || idx} className="hover:bg-slate-50 transition-colors">
+                                  <td className="px-3.5 py-3 text-center font-bold text-slate-500">{idx + 1}</td>
+                                  <td className="px-3.5 py-3 font-mono font-bold text-blue-700">{billing.billingNo || `INV/${billing.clNumber?.replace("CL/", "")}`}</td>
+                                  <td className="px-3.5 py-3 font-mono font-bold text-slate-800">{billing.clNumber}</td>
+                                  <td className="px-3.5 py-3 text-slate-800">{billing.supplierName || billing.memoCustomerName}</td>
+                                  <td className="px-3.5 py-3 font-mono text-slate-600">{billing.memoRequestDate || billing.dateSent}</td>
+                                  <td className="px-3.5 py-3 text-right font-mono font-black text-slate-850">{billing.amount}</td>
+                                  <td className="px-3.5 py-3 text-center">
+                                    <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                      Tersimpan (Billing)
+                                    </span>
+                                  </td>
+                                  <td className="px-3.5 py-3 text-right">
+                                    <div className="flex justify-end gap-1.5">
+                                      <button
+                                        onClick={() => {
+                                          setSelectedBillingClId(billing.id);
+                                          setShowSscBillingPreview(true);
+                                          setActiveSubTab("ssc_purchasing");
+                                        }}
+                                        className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1"
+                                      >
+                                        <Eye size={11} /> Lihat Form
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          setSelectedPaymentClId(billing.id);
+                                          setShowSscPaymentPreview(true);
+                                          setActiveSubTab("buat_ssc_payment");
+                                        }}
+                                        className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1"
+                                      >
+                                        <ArrowRight size={11} /> Ke Payment
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {activeSubTab === "draft_ssc_payment" && (
+                  <div className="w-full bg-white rounded-xl shadow-md border border-slate-200 p-6 text-left space-y-6">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-150 pb-4 gap-3">
+                      <div>
+                        <h4 className="text-base font-extrabold text-slate-850 uppercase tracking-wide">
+                          💳 Draf &amp; Riwayat SSC Payment (Potong Tagihan)
+                        </h4>
+                        <p className="text-xs text-slate-400 font-semibold mt-0.5">
+                          Daftar seluruh memo permohonan pemotongan invoice AP vendor yang telah selesai diproses dan berstatus lunas.
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setActiveSubTab("buat_ssc_payment")}
+                          className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
+                        >
+                          <FileCheck2 size={13} />
+                          + Proses Payment Baru
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Filter & Search Bar */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="relative">
+                        <input
+                          type="text"
+                          placeholder="Cari No. Payment, No. CL, Vendor..."
+                          value={draftSearchTerm}
+                          onChange={e => setDraftSearchTerm(e.target.value)}
+                          className="w-full pl-3 pr-4 py-2 border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50"
+                        />
+                      </div>
+                      <div className="flex justify-end">
+                        <span className="text-xs font-bold text-slate-500 self-center">
+                          Total: <strong>{createdSscPayments.length} Dokumen Lunas</strong>
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Table */}
+                    <div className="overflow-x-auto border border-slate-200 rounded-lg">
+                      <table className="w-full text-xs text-left border-collapse">
+                        <thead className="bg-slate-50 text-slate-750 font-black border-b border-slate-200">
+                          <tr>
+                            <th className="px-3.5 py-3 w-10 text-center">No</th>
+                            <th className="px-3.5 py-3">No. Payment</th>
+                            <th className="px-3.5 py-3">No. CL Ref</th>
+                            <th className="px-3.5 py-3">Supplier / Vendor</th>
+                            <th className="px-3.5 py-3 font-mono">Tgl Pengajuan</th>
+                            <th className="px-3.5 py-3 text-right font-mono">Nilai Potong</th>
+                            <th className="px-3.5 py-3 text-center">Status</th>
+                            <th className="px-3.5 py-3 text-right">Aksi</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-150 font-semibold">
+                          {createdSscPayments.filter(p => {
+                            const term = draftSearchTerm.toLowerCase();
+                            return (
+                              !term ||
+                              p.clNumber?.toLowerCase().includes(term) ||
+                              p.supplierName?.toLowerCase().includes(term) ||
+                              p.paymentNo?.toLowerCase().includes(term)
+                            );
+                          }).length === 0 ? (
+                            <tr>
+                              <td colSpan={8} className="px-4 py-8 text-center text-slate-400 italic">
+                                Belum ada draf SSC Payment yang tersimpan. Selesaikan SSC Billing dan konfirmasi di tab <strong>BUAT SSC PAYMENT</strong>.
+                              </td>
+                            </tr>
+                          ) : (
+                            createdSscPayments
+                              .filter(p => {
+                                const term = draftSearchTerm.toLowerCase();
+                                return (
+                                  !term ||
+                                  p.clNumber?.toLowerCase().includes(term) ||
+                                  p.supplierName?.toLowerCase().includes(term) ||
+                                  p.paymentNo?.toLowerCase().includes(term)
+                                );
+                              })
+                              .map((payment, idx) => (
+                                <tr key={payment.id || idx} className="hover:bg-slate-50 transition-colors">
+                                  <td className="px-3.5 py-3 text-center font-bold text-slate-500">{idx + 1}</td>
+                                  <td className="px-3.5 py-3 font-mono font-bold text-emerald-700">{payment.paymentNo || `PAY/${payment.clNumber?.replace("CL/", "")}`}</td>
+                                  <td className="px-3.5 py-3 font-mono font-bold text-slate-800">{payment.clNumber}</td>
+                                  <td className="px-3.5 py-3 text-slate-800">{payment.supplierName}</td>
+                                  <td className="px-3.5 py-3 font-mono text-slate-600">{payment.payRequestDate || payment.paymentDate}</td>
+                                  <td className="px-3.5 py-3 text-right font-mono font-black text-slate-850">{payment.amountPaid}</td>
+                                  <td className="px-3.5 py-3 text-center">
+                                    <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center justify-center gap-1">
+                                      <CheckCircle2 size={10} /> LUNAS (CLOSED)
+                                    </span>
+                                  </td>
+                                  <td className="px-3.5 py-3 text-right">
+                                    <div className="flex justify-end gap-1.5">
+                                      <button
+                                        onClick={() => {
+                                          setSelectedPaymentClId(payment.clId || payment.id);
+                                          setShowSscPaymentPreview(true);
+                                          setActiveSubTab("buat_ssc_payment");
+                                        }}
+                                        className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1"
+                                      >
+                                        <Eye size={11} /> Lihat Memo
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          setSelectedPaymentClId(payment.clId || payment.id);
+                                          setShowSscPaymentPreview(true);
+                                          setActiveSubTab("buat_ssc_payment");
+                                          setTimeout(() => handlePrintPayment(), 300);
+                                        }}
+                                        className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1"
+                                      >
+                                        <Printer size={11} /> Cetak
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
 
                 {activeSubTab === "reminder" && (
                   /* Reminder Email View */

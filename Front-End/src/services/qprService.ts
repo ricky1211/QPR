@@ -46,6 +46,8 @@ export const qprService = {
     remarksDeptHead?: string;
     checksumDivHead?: string;
     remarksDivHead?: string;
+    checksumPurchasing?: string;
+    remarksPurchasing?: string;
     checksumVendor?: string;
     remarksVendor?: string;
   }) => apiRequest(`/qprs/${id}/approval-progress`, {

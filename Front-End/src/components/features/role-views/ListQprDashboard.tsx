@@ -48,7 +48,7 @@ const stageLabel = (type: string, requiredRole?: string, status?: string): strin
   if (requiredRole === "Section Head") return "Menunggu Section Head";
   if (requiredRole === "Dept Head") return "Menunggu Dept Head";
   if (requiredRole === "Div Head") return "Menunggu Div Head";
-  if (requiredRole === "Purchasing") return "Acknowledge Purchasing";
+  if (requiredRole === "Purchasing") return "Menunggu Purchasing";
   if (requiredRole === "Accounting") return "Menunggu Accounting";
   return "Disetujui";
 };
@@ -65,7 +65,7 @@ const getApprovalStages = (
   status?: string
 ): ApprovalStage[] => {
   if (status === "DRAFT") {
-    const chain = type === "CL" ? ["Vendor", "Accounting"] : type === "NCR" ? ["Foreman", "Section Head", "Dept Head"] : ["Section Head", "Dept Head", "Div Head", "Accounting"];
+    const chain = type === "CL" ? ["Vendor", "Accounting"] : type === "NCR" ? ["Foreman", "Section Head", "Dept Head"] : ["Section Head", "Dept Head", "Div Head", "Purchasing"];
     return chain.map((name, idx) => ({ name, status: idx === 0 ? "DRAFT" : "UPCOMING" }));
   }
 
@@ -79,7 +79,7 @@ const getApprovalStages = (
         ? ["Accounting BU", "Accounting Dept Head"]
         : type === "SSC Payment"
         ? ["Accounting BU", "Accounting Dept Head", "Admin Div/BOD"]
-        : ["Section Head", "Dept Head", "Div Head", "Accounting"];
+        : ["Section Head", "Dept Head", "Div Head", "Purchasing"];
     return defaultChain.map((name) => ({ name, status: "APPROVED" }));
   }
 
@@ -121,14 +121,14 @@ const getApprovalStages = (
       }
     });
   } else {
-    const chain = ["Section Head", "Dept Head", "Div Head", "Accounting"];
+    const chain = ["Section Head", "Dept Head", "Div Head", "Purchasing"];
     if (status === "UNDER_REVISION" || status === "REVISE") {
       return chain.map((name) => ({ name, status: "REVISE" }));
     }
     let currentIndex = 0;
     if (requiredRole === "Dept Head") currentIndex = 1;
     if (requiredRole === "Div Head") currentIndex = 2;
-    if (requiredRole === "Accounting") currentIndex = 3;
+    if (requiredRole === "Purchasing") currentIndex = 3;
 
     return chain.map((name, idx) => {
       if (idx < currentIndex) {
@@ -234,7 +234,8 @@ export default function ListQprDashboard({
         disposition: "-",
         status: qpr.status,
         requiredRole: qpr.requiredRole,
-        approvedBy: qpr.status === "APPROVED" || qpr.status === "CLOSED" || qpr.status === "APPROVED_INTERNAL" ? ["Section Head", "Dept Head", "Div Head", "Accounting"] : [],
+        approvalProgress: qpr.approvalProgress,
+        approvedBy: qpr.approvedBy || (qpr.status === "APPROVED" || qpr.status === "CLOSED" || qpr.status === "APPROVED_INTERNAL" ? ["Section Head", "Dept Head", "Div Head", "Purchasing"] : []),
         refObject: qpr
       });
     });
@@ -258,7 +259,10 @@ export default function ListQprDashboard({
         disposition: "-",
         status: cl.status,
         requiredRole: cl.requiredRole,
-        approvedBy: cl.status === "FULLY_APPROVED" || cl.status === "CLOSED_PAID" ? ["Vendor", "Accounting"] : []
+        clApprovalProgress: cl.clApprovalProgress,
+        vendorApproved: cl.vendorApproved,
+        approvedBy: cl.approvedBy || (cl.status === "FULLY_APPROVED" || cl.status === "CLOSED_PAID" ? ["Vendor", "Accounting"] : []),
+        refObject: cl
       });
     });
 
@@ -902,19 +906,22 @@ export default function ListQprDashboard({
       {selectedDoc && selectedDoc.type === "QPR" && (
         <QprPrintPreview
           qpr={{
-            qprNumber: selectedDoc.docNumber,
-            supplierName: selectedDoc.vendorName,
-            partName: selectedDoc.partName,
-            partNumber: selectedDoc.partNumber,
-            period: selectedDoc.period || getPeriodFromDate(selectedDoc.date),
-            date: selectedDoc.date,
-            totalItems: selectedDoc.qty,
-            rejectItems: selectedDoc.reject,
-            allowanceRatio: selectedDoc.allowanceRatio,
-            claimAmount: selectedDoc.claimAmount,
+            ...(selectedDoc.refObject || {}),
+            qprNumber: selectedDoc.docNumber || selectedDoc.refObject?.qprNumber,
+            supplierName: selectedDoc.vendorName || selectedDoc.refObject?.supplierName,
+            partName: selectedDoc.partName || selectedDoc.refObject?.partName,
+            partNumber: selectedDoc.partNumber || selectedDoc.refObject?.partNumber,
+            period: selectedDoc.period || selectedDoc.refObject?.period || getPeriodFromDate(selectedDoc.date),
+            date: selectedDoc.date || selectedDoc.refObject?.date,
+            totalItems: selectedDoc.qty || selectedDoc.refObject?.totalItems,
+            rejectItems: selectedDoc.reject || selectedDoc.refObject?.rejectItems,
+            allowanceRatio: selectedDoc.allowanceRatio || selectedDoc.refObject?.allowanceRatio,
+            claimAmount: selectedDoc.claimAmount || selectedDoc.refObject?.claimAmount,
             vendorClaimCount: vendorClaimCounts[selectedDoc.vendorName] || 1,
-            status: selectedDoc.status,
-            // Pass full QPR source data if available
+            status: selectedDoc.status || selectedDoc.refObject?.status,
+            requiredRole: selectedDoc.requiredRole || selectedDoc.refObject?.requiredRole,
+            approvalProgress: selectedDoc.approvalProgress || selectedDoc.refObject?.approvalProgress,
+            approvedBy: selectedDoc.approvedBy || selectedDoc.refObject?.approvedBy,
             parts: selectedDoc.refObject?.parts || [],
             problem: selectedDoc.refObject?.problem || "",
             claimType: selectedDoc.refObject?.claimType || [],
@@ -938,7 +945,18 @@ export default function ListQprDashboard({
 
       {selectedDoc && selectedDoc.type === "CL" && (
         <ClPrintPreview
-          cl={selectedDoc}
+          cl={{
+            ...(selectedDoc.refObject || {}),
+            ...selectedDoc,
+            clNumber: selectedDoc.docNumber,
+            supplierName: selectedDoc.vendorName,
+            amount: selectedDoc.claimAmount,
+            status: selectedDoc.status,
+            requiredRole: selectedDoc.requiredRole,
+            clApprovalProgress: selectedDoc.clApprovalProgress || selectedDoc.refObject?.clApprovalProgress,
+            vendorApproved: selectedDoc.vendorApproved || selectedDoc.refObject?.vendorApproved,
+            approvedBy: selectedDoc.approvedBy || selectedDoc.refObject?.approvedBy
+          }}
           onClose={() => setSelectedDoc(null)}
         />
       )}

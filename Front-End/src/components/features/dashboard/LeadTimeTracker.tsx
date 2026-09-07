@@ -82,17 +82,37 @@ export default function LeadTimeTracker({ pendingQprs = [], confirmationLetters 
       vendorStatus = "APPROVED";
       closePaidDays = Math.max(1, totalDaysElapsed - draftDays - approvalsDays - clDays - vendorDays);
       closePaidStatus = "APPROVED";
-    } else if (currentIdx < 3) {
-      // Still in internal approvals (Section Head, Dept Head, Div Head)
+    } else if (currentIdx < 3 || (currentIdx === 3 && qpr.status === "WAITING_APPROVAL" && !qpr.approvalProgress?.checksumPurchasing)) {
+      // Still in internal / Purchasing approvals (Section Head, Dept Head, Div Head, Purchasing)
       approvalsDays = Math.max(1, totalDaysElapsed - draftDays);
       approvalsStatus = "PENDING";
-    } else if (currentIdx === 3) {
-      // In Purchasing Acknowledge / CL creation
+    } else if (currentIdx === 3 || qpr.status === "APPROVED") {
+      // Approved by Purchasing, now in Confirmation Letter preparation
       approvalsDays = 4;
       approvalsStatus = "APPROVED";
       
-      clDays = Math.max(1, totalDaysElapsed - draftDays - approvalsDays);
-      clStatus = "PENDING";
+      const assocCl = confirmationLetters.find(cl => cl.qprNumber === qpr.qprNumber || cl.id === qpr.id);
+      if (assocCl) {
+        clDays = 3;
+        clStatus = "APPROVED";
+        if (assocCl.closedPaid || assocCl.status === "CLOSED_PAID") {
+          vendorDays = 4;
+          vendorStatus = "APPROVED";
+          closePaidDays = Math.max(1, totalDaysElapsed - draftDays - approvalsDays - clDays - vendorDays);
+          closePaidStatus = "APPROVED";
+        } else if (assocCl.purchasingSentCl || assocCl.vendorApproved || assocCl.status === "APPROVED_BY_VENDOR" || assocCl.status === "FULLY_APPROVED") {
+          vendorDays = 4;
+          vendorStatus = "APPROVED";
+          closePaidDays = Math.max(1, totalDaysElapsed - draftDays - approvalsDays - clDays - vendorDays);
+          closePaidStatus = "PENDING";
+        } else {
+          vendorDays = Math.max(1, totalDaysElapsed - draftDays - approvalsDays - clDays);
+          vendorStatus = "PENDING";
+        }
+      } else {
+        clDays = Math.max(1, totalDaysElapsed - draftDays - approvalsDays);
+        clStatus = "PENDING";
+      }
     } else {
       // Internal and Purchasing are closed. Check Confirmation Letter status if exists
       approvalsDays = 4;
@@ -122,14 +142,17 @@ export default function LeadTimeTracker({ pendingQprs = [], confirmationLetters 
       }
     }
 
+    const assocCl = confirmationLetters.find(cl => cl.qprNumber === qpr.qprNumber || cl.id === qpr.id);
+    const isActuallyClosed = (qpr.status === "CLOSED_PAID" || (assocCl && (assocCl.closedPaid || assocCl.status === "CLOSED_PAID")));
+
     return {
       id: `active-${qpr.id}`,
       docNumber: qpr.qprNumber,
       supplierName: qpr.supplierName,
       dateCreated: qpr.date,
-      dateClosed: null,
+      dateClosed: isActuallyClosed ? qpr.updatedAt || new Date().toISOString() : null,
       claimAmount: qpr.claimAmount || "-",
-      status: qpr.status === "APPROVED" ? "CLOSED_PAID" : "ACTIVE",
+      status: isActuallyClosed ? "CLOSED_PAID" : "ACTIVE",
       requiredRole: qpr.requiredRole,
       period: qpr.period || getPeriodFromDate(qpr.date),
       stages: {

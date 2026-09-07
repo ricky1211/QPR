@@ -232,6 +232,8 @@ export class QprsService {
       remarksDeptHead,
       checksumDivHead,
       remarksDivHead,
+      checksumPurchasing,
+      remarksPurchasing,
       checksumVendor,
       remarksVendor,
     } = data;
@@ -247,11 +249,14 @@ export class QprsService {
         remarksDeptHead,
         checksumDivHead: convertBuffer(checksumDivHead),
         remarksDivHead,
+        checksumPurchasing: convertBuffer(checksumPurchasing),
+        remarksPurchasing,
         checksumVendor: convertBuffer(checksumVendor),
         remarksVendor,
         approvedAtSectionHead: checksumSectionHead ? new Date() : undefined,
         approvedAtDeptHead: checksumDeptHead ? new Date() : undefined,
         approvedAtDivHead: checksumDivHead ? new Date() : undefined,
+        approvedAtPurchasing: checksumPurchasing ? new Date() : undefined,
         approvedAtVendor: checksumVendor ? new Date() : undefined,
       },
     });

@@ -51,12 +51,13 @@ const getDocPipelineStages = (
       return { name, status: "UPCOMING" };
     });
   } else {
-    // QPR or merged QPR/CL pipeline: 10-step streamlined flow
+    // QPR or merged QPR/CL pipeline: 11-step streamlined flow including Purchasing
     const stages: { name: string; status: "APPROVED" | "PENDING" | "UPCOMING" }[] = [
       { name: "CREATE QPR", status: "UPCOMING" },
       { name: "SECTION HEAD QA", status: "UPCOMING" },
       { name: "DEPT. HEAD QA", status: "UPCOMING" },
       { name: "DIV. HEAD", status: "UPCOMING" },
+      { name: "APPROVAL PURCHASING", status: "UPCOMING" },
       { name: "CREATE CL", status: "UPCOMING" },
       { name: "APPROVAL CL DEPT ACCOUNTING", status: "UPCOMING" },
       { name: "KIRIM VENDOR", status: "UPCOMING" },
@@ -72,35 +73,36 @@ const getDocPipelineStages = (
       stages[2].status = "APPROVED";
       stages[3].status = "APPROVED";
       stages[4].status = "APPROVED";
+      stages[5].status = "APPROVED";
 
       const isDeptApproved = !!(clApprovalProgress?.deptAccounting || status === "FULLY_APPROVED" || status === "CLOSED_PAID");
       if (!isDeptApproved) {
-        stages[5].status = "PENDING";
-        return stages;
-      }
-      stages[5].status = "APPROVED";
-
-      const isSent = status === "APPROVED_BY_VENDOR" || status === "FULLY_APPROVED" || status === "CLOSED_PAID";
-      if (!isSent) {
         stages[6].status = "PENDING";
         return stages;
       }
       stages[6].status = "APPROVED";
 
-      const isVendorAppr = status === "APPROVED_BY_VENDOR" || status === "FULLY_APPROVED" || status === "CLOSED_PAID";
-      if (!isVendorAppr) {
+      const isSent = status === "APPROVED_BY_VENDOR" || status === "FULLY_APPROVED" || status === "CLOSED_PAID";
+      if (!isSent) {
         stages[7].status = "PENDING";
         return stages;
       }
       stages[7].status = "APPROVED";
 
-      const isPaid = status === "CLOSED_PAID";
-      if (!isPaid) {
+      const isVendorAppr = status === "APPROVED_BY_VENDOR" || status === "FULLY_APPROVED" || status === "CLOSED_PAID";
+      if (!isVendorAppr) {
         stages[8].status = "PENDING";
         return stages;
       }
       stages[8].status = "APPROVED";
+
+      const isPaid = status === "CLOSED_PAID";
+      if (!isPaid) {
+        stages[9].status = "PENDING";
+        return stages;
+      }
       stages[9].status = "APPROVED";
+      stages[10].status = "APPROVED";
       return stages;
     }
 
@@ -132,56 +134,64 @@ const getDocPipelineStages = (
       stages[3].status = "APPROVED";
     }
 
-    // 5. CREATE CL (Immediate after Div Head approval)
-    if (!linkedCl) {
+    // 5. APPROVAL PURCHASING
+    if (requiredRole === "Purchasing" && status !== "APPROVED") {
       stages[4].status = "PENDING";
       return stages;
     } else {
       stages[4].status = "APPROVED";
     }
 
-    // 6. APPROVAL CL DEPT ACCOUNTING
-    const clProg = linkedCl.clApprovalProgress || clApprovalProgress || { sectAccounting: false, deptAccounting: false };
-    const isDeptApproved = !!(clProg.deptAccounting || linkedCl.status === "APPROVED_DEPT" || linkedCl.status === "FULLY_APPROVED" || linkedCl.status === "CLOSED_PAID" || linkedCl.closedPaid);
-    if (!isDeptApproved) {
+    // 6. CREATE CL (Immediate after Purchasing approval)
+    if (!linkedCl) {
       stages[5].status = "PENDING";
       return stages;
     } else {
       stages[5].status = "APPROVED";
     }
 
-    // 7. KIRIM VENDOR (Purchasing Kirim ke Vendor)
-    const isPurchasingSent = !!(linkedCl.purchasingSentCl || linkedCl.sentToVendor || linkedCl.status === "APPROVED_BY_VENDOR" || linkedCl.status === "FULLY_APPROVED" || linkedCl.status === "CLOSED_PAID" || linkedCl.closedPaid);
-    if (!isPurchasingSent) {
+    // 7. APPROVAL CL DEPT ACCOUNTING
+    const clProg = linkedCl.clApprovalProgress || clApprovalProgress || { sectAccounting: false, deptAccounting: false };
+    const isDeptApproved = !!(clProg.deptAccounting || linkedCl.status === "APPROVED_DEPT" || linkedCl.status === "FULLY_APPROVED" || linkedCl.status === "CLOSED_PAID" || linkedCl.closedPaid);
+    if (!isDeptApproved) {
       stages[6].status = "PENDING";
       return stages;
     } else {
       stages[6].status = "APPROVED";
     }
 
-    // 8. VENDOR APPROVAL
-    const isVendorApproved = !!(linkedCl.vendorApproved || linkedCl.status === "APPROVED_BY_VENDOR" || linkedCl.status === "FULLY_APPROVED" || linkedCl.status === "CLOSED_PAID" || linkedCl.closedPaid);
-    if (!isVendorApproved) {
+    // 8. KIRIM VENDOR (Purchasing Kirim ke Vendor)
+    const isPurchasingSent = !!(linkedCl.purchasingSentCl || linkedCl.sentToVendor || linkedCl.status === "APPROVED_BY_VENDOR" || linkedCl.status === "FULLY_APPROVED" || linkedCl.status === "CLOSED_PAID" || linkedCl.closedPaid);
+    if (!isPurchasingSent) {
       stages[7].status = "PENDING";
       return stages;
     } else {
       stages[7].status = "APPROVED";
     }
 
-    // 9. CREATE SSC BILLING
-    const isClosedPaid = !!(linkedCl.status === "CLOSED_PAID" || linkedCl.closedPaid);
-    if (!isClosedPaid) {
+    // 9. VENDOR APPROVAL
+    const isVendorApproved = !!(linkedCl.vendorApproved || linkedCl.status === "APPROVED_BY_VENDOR" || linkedCl.status === "FULLY_APPROVED" || linkedCl.status === "CLOSED_PAID" || linkedCl.closedPaid);
+    if (!isVendorApproved) {
       stages[8].status = "PENDING";
       return stages;
     } else {
       stages[8].status = "APPROVED";
     }
 
-    // 10. PAID
-    if (isClosedPaid) {
-      stages[9].status = "APPROVED";
-    } else {
+    // 10. CREATE SSC BILLING
+    const isClosedPaid = !!(linkedCl.status === "CLOSED_PAID" || linkedCl.closedPaid);
+    if (!isClosedPaid) {
       stages[9].status = "PENDING";
+      return stages;
+    } else {
+      stages[9].status = "APPROVED";
+    }
+
+    // 11. PAID
+    if (isClosedPaid) {
+      stages[10].status = "APPROVED";
+    } else {
+      stages[10].status = "PENDING";
     }
 
     return stages;
@@ -215,23 +225,40 @@ export default function Dashboard({
   const [selectedPipelineDoc, setSelectedPipelineDoc] = useState<any | null>(null);
   const [showPipeline, setShowPipeline] = useState(false);
 
+  const [roleDetailFilter, setRoleDetailFilter] = useState<"all" | "stuck" | "running" | "completed">("all");
+
   const months = React.useMemo(() => [
     "Januari", "Februari", "Maret", "April", "Mei", "Juni",
     "Juli", "Agustus", "September", "Oktober", "November", "Desember"
   ], []);
 
   const currentYear = new Date().getFullYear();
+  
+  // Dynamic list of periods derived from actual data + standard months
   const periods = React.useMemo(() => {
-    return months.map(m => `${m} ${currentYear}`);
-  }, [months, currentYear]);
+    const list = new Set<string>();
+    list.add("Semua Periode");
+    
+    [...pendingQprs, ...confirmationLetters, ...pendingNcrs].forEach((item: any) => {
+      const d = item.date || item.dateSent;
+      if (item.period) {
+        list.add(item.period);
+      } else if (d) {
+        const dateObj = new Date(d);
+        if (!isNaN(dateObj.getTime())) {
+          list.add(`${months[dateObj.getMonth()]} ${dateObj.getFullYear()}`);
+        }
+      }
+    });
+
+    months.forEach(m => list.add(`${m} ${currentYear}`));
+    return Array.from(list);
+  }, [pendingQprs, confirmationLetters, pendingNcrs, months, currentYear]);
   
-  // Set default period index based on CURRENT active calendar month
-  const [periodIndex, setPeriodIndex] = useState(() => {
-    const currentMonth = new Date().getMonth();
-    return Math.max(0, Math.min(periods.length - 1, currentMonth));
-  });
+  // Set default period: "Semua Periode" (index 0) so user immediately sees live data
+  const [periodIndex, setPeriodIndex] = useState(0);
   
-  const activePeriod = periods[periodIndex] || `${months[new Date().getMonth()]} ${currentYear}`;
+  const activePeriod = periods[periodIndex] || "Semua Periode";
 
   const getDynamicPeriodConfig = (periodName: string) => {
     const getPeriodFromDate = (dateStr?: string) => {
@@ -241,20 +268,28 @@ export default function Dashboard({
       return `${months[d.getMonth()]} ${d.getFullYear()}`;
     };
 
-    const activePeriodQprs = pendingQprs.filter(q => {
-      const p = q.period || getPeriodFromDate(q.date);
-      return p === periodName;
-    });
+    const isAll = periodName === "Semua Periode";
 
-    const activePeriodConfirmationLetters = confirmationLetters.filter(cl => {
-      const p = cl.period || getPeriodFromDate(cl.dateSent || cl.date);
-      return p === periodName;
-    });
+    const activePeriodQprs = isAll
+      ? pendingQprs
+      : pendingQprs.filter(q => {
+          const p = q.period || getPeriodFromDate(q.date);
+          return p === periodName;
+        });
 
-    const activePeriodNcrs = pendingNcrs.filter(n => {
-      const p = n.period || getPeriodFromDate(n.date);
-      return p === periodName;
-    });
+    const activePeriodConfirmationLetters = isAll
+      ? confirmationLetters
+      : confirmationLetters.filter(cl => {
+          const p = cl.period || getPeriodFromDate(cl.dateSent || cl.date);
+          return p === periodName;
+        });
+
+    const activePeriodNcrs = isAll
+      ? pendingNcrs
+      : pendingNcrs.filter(n => {
+          const p = n.period || getPeriodFromDate(n.date);
+          return p === periodName;
+        });
 
     const base = { baselineClosedNcrs: 0, baselineClosedQprs: 0, aprilClaims: 0, mayClaimsClosed: 0, mayClaimsPending: 0, claimClosedPaidCount: 0, claimRejectedCount: 0 };
     
@@ -357,14 +392,17 @@ export default function Dashboard({
     }
 
     if (doc.qprNumber || doc.type === "QPR") {
-      const roles = ["Section Head", "Dept Head", "Div Head"];
+      const roles = ["Section Head", "Dept Head", "Div Head", "Purchasing"];
       const currentRole = doc.requiredRole;
+      const isDocClosed = doc.status === "APPROVED" || doc.status === "CLOSED" || doc.status === "CLOSED_PAID";
       const leadTimes: Record<string, { days: number; status: "APPROVED" | "PENDING" | "UPCOMING" }> = {};
       let currentIdx = roles.indexOf(currentRole);
-      if (currentIdx === -1) currentIdx = 0;
+      if (currentIdx === -1) {
+        currentIdx = isDocClosed ? 4 : 0;
+      }
 
       roles.forEach((role, idx) => {
-        if (idx < currentIdx) {
+        if (isDocClosed || idx < currentIdx) {
           leadTimes[role] = { days: Math.min(3, Math.max(1, idx + 1)), status: "APPROVED" };
         } else if (idx === currentIdx) {
           const approvedSum = idx === 0 ? 0 : Array.from({ length: idx }, (_, i) => Math.min(3, Math.max(1, i + 1))).reduce((a, b) => a + b, 0);
@@ -403,347 +441,345 @@ export default function Dashboard({
     {
       key: "Section Head QA",
       title: "Section Head QA",
+      fullTitle: "Section Head QA",
       roles: ["Section Head"],
-      color: "border-blue-200 hover:border-blue-500 bg-blue-50/30 text-blue-800",
-      iconColor: "bg-blue-500 text-white",
+      titleColor: "text-blue-700",
+      labelColor: "text-blue-700",
+      borderColor: "border-blue-200 hover:border-blue-400",
+      activeBg: "bg-blue-50/60 border-blue-500 ring-2 ring-blue-500/20",
       type: "QA"
     },
     {
       key: "Dept. Head QA",
       title: "Dept. Head QA",
+      fullTitle: "Dept. Head QA",
       roles: ["Dept Head"],
-      color: "border-indigo-200 hover:border-indigo-500 bg-indigo-50/30 text-indigo-800",
-      iconColor: "bg-indigo-500 text-white",
+      titleColor: "text-indigo-700",
+      labelColor: "text-indigo-700",
+      borderColor: "border-indigo-200 hover:border-indigo-400",
+      activeBg: "bg-indigo-50/60 border-indigo-500 ring-2 ring-indigo-500/20",
       type: "QA"
     },
     {
       key: "Div. Head",
       title: "Div. Head",
+      fullTitle: "Div. Head",
       roles: ["Div Head"],
-      color: "border-purple-200 hover:border-purple-500 bg-purple-50/30 text-purple-800",
-      iconColor: "bg-purple-500 text-white",
+      titleColor: "text-purple-700",
+      labelColor: "text-purple-700",
+      borderColor: "border-purple-200 hover:border-purple-400",
+      activeBg: "bg-purple-50/60 border-purple-500 ring-2 ring-purple-500/20",
       type: "DIV"
     },
     {
       key: "Purchasing",
       title: "Purchasing",
+      fullTitle: "Purchasing",
       roles: ["Purchasing"],
-      color: "border-amber-200 hover:border-amber-500 bg-amber-50/30 text-amber-800",
-      iconColor: "bg-amber-500 text-white",
+      titleColor: "text-amber-800",
+      labelColor: "text-amber-800",
+      borderColor: "border-amber-200 hover:border-amber-400",
+      activeBg: "bg-amber-50/60 border-amber-500 ring-2 ring-amber-500/20",
       type: "PURCHASING"
     },
     {
       key: "Dept Accounting",
       title: "Dept Accounting",
+      fullTitle: "Dept Accounting",
       roles: ["Dept Accounting", "Sect Accounting", "Accounting Approval", "Accounting"],
-      color: "border-emerald-200 hover:border-emerald-500 bg-emerald-50/30 text-emerald-800",
-      iconColor: "bg-emerald-500 text-white",
+      titleColor: "text-emerald-800",
+      labelColor: "text-emerald-800",
+      borderColor: "border-emerald-200 hover:border-emerald-400",
+      activeBg: "bg-emerald-50/60 border-emerald-500 ring-2 ring-emerald-500/20",
       type: "ACCOUNTING"
     },
     {
       key: "Vendor",
       title: "Vendor",
+      fullTitle: "Vendor",
       roles: ["Vendor"],
-      color: "border-rose-200 hover:border-rose-500 bg-rose-50/30 text-rose-800",
-      iconColor: "bg-rose-500 text-white",
+      titleColor: "text-rose-800",
+      labelColor: "text-rose-800",
+      borderColor: "border-rose-200 hover:border-rose-400",
+      activeBg: "bg-rose-50/60 border-rose-500 ring-2 ring-rose-500/20",
       type: "VENDOR"
     },
     {
       key: "Finance Accounting",
-      title: "Finance Accounting",
+      title: "Finance Accoun...",
+      fullTitle: "Finance Accounting (SSC)",
       roles: ["Finance", "Finance Accounting"],
-      color: "border-teal-200 hover:border-teal-500 bg-teal-50/30 text-teal-800",
-      iconColor: "bg-teal-500 text-white",
+      titleColor: "text-teal-800",
+      labelColor: "text-teal-800",
+      borderColor: "border-teal-200 hover:border-teal-400",
+      activeBg: "bg-teal-50/60 border-teal-500 ring-2 ring-teal-500/20",
       type: "FINANCE"
     }
   ];
 
-  // Helper to extract documents pending for a specific role card
-  const getPendingDocsForRole = (role: typeof authRoles[0]) => {
-    const docs: any[] = [];
+  // Helper to extract active (berjalan), stuck (mengendap), and completed (selesai) docs for each authorization role
+  const getRoleDocsData = (role: typeof authRoles[0]) => {
+    const runningDocs: any[] = [];
+    const completedDocs: any[] = [];
     
-    // QA Section Head
+    // 1. QA Section Head
     if (role.key === "Section Head QA") {
       currentActiveNcrs.forEach(ncr => {
+        const lt = getDocLeadTimes(ncr);
+        const days = lt.leadTimes["Section Head"]?.days || lt.totalLeadTime;
+        const item = {
+          id: `ncr-${ncr.id}`,
+          docNumber: ncr.ncrNumber,
+          type: "NCR",
+          vendor: ncr.supplierName,
+          date: ncr.date,
+          requiredRole: ncr.requiredRole,
+          daysStuck: days,
+          isStuck: days >= 2,
+          amount: `${ncr.reject || ncr.qty || 0} Reject`,
+          activeTab: "approve-ncr"
+        };
         if (ncr.status !== "APPROVED" && ncr.status !== "CLOSED" && ncr.requiredRole === "Section Head") {
-          const lt = getDocLeadTimes(ncr);
-          const daysStuck = lt.leadTimes["Section Head"]?.days || lt.totalLeadTime;
-          docs.push({
-            id: `ncr-${ncr.id}`,
-            docNumber: ncr.ncrNumber,
-            type: "NCR",
-            vendor: ncr.supplierName,
-            date: ncr.date,
-            requiredRole: ncr.requiredRole,
-            daysStuck,
-            amount: `${ncr.reject || ncr.qty || 0} Reject`,
-            activeTab: "approve-ncr"
-          });
+          runningDocs.push(item);
+        } else if (ncr.status === "APPROVED" || ncr.status === "CLOSED" || ncr.requiredRole === "Dept Head" || ncr.requiredRole === "Closed") {
+          completedDocs.push(item);
         }
       });
       currentActiveQprs.forEach(qpr => {
+        const lt = getDocLeadTimes(qpr);
+        const days = lt.leadTimes["Section Head"]?.days || lt.totalLeadTime;
+        const item = {
+          id: `qpr-${qpr.id}`,
+          docNumber: qpr.qprNumber,
+          type: "QPR",
+          vendor: qpr.supplierName,
+          date: qpr.date,
+          requiredRole: qpr.requiredRole,
+          daysStuck: days,
+          isStuck: days >= 2,
+          amount: qpr.claimAmount || "-",
+          activeTab: "approve-qpr"
+        };
         if (qpr.status !== "APPROVED" && qpr.status !== "CLOSED" && qpr.requiredRole === "Section Head") {
-          const lt = getDocLeadTimes(qpr);
-          const daysStuck = lt.leadTimes["Section Head"]?.days || lt.totalLeadTime;
-          docs.push({
-            id: `qpr-${qpr.id}`,
-            docNumber: qpr.qprNumber,
-            type: "QPR",
-            vendor: qpr.supplierName,
-            date: qpr.date,
-            requiredRole: qpr.requiredRole,
-            daysStuck,
-            amount: qpr.claimAmount || "-",
-            activeTab: "approve-qpr"
-          });
+          runningDocs.push(item);
+        } else if (qpr.status === "APPROVED" || qpr.status === "CLOSED" || qpr.requiredRole === "Dept Head" || qpr.requiredRole === "Div Head" || qpr.requiredRole === "Purchasing" || qpr.requiredRole === "Closed") {
+          completedDocs.push(item);
         }
       });
     }
 
-    // QA Dept Head
+    // 2. QA Dept Head
     if (role.key === "Dept. Head QA") {
       currentActiveNcrs.forEach(ncr => {
+        const lt = getDocLeadTimes(ncr);
+        const days = lt.leadTimes["Dept Head"]?.days || lt.totalLeadTime;
+        const item = {
+          id: `ncr-${ncr.id}`,
+          docNumber: ncr.ncrNumber,
+          type: "NCR",
+          vendor: ncr.supplierName,
+          date: ncr.date,
+          requiredRole: ncr.requiredRole,
+          daysStuck: days,
+          isStuck: days >= 2,
+          amount: `${ncr.reject || ncr.qty || 0} Reject`,
+          activeTab: "approve-ncr"
+        };
         if (ncr.status !== "APPROVED" && ncr.status !== "CLOSED" && ncr.requiredRole === "Dept Head") {
-          const lt = getDocLeadTimes(ncr);
-          const daysStuck = lt.leadTimes["Dept Head"]?.days || lt.totalLeadTime;
-          docs.push({
-            id: `ncr-${ncr.id}`,
-            docNumber: ncr.ncrNumber,
-            type: "NCR",
-            vendor: ncr.supplierName,
-            date: ncr.date,
-            requiredRole: ncr.requiredRole,
-            daysStuck,
-            amount: `${ncr.reject || ncr.qty || 0} Reject`,
-            activeTab: "approve-ncr"
-          });
+          runningDocs.push(item);
+        } else if (ncr.status === "APPROVED" || ncr.status === "CLOSED" || ncr.requiredRole === "Closed") {
+          completedDocs.push(item);
         }
       });
       currentActiveQprs.forEach(qpr => {
+        const lt = getDocLeadTimes(qpr);
+        const days = lt.leadTimes["Dept Head"]?.days || lt.totalLeadTime;
+        const item = {
+          id: `qpr-${qpr.id}`,
+          docNumber: qpr.qprNumber,
+          type: "QPR",
+          vendor: qpr.supplierName,
+          date: qpr.date,
+          requiredRole: qpr.requiredRole,
+          daysStuck: days,
+          isStuck: days >= 2,
+          amount: qpr.claimAmount || "-",
+          activeTab: "approve-qpr"
+        };
         if (qpr.status !== "APPROVED" && qpr.status !== "CLOSED" && qpr.requiredRole === "Dept Head") {
-          const lt = getDocLeadTimes(qpr);
-          const daysStuck = lt.leadTimes["Dept Head"]?.days || lt.totalLeadTime;
-          docs.push({
-            id: `qpr-${qpr.id}`,
-            docNumber: qpr.qprNumber,
-            type: "QPR",
-            vendor: qpr.supplierName,
-            date: qpr.date,
-            requiredRole: qpr.requiredRole,
-            daysStuck,
-            amount: qpr.claimAmount || "-",
-            activeTab: "approve-qpr"
-          });
+          runningDocs.push(item);
+        } else if (qpr.status === "APPROVED" || qpr.status === "CLOSED" || qpr.requiredRole === "Div Head" || qpr.requiredRole === "Purchasing" || qpr.requiredRole === "Closed") {
+          completedDocs.push(item);
         }
       });
     }
 
-    // Div Head
+    // 3. Div Head
     if (role.key === "Div. Head") {
       currentActiveQprs.forEach(qpr => {
+        const lt = getDocLeadTimes(qpr);
+        const days = lt.leadTimes["Div Head"]?.days || lt.totalLeadTime;
+        const item = {
+          id: `qpr-${qpr.id}`,
+          docNumber: qpr.qprNumber,
+          type: "QPR",
+          vendor: qpr.supplierName,
+          date: qpr.date,
+          requiredRole: qpr.requiredRole,
+          daysStuck: days,
+          isStuck: days >= 2,
+          amount: qpr.claimAmount || "-",
+          activeTab: "approve-qpr"
+        };
         if (qpr.status !== "APPROVED" && qpr.status !== "CLOSED" && qpr.requiredRole === "Div Head") {
-          const lt = getDocLeadTimes(qpr);
-          const daysStuck = lt.leadTimes["Div Head"]?.days || lt.totalLeadTime;
-          docs.push({
-            id: `qpr-${qpr.id}`,
-            docNumber: qpr.qprNumber,
-            type: "QPR",
-            vendor: qpr.supplierName,
-            date: qpr.date,
-            requiredRole: qpr.requiredRole,
-            daysStuck,
-            amount: qpr.claimAmount || "-",
-            activeTab: "approve-qpr"
-          });
+          runningDocs.push(item);
+        } else if (qpr.status === "APPROVED" || qpr.status === "CLOSED" || qpr.requiredRole === "Purchasing" || qpr.requiredRole === "Closed") {
+          completedDocs.push(item);
         }
       });
     }
 
-    // Purchasing (Handling QPR CL preparation & Sending CL to Vendor)
+    // 4. Purchasing
     if (role.key === "Purchasing") {
       currentActiveQprs.forEach(qpr => {
         const hasCl = currentActiveConfirmationLetters.some(cl => cl.qprNumber === qpr.qprNumber);
+        const lt = getDocLeadTimes(qpr);
+        const days = lt.leadTimes["Purchasing"]?.days || lt.totalLeadTime;
+        const item = {
+          id: `qpr-${qpr.id}`,
+          docNumber: qpr.qprNumber,
+          type: "QPR",
+          vendor: qpr.supplierName,
+          date: qpr.date,
+          requiredRole: qpr.requiredRole || "Purchasing",
+          daysStuck: days,
+          isStuck: days >= 2,
+          amount: qpr.claimAmount || "-",
+          activeTab: qpr.status === "WAITING_APPROVAL" ? "approve-qpr" : "confirmation-letter"
+        };
         if (!hasCl && (qpr.requiredRole === "Purchasing" || (qpr.status === "APPROVED" && qpr.requiredRole !== "Closed"))) {
-          const lt = getDocLeadTimes(qpr);
-          const daysStuck = lt.totalLeadTime;
-          docs.push({
-            id: `qpr-${qpr.id}`,
-            docNumber: qpr.qprNumber,
-            type: "QPR",
-            vendor: qpr.supplierName,
-            date: qpr.date,
-            requiredRole: "Purchasing",
-            daysStuck,
-            amount: qpr.claimAmount || "-",
-            activeTab: "buat-cl"
-          });
+          runningDocs.push(item);
+        } else if (hasCl || qpr.status === "CLOSED" || qpr.status === "CLOSED_PAID") {
+          completedDocs.push(item);
         }
       });
       currentActiveConfirmationLetters.forEach(cl => {
         const isDeptApproved = !!(cl.clApprovalProgress?.deptAccounting || cl.status === "FULLY_APPROVED" || cl.status === "CLOSED_PAID");
         const isSent = !!(cl.purchasingSentCl || cl.sentToVendor);
+        const lt = getDocLeadTimes(cl);
+        const item = {
+          id: `cl-${cl.id}`,
+          docNumber: cl.clNumber,
+          type: "CL",
+          vendor: cl.supplierName,
+          date: cl.dateSent || cl.date,
+          requiredRole: "Kirim ke Vendor",
+          daysStuck: lt.totalLeadTime,
+          isStuck: lt.totalLeadTime >= 2,
+          amount: cl.amount,
+          activeTab: "approve-cl"
+        };
         if (isDeptApproved && !isSent && !cl.closedPaid && cl.status !== "CLOSED_PAID") {
-          const lt = getDocLeadTimes(cl);
-          const daysStuck = lt.totalLeadTime;
-          docs.push({
-            id: `cl-${cl.id}`,
-            docNumber: cl.clNumber,
-            type: "CL",
-            vendor: cl.supplierName,
-            date: cl.dateSent || cl.date,
-            requiredRole: "Kirim ke Vendor",
-            daysStuck,
-            amount: cl.amount,
-            activeTab: "approve-cl"
-          });
+          runningDocs.push(item);
+        } else if (isSent) {
+          completedDocs.push(item);
         }
       });
     }
 
-    // Dept Accounting (Handling CL creation & approval)
+    // 5. Dept Accounting
     if (role.key === "Dept Accounting") {
-      currentActiveQprs.forEach(qpr => {
-        const hasCl = currentActiveConfirmationLetters.some(cl => cl.qprNumber === qpr.qprNumber);
-        if (!hasCl && qpr.requiredRole === "Accounting") {
-          const lt = getDocLeadTimes(qpr);
-          const daysStuck = lt.totalLeadTime;
-          docs.push({
-            id: `qpr-${qpr.id}`,
-            docNumber: qpr.qprNumber,
-            type: "QPR",
-            vendor: qpr.supplierName,
-            date: qpr.date,
-            requiredRole: qpr.requiredRole,
-            daysStuck,
-            amount: qpr.claimAmount || "-",
-            activeTab: "approve-cl"
-          });
-        }
-      });
       currentActiveConfirmationLetters.forEach(cl => {
         const isDeptApproved = !!(cl.clApprovalProgress?.deptAccounting || cl.status === "FULLY_APPROVED" || cl.status === "CLOSED_PAID");
+        const lt = getDocLeadTimes(cl);
+        const item = {
+          id: `cl-${cl.id}`,
+          docNumber: cl.clNumber,
+          type: "CL",
+          vendor: cl.supplierName,
+          date: cl.dateSent || cl.date,
+          requiredRole: "Dept Accounting Approval",
+          daysStuck: lt.totalLeadTime,
+          isStuck: lt.totalLeadTime >= 2,
+          amount: cl.amount,
+          activeTab: "approve-cl"
+        };
         if (!isDeptApproved && !cl.closedPaid && cl.status !== "CLOSED_PAID") {
-          const lt = getDocLeadTimes(cl);
-          const daysStuck = lt.totalLeadTime;
-          docs.push({
-            id: `cl-${cl.id}`,
-            docNumber: cl.clNumber,
-            type: "CL",
-            vendor: cl.supplierName,
-            date: cl.dateSent || cl.date,
-            requiredRole: "Dept Accounting Approval",
-            daysStuck,
-            amount: cl.amount,
-            activeTab: "approve-cl"
-          });
+          runningDocs.push(item);
+        } else if (isDeptApproved) {
+          completedDocs.push(item);
         }
       });
     }
 
-    // Vendor (Handling Vendor confirmation & PICA)
+    // 6. Vendor
     if (role.key === "Vendor") {
-      currentActiveQprs.forEach(qpr => {
-        if (qpr.status === "WAITING_VENDOR" || qpr.requiredRole === "Vendor") {
-          const lt = getDocLeadTimes(qpr);
-          const daysStuck = lt.totalLeadTime;
-          docs.push({
-            id: `qpr-${qpr.id}`,
-            docNumber: qpr.qprNumber,
-            type: "QPR",
-            vendor: qpr.supplierName,
-            date: qpr.date,
-            requiredRole: qpr.requiredRole,
-            daysStuck,
-            amount: qpr.claimAmount || "-",
-            activeTab: "buat-cl"
-          });
-        }
-      });
       currentActiveConfirmationLetters.forEach(cl => {
         const isSent = !!(cl.purchasingSentCl || cl.sentToVendor);
         const isVendorApproved = !!(cl.vendorApproved || cl.status === "APPROVED_BY_VENDOR" || cl.status === "FULLY_APPROVED");
+        const lt = getDocLeadTimes(cl);
+        const item = {
+          id: `cl-${cl.id}`,
+          docNumber: cl.clNumber,
+          type: "CL",
+          vendor: cl.supplierName,
+          date: cl.dateSent || cl.date,
+          requiredRole: "Vendor Confirmation",
+          daysStuck: lt.totalLeadTime,
+          isStuck: lt.totalLeadTime >= 3,
+          amount: cl.amount,
+          activeTab: "approve-cl"
+        };
         if (isSent && !isVendorApproved && cl.status !== "REJECTED" && !cl.closedPaid && cl.status !== "CLOSED_PAID") {
-          const lt = getDocLeadTimes(cl);
-          const daysStuck = lt.totalLeadTime;
-          docs.push({
-            id: `cl-${cl.id}`,
-            docNumber: cl.clNumber,
-            type: "CL",
-            vendor: cl.supplierName,
-            date: cl.dateSent || cl.date,
-            requiredRole: "Vendor Confirmation",
-            daysStuck,
-            amount: cl.amount,
-            activeTab: "approve-cl"
-          });
+          runningDocs.push(item);
+        } else if (isVendorApproved) {
+          completedDocs.push(item);
         }
       });
     }
 
-    // Finance Accounting (Handling SSC Billing, Payment settlement, and Closed Paid)
+    // 7. Finance Accounting
     if (role.key === "Finance Accounting") {
       currentActiveConfirmationLetters.forEach(cl => {
         const isVendorApproved = !!(cl.vendorApproved || cl.status === "APPROVED_BY_VENDOR" || cl.status === "FULLY_APPROVED" || cl.status === "APPROVED");
-        if (isVendorApproved && !cl.closedPaid && cl.status !== "CLOSED_PAID") {
-          const lt = getDocLeadTimes(cl);
-          const daysStuck = lt.totalLeadTime;
-          docs.push({
-            id: `cl-${cl.id}`,
-            docNumber: cl.clNumber,
-            type: "CL",
-            vendor: cl.supplierName,
-            date: cl.dateSent || cl.date,
-            requiredRole: "Finance SSC Billing / Payment",
-            daysStuck,
-            amount: cl.amount,
-            activeTab: "i-memo"
-          });
+        const lt = getDocLeadTimes(cl);
+        const isClosed = cl.closedPaid || cl.status === "CLOSED_PAID";
+        const item = {
+          id: `cl-${cl.id}`,
+          docNumber: cl.clNumber,
+          type: "CL",
+          vendor: cl.supplierName,
+          date: cl.dateSent || cl.date,
+          requiredRole: "Finance SSC Billing / Payment",
+          daysStuck: lt.totalLeadTime,
+          isStuck: lt.totalLeadTime >= 3,
+          amount: cl.amount,
+          activeTab: "i-memo"
+        };
+        if (isVendorApproved && !isClosed) {
+          runningDocs.push(item);
+        } else if (isClosed) {
+          completedDocs.push(item);
         }
       });
     }
 
-    return docs;
+    const stuckDocs = runningDocs.filter(d => d.isStuck);
+    const totalStuckDays = stuckDocs.reduce((sum, d) => sum + d.daysStuck, 0);
+
+    return {
+      runningDocs,
+      stuckDocs,
+      completedDocs,
+      totalRunning: runningDocs.length,
+      totalStuck: stuckDocs.length,
+      totalCompleted: completedDocs.length,
+      totalStuckDays
+    };
   };
 
-  // Build the list of all global system pipeline events
-  const globalPipelines = [
-    ...currentActiveNcrs.map(n => ({
-      id: `ncr-${n.id}`,
-      docNumber: n.ncrNumber,
-      type: "NCR",
-      vendor: n.supplierName,
-      date: n.date,
-      status: n.status,
-      requiredRole: n.requiredRole,
-      stage: "Laporan Ketidaksesuaian",
-      amount: `${n.qty || 0} pcs`
-    })),
-    ...currentActiveQprs.map(q => ({
-      id: `qpr-${q.id}`,
-      docNumber: q.qprNumber,
-      type: "QPR",
-      vendor: q.supplierName,
-      date: q.date,
-      status: q.status,
-      requiredRole: q.requiredRole,
-      stage: "Klaim Kompensasi",
-      amount: q.claimAmount
-    })),
-    ...currentActiveConfirmationLetters.map(cl => ({
-      id: `cl-${cl.id}`,
-      docNumber: cl.clNumber,
-      type: "Confirmation Letter",
-      vendor: cl.supplierName,
-      date: cl.dateSent,
-      status: cl.status,
-      requiredRole: cl.status === "PENDING" ? "Vendor Confirmation" : "Closed",
-      stage: "Konfirmasi Komersial",
-      amount: cl.amount
-    }))
-  ];
-
   // Combined list of all documents with their pipeline stages and lead time status (merged QPR & CL)
-  const documentPipelineList = [
+  const documentPipelineList: any[] = [
     ...currentActiveNcrs.map(n => {
       const lt = getDocLeadTimes(n);
       return {
@@ -755,7 +791,12 @@ export default function Dashboard({
         requiredRole: n.requiredRole,
         status: n.status,
         leadTime: lt.totalLeadTime,
-        isClosed: n.status === "APPROVED" || n.status === "CLOSED"
+        isClosed: n.status === "APPROVED" || n.status === "CLOSED",
+        closedPaid: false,
+        refObject: n,
+        linkedCl: null,
+        debitNoteCount: 0,
+        clApprovalProgress: { sectAccounting: false, deptAccounting: false }
       };
     }),
     ...currentActiveQprs.map(q => {
@@ -799,12 +840,7 @@ export default function Dashboard({
     })
   ];
 
-  const historicalClosedDocs: any[] = [];
-
-  const allDocPipelines = [
-    ...documentPipelineList,
-    ...historicalClosedDocs
-  ];
+  const allDocPipelines = documentPipelineList;
 
   const foremanDays = currentActiveNcrs.filter(n => n.requiredRole === "Foreman" || n.status === "DRAFT").reduce((sum, doc) => {
     const lt = getDocLeadTimes(doc);
@@ -893,7 +929,6 @@ export default function Dashboard({
           </button>
         </div>
 
-
       </div>
 
       {/* ── 3 SYNCHRONIZED SUMMARY CARDS: NCR / QPR / CL ────────────────── */}
@@ -955,50 +990,65 @@ export default function Dashboard({
         })()}
       </div>
 
-      {/* Grid: 5 Lead Time Role Cards (Interactive) */}
-      <div className="space-y-4">
-        <div>
-          <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest block mb-1">
-            Status Lead Time &amp; Dokumen Mengendap Berdasarkan Peran Otorisasi
-          </h4>
+      {/* Grid: 7 Authorization Role Cards (Status Lead Time & Dokumen Mengendap Berdasarkan Peran Otorisasi) */}
+      <div className="space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <h4 className="text-[12px] sm:text-xs font-extrabold uppercase tracking-wider text-[#7b92a5]">
+              STATUS LEAD TIME &amp; DOKUMEN MENGENDAP BERDASARKAN PERAN OTORISASI
+            </h4>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5 sm:gap-3">
           {authRoles.map((role) => {
-            const docs = getPendingDocsForRole(role);
-            const totalStuckDocs = docs.length;
-            const totalStuckDays = docs.reduce((sum, d) => sum + d.daysStuck, 0);
+            const roleData = getRoleDocsData(role);
             const isSelected = selectedRoleCard === role.key;
+            const count = roleData.totalRunning || 0;
+            const accumulatedDays = roleData.runningDocs.reduce((sum: number, d: any) => sum + (d.daysStuck || 0), 0);
 
             return (
               <button
                 key={role.key}
-                onClick={() => setSelectedRoleCard(isSelected ? null : role.key)}
-                className={`border text-left rounded-xl p-4 transition-all duration-200 flex flex-col justify-end h-26 cursor-pointer shadow-sm relative overflow-hidden group ${
+                type="button"
+                onClick={() => {
+                  setSelectedRoleCard(isSelected ? null : role.key);
+                  setRoleDetailFilter("all");
+                }}
+                className={`border rounded-2xl p-3 sm:p-3.5 transition-all duration-200 flex flex-col justify-between text-left cursor-pointer shadow-sm relative group ${
                   isSelected 
-                    ? "bg-white border-blue-650 ring-2 ring-blue-550/20" 
-                    : role.color
+                    ? role.activeBg
+                    : `bg-[#f8fafc]/60 hover:bg-white border-slate-200/90 ${role.borderColor} hover:shadow-md active:scale-[0.98]`
                 }`}
               >
-                <div className="space-y-1">
-                  <h5 className="text-xs font-black text-slate-850 tracking-tight leading-tight truncate group-hover:text-blue-600 transition-colors">
+                <div>
+                  <h5 
+                    className={`text-xs font-black tracking-tight leading-tight truncate mb-1.5 ${role.titleColor}`}
+                    title={role.fullTitle || role.title}
+                  >
                     {role.title}
                   </h5>
-                  <div className="flex items-baseline gap-1.5 mt-0.5">
-                    <strong className="text-xl font-black text-slate-900 leading-none">
-                      {totalStuckDocs}
-                    </strong>
-                    <span className="text-xs font-bold text-slate-550">
-                      Dokumen Mengendap
+
+                  <div className="flex items-start gap-1.5 my-1">
+                    <span className="text-2xl sm:text-3xl font-black text-slate-900 leading-none">
+                      {count}
+                    </span>
+                    <span 
+                      className={`text-[11px] sm:text-xs font-bold leading-tight ${role.labelColor}`}
+                    >
+                      Dokumen<br />Mengendap
                     </span>
                   </div>
-                  <p className="text-[11px] font-semibold text-slate-500">
-                    Akumulasi: <span className="font-bold text-red-650">{totalStuckDays} Hari</span>
+                </div>
+
+                <div className="pt-2 mt-1 border-t border-slate-100/90">
+                  <p className="text-[10px] sm:text-[11px] font-semibold text-slate-500">
+                    Akumulasi: <span className="font-bold text-slate-700">{accumulatedDays} Hari</span>
                   </p>
                 </div>
 
                 {isSelected && (
-                  <div className="absolute top-0 right-0 w-2 h-full bg-blue-600" />
+                  <div className="absolute top-0 right-0 w-1.5 h-full bg-blue-600 rounded-r-2xl" />
                 )}
               </button>
             );
@@ -1008,77 +1058,127 @@ export default function Dashboard({
         {/* Selected Role Card Details Area */}
         {selectedRoleCard && (() => {
           const activeRole = authRoles.find(r => r.key === selectedRoleCard)!;
-          const docs = getPendingDocsForRole(activeRole);
+          const roleData = getRoleDocsData(activeRole);
+          
+          let displayDocs = roleData.runningDocs;
+          if (roleDetailFilter === "stuck") {
+            displayDocs = roleData.stuckDocs;
+          } else if (roleDetailFilter === "completed") {
+            displayDocs = roleData.completedDocs;
+          }
 
           return (
             <div className="bg-white border border-blue-200 rounded-xl p-5 shadow-md animate-in slide-in-from-top-2 duration-200 space-y-4">
-              <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
                 <div>
-                  <h5 className="text-xs font-black text-slate-900 uppercase">
-                    Rincian Dokumen Mengendap di Otorisasi: {activeRole.title}
+                  <h5 className="text-sm font-black text-slate-900 uppercase flex items-center gap-2">
+                    <UserCheck size={16} className="text-blue-600" />
+                    Rincian Monitoring Otorisasi: {activeRole.title}
                   </h5>
-                  <p className="text-[10px] text-slate-500 font-semibold mt-0.5">
-                    Menampilkan total {docs.length} dokumen yang butuh tindak lanjut otorisasi segera.
+                  <p className="text-xs text-slate-500 font-semibold mt-0.5">
+                    Data Berjalan: <strong className="text-blue-700">{roleData.totalRunning} Dokumen</strong> | Mengendap: <strong className="text-rose-700">{roleData.totalStuck} Dokumen ({roleData.totalStuckDays} Hari)</strong> | Selesai: <strong className="text-emerald-700">{roleData.totalCompleted} Dokumen</strong>
                   </p>
                 </div>
-                <button
-                  onClick={() => setSelectedRoleCard(null)}
-                  className="text-[10px] font-bold text-slate-400 hover:text-slate-600 px-2 py-1 rounded hover:bg-slate-100 cursor-pointer transition-colors"
-                >
-                  Tutup Rincian
-                </button>
+
+                {/* Filter Tabs inside Modal */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <button
+                    onClick={() => setRoleDetailFilter("all")}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      roleDetailFilter === "all"
+                        ? "bg-blue-600 text-white shadow-sm"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
+                  >
+                    Semua Berjalan ({roleData.totalRunning})
+                  </button>
+                  <button
+                    onClick={() => setRoleDetailFilter("stuck")}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      roleDetailFilter === "stuck"
+                        ? "bg-rose-600 text-white shadow-sm"
+                        : "bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200"
+                    }`}
+                  >
+                    Mengendap ({roleData.totalStuck})
+                  </button>
+                  <button
+                    onClick={() => setRoleDetailFilter("completed")}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      roleDetailFilter === "completed"
+                        ? "bg-emerald-600 text-white shadow-sm"
+                        : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
+                    }`}
+                  >
+                    Riwayat Selesai ({roleData.totalCompleted})
+                  </button>
+                  <button
+                    onClick={() => setSelectedRoleCard(null)}
+                    className="text-xs font-bold text-slate-400 hover:text-slate-600 px-3 py-1.5 rounded-lg hover:bg-slate-100 cursor-pointer transition-colors border border-slate-200 ml-1"
+                  >
+                    Tutup
+                  </button>
+                </div>
               </div>
 
               <div className="overflow-x-auto">
                 <table className="w-full text-xs text-left text-slate-600">
-                  <thead className="text-[10px] text-slate-400 bg-slate-50 uppercase tracking-wider font-bold">
+                  <thead className="text-[10px] text-slate-500 bg-slate-50 uppercase tracking-wider font-extrabold border-y border-slate-200">
                     <tr>
-                      <th className="px-4 py-2.5 border-b border-slate-100">No. Dokumen</th>
-                      <th className="px-4 py-2.5 border-b border-slate-100">Tipe</th>
-                      <th className="px-4 py-2.5 border-b border-slate-100">Supplier / Vendor</th>
-                      <th className="px-4 py-2.5 border-b border-slate-100">Tgl Pembuatan</th>
-                      <th className="px-4 py-2.5 border-b border-slate-100 text-center">Durasi Mengendap</th>
-                      <th className="px-4 py-2.5 border-b border-slate-100">Nilai Klaim</th>
-                      <th className="px-4 py-2.5 border-b border-slate-100 text-right">Aksi</th>
+                      <th className="px-4 py-2.5">No. Dokumen</th>
+                      <th className="px-4 py-2.5">Tipe</th>
+                      <th className="px-4 py-2.5">Supplier / Vendor</th>
+                      <th className="px-4 py-2.5">Tgl Pembuatan</th>
+                      <th className="px-4 py-2.5 text-center">Status Lead Time</th>
+                      <th className="px-4 py-2.5">Nilai Klaim</th>
+                      <th className="px-4 py-2.5 text-right">Aksi</th>
                     </tr>
                   </thead>
-                  <tbody>
-                    {docs.length === 0 ? (
+                  <tbody className="divide-y divide-slate-100">
+                    {displayDocs.length === 0 ? (
                       <tr>
                         <td colSpan={7} className="px-4 py-8 text-center text-slate-400 italic">
-                          Tidak ada dokumen yang mengendap pada otorisasi ini.
+                          Tidak ada dokumen pada kategori filter ini.
                         </td>
                       </tr>
                     ) : (
-                      docs.map((doc) => (
-                        <tr key={doc.id} className="hover:bg-slate-50 transition-colors font-semibold">
+                      displayDocs.map((doc) => (
+                        <tr key={doc.id} className="hover:bg-slate-50/80 transition-colors font-semibold">
                           <td className="px-4 py-3 text-slate-900 font-bold font-mono">{doc.docNumber}</td>
                           <td className="px-4 py-3">
                             <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${
                               doc.type === "NCR" 
-                                ? "bg-blue-50 text-blue-700 border border-blue-100" 
+                                ? "bg-blue-50 text-blue-700 border border-blue-200" 
                                 : doc.type === "QPR"
-                                  ? "bg-indigo-50 text-indigo-700 border border-indigo-100"
-                                  : "bg-emerald-50 text-emerald-700 border border-emerald-100"
+                                  ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                                  : "bg-emerald-50 text-emerald-700 border border-emerald-200"
                             }`}>
                               {doc.type}
                             </span>
                           </td>
                           <td className="px-4 py-3 text-slate-800 font-bold">{doc.vendor}</td>
-                          <td className="px-4 py-3 font-mono">{doc.date}</td>
+                          <td className="px-4 py-3 font-mono text-slate-600">{doc.date}</td>
                           <td className="px-4 py-3 text-center">
-                            <span className="px-2 py-0.5 bg-red-50 text-red-700 border border-red-200 rounded font-bold text-[10px]">
-                              {doc.daysStuck} Hari
-                            </span>
+                            {doc.isStuck ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-rose-50 text-rose-700 border border-rose-200 rounded font-bold text-[10px]">
+                                <Clock size={10} className="text-rose-500 shrink-0" />
+                                Mengendap {doc.daysStuck} Hari
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded font-bold text-[10px]">
+                                <Activity size={10} className="text-blue-500 shrink-0" />
+                                Berjalan ({doc.daysStuck} Hari)
+                              </span>
+                            )}
                           </td>
                           <td className="px-4 py-3 font-bold text-slate-700">{doc.amount}</td>
                           <td className="px-4 py-3 text-right">
                             <button
                               onClick={() => setActiveTab(doc.activeTab)}
-                              className="inline-flex items-center gap-1 px-3 py-1 bg-blue-600 hover:bg-blue-750 text-white rounded text-[10px] font-bold shadow-sm transition-all cursor-pointer"
+                              className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-[11px] font-bold shadow-sm transition-all cursor-pointer"
                             >
                               Buka Approval
-                              <ArrowRight size={10} />
+                              <ArrowRight size={11} />
                             </button>
                           </td>
                         </tr>
@@ -1092,39 +1192,44 @@ export default function Dashboard({
         })()}
       </div>
 
-      {/* Visual Pipeline & Lead Time tracking per document (Collapsible under Otorisasi Cards) */}
-      <div className="bg-white border border-slate-150 rounded-xl shadow-sm overflow-hidden mt-6">
-        <button
-          onClick={() => setShowPipeline(!showPipeline)}
-          className="w-full flex justify-between items-center p-5 bg-slate-50/50 hover:bg-slate-50 transition-colors text-left border-none focus:outline-none cursor-pointer"
-        >
+      {/* Visual Pipeline & Lead Time tracking per document */}
+      <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden mt-6">
+        <div className="p-5 bg-slate-50/70 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <Activity size={16} className="text-blue-650" />
-            <h4 className="text-sm font-black text-slate-800 uppercase tracking-wide">
-              Pelacakan Pipeline &amp; Lead Time Durasi per Dokumen
-            </h4>
+            <Activity size={18} className="text-blue-600" />
+            <div>
+              <h4 className="text-sm font-black text-slate-900 uppercase tracking-wide">
+                Pelacakan Pipeline &amp; Lead Time Alur Dokumen Berjalan
+              </h4>
+              <p className="text-xs text-slate-500 font-semibold mt-0.5">
+                Sinkronisasi alur 11 tahapan dokumen dari Create QPR hingga Close Paid SSC.
+              </p>
+            </div>
           </div>
-          <div className="text-xs font-bold text-blue-600 hover:text-blue-800 select-none">
-            {showPipeline ? "Sembunyikan" : "Tampilkan"} Pelacakan Pipeline ({allDocPipelines.length} Dokumen)
-          </div>
-        </button>
+        </div>
 
-        {showPipeline && (
-          <div className="p-6 border-t border-slate-155 bg-white space-y-4">
-            <div className="overflow-x-auto border border-slate-200 rounded-lg">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead className="bg-slate-50 text-slate-700 font-extrabold border-b border-slate-200 whitespace-nowrap">
+        <div className="p-5 bg-white space-y-4">
+          <div className="overflow-x-auto border border-slate-200 rounded-lg">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead className="bg-slate-100 text-slate-700 font-extrabold border-b border-slate-200 whitespace-nowrap">
+                <tr>
+                  <th className="px-4 py-3 w-12 text-center">No</th>
+                  <th className="px-4 py-3">No. Dokumen</th>
+                  <th className="px-4 py-3">Vendor / Supplier</th>
+                  <th className="px-4 py-3 text-left">Status / Tracking Alur Pipeline</th>
+                  <th className="px-4 py-3 text-center w-24">Aksi</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 whitespace-nowrap">
+                {allDocPipelines.length === 0 ? (
                   <tr>
-                    <th className="px-4 py-3 w-12 text-center">No</th>
-                    <th className="px-4 py-3">No. Dokumen</th>
-                    <th className="px-4 py-3">Vendor / Supplier</th>
-                    <th className="px-4 py-3 text-left">Status / Tracking</th>
-                    <th className="px-4 py-3 text-center w-24">Aksi</th>
+                    <td colSpan={5} className="px-4 py-12 text-center text-slate-400 italic">
+                      Tidak ada data pipeline pada periode ini.
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 whitespace-nowrap">
-                  {allDocPipelines.map((doc, idx) => (
-                    <tr key={doc.id} className="hover:bg-slate-50/40 transition-colors font-semibold">
+                ) : (
+                  allDocPipelines.map((doc, idx) => (
+                    <tr key={doc.id} className="hover:bg-slate-50/70 transition-colors font-semibold">
                       <td className="px-4 py-3 text-center text-slate-400 font-mono font-bold">{idx + 1}</td>
                       <td className="px-4 py-3 font-mono font-bold text-slate-800">{doc.docNumber}</td>
                       <td className="px-4 py-3 font-bold text-slate-700">{doc.vendor}</td>
@@ -1248,12 +1353,12 @@ export default function Dashboard({
                         </div>
                       </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
-        )}
+        </div>
       </div>
 
       {selectedPipelineDoc && (

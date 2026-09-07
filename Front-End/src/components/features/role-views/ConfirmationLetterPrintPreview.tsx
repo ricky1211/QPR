@@ -21,6 +21,10 @@ interface ClPreviewProps {
     partName?: string;
     supplierAddress?: string;
     supplierCity?: string;
+    approvedBy?: string[];
+    vendorApproved?: boolean;
+    requiredRole?: string;
+    [key: string]: any;
   };
   onClose?: () => void;
   inline?: boolean;
@@ -29,14 +33,17 @@ interface ClPreviewProps {
 export default function ConfirmationLetterPrintPreview({ cl, onClose, inline = false }: ClPreviewProps) {
   React.useEffect(() => {
     document.body.classList.add("print-cl-active");
-    if (inline) return () => {
-      document.body.classList.remove("print-cl-active");
-    };
+    if (inline) {
+      return () => {
+        document.body.classList.remove("print-cl-active");
+        document.body.style.overflow = "unset";
+      };
+    }
     const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.classList.remove("print-cl-active");
-      document.body.style.overflow = originalOverflow;
+      document.body.style.overflow = "unset";
     };
   }, [inline]);
 
@@ -180,36 +187,65 @@ export default function ConfirmationLetterPrintPreview({ cl, onClose, inline = f
             <span className="block text-slate-700 text-[11px] mt-0.5">Accounting &amp; Finance Departement</span>
 
             {/* Two-column signature row */}
-            <div className="flex justify-between items-end mt-2">
+            {(() => {
+              const isDraft = cl.status === "DRAFT";
+              const isAccountingApproved = !isDraft && (
+                cl.status === "FULLY_APPROVED" ||
+                cl.status === "APPROVED_BY_VENDOR" ||
+                cl.status === "CLOSED_PAID" ||
+                !!cl.clApprovalProgress?.deptAccounting ||
+                (Array.isArray(cl.approvedBy) && cl.approvedBy.includes("Accounting"))
+              );
 
-              {/* LEFT: TTD + Anindita */}
-              <div>
-                <div style={{ height: "70px", position: "relative" }}>
-                  {(cl.clApprovalProgress?.deptAccounting || cl.status === "FULLY_APPROVED" || cl.status === "CLOSED_PAID") && (
-                    <img
-                      src="/qpr/TTD-Anindita.jpeg"
-                      alt="TTD Anindita"
-                      style={{ height: "68px", objectFit: "contain", position: "absolute", bottom: 0, left: 0 }}
-                    />
-                  )}
-                </div>
-                <div className="pt-0">
-                  <span className="underline font-bold block text-[13px] text-black">Anindita Imilaningtyas</span>
-                  <span className="block text-[11px] text-slate-700 font-normal">Dep. Head Accounting &amp; Finance</span>
-                </div>
-              </div>
+              const isVendorApproved = !isDraft && (
+                cl.status === "APPROVED_BY_VENDOR" ||
+                cl.status === "CLOSED_PAID" ||
+                !!cl.vendorApproved ||
+                (Array.isArray(cl.approvedBy) && cl.approvedBy.includes("Vendor"))
+              );
 
-              {/* RIGHT: Approved + Vendor — only when approved */}
-              {(cl.clApprovalProgress?.deptAccounting || cl.status === "FULLY_APPROVED" || cl.status === "CLOSED_PAID") && (
-                <div className="flex flex-col items-end pr-10">
-                  <span className="font-bold text-[12px] text-[#0f766e] mb-1">Approved</span>
-                  <div style={{ height: "70px" }} />
-                  <span className="underline font-bold block text-[13px] text-black text-right">{cl.supplierName}</span>
-                  <span className="block text-[11px] text-slate-700 font-normal">Vendor</span>
-                </div>
-              )}
+              return (
+                <div className="flex justify-between items-end mt-2">
+                  {/* LEFT: TTD + Anindita */}
+                  <div>
+                    <div style={{ height: "70px", position: "relative" }} className="flex items-end">
+                      {isAccountingApproved ? (
+                        <img
+                          src="/qpr/TTD-Anindita.jpeg"
+                          alt="TTD Anindita"
+                          style={{ height: "68px", objectFit: "contain", position: "absolute", bottom: 0, left: 0 }}
+                          onError={(e) => {
+                            if (!e.currentTarget.src.includes("/qpr/")) {
+                              e.currentTarget.src = "/qpr/TTD-Anindita.jpeg";
+                            } else {
+                              e.currentTarget.src = "/TTD-Anindita.jpeg";
+                            }
+                          }}
+                        />
+                      ) : (
+                        <span className="text-slate-400 italic text-[11px] font-sans block pb-2">(Pending Approval)</span>
+                      )}
+                    </div>
+                    <div className="pt-0">
+                      <span className="underline font-bold block text-[13px] text-black">Anindita Imilaningtyas</span>
+                      <span className="block text-[11px] text-slate-700 font-normal">Dep. Head Accounting &amp; Finance</span>
+                    </div>
+                  </div>
 
-            </div>
+                  {/* RIGHT: Approved + Vendor */}
+                  <div className="flex flex-col items-end pr-10">
+                    {isVendorApproved ? (
+                      <span className="font-bold text-[12px] text-[#0f766e] mb-1">Approved</span>
+                    ) : (
+                      <span className="font-semibold text-[11px] text-amber-600 mb-1 italic">(Pending Vendor Approval)</span>
+                    )}
+                    <div style={{ height: "70px" }} />
+                    <span className="underline font-bold block text-[13px] text-black text-right">{cl.supplierName}</span>
+                    <span className="block text-[11px] text-slate-700 font-normal">Vendor</span>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
 

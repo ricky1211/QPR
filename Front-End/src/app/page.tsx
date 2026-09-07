@@ -36,7 +36,152 @@ import VendorsDirectory from "@/components/features/parts/VendorsDirectory";
 import UsersDirectory from "@/components/features/parts/UsersDirectory";
 
 
-// Mock Data
+// Mock Data for Testing & Simulation
+const DEFAULT_MOCK_QPRS = [
+  {
+    id: "qpr-mock-001",
+    qprNumber: "QPR/2026/06/001",
+    date: "2026-06-12",
+    supplierName: "PT TEMARU ENGINEERING INDONESIA",
+    supplierId: "vendor-temaru-1",
+    period: "Juni 2026",
+    totalItems: 1200,
+    rejectItems: 45,
+    allowanceRatio: "0.5%",
+    claimAmount: "Rp 3.500.000",
+    status: "WAITING_APPROVAL",
+    requiredRole: "Purchasing",
+    refNcrNumber: "NCR/2026/06/012",
+    problem: "Defect visual scratch & burr pada outer diameter komponen Inner Tube.",
+    claimType: ["MATERIAL", "PROSES M/C"],
+    parts: [
+      { no: 1, partName: "INNER TUBE,650 A", partNumber: "IT-650", totalQty: 1200, qtyNG: 45, ngActual: 3.75, stdAllowance: 6, qtyClaim: 39, unitPrice: 85000, taxRate: 0.11 }
+    ],
+    remarksSectionHead: "Hasil inspeksi lot 06-A membuktikan defect melebihi standard allowance.",
+    remarksDeptHead: "Disetujui Dept Head, diteruskan ke Div Head.",
+    remarksDivHead: "Disetujui Div Head, mohon Purchasing tindak lanjuti ke vendor & terbitkan CL.",
+    approvalProgress: {
+      checksumSectionHead: "APPROVED_BY_SECTION_HEAD_1784631200",
+      remarksSectionHead: "Hasil inspeksi lot 06-A membuktikan defect melebihi standard allowance.",
+      checksumDeptHead: "APPROVED_BY_DEPT_HEAD_1784631250",
+      remarksDeptHead: "Disetujui Dept Head, diteruskan ke Div Head.",
+      checksumDivHead: "APPROVED_BY_DIV_HEAD_1784631300",
+      remarksDivHead: "Disetujui Div Head, mohon Purchasing tindak lanjuti ke vendor & terbitkan CL."
+    }
+  },
+  {
+    id: "qpr-mock-002",
+    qprNumber: "QPR/2026/06/002",
+    date: "2026-06-15",
+    supplierName: "PT SUKSES CIPTA MAKMUR",
+    supplierId: "vendor-sukses-2",
+    period: "Juni 2026",
+    totalItems: 2500,
+    rejectItems: 80,
+    allowanceRatio: "0.5%",
+    claimAmount: "Rp 6.200.000",
+    status: "WAITING_APPROVAL",
+    requiredRole: "Purchasing",
+    refNcrNumber: "NCR/2026/06/015",
+    problem: "Ketidaksesuaian dimensi pin poros melebihi toleransi drawing.",
+    claimType: ["PROSES M/C", "HEAT TREATMENT"],
+    parts: [
+      { no: 1, partName: "PIN PIVOT SHAFT 20MM", partNumber: "PPS-020", totalQty: 2500, qtyNG: 80, ngActual: 3.2, stdAllowance: 12, qtyClaim: 68, unitPrice: 75000, taxRate: 0.11 }
+    ],
+    remarksSectionHead: "Sampling lot 06-B menunjukkan 80 pcs NG.",
+    remarksDeptHead: "Disetujui QA Dept Head.",
+    remarksDivHead: "Approved. Lanjutkan otorisasi Purchasing.",
+    approvalProgress: {
+      checksumSectionHead: "APPROVED_BY_SECTION_HEAD_1784631400",
+      remarksSectionHead: "Sampling lot 06-B menunjukkan 80 pcs NG.",
+      checksumDeptHead: "APPROVED_BY_DEPT_HEAD_1784631450",
+      remarksDeptHead: "Disetujui QA Dept Head.",
+      checksumDivHead: "APPROVED_BY_DIV_HEAD_1784631500",
+      remarksDivHead: "Approved. Lanjutkan otorisasi Purchasing."
+    }
+  },
+  {
+    id: "qpr-mock-003",
+    qprNumber: "QPR/2026/06/003",
+    date: "2026-06-18",
+    supplierName: "PT ANUGERAH DAYA INDUSTRI KOMPONEN UTAMA",
+    supplierId: "vendor-anugerah-3",
+    period: "Juni 2026",
+    totalItems: 900,
+    rejectItems: 30,
+    allowanceRatio: "0.5%",
+    claimAmount: "Rp 2.100.000",
+    status: "WAITING_APPROVAL",
+    requiredRole: "Div Head",
+    refNcrNumber: "NCR/2026/06/018",
+    problem: "Defect porous pada casting bracket aluminium.",
+    claimType: ["MATERIAL", "PROSES CHECK"],
+    parts: [
+      { no: 1, partName: "BRACKET MOUNTING AL", partNumber: "BMA-101", totalQty: 900, qtyNG: 30, ngActual: 3.33, stdAllowance: 4, qtyClaim: 26, unitPrice: 70000, taxRate: 0.11 }
+    ],
+    remarksSectionHead: "Disetujui Section Head.",
+    remarksDeptHead: "Disetujui Dept Head, menunggu approval Div Head.",
+    approvalProgress: {
+      checksumSectionHead: "APPROVED_BY_SECTION_HEAD_1784631600",
+      remarksSectionHead: "Disetujui Section Head.",
+      checksumDeptHead: "APPROVED_BY_DEPT_HEAD_1784631650",
+      remarksDeptHead: "Disetujui Dept Head, menunggu approval Div Head."
+    }
+  },
+  {
+    id: "qpr-mock-004",
+    qprNumber: "QPR/2026/06/004",
+    date: "2026-06-20",
+    supplierName: "PT MEKAR JAYA ABADI",
+    supplierId: "vendor-mekar-4",
+    period: "Juni 2026",
+    totalItems: 1500,
+    rejectItems: 40,
+    allowanceRatio: "0.5%",
+    claimAmount: "Rp 2.800.000",
+    status: "WAITING_APPROVAL",
+    requiredRole: "Section Head",
+    refNcrNumber: "NCR/2026/06/020",
+    problem: "Karat / korosi pada permukaan coating setelah uji salt spray.",
+    claimType: ["PAINTING/PLATING"],
+    parts: [
+      { no: 1, partName: "FLANGE ADAPTOR PLATE", partNumber: "FAP-088", totalQty: 1500, qtyNG: 40, ngActual: 2.67, stdAllowance: 7, qtyClaim: 33, unitPrice: 65000, taxRate: 0.11 }
+    ],
+    approvalProgress: {}
+  },
+  {
+    id: "qpr-mock-005",
+    qprNumber: "QPR/2026/05/009",
+    date: "2026-05-28",
+    supplierName: "PT TEMARU ENGINEERING INDONESIA",
+    supplierId: "vendor-temaru-1",
+    period: "Mei 2026",
+    totalItems: 1000,
+    rejectItems: 30,
+    allowanceRatio: "0.5%",
+    claimAmount: "Rp 2.250.000",
+    status: "APPROVED",
+    requiredRole: "Purchasing",
+    refNcrNumber: "NCR/2026/05/009",
+    problem: "Dimensi ulang finish grind out of spec.",
+    claimType: ["PROSES M/C"],
+    parts: [
+      { no: 1, partName: "INNER TUBE,650 A", partNumber: "IT-650", totalQty: 1000, qtyNG: 30, ngActual: 3.0, stdAllowance: 5, qtyClaim: 25, unitPrice: 85000, taxRate: 0.11 }
+    ],
+    remarksSectionHead: "Approved.",
+    remarksDeptHead: "Approved.",
+    remarksDivHead: "Approved.",
+    remarksPurchasing: "Disetujui Purchasing. Dokumen telah selesai diotorisasi.",
+    approvalProgress: {
+      checksumSectionHead: "APPROVED_BY_SECTION_HEAD_1784630000",
+      checksumDeptHead: "APPROVED_BY_DEPT_HEAD_1784630100",
+      checksumDivHead: "APPROVED_BY_DIV_HEAD_1784630200",
+      checksumPurchasing: "APPROVED_BY_PURCHASING_1784630300",
+      remarksPurchasing: "Disetujui Purchasing. Dokumen telah selesai diotorisasi."
+    }
+  }
+];
+
 export default function Home({ initialTab = "" }: { initialTab?: string }) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState(initialTab || "dashboard");
@@ -70,19 +215,64 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
   };
 
   // State for custom alert modal
-  const [customAlert, setCustomAlert] = useState<{ isOpen: boolean; message: string }>({
+  const [customAlert, setCustomAlert] = useState<{ isOpen: boolean; message: string; title?: string }>({
     isOpen: false,
-    message: ""
+    message: "",
+    title: ""
   });
+
+  // Ensure body scroll is never locked when switching tabs or navigating from triggers
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      document.body.style.overflow = "unset";
+      document.body.classList.remove("print-cl-active", "print-ncr-active", "print-memo-active", "print-aop-active");
+    }
+    if (typeof window !== "undefined") {
+      window.scrollTo(0, 0);
+    }
+  }, [activeTab]);
 
   useEffect(() => {
     const originalAlert = window.alert;
 
-    // Override global alert
+    // Override global alert with smart title detection
     window.alert = (msg: string) => {
+      const lower = String(msg || "").toLowerCase();
+      let detectedTitle = "Approval Sukses";
+      if (
+        lower.includes("gagal") ||
+        lower.includes("peringatan") ||
+        lower.includes("harus") ||
+        lower.includes("harap") ||
+        lower.includes("mohon") ||
+        lower.includes("isi") ||
+        lower.includes("belum") ||
+        lower.includes("salah") ||
+        lower.includes("tidak") ||
+        lower.includes("popup") ||
+        lower.includes("diblokir")
+      ) {
+        detectedTitle = "Pemberitahuan";
+      } else if (lower.includes("sinkronisasi") || lower.includes("sync")) {
+        detectedTitle = "Sinkronisasi Sukses";
+      } else if (lower.includes("revisi") || lower.includes("revise")) {
+        detectedTitle = "Revisi Sukses";
+      } else if (lower.includes("tolak") || lower.includes("reject")) {
+        detectedTitle = "Penolakan Berhasil";
+      } else if (lower.includes("simpan") || lower.includes("save") || lower.includes("draft")) {
+        detectedTitle = "Penyimpanan Sukses";
+      } else if (lower.includes("kirim") || lower.includes("send")) {
+        detectedTitle = "Pengiriman Sukses";
+      } else if (lower.includes("approve") || lower.includes("disetujui") || lower.includes("approval")) {
+        detectedTitle = "Approval Sukses";
+      } else {
+        detectedTitle = "Berhasil";
+      }
+
       setCustomAlert({
         isOpen: true,
-        message: msg
+        message: msg,
+        title: detectedTitle
       });
     };
 
@@ -169,12 +359,15 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
 
     qprService.getAll()
       .then((dbQprs) => {
-        if (Array.isArray(dbQprs)) {
+        if (Array.isArray(dbQprs) && dbQprs.length > 0) {
           setPendingQprs(dbQprs.map((q: any) => mapQprFromDb(q)));
+        } else {
+          setPendingQprs(prev => (prev && prev.length > 0 ? prev : DEFAULT_MOCK_QPRS));
         }
       })
       .catch((err) => {
-        console.error("Failed to fetch real QPRs:", err);
+        console.error("Failed to fetch real QPRs, using default mock data:", err);
+        setPendingQprs(prev => (prev && prev.length > 0 ? prev : DEFAULT_MOCK_QPRS));
       });
 
     clService.getAll()
@@ -290,7 +483,18 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
   // so they survive Next.js route changes (each sub-route remounts <Home />).
   const [pendingNcrs, setPendingNcrs] = useState([]);
   const [vendors, setVendors] = useState<any[]>([]);
-  const [pendingQprs, setPendingQprs] = useState<any[]>([]);
+  const [pendingQprs, setPendingQprs] = useState<any[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = sessionStorage.getItem("mtm_qpr_pendingQprs");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch {}
+    }
+    return DEFAULT_MOCK_QPRS;
+  });
   const [confirmationLetters, setConfirmationLetters] = useState<any[]>([]);
   const [createdSscBillings, setCreatedSscBillings] = useState<any[]>([]);
 
@@ -738,8 +942,13 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
                 notifMsg = `Klaim QPR ${qprNum} disetujui oleh Dept Head dan diteruskan ke Div Head.`;
                 nextRole = "Div Head";
               } else if (currentRole === "Div Head") {
-                alertMsg = `Sukses: Klaim QPR ${qprNum} disetujui oleh Div Head dan diteruskan ke Purchasing untuk pembuatan CL!`;
+                alertMsg = `Sukses: Klaim QPR ${qprNum} disetujui oleh Div Head dan diteruskan ke Purchasing untuk approval!`;
                 notifMsg = `Klaim QPR ${qprNum} disetujui oleh Div Head dan diteruskan ke Purchasing.`;
+                nextRole = "Purchasing";
+                nextStatus = "WAITING_APPROVAL";
+              } else if (currentRole === "Purchasing") {
+                alertMsg = `Sukses: Klaim QPR ${qprNum} telah disetujui oleh Purchasing! Dokumen siap diproses ke Confirmation Letter.`;
+                notifMsg = `Klaim QPR ${qprNum} telah disetujui oleh Purchasing (Approved).`;
                 nextRole = "Purchasing";
                 nextStatus = "APPROVED";
               }
@@ -751,6 +960,7 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
               remarksSectionHead: currentRole === "Section Head" ? reviewComment : currentApprovalProgress.remarksSectionHead,
               remarksDeptHead: currentRole === "Dept Head" ? reviewComment : currentApprovalProgress.remarksDeptHead,
               remarksDivHead: currentRole === "Div Head" ? reviewComment : currentApprovalProgress.remarksDivHead,
+              remarksPurchasing: currentRole === "Purchasing" ? reviewComment : currentApprovalProgress.remarksPurchasing,
             };
 
             return {
@@ -761,6 +971,7 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
               remarksSectionHead: newApprovalProgress.remarksSectionHead,
               remarksDeptHead: newApprovalProgress.remarksDeptHead,
               remarksDivHead: newApprovalProgress.remarksDivHead,
+              remarksPurchasing: newApprovalProgress.remarksPurchasing,
               remarks: newApprovalProgress.remarksSectionHead || ""
             };
           }
@@ -801,6 +1012,9 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
           nextRole = "Div Head";
         } else if (currentRole === "Div Head") {
           nextRole = "Purchasing";
+          nextStatus = "WAITING_APPROVAL";
+        } else if (currentRole === "Purchasing") {
+          nextRole = "Purchasing";
           nextStatus = "APPROVED";
         }
       }
@@ -820,6 +1034,9 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
           } else if (currentRole === "Div Head") {
             progressPayload.checksumDivHead = `APPROVED_BY_DIV_HEAD_${Date.now()}`;
             progressPayload.remarksDivHead = reviewComment;
+          } else if (currentRole === "Purchasing") {
+            progressPayload.checksumPurchasing = `APPROVED_BY_PURCHASING_${Date.now()}`;
+            progressPayload.remarksPurchasing = reviewComment;
           }
 
           return qprService.updateApprovalProgress(id, progressPayload);
@@ -1239,19 +1456,23 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
                     
                     <div className="space-y-1">
                       <h4 className="text-sm font-extrabold text-slate-950 uppercase tracking-tight">
-                        {customAlert.message.toLowerCase().includes("gagal") || 
-                         customAlert.message.toLowerCase().includes("peringatan") || 
-                         customAlert.message.toLowerCase().includes("harus") ||
-                         customAlert.message.toLowerCase().includes("harap") ||
-                         customAlert.message.toLowerCase().includes("mohon") ||
-                         customAlert.message.toLowerCase().includes("isi") ||
-                         customAlert.message.toLowerCase().includes("belum") ||
-                         customAlert.message.toLowerCase().includes("salah") ||
-                         customAlert.message.toLowerCase().includes("tidak") ||
-                         customAlert.message.toLowerCase().includes("popup") ||
-                         customAlert.message.toLowerCase().includes("diblokir")
-                          ? "Pemberitahuan" 
-                          : "Approval Sukses"}
+                        {customAlert.title || (
+                          customAlert.message.toLowerCase().includes("gagal") || 
+                          customAlert.message.toLowerCase().includes("peringatan") || 
+                          customAlert.message.toLowerCase().includes("harus") ||
+                          customAlert.message.toLowerCase().includes("harap") ||
+                          customAlert.message.toLowerCase().includes("mohon") ||
+                          customAlert.message.toLowerCase().includes("isi") ||
+                          customAlert.message.toLowerCase().includes("belum") ||
+                          customAlert.message.toLowerCase().includes("salah") ||
+                          customAlert.message.toLowerCase().includes("tidak") ||
+                          customAlert.message.toLowerCase().includes("popup") ||
+                          customAlert.message.toLowerCase().includes("diblokir")
+                            ? "Pemberitahuan"
+                            : customAlert.message.toLowerCase().includes("sinkronisasi")
+                            ? "Sinkronisasi Sukses"
+                            : "Approval Sukses"
+                        )}
                       </h4>
                     </div>
                     

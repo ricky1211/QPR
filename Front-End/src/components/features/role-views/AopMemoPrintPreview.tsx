@@ -13,18 +13,25 @@ interface AopMemoPreviewProps {
   };
   onClose: () => void;
   onSend?: () => void;
+  inline?: boolean;
 }
 
-export default function AopMemoPrintPreview({ memo, onClose, onSend }: AopMemoPreviewProps) {
+export default function AopMemoPrintPreview({ memo, onClose, onSend, inline }: AopMemoPreviewProps) {
   React.useEffect(() => {
-    document.body.classList.add("print-aop-active");
+    document.body.classList.add("print-memo-active");
+    if (inline) {
+      return () => {
+        document.body.classList.remove("print-memo-active");
+        document.body.style.overflow = "unset";
+      };
+    }
     const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
-      document.body.classList.remove("print-aop-active");
-      document.body.style.overflow = originalOverflow;
+      document.body.classList.remove("print-memo-active");
+      document.body.style.overflow = "unset";
     };
-  }, []);
+  }, [inline]);
 
   const handlePrint = () => {
     window.print();

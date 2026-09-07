@@ -24,6 +24,7 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
   const getInitialTab = () => {
     if (username === "sect_dept_head") return "section-head";
     if (username === "div_head") return "div-head";
+    if (username === "purchasing") return "purchasing";
     return "section-head";
   };
 
@@ -67,6 +68,7 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
       case "section-head": return "Section Head";
       case "dept-head": return "Dept Head";
       case "div-head": return "Div Head";
+      case "purchasing": return "Purchasing";
       default: return "Section Head";
     }
   };
@@ -173,12 +175,12 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
         </div>
         
         <div className="flex items-center gap-3 shrink-0">
-          {username === "admin" || username === "sect_dept_head" ? (
+          {username === "admin" || username === "sect_dept_head" || username === "div_head" || username === "purchasing" ? (
             <div className="flex bg-slate-100 p-1 rounded-md overflow-x-auto max-w-[400px] sm:max-w-none">
                {[
-                 { id: "section-head", label: "SEC HEAD" },
-                 { id: "dept-head", label: "DEPT HEAD" },
-                 ...(username === "admin" ? [{ id: "div-head", label: "DIV HEAD" }] : [])
+                 ...(username === "admin" || username === "sect_dept_head" ? [{ id: "section-head", label: "SEC HEAD" }, { id: "dept-head", label: "DEPT HEAD" }] : []),
+                 ...(username === "admin" || username === "div_head" ? [{ id: "div-head", label: "DIV HEAD" }] : []),
+                 ...(username === "admin" || username === "purchasing" ? [{ id: "purchasing", label: "PURCHASING" }] : [])
                ].map((tab) => (
                 <button
                   key={tab.id}
@@ -196,7 +198,7 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
             </div>
           ) : (
             <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-1.5 rounded font-bold uppercase whitespace-nowrap">
-              Role: {levelTab === "section-head" ? "Sec Head" : levelTab === "dept-head" ? "Dept Head" : "Div Head"}
+              Role: {levelTab === "section-head" ? "Sec Head" : levelTab === "dept-head" ? "Dept Head" : levelTab === "div-head" ? "Div Head" : "Purchasing"}
             </span>
           )}
 
@@ -377,7 +379,8 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
                   // Verification status text based on active role
                   const statusText = levelTab === "section-head" ? "Menunggu Approval Sec. Head" :
                                      levelTab === "dept-head" ? "Menunggu Approval Dept. Head" :
-                                     "Menunggu Approval Div. Head";
+                                     levelTab === "div-head" ? "Menunggu Approval Div. Head" :
+                                     "Menunggu Approval Purchasing";
 
                   return (
                     <tr key={qpr.id} className="border-b border-slate-400 hover:bg-slate-50/40 transition-colors text-center font-bold">
@@ -522,17 +525,17 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
                     <span className="text-sm font-bold text-slate-800 block mt-1">{selectedQpr.supplierName}</span>
                     <span className="text-xs text-slate-450 block mt-0.5">Periode Transaksi: {selectedQpr.period}</span>
                   </div>
-
-                {/* Authorization chain - dynamic based on QPR requiredRole */}
+                  {/* Authorization chain - dynamic based on QPR requiredRole */}
                   <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 text-[11px] space-y-2.5">
                     <span className="text-[9px] font-black text-slate-455 uppercase tracking-widest block">
                       Rantai Otorisasi QPR (Signatures)
                     </span>
                     <div className="space-y-3 divide-y divide-slate-150">
                       {[
-                        { label: "1. Section Head", doneWhen: ["Dept Head", "Div Head", "Closed", "CLOSED", "Vendor"] },
-                        { label: "2. Dept Head",    doneWhen: ["Div Head", "Closed", "CLOSED", "Vendor"] },
-                        { label: "3. Div Head",     doneWhen: ["Closed", "CLOSED", "Vendor", "Approved"] },
+                        { label: "1. Section Head", doneWhen: ["Dept Head", "Div Head", "Purchasing", "Closed", "CLOSED", "Vendor"] },
+                        { label: "2. Dept Head",    doneWhen: ["Div Head", "Purchasing", "Closed", "CLOSED", "Vendor"] },
+                        { label: "3. Div Head",     doneWhen: ["Purchasing", "Closed", "CLOSED", "Vendor", "Approved"] },
+                        { label: "4. Purchasing",   doneWhen: ["Closed", "CLOSED", "Vendor", "Approved"] },
                       ].map((step) => {
                         const isDone = step.doneWhen.includes(selectedQpr.requiredRole) || selectedQpr.status === "CLOSED" || selectedQpr.status === "APPROVED";
                         const isPending = !isDone;
@@ -555,9 +558,11 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
                     (selectedQpr.approvalProgress?.remarksSectionHead ||
                      selectedQpr.approvalProgress?.remarksDeptHead ||
                      selectedQpr.approvalProgress?.remarksDivHead ||
+                     selectedQpr.approvalProgress?.remarksPurchasing ||
                      selectedQpr.remarksSectionHead ||
                      selectedQpr.remarksDeptHead ||
-                     selectedQpr.remarksDivHead) ? (
+                     selectedQpr.remarksDivHead ||
+                     selectedQpr.remarksPurchasing) ? (
                       <div className="bg-amber-50/50 border border-amber-200/60 rounded-lg p-3 space-y-2 text-[11px]">
                         <span className="text-[9px] font-black text-amber-800 uppercase tracking-wider block">
                           Riwayat Catatan Otorisasi Sebelumnya:
@@ -586,6 +591,15 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
                             <span className="font-extrabold text-slate-700">Div Head: </span>
                             <span className="text-slate-600 font-medium italic">
                               "{selectedQpr.approvalProgress?.remarksDivHead || selectedQpr.remarksDivHead}"
+                            </span>
+                          </div>
+                        )}
+                        {/* Purchasing comment */}
+                        {(selectedQpr.approvalProgress?.remarksPurchasing || selectedQpr.remarksPurchasing) && (
+                          <div className="border-t border-amber-100/50 pt-1.5 mt-1.5">
+                            <span className="font-extrabold text-slate-700">Purchasing: </span>
+                            <span className="text-slate-600 font-medium italic">
+                              "{selectedQpr.approvalProgress?.remarksPurchasing || selectedQpr.remarksPurchasing}"
                             </span>
                           </div>
                         )}
@@ -657,7 +671,8 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
                 {(() => {
                   const canUserApproveQpr = username === "admin" || 
                     (username === "sect_dept_head" && (levelTab === "section-head" || levelTab === "dept-head")) || 
-                    (username === "div_head" && levelTab === "div-head");
+                    (username === "div_head" && levelTab === "div-head") ||
+                    (username === "purchasing" && levelTab === "purchasing");
 
                   if (!canUserApproveQpr) {
                     return (
@@ -699,7 +714,8 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
                       >
                         {levelTab === "section-head" ? "Approve QPR (Section Head)" :
                          levelTab === "dept-head" ? "Approve QPR (Dept Head)" :
-                         "Approve QPR (Div Head)"}
+                         levelTab === "div-head" ? "Approve QPR (Div Head)" :
+                         "Approve QPR (Purchasing)"}
                       </button>
                     </>
                   );

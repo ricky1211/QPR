@@ -196,11 +196,14 @@ model QprApprovalProgress {
   remarksDeptHead     String?
   checksumDivHead     Bytes?
   remarksDivHead      String?
+  checksumPurchasing  Bytes?
+  remarksPurchasing   String?
   checksumVendor      Bytes?
   remarksVendor       String?
   approvedAtSectionHead DateTime?
   approvedAtDeptHead    DateTime?
   approvedAtDivHead     DateTime?
+  approvedAtPurchasing  DateTime?
   approvedAtVendor      DateTime?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt

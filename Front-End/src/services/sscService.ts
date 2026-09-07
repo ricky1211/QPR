@@ -72,3 +72,26 @@ export const mapBillingFromDb = (dbBilling: any) => {
     sigCheckedRole: dbBilling.sigCheckedRole
   };
 };
+
+export const mapPaymentFromDb = (dbPayment: any) => {
+  return {
+    id: dbPayment.id,
+    clId: dbPayment.clId,
+    clNumber: dbPayment.cl?.clNumber || "",
+    paymentNo: dbPayment.paymentNo || "",
+    supplierName: dbPayment.cl?.vendor?.vendorName || "",
+    paymentDate: dbPayment.paymentDate ? dbPayment.paymentDate.split("T")[0] : new Date().toISOString().split("T")[0],
+    amountPaid: `Rp ${dbPayment.amountPaid?.toLocaleString("id-ID") || 0}`,
+    status: dbPayment.status || "SUCCESS",
+    payCompany: dbPayment.payCompany,
+    payBusinessArea: dbPayment.payBusinessArea,
+    payTitle: dbPayment.payTitle,
+    payTo: dbPayment.payTo,
+    payInstruction: dbPayment.payInstruction,
+    payRequestDate: dbPayment.payRequestDate,
+    paySigPrepared: dbPayment.paySigPrepared,
+    paySigApproved1: dbPayment.paySigApproved1,
+    paySigApproved2: dbPayment.paySigApproved2,
+    paySigEntry: dbPayment.paySigEntry,
+  };
+};

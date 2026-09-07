@@ -319,7 +319,7 @@ export default function AccountingView({
             </button>
           </div>
 
-          <div className="p-4 space-y-3 flex-1 flex flex-col justify-between">
+          <div className="p-4 space-y-3 flex-1 flex flex-col justify-start">
             {/* Search filter for queue */}
             <div className="relative">
               <input
@@ -347,12 +347,12 @@ export default function AccountingView({
                 <p className="text-[9px] text-slate-400">Semua QPR full-approved telah dibuatkan Confirmation Letter atau tidak sesuai filter.</p>
               </div>
             ) : (
-              <div className="space-y-2 max-h-[160px] overflow-y-auto pr-1">
+              <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
                 {filteredQueue.map((qpr) => (
                   <button
                     key={qpr.id}
                     onClick={() => setSelectedQpr(qpr)}
-                    className={`w-full text-left p-3 rounded-lg border transition-all flex justify-between items-center ${
+                    className={`w-full text-left p-2.5 rounded-lg border transition-all flex justify-between items-center ${
                       selectedQpr && selectedQpr.id === qpr.id
                         ? "bg-blue-50/70 border-blue-400 shadow-sm"
                         : "bg-slate-50/60 border-slate-200 hover:bg-slate-100/70 cursor-pointer"
@@ -378,7 +378,7 @@ export default function AccountingView({
 
             {/* Selected QPR detail preview card */}
             {selectedQpr && (
-              <div className="p-3.5 bg-blue-50/40 border border-blue-200 rounded-lg text-xs space-y-2.5">
+              <div className="p-3 bg-blue-50/40 border border-blue-200 rounded-lg text-xs space-y-2 mt-2">
                 <div className="flex justify-between items-start">
                   <div>
                     <span className="text-[9px] font-black text-blue-700 uppercase tracking-wide block">QPR Aktif Terpilih:</span>

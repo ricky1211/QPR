@@ -60,7 +60,7 @@ async function main() {
       status: 'Aktif',
     },
     {
-      name: 'Cicik Andria',
+      name: 'Irvan H. N.',
       npk: 3790,
       role: 'Purchasing Departemen',
       roles: ['Purchasing Departemen'],
@@ -187,6 +187,215 @@ async function main() {
     }
   }
   console.log('Vendor-part associations created.');
+
+  // 5. Seed QPRs for testing approval workflow (including Purchasing)
+  console.log('Seeding QPR mock testing records...');
+  const defaultVendor = seededVendors[0];
+  const defaultPart = seededParts[0];
+
+  if (defaultVendor && defaultPart) {
+    const qprMockRecords = [
+      {
+        qprNumber: 'QPR/2026/06/001',
+        date: new Date('2026-06-12'),
+        status: 'WAITING_APPROVAL' as const,
+        requiredRole: 'Purchasing',
+        refNcrNumber: 'NCR/2026/06/012',
+        problem: 'Defect visual scratch & burr pada outer diameter komponen Inner Tube.',
+        claimType: 'MATERIAL, PROSES M/C',
+        totalQty: 1200,
+        totalQtyNg: 45,
+        totalStdAllowance: 6,
+        billableQty: 39,
+        claimAmount: 3500000,
+        progress: {
+          checksumSectionHead: Buffer.from('APPROVED_BY_SECTION_HEAD_1784631200'),
+          remarksSectionHead: 'Hasil inspeksi lot 06-A membuktikan defect melebihi standard allowance.',
+          approvedAtSectionHead: new Date('2026-06-12T10:00:00Z'),
+          checksumDeptHead: Buffer.from('APPROVED_BY_DEPT_HEAD_1784631250'),
+          remarksDeptHead: 'Disetujui Dept Head, diteruskan ke Div Head.',
+          approvedAtDeptHead: new Date('2026-06-12T11:30:00Z'),
+          checksumDivHead: Buffer.from('APPROVED_BY_DIV_HEAD_1784631300'),
+          remarksDivHead: 'Disetujui Div Head, mohon Purchasing tindak lanjuti ke vendor & terbitkan CL.',
+          approvedAtDivHead: new Date('2026-06-12T14:00:00Z'),
+        },
+      },
+      {
+        qprNumber: 'QPR/2026/06/002',
+        date: new Date('2026-06-15'),
+        status: 'WAITING_APPROVAL' as const,
+        requiredRole: 'Purchasing',
+        refNcrNumber: 'NCR/2026/06/015',
+        problem: 'Ketidaksesuaian dimensi pin poros melebihi toleransi drawing.',
+        claimType: 'PROSES M/C, HEAT TREATMENT',
+        totalQty: 2500,
+        totalQtyNg: 80,
+        totalStdAllowance: 12,
+        billableQty: 68,
+        claimAmount: 6200000,
+        progress: {
+          checksumSectionHead: Buffer.from('APPROVED_BY_SECTION_HEAD_1784631400'),
+          remarksSectionHead: 'Sampling lot 06-B menunjukkan 80 pcs NG.',
+          approvedAtSectionHead: new Date('2026-06-15T09:00:00Z'),
+          checksumDeptHead: Buffer.from('APPROVED_BY_DEPT_HEAD_1784631450'),
+          remarksDeptHead: 'Disetujui QA Dept Head.',
+          approvedAtDeptHead: new Date('2026-06-15T11:00:00Z'),
+          checksumDivHead: Buffer.from('APPROVED_BY_DIV_HEAD_1784631500'),
+          remarksDivHead: 'Approved. Lanjutkan otorisasi Purchasing.',
+          approvedAtDivHead: new Date('2026-06-15T13:30:00Z'),
+        },
+      },
+      {
+        qprNumber: 'QPR/2026/06/003',
+        date: new Date('2026-06-18'),
+        status: 'WAITING_APPROVAL' as const,
+        requiredRole: 'Div Head',
+        refNcrNumber: 'NCR/2026/06/018',
+        problem: 'Defect porous pada casting bracket aluminium.',
+        claimType: 'MATERIAL, PROSES CHECK',
+        totalQty: 900,
+        totalQtyNg: 30,
+        totalStdAllowance: 4,
+        billableQty: 26,
+        claimAmount: 2100000,
+        progress: {
+          checksumSectionHead: Buffer.from('APPROVED_BY_SECTION_HEAD_1784631600'),
+          remarksSectionHead: 'Disetujui Section Head.',
+          approvedAtSectionHead: new Date('2026-06-18T08:30:00Z'),
+          checksumDeptHead: Buffer.from('APPROVED_BY_DEPT_HEAD_1784631650'),
+          remarksDeptHead: 'Disetujui Dept Head, menunggu approval Div Head.',
+          approvedAtDeptHead: new Date('2026-06-18T10:00:00Z'),
+        },
+      },
+      {
+        qprNumber: 'QPR/2026/06/004',
+        date: new Date('2026-06-20'),
+        status: 'WAITING_APPROVAL' as const,
+        requiredRole: 'Section Head',
+        refNcrNumber: 'NCR/2026/06/020',
+        problem: 'Karat / korosi pada permukaan coating setelah uji salt spray.',
+        claimType: 'PAINTING/PLATING',
+        totalQty: 1500,
+        totalQtyNg: 40,
+        totalStdAllowance: 7,
+        billableQty: 33,
+        claimAmount: 2800000,
+        progress: {},
+      },
+      {
+        qprNumber: 'QPR/2026/05/009',
+        date: new Date('2026-05-28'),
+        status: 'APPROVED' as const,
+        requiredRole: 'Purchasing',
+        refNcrNumber: 'NCR/2026/05/009',
+        problem: 'Dimensi ulang finish grind out of spec.',
+        claimType: 'PROSES M/C',
+        totalQty: 1000,
+        totalQtyNg: 30,
+        totalStdAllowance: 5,
+        billableQty: 25,
+        claimAmount: 2250000,
+        progress: {
+          checksumSectionHead: Buffer.from('APPROVED_BY_SECTION_HEAD_1784630000'),
+          remarksSectionHead: 'Approved.',
+          approvedAtSectionHead: new Date('2026-05-28T09:00:00Z'),
+          checksumDeptHead: Buffer.from('APPROVED_BY_DEPT_HEAD_1784630100'),
+          remarksDeptHead: 'Approved.',
+          approvedAtDeptHead: new Date('2026-05-28T10:00:00Z'),
+          checksumDivHead: Buffer.from('APPROVED_BY_DIV_HEAD_1784630200'),
+          remarksDivHead: 'Approved.',
+          approvedAtDivHead: new Date('2026-05-28T11:00:00Z'),
+          checksumPurchasing: Buffer.from('APPROVED_BY_PURCHASING_1784630300'),
+          remarksPurchasing: 'Disetujui Purchasing. Dokumen telah selesai diotorisasi.',
+          approvedAtPurchasing: new Date('2026-05-28T14:00:00Z'),
+        },
+      },
+    ];
+
+    for (const q of qprMockRecords) {
+      const qprRecord = await prisma.qpr.upsert({
+        where: { qprNumber: q.qprNumber },
+        update: {
+          date: q.date,
+          status: q.status,
+          requiredRole: q.requiredRole,
+          refNcrNumber: q.refNcrNumber,
+          problem: q.problem,
+          claimType: q.claimType,
+          totalQty: q.totalQty,
+          totalQtyNg: q.totalQtyNg,
+          totalStdAllowance: q.totalStdAllowance,
+          billableQty: q.billableQty,
+          claimAmount: q.claimAmount,
+        },
+        create: {
+          qprNumber: q.qprNumber,
+          date: q.date,
+          vendorId: defaultVendor.id,
+          status: q.status,
+          requiredRole: q.requiredRole,
+          refNcrNumber: q.refNcrNumber,
+          problem: q.problem,
+          claimType: q.claimType,
+          totalQty: q.totalQty,
+          totalQtyNg: q.totalQtyNg,
+          totalStdAllowance: q.totalStdAllowance,
+          billableQty: q.billableQty,
+          claimAmount: q.claimAmount,
+        },
+      });
+
+      // Upsert QprPart
+      await prisma.qprPart.deleteMany({ where: { qprId: qprRecord.id } });
+      await prisma.qprPart.create({
+        data: {
+          qprId: qprRecord.id,
+          partId: defaultPart.id,
+          totalQty: q.totalQty,
+          qtyNg: q.totalQtyNg,
+          stdAllowance: q.totalStdAllowance,
+          qtyClaim: q.billableQty,
+          unitPrice: 85000,
+          taxRate: 0.11,
+        },
+      });
+
+      // Upsert QprApprovalProgress
+      await prisma.qprApprovalProgress.upsert({
+        where: { qprId: qprRecord.id },
+        update: {
+          checksumSectionHead: q.progress.checksumSectionHead || null,
+          remarksSectionHead: q.progress.remarksSectionHead || null,
+          approvedAtSectionHead: q.progress.approvedAtSectionHead || null,
+          checksumDeptHead: q.progress.checksumDeptHead || null,
+          remarksDeptHead: q.progress.remarksDeptHead || null,
+          approvedAtDeptHead: q.progress.approvedAtDeptHead || null,
+          checksumDivHead: q.progress.checksumDivHead || null,
+          remarksDivHead: q.progress.remarksDivHead || null,
+          approvedAtDivHead: q.progress.approvedAtDivHead || null,
+          checksumPurchasing: q.progress.checksumPurchasing || null,
+          remarksPurchasing: q.progress.remarksPurchasing || null,
+          approvedAtPurchasing: q.progress.approvedAtPurchasing || null,
+        },
+        create: {
+          qprId: qprRecord.id,
+          checksumSectionHead: q.progress.checksumSectionHead || null,
+          remarksSectionHead: q.progress.remarksSectionHead || null,
+          approvedAtSectionHead: q.progress.approvedAtSectionHead || null,
+          checksumDeptHead: q.progress.checksumDeptHead || null,
+          remarksDeptHead: q.progress.remarksDeptHead || null,
+          approvedAtDeptHead: q.progress.approvedAtDeptHead || null,
+          checksumDivHead: q.progress.checksumDivHead || null,
+          remarksDivHead: q.progress.remarksDivHead || null,
+          approvedAtDivHead: q.progress.approvedAtDivHead || null,
+          checksumPurchasing: q.progress.checksumPurchasing || null,
+          remarksPurchasing: q.progress.remarksPurchasing || null,
+          approvedAtPurchasing: q.progress.approvedAtPurchasing || null,
+        },
+      });
+    }
+    console.log(`Seeded ${qprMockRecords.length} QPR testing records.`);
+  }
 
   console.log('Seeding completed successfully!');
 }
