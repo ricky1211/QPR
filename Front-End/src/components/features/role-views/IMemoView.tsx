@@ -287,6 +287,21 @@ export default function IMemoView({
   // Selected CL for Buat SSC Payment panel
   const [selectedPaymentClId, setSelectedPaymentClId] = useState<string>("");
 
+  // Filter CLs that are approved by vendor, not yet processed into SSC Billing, and not closed/paid
+  const availableClsForBilling = sscBillingRows.filter((cl: any) => {
+    const isVendorApproved = cl.status === "FULLY_APPROVED" || cl.status === "APPROVED" || cl.status === "APPROVED_BY_VENDOR" || cl.vendorApproved;
+    const isAlreadyBilled = createdSscBillings.some((b: any) => b.clId === cl.id || b.clNumber === cl.clNumber);
+    const isClosed = cl.status === "CLOSED_PAID" || cl.closedPaid;
+    return isVendorApproved && !isAlreadyBilled && !isClosed;
+  });
+
+  // Filter SSC Billings that are created, not yet processed into SSC Payment, and not closed/paid
+  const availableBillingsForPayment = createdSscBillings.filter((billing: any) => {
+    const isAlreadyPaid = createdSscPayments.some((p: any) => p.clId === billing.id || p.clId === billing.clId || p.clNumber === billing.clNumber);
+    const isClosed = billing.status === "CLOSED_PAID" || billing.closedPaid;
+    return !isAlreadyPaid && !isClosed;
+  });
+
   const selectedCl = sscBillingRows.find(cl => cl.id === selectedClId) || sscBillingRows[0];
   const activeVendorName = sscBillingRows.length > 0 ? (sscBillingRows[0]?.supplierName || "—") : "—";
 
@@ -487,6 +502,23 @@ export default function IMemoView({
       sigCheckedRole: sigCheckedRole || ""
     };
 
+    // Optimistic billing state update for instant zero-delay UI transition
+    const optimisticBilling = {
+      id: selectedBillingClId,
+      clId: selectedBillingClId,
+      clNumber: clNumVal,
+      billingNo: `INV/${clNumVal.replace("CL/", "")}`,
+      supplierName: memoCustomerName || "PT TEMARU ENGINEERING INDONESIA",
+      billingDate: new Date().toISOString(),
+      amount: `Rp ${parsedAmount.toLocaleString("id-ID")}`,
+      memoAmount: String(parsedAmount),
+      status: "UNPAID",
+      ...payload
+    };
+    if (setCreatedSscBillings) {
+      setCreatedSscBillings(prev => [optimisticBilling, ...prev.filter(b => b.clId !== selectedBillingClId && b.clNumber !== clNumVal)]);
+    }
+
     sscService.createBilling(payload)
       .then(() => {
         sscService.getAllBillings().then(data => {
@@ -521,6 +553,7 @@ export default function IMemoView({
     setPaySigCheckedRole(sigCheckedRole);
 
     // 3. Switch active payment tab selection
+    setSelectedBillingClId("");
     setSelectedPaymentClId(selectedBillingClId);
     setActiveSubTab("buat_ssc_payment");
     alert(`Sukses: Data SSC Billing untuk ${clNumVal} berhasil dikonfirmasi (Confirm) tanpa ada perubahan data. Dialihkan ke tab SSC Payment.`);
@@ -625,8 +658,9 @@ export default function IMemoView({
 
     alert(`Sukses: SSC Payment untuk ${clNumVal} berhasil dikonfirmasi (CLOSED_PAID)! Data telah terlempar dan tersimpan ke Daftar QPR dan Daftar CL.`);
     
-    // Switch to dedicated draft/history view
-    setActiveSubTab("draft_ssc_payment");
+    // Clear selection and stay on SSC payment form
+    setSelectedPaymentClId("");
+    setActiveSubTab("buat_ssc_payment");
   };
 
   const handleCopyText = (text: string) => {
@@ -1111,58 +1145,57 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                             📋 Pilih CL untuk Diproses SSC Billing
                           </h5>
                           <p className="text-[9.5px] text-slate-400 font-semibold mt-0.5">
-                            {sscBillingRows.filter((cl: any) => cl.status === "FULLY_APPROVED" || cl.status === "APPROVED" || cl.status === "CLOSED_PAID").length} Confirmation Letter disetujui · Klik untuk auto-isi form billing
+                            {availableClsForBilling.length} Confirmation Letter disetujui · Klik untuk auto-isi form billing
                           </p>
                         </div>
                         <div className="max-h-[180px] overflow-y-auto divide-y divide-slate-100">
-                          {sscBillingRows.filter((cl: any) => cl.status === "FULLY_APPROVED" || cl.status === "APPROVED" || cl.status === "CLOSED_PAID").length === 0 ? (
+                          {availableClsForBilling.length === 0 ? (
                             <div className="p-6 text-center text-slate-400 italic text-[11px] font-semibold">
-                              Tidak ada Confirmation Letter yang telah disetujui (Clear Approval).
+                              Tidak ada Confirmation Letter yang menunggu proses SSC Billing.
                             </div>
                           ) : (
-                            sscBillingRows
-                              .filter((cl: any) => cl.status === "FULLY_APPROVED" || cl.status === "APPROVED" || cl.status === "CLOSED_PAID")
+                            availableClsForBilling
                               .map((cl: any) => {
                                 const isSelected = selectedBillingClId === cl.id;
-                              const statusColor = cl.status === "FULLY_APPROVED" || cl.status === "APPROVED"
-                                ? "bg-emerald-100 text-emerald-700"
-                                : cl.status === "CLOSED_PAID"
-                                ? "bg-slate-100 text-slate-500"
-                                : "bg-amber-100 text-amber-700";
-                              const statusLabel = cl.status === "FULLY_APPROVED" || cl.status === "APPROVED"
-                                ? "Approved"
-                                : cl.status === "CLOSED_PAID"
-                                ? "Closed"
-                                : cl.status === "WAITING_VENDOR"
-                                ? "Sent to Vendor"
-                                : "Pending";
-                              return (
-                                <button
-                                  key={cl.id}
-                                  type="button"
-                                  onClick={() => setSelectedBillingClId(cl.id)}
-                                  className={`w-full text-left p-3 flex items-start gap-3 transition-all cursor-pointer ${
-                                    isSelected
-                                      ? "bg-blue-50 border-l-2 border-blue-500"
-                                      : "hover:bg-slate-50/70 border-l-2 border-transparent"
-                                  }`}
-                                >
-                                  <div className={`mt-0.5 w-1.5 h-1.5 rounded-full shrink-0 ${isSelected ? "bg-blue-500" : "bg-slate-300"}`} />
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center justify-between gap-2">
-                                      <span className="text-[10.5px] font-black text-slate-800 font-mono truncate">{cl.clNumber}</span>
-                                      <span className={`text-[8.5px] font-black px-1.5 py-0.5 rounded shrink-0 ${statusColor}`}>{statusLabel}</span>
+                                const statusColor = cl.status === "FULLY_APPROVED" || cl.status === "APPROVED" || cl.status === "APPROVED_BY_VENDOR" || cl.vendorApproved
+                                  ? "bg-emerald-100 text-emerald-700"
+                                  : cl.status === "CLOSED_PAID"
+                                  ? "bg-slate-100 text-slate-500"
+                                  : "bg-amber-100 text-amber-700";
+                                const statusLabel = cl.status === "FULLY_APPROVED" || cl.status === "APPROVED" || cl.status === "APPROVED_BY_VENDOR" || cl.vendorApproved
+                                  ? "Approved"
+                                  : cl.status === "CLOSED_PAID"
+                                  ? "Closed"
+                                  : cl.status === "WAITING_VENDOR"
+                                  ? "Sent to Vendor"
+                                  : "Pending";
+                                return (
+                                  <button
+                                    key={cl.id}
+                                    type="button"
+                                    onClick={() => setSelectedBillingClId(cl.id)}
+                                    className={`w-full text-left p-3 flex items-start gap-3 transition-all cursor-pointer ${
+                                      isSelected
+                                        ? "bg-blue-50 border-l-2 border-blue-500"
+                                        : "hover:bg-slate-50/70 border-l-2 border-transparent"
+                                    }`}
+                                  >
+                                    <div className={`mt-0.5 w-1.5 h-1.5 rounded-full shrink-0 ${isSelected ? "bg-blue-500" : "bg-slate-300"}`} />
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center justify-between gap-2">
+                                        <span className="text-[10.5px] font-black text-slate-800 font-mono truncate">{cl.clNumber}</span>
+                                        <span className={`text-[8.5px] font-black px-1.5 py-0.5 rounded shrink-0 ${statusColor}`}>{statusLabel}</span>
+                                      </div>
+                                      <div className="text-[9.5px] text-slate-500 font-semibold mt-0.5 truncate">{cl.supplierName}</div>
+                                      <div className="text-[9px] text-slate-400 font-bold mt-0.5 flex items-center gap-2">
+                                        <span>{cl.dateSent}</span>
+                                        <span className="text-slate-300">·</span>
+                                        <span className="font-black text-slate-600">{cl.amount}</span>
+                                      </div>
                                     </div>
-                                    <div className="text-[9.5px] text-slate-500 font-semibold mt-0.5 truncate">{cl.supplierName}</div>
-                                    <div className="text-[9px] text-slate-400 font-bold mt-0.5 flex items-center gap-2">
-                                      <span>{cl.dateSent}</span>
-                                      <span className="text-slate-300">·</span>
-                                      <span className="font-black text-slate-600">{cl.amount}</span>
-                                    </div>
-                                  </div>
-                                </button>
-                              );
-                            })
+                                  </button>
+                                );
+                              })
                           )}
                         </div>
                       </div>
@@ -1828,16 +1861,16 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                             📋 Pilih SSC Billing untuk Diproses SSC Payment
                           </h5>
                           <p className="text-[9.5px] text-slate-400 font-semibold mt-0.5">
-                            {createdSscBillings.length} SSC Billing tersedia · Klik untuk auto-isi form payment
+                            {availableBillingsForPayment.length} SSC Billing tersedia · Klik untuk auto-isi form payment
                           </p>
                         </div>
                         <div className="max-h-[230px] overflow-y-auto divide-y divide-slate-100">
-                          {createdSscBillings.length === 0 ? (
+                          {availableBillingsForPayment.length === 0 ? (
                             <div className="p-6 text-center text-slate-400 italic text-[11px] font-semibold">
-                              Tidak ada SSC Billing yang telah dibuat. Silakan buat SSC Billing terlebih dahulu pada tab sebelumnya.
+                              Tidak ada SSC Billing yang menunggu proses SSC Payment.
                             </div>
                           ) : (
-                            createdSscBillings.map((billing: any) => {
+                            availableBillingsForPayment.map((billing: any) => {
                               const isSelected = selectedPaymentClId === billing.id;
                               return (
                                 <button
@@ -1936,16 +1969,11 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                                 setPaySigEntryRole("SSC Billing Admin");
                                 setPaySigChecked("");
                                 setPaySigCheckedRole("AR Function Lead");
-                                setSscBillingRows([
-                                  { id: "ex-1", customerCode: "OTC08002", clNumber: "CL/2026/06/001", qprNumber: "QPR/2026/05/IKAN_BAKAR", supplierName: "PT TEMARU ENGINEERING INDONESIA", dateSent: "21/05/2026", amount: "Rp 2.661.505", status: "PENDING", memoStatus: "DRAFT_MEMO", reminderSentCount: 0, customText: "CLAIM PART NG", paymentDate: "10/07/2026", documentNo: "1800000049" },
-                                  { id: "ex-2", customerCode: "OTC08002", clNumber: "CL/2026/06/002", qprNumber: "QPR/2026/05/IKAN_BAKAR", supplierName: "PT SUKSES CIPTA MAKMUR", dateSent: "21/06/2026", amount: "Rp 66.346.268", status: "PENDING", memoStatus: "DRAFT_MEMO", reminderSentCount: 0, customText: "CLAIM PART NG", paymentDate: "10/07/2026", documentNo: "1800000050" },
-                                  { id: "ex-3", customerCode: "OTC08002", clNumber: "CL/2026/06/003", qprNumber: "QPR/2026/05/IKAN_BAKAR", supplierName: "PT ANUGERAH DAYA INDUSTRI KOMPONEN UTAMA", dateSent: "21/05/2026", amount: "Rp 606.480", status: "PENDING", memoStatus: "DRAFT_MEMO", reminderSentCount: 0, customText: "CLAIM NG", paymentDate: "10/07/2026", documentNo: "1800000054" }
-                                ]);
                               }}
                               className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 text-[10px] font-bold rounded border border-blue-200 transition-all cursor-pointer active:scale-95"
-                              title="Isi dengan Data Contoh PDF"
+                              title="Isi dengan Data Header Standar"
                             >
-                              Isi Contoh
+                              Isi Header Standar
                             </button>
                         </div>
                       </div>

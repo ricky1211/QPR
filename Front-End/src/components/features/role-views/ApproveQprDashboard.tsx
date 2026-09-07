@@ -73,7 +73,7 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
     }
   };
   const roleName = getRoleName(levelTab);
-  const rolePendingQprs = pendingQprs.filter((q) => q.requiredRole === roleName);
+  const rolePendingQprs = pendingQprs.filter((q) => q.requiredRole === roleName && (q.status === "WAITING_APPROVAL" || q.status === "PENDING" || q.status === "DRAFT" || q.status === "UNDER_REVISION"));
 
   // Filter based on search query & advanced filters
   const filteredQprs = rolePendingQprs.filter((qpr) => {
