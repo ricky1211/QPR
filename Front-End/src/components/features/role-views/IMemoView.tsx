@@ -287,6 +287,41 @@ export default function IMemoView({
   // Selected CL for Buat SSC Payment panel
   const [selectedPaymentClId, setSelectedPaymentClId] = useState<string>("");
 
+  // Auto-populate payment form when user selects an SSC Billing from the selector
+  useEffect(() => {
+    if (!selectedPaymentClId) return;
+    const selectedBilling = createdSscBillings.find((r: any) => r.id === selectedPaymentClId);
+    const targetCl = confirmationLetters.find(cl => cl.id === selectedPaymentClId || cl.clNumber === selectedBilling?.clNumber);
+    const billingOrCl = selectedBilling || targetCl;
+    if (!billingOrCl) return;
+
+    const formatToDisplay = (raw: string) => {
+      if (!raw) return "";
+      const d = new Date(raw);
+      if (!isNaN(d.getTime())) {
+        return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+      }
+      return raw;
+    };
+
+    setPayCompany("PT Menara Terus Makmur");
+    setPayBusinessArea("MT");
+    setPayRequestDate(formatToDisplay(billingOrCl.dateSent || billingOrCl.memoRequestDate || new Date().toISOString()));
+    setPayTitle("Permohonan Pemotongan Invoice Vendor");
+    setPayTo("SSC Invoicing & Payment");
+    setPayInstruction("Sehubungan dengan ditemukannya komponen NG yang bukan disebabkan oleh proses internal kami, mohon dapat dilakukan pemotongan pembayaran terhadap vendor berikut :");
+    setPaySigPrepared("Bagas Nur P");
+    setPaySigPreparedRole("Accounting BU");
+    setPaySigApproved1("Anindita I");
+    setPaySigApproved1Role("Accounting Dept Head");
+    setPaySigApproved2("Evi Sulistyorini");
+    setPaySigApproved2Role("Admin Div/BOD");
+    setPaySigEntry("");
+    setPaySigEntryRole("SSC Billing Admin");
+    setPaySigChecked("");
+    setPaySigCheckedRole("AR Function Lead");
+  }, [selectedPaymentClId, createdSscBillings, confirmationLetters]);
+
   // Filter CLs that are approved by vendor, not yet processed into SSC Billing, and not closed/paid
   const availableClsForBilling = sscBillingRows.filter((cl: any) => {
     const isVendorApproved = cl.status === "FULLY_APPROVED" || cl.status === "APPROVED" || cl.status === "APPROVED_BY_VENDOR" || cl.vendorApproved;
@@ -297,8 +332,13 @@ export default function IMemoView({
 
   // Filter SSC Billings that are created, not yet processed into SSC Payment, and not closed/paid
   const availableBillingsForPayment = createdSscBillings.filter((billing: any) => {
-    const isAlreadyPaid = createdSscPayments.some((p: any) => p.clId === billing.id || p.clId === billing.clId || p.clNumber === billing.clNumber);
-    const isClosed = billing.status === "CLOSED_PAID" || billing.closedPaid;
+    const isAlreadyPaid = createdSscPayments.some((p: any) =>
+      (p.clId && billing.id && String(p.clId) === String(billing.id)) ||
+      (p.clId && billing.clId && String(p.clId) === String(billing.clId)) ||
+      (p.clNumber && billing.clNumber && String(p.clNumber) === String(billing.clNumber)) ||
+      (p.id && billing.id && String(p.id) === String(billing.id))
+    );
+    const isClosed = billing.status === "CLOSED_PAID" || billing.closedPaid || billing.status === "SUCCESS";
     return !isAlreadyPaid && !isClosed;
   });
 
@@ -656,11 +696,33 @@ export default function IMemoView({
     };
     setCreatedSscPayments(prev => [newPaymentRecord, ...prev.filter(p => p.clNumber !== clNumVal)]);
 
-    alert(`Sukses: SSC Payment untuk ${clNumVal} berhasil dikonfirmasi (CLOSED_PAID)! Data telah terlempar dan tersimpan ke Daftar QPR dan Daftar CL.`);
-    
-    // Clear selection and stay on SSC payment form
+    // Update createdSscBillings so this billing is marked as CLOSED_PAID and removed from pending selector
+    if (setCreatedSscBillings) {
+      setCreatedSscBillings(prev => prev.map(b => {
+        if (b.id === selectedPaymentClId || b.id === selectedBilling?.id || b.clId === clId || b.clNumber === clNumVal) {
+          return { ...b, status: "CLOSED_PAID", closedPaid: true };
+        }
+        return b;
+      }));
+    }
+
+    // Update local sscBillingRows
+    setSscBillingRows(prev => prev.map(b => {
+      if (b.id === selectedPaymentClId || b.id === selectedBilling?.id || b.clId === clId || b.clNumber === clNumVal) {
+        return { ...b, status: "CLOSED_PAID", closedPaid: true };
+      }
+      return b;
+    }));
+
+    // Clear selection from SSC Payment queue
     setSelectedPaymentClId("");
-    setActiveSubTab("buat_ssc_payment");
+
+    alert(`Sukses: SSC Payment untuk ${clNumVal} berhasil dikonfirmasi (CLOSED_PAID)! Data telah terlempar dan tersimpan ke Daftar QPR dan Daftar CL.`);
+
+    // Automatically throw/redirect to List QPR & CL
+    if (setActiveTab) {
+      setActiveTab("list-qpr");
+    }
   };
 
   const handleCopyText = (text: string) => {

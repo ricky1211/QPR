@@ -1136,6 +1136,7 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
                 parts={parts}
                 createdSscBillings={createdSscBillings}
                 setCreatedSscBillings={setCreatedSscBillings}
+                setActiveTab={handleTabChange}
               />
             )}
 

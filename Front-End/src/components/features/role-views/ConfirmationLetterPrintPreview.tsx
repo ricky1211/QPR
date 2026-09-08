@@ -332,10 +332,19 @@ export default function ConfirmationLetterPrintPreview({ cl, onClose, inline = f
                 className="h-[38px] w-auto object-contain"
               />
             </div>
+            {/* Garis Pembatas Header Logo */}
+            <div 
+              style={{ 
+                borderBottom: "2px solid #000000",
+                width: "100%",
+                marginTop: "8px",
+                marginBottom: "2px"
+              }} 
+            />
           </div>
 
           {/* Title */}
-          <div className="mt-3 mb-2 text-center">
+          <div className="mt-2 mb-2 text-center">
             <h1 
               style={{ 
                 fontFamily: '"Times New Roman", Times, serif',

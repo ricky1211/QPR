@@ -90,8 +90,8 @@ function PartSearchDropdown({
 
       {isOpen && (
         <>
-          <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
-          <div className="absolute left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-lg z-20 divide-y divide-slate-100 font-sans text-xs">
+          <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
+          <div className="absolute left-0 mt-1 min-w-[320px] max-w-[460px] max-h-64 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-2xl z-50 divide-y divide-slate-100 font-sans text-xs">
             {filtered.length === 0 ? (
               <div className="p-3 text-center text-slate-400 italic">
                 Tidak ada part ditemukan
@@ -107,12 +107,12 @@ function PartSearchDropdown({
                     setIsOpen(false);
                     if (onSelectPart) onSelectPart(p);
                   }}
-                  className={`w-full text-left px-3 py-2.5 hover:bg-blue-50 transition-colors block cursor-pointer ${
+                  className={`w-full text-left px-3.5 py-2.5 hover:bg-blue-50 transition-colors block cursor-pointer ${
                     String(p.id) === String(value) ? "bg-blue-50/80 font-bold text-blue-700" : "text-slate-800 font-bold"
                   }`}
                 >
-                  <div className="font-bold">{p.partName}</div>
-                  <div className="text-[10px] text-slate-500 flex items-center justify-between mt-0.5">
+                  <div className="font-bold text-slate-900 leading-snug break-words">{p.partName}</div>
+                  <div className="text-[10px] text-slate-500 flex flex-wrap items-center justify-between gap-1 mt-1">
                     <span>No: {p.partNumber}</span>
                     {p.vendorName && <span className="text-slate-400 truncate max-w-[140px] font-normal">{p.vendorName}</span>}
                     <span className="text-emerald-600 font-semibold">Std Allowance: {p.allowanceRatio ?? 0.5}%</span>
@@ -756,10 +756,10 @@ export default function BuatQprView({
                 {isSupplierDropdownOpen && (
                   <>
                     <div 
-                      className="fixed inset-0 z-10" 
+                      className="fixed inset-0 z-40" 
                       onClick={() => setIsSupplierDropdownOpen(false)} 
                     />
-                    <div className="absolute left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-lg z-20 divide-y divide-slate-100 font-sans text-xs">
+                    <div className="absolute left-0 right-0 mt-1 max-h-60 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-2xl z-50 divide-y divide-slate-100 font-sans text-xs">
                       {(() => {
                         const filtered = suppliers.filter(s =>
                           s.name.toLowerCase().includes(supplierSearchQuery.toLowerCase())
@@ -781,7 +781,7 @@ export default function BuatQprView({
                               setIsSupplierDropdownOpen(false);
                               setPartRows([{ id: Date.now(), partId: "", totalQty: "", qtyNg: "", stdAllowance: "0" }]);
                             }}
-                            className="w-full text-left px-3 py-2.5 hover:bg-blue-50 transition-colors text-slate-800 font-bold block"
+                            className="w-full text-left px-3.5 py-2.5 hover:bg-blue-50 transition-colors text-slate-800 font-bold block"
                           >
                             {s.name}
                           </button>
@@ -998,7 +998,7 @@ export default function BuatQprView({
               </button>
             </div>
 
-            <div className="overflow-x-auto">
+            <div className="w-full overflow-visible">
               <table className="w-full text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-100 text-slate-700 font-bold uppercase text-[10px] tracking-wider text-center">
