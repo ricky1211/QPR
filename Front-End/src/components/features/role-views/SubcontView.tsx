@@ -18,37 +18,23 @@ export default function SubcontView({ pendingQprs = [], setPendingQprs }: Subcon
 
   // Keep track of selected QPR id
   const [selectedQprId, setSelectedQprId] = useState<number | string>(
-    vendorQueue.length > 0 ? vendorQueue[0].id : "static-30"
+    vendorQueue.length > 0 ? vendorQueue[0].id : ""
   );
 
-  // If we have dynamic QPRs, use the selected one; otherwise fallback to the mock one
+  // If we have dynamic QPRs, use the selected one
   const activeClaim = React.useMemo(() => {
     const dynamicQpr = vendorQueue.find(q => String(q.id) === String(selectedQprId));
     if (dynamicQpr) {
       return {
         id: dynamicQpr.id,
         qprNumber: dynamicQpr.qprNumber,
-        ncrNumber: dynamicQpr.refNcrNumber || "NCR/2026/06/012",
+        ncrNumber: dynamicQpr.refNcrNumber || "-",
         supplierName: dynamicQpr.supplierName,
         period: dynamicQpr.period,
         partName: dynamicQpr.parts?.[0]?.partName || "Part Material NG",
-        qtyNG: dynamicQpr.rejectItems || 30,
-        amount: dynamicQpr.claimAmount !== "-" ? dynamicQpr.claimAmount : "Rp 12.500.000",
+        qtyNG: dynamicQpr.rejectItems || 0,
+        amount: dynamicQpr.claimAmount !== "-" ? dynamicQpr.claimAmount : "Rp 0",
         status: dynamicQpr.status
-      };
-    }
-    // Fallback static claim if queue is empty
-    if (selectedQprId === "static-30") {
-      return {
-        id: 30,
-        qprNumber: "QPR/2026/05/TEMARU",
-        ncrNumber: "NCR/2026/05/008",
-        supplierName: "PT TEMARU ENGINEERING INDONESIA",
-        period: "Mei 2026",
-        partName: "PART MATERIAL NG",
-        qtyNG: 15,
-        amount: "Rp 12.500.000",
-        status: "WAITING_VENDOR"
       };
     }
     return null;
@@ -82,8 +68,8 @@ export default function SubcontView({ pendingQprs = [], setPendingQprs }: Subcon
 
   // Sync selected QPR if the current one is approved
   React.useEffect(() => {
-    if (selectedQprId !== "static-30" && !vendorQueue.some(q => String(q.id) === String(selectedQprId))) {
-      setSelectedQprId(vendorQueue.length > 0 ? vendorQueue[0].id : "static-30");
+    if (selectedQprId && !vendorQueue.some(q => String(q.id) === String(selectedQprId))) {
+      setSelectedQprId(vendorQueue.length > 0 ? vendorQueue[0].id : "");
     }
   }, [vendorQueue, selectedQprId]);
 
@@ -133,7 +119,7 @@ export default function SubcontView({ pendingQprs = [], setPendingQprs }: Subcon
     setTimeout(() => {
       setIsSubmitting(false);
       setSettled(true);
-      if (setPendingQprs && activeClaim && activeClaim.id !== 30) {
+      if (setPendingQprs && activeClaim) {
         setPendingQprs((prev: any[]) =>
           prev.map(q =>
             q.id === activeClaim.id
@@ -171,7 +157,6 @@ export default function SubcontView({ pendingQprs = [], setPendingQprs }: Subcon
                 {q.supplierName} ({q.qprNumber})
               </option>
             ))}
-            <option value="static-30">PT TEMARU ENGINEERING INDONESIA (QPR/2026/05/TEMARU)</option>
           </select>
         </div>
       </div>

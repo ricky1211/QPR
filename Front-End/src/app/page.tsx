@@ -34,7 +34,6 @@ import PartsDirectory from "@/components/features/parts/PartsDirectory";
 import EditAllowanceModal from "@/components/features/parts/EditAllowanceModal";
 import VendorsDirectory from "@/components/features/parts/VendorsDirectory";
 import UsersDirectory from "@/components/features/parts/UsersDirectory";
-import { mockPendingQprs, mockConfirmationLetters, mockSuppliers, mockParts, mockPendingNcrs } from "@/utils/mockData";
 
 export default function Home({ initialTab = "" }: { initialTab?: string }) {
   const router = useRouter();
@@ -215,28 +214,28 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
 
     qprService.getAll()
       .then((dbQprs) => {
-        if (Array.isArray(dbQprs) && dbQprs.length > 0) {
+        if (Array.isArray(dbQprs)) {
           setPendingQprs(dbQprs.map((q: any) => mapQprFromDb(q)));
         } else {
-          setPendingQprs(prev => (prev && prev.length > 0 ? prev : mockPendingQprs));
+          setPendingQprs([]);
         }
       })
       .catch((err) => {
-        console.error("Failed to fetch real QPRs, using default mock data:", err);
-        setPendingQprs(prev => (prev && prev.length > 0 ? prev : mockPendingQprs));
+        console.error("Failed to fetch real QPRs:", err);
+        setPendingQprs([]);
       });
 
     clService.getAll()
       .then((dbCls) => {
-        if (Array.isArray(dbCls) && dbCls.length > 0) {
+        if (Array.isArray(dbCls)) {
           setConfirmationLetters(dbCls.map((cl: any) => mapClFromDb(cl)));
         } else {
-          setConfirmationLetters(prev => (prev && prev.length > 0 ? prev : mockConfirmationLetters));
+          setConfirmationLetters([]);
         }
       })
       .catch((err) => {
-        console.error("Failed to fetch real CLs, using default mock data:", err);
-        setConfirmationLetters(prev => (prev && prev.length > 0 ? prev : mockConfirmationLetters));
+        console.error("Failed to fetch real CLs:", err);
+        setConfirmationLetters([]);
       });
 
     sscService.getAllBillings()
@@ -340,19 +339,19 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
   // Dynamic lists for simulation
   // NOTE: pendingQprs and confirmationLetters are persisted to sessionStorage
   // so they survive Next.js route changes (each sub-route remounts <Home />).
-  const [pendingNcrs, setPendingNcrs] = useState<any[]>(mockPendingNcrs);
-  const [vendors, setVendors] = useState<any[]>(mockSuppliers);
+  const [pendingNcrs, setPendingNcrs] = useState<any[]>([]);
+  const [vendors, setVendors] = useState<any[]>([]);
   const [pendingQprs, setPendingQprs] = useState<any[]>(() => {
     if (typeof window !== "undefined") {
       try {
         const saved = sessionStorage.getItem("mtm_qpr_pendingQprs");
         if (saved) {
           const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+          if (Array.isArray(parsed)) return parsed;
         }
       } catch {}
     }
-    return mockPendingQprs;
+    return [];
   });
   const [confirmationLetters, setConfirmationLetters] = useState<any[]>(() => {
     if (typeof window !== "undefined") {
@@ -360,11 +359,11 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
         const saved = sessionStorage.getItem("mtm_qpr_confirmationLetters");
         if (saved) {
           const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+          if (Array.isArray(parsed)) return parsed;
         }
       } catch {}
     }
-    return mockConfirmationLetters;
+    return [];
   });
   const [createdSscBillings, setCreatedSscBillings] = useState<any[]>([]);
 
