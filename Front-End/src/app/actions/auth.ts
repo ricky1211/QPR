@@ -15,8 +15,8 @@ const VALID_USERS: Record<string, { password: string; role: string; displayName:
   '2301': { password: '2301', role: 'sect_dept_head', displayName: 'Septian Nugraha' },
   // Foreman / Prepare QPR (Creator QPR)
   '3079': { password: '3079', role: 'foreman', displayName: 'Deny Maulana' },
-  '0890': { password: '0890', role: 'foreman', displayName: 'Hendrik S.' },
-  '890': { password: '890', role: 'foreman', displayName: 'Hendrik S.' },
+  '0890': { password: '0890', role: 'foreman', displayName: 'Hendrik F.' },
+  '890': { password: '890', role: 'foreman', displayName: 'Hendrik F.' },
   // Division Head QPR
   '1335': { password: '1335', role: 'div_head', displayName: 'Putu Ratna Saputra' },
   // Purchasing (Full Access: Buat CL, Approval CL, Approve QPR, etc.)

@@ -1116,7 +1116,7 @@ export default function AccountingView({
                   {/* Closing texts */}
                   <div className="space-y-2 mb-4 text-[9.5px] text-justify">
                     <p>
-                      Based on the data above, we will release a debit note to {justGeneratedCl.supplierName.toUpperCase().endsWith(", PT.") ? justGeneratedCl.supplierName : `${justGeneratedCl.supplierName}, PT.`} if there is no any confirmation within 5 working days. We are looking forward for your confirmation
+                      Based on the data above, we will proceed with deducting the amount directly from the payment to {justGeneratedCl.supplierName.toUpperCase().endsWith(", PT.") ? justGeneratedCl.supplierName : `${justGeneratedCl.supplierName.replace(/^PT\.?\s+/i, "").trim()}, PT.`} if we do not receive any confirmation within 10 (ten) working days. We look forward to your confirmation.
                     </p>
                     <div>
                       <span>Attachment :</span>

@@ -78,10 +78,14 @@ export default function ConfirmationLetterPrintPreview({ cl, onClose, inline = f
 
   // Helper to format supplier name with trailing ", PT." as per standard automotive business letter format
   const formatSupplierForLetter = (name?: string) => {
-    if (!name) return "PT TEMARU ENGINEERING INDONESIA, PT.";
-    const clean = name.replace(/,\s*PT\.?$/i, "").trim();
-    if (clean.endsWith(", PT.")) return clean;
-    return `${clean}, PT.`;
+    if (!name) return "Anugerah Daya Industri Komponen Utama, PT.";
+    let clean = name.trim();
+    if (/^PT\.?\s+/i.test(clean)) {
+      clean = clean.replace(/^PT\.?\s+/i, "").trim() + ", PT.";
+    } else if (!clean.endsWith(", PT.") && !clean.endsWith(", PT")) {
+      clean = `${clean}, PT.`;
+    }
+    return clean;
   };
 
   // Helper to resolve all QPR number(s) attached to this Confirmation Letter based on form selection & data
@@ -462,7 +466,7 @@ export default function ConfirmationLetterPrintPreview({ cl, onClose, inline = f
             className="mb-3 text-black"
           >
             <p className="text-justify mb-2">
-              Based on the data above, we will release a debit note to <strong style={{ fontWeight: "800" }}>{formatSupplierForLetter(cl.supplierName)}</strong> if there is no any confirmation within 5 working days. We are looking forward for your confirmation
+              Based on the data above, we will proceed with deducting the amount directly from the payment to <strong style={{ fontWeight: "800" }}>{formatSupplierForLetter(cl.supplierName)}</strong> if we do not receive any confirmation within 10 (ten) working days. We look forward to your confirmation.
             </p>
             
             <div className="mt-2" style={{ fontWeight: "700" }}>

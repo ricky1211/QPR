@@ -53,7 +53,7 @@ async function main() {
       status: 'Aktif',
     },
     {
-      name: 'Hendrik S.',
+      name: 'Hendrik F.',
       npk: 890,
       role: 'QA/QC Operator (Foreman)',
       roles: ['QA/QC Operator (Foreman)'],
