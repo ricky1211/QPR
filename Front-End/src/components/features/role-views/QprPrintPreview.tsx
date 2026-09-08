@@ -20,6 +20,7 @@ interface QprPreviewProps {
   onClose?: () => void;
   inline?: boolean;
   onEditRevision?: () => void;
+  hideVendorToggle?: boolean;
 }
 
 const PART_ITEMS = [
@@ -80,7 +81,7 @@ function CheckItem({ label, checked, onClick }: { label: string; checked: boolea
   );
 }
 
-export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRevision }: QprPreviewProps) {
+export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRevision, hideVendorToggle = false }: QprPreviewProps) {
   const [isVendorCopy, setIsVendorCopy] = React.useState(false);
 
   const base64ToBlobUrl = (base64Str: string): string => {
@@ -237,12 +238,15 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
   React.useEffect(() => {
     if (inline) {
       return () => {
+        document.body.classList.remove("print-qpr-active");
         document.body.style.overflow = "unset";
       };
     }
+    document.body.classList.add("print-qpr-active");
     const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
+      document.body.classList.remove("print-qpr-active");
       document.body.style.overflow = "unset";
     };
   }, [inline]);
@@ -321,14 +325,14 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
   const documentContent = (
     <div
       id="qpr-print-area"
-      className={`bg-white mx-auto ${inline ? "w-full shadow-sm" : "shadow-2xl my-4"} flex flex-col`}
+      className={`bg-white mx-auto ${inline ? "w-full shadow-sm" : "shadow-2xl my-4"} flex flex-col justify-between`}
       style={{
         fontFamily: "Arial, sans-serif",
         fontSize: "10px",
         border: "1px solid #000",
         width: inline ? "100%" : "210mm",
         minHeight: inline ? "auto" : "297mm",
-        padding: inline ? "8px" : "15mm",
+        padding: inline ? "6px 8px" : "8mm 10mm",
         boxSizing: "border-box",
         display: "flex",
         flexDirection: "column"
@@ -546,7 +550,7 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
         </div>
 
         {/* Remarks Section */}
-        <div style={{ borderBottom: "1px solid #000", padding: "10px 12px", flexGrow: 1, display: "flex", flexDirection: "row", alignItems: "flex-start", gap: "8px" }}>
+        <div style={{ padding: "6px 12px", display: "flex", flexDirection: "row", alignItems: "flex-start", gap: "8px" }}>
           <div style={{ fontWeight: "bold", fontSize: "9px", textTransform: "uppercase", color: "#374151", whiteSpace: "nowrap" }}>REMARKS :</div>
           <div 
             contentEditable 
@@ -555,7 +559,7 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
             style={{ 
               fontSize: "8.5px", 
               lineHeight: "16px",
-              minHeight: "320px", 
+              minHeight: "48px", 
               flexGrow: 1, 
               outline: "none", 
               whiteSpace: "pre-wrap", 
@@ -569,9 +573,9 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
         </div>
 
         {/* JENIS CLAIM + Signature */}
-        <div style={{ display: "flex", borderBottom: "1.5px solid #000", marginTop: "auto" }}>
+        <div style={{ display: "flex", borderTop: "1px solid #000", marginTop: "auto" }}>
           {/* Jenis Claim */}
-          <div style={{ flex: 1, borderLeft: "1px solid #000", borderRight: "1px solid #000", padding: "10px 12px" }}>
+          <div style={{ flex: 1, borderRight: "1px solid #000", padding: "10px 12px" }}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 24px" }}>
               {["MATERIAL", "PAINTING/PLATING", "PROSES PACKING", "PARKEREZING", "PROSES CHECK", "HEAT TREATMENT", "PROSES FORGING", "PROSES M/C"].map((opt) => (
                 <CheckItem
@@ -589,11 +593,11 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
           </div>
 
           {/* Signature Block */}
-          <div style={{ flex: 1, borderLeft: "1px solid #000", borderRight: "1px solid #000" }}>
+          <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
             <div style={{ borderBottom: "1px solid #000", textAlign: "center", padding: "4px", fontSize: "8px", fontWeight: "bold", color: "#1e293b" }}>
               Cikarang, {formatDateIndo(qpr.date)}
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr", flex: 1 }}>
               {[
                 { 
                   type: "Prepared", 
@@ -636,7 +640,7 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
                   )
                 },
                 { 
-                  type: "Checked", 
+                  type: "Approved", 
                   name: "Septian N.", 
                   role: "(Dept. Head Quality)",
                   isSigned: isDeptHeadSigned,
@@ -720,17 +724,19 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
   if (inline) {
     return (
       <div className="w-full flex flex-col items-center">
-        <div className="flex justify-end mb-3 print:hidden w-full max-w-[210mm] mx-auto">
-          <label className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 hover:bg-slate-200/70 border border-slate-250 rounded-lg text-xs font-bold text-slate-700 cursor-pointer transition-all">
-            <input
-              type="checkbox"
-              checked={isVendorCopy}
-              onChange={(e) => setIsVendorCopy(e.target.checked)}
-              className="w-3.5 h-3.5 border border-slate-350 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
-            />
-            Format Vendor (Sembunyikan Problem Occurance)
-          </label>
-        </div>
+        {!hideVendorToggle && (
+          <div className="flex justify-end mb-3 print:hidden w-full max-w-[210mm] mx-auto">
+            <label className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 hover:bg-slate-200/70 border border-slate-250 rounded-lg text-xs font-bold text-slate-700 cursor-pointer transition-all">
+              <input
+                type="checkbox"
+                checked={isVendorCopy}
+                onChange={(e) => setIsVendorCopy(e.target.checked)}
+                className="w-3.5 h-3.5 border border-slate-350 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
+              />
+              Format Vendor (Sembunyikan Problem Occurance)
+            </label>
+          </div>
+        )}
         {documentContent}
 
         {/* Lampiran PDF check block (inline) */}
@@ -825,38 +831,6 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
             </div>
           </div>
         )}
-        <style>{`
-          @media print {
-            @page {
-              size: A4 portrait;
-              margin: 6mm !important;
-            }
-            html, body {
-              height: auto;
-              margin: 0 !important;
-              padding: 0 !important;
-              background: #fff !important;
-            }
-            body * { visibility: hidden; }
-            #qpr-print-area, #qpr-print-area * { visibility: visible; }
-            #qpr-print-area {
-              position: absolute !important;
-              left: 0 !important;
-              top: 0 !important;
-              width: 198mm !important;
-              height: 285mm !important;
-              min-height: 0 !important;
-              margin: 0 auto !important;
-              padding: 6mm !important;
-              border: none !important;
-              box-shadow: none !important;
-              box-sizing: border-box !important;
-              page-break-inside: avoid !important;
-              transform: scale(0.83) !important;
-              transform-origin: top center !important;
-            }
-          }
-        `}</style>
       </div>
     );
   }
@@ -995,38 +969,49 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
           </div>
         )}
       </div>
-      <style>{`
+      {!inline && <style>{`
         @media print {
           @page {
             size: A4 portrait;
-            margin: 6mm !important;
+            margin: 6mm 8mm !important;
           }
           html, body {
-            height: auto;
+            height: auto !important;
             margin: 0 !important;
             padding: 0 !important;
             background: #fff !important;
           }
-          body * { visibility: hidden; }
-          #qpr-print-area, #qpr-print-area * { visibility: visible; }
-          #qpr-print-area {
-            position: relative !important;
+          body * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          body.print-qpr-active * { visibility: hidden !important; }
+          body.print-qpr-active #qpr-print-area, body.print-qpr-active #qpr-print-area * { visibility: visible !important; }
+          body.print-qpr-active #qpr-print-area {
+            position: absolute !important;
             left: 0 !important;
             top: 0 !important;
-            width: 198mm !important;
-            height: 285mm !important;
-            min-height: 0 !important;
+            width: 100% !important;
+            max-width: 194mm !important;
+            height: 283mm !important;
+            max-height: 283mm !important;
+            min-height: 283mm !important;
             margin: 0 auto !important;
-            padding: 6mm !important;
+            padding: 4mm 6mm !important;
             border: 1px solid #000 !important;
             box-shadow: none !important;
             box-sizing: border-box !important;
             page-break-inside: avoid !important;
-            transform: scale(0.83) !important;
-            transform-origin: top center !important;
+            break-inside: avoid !important;
+            page-break-after: avoid !important;
+            break-after: avoid !important;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: space-between !important;
+            overflow: hidden !important;
           }
         }
-      `}</style>
+      `}</style>}
     </div>
   );
 }

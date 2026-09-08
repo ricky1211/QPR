@@ -308,7 +308,7 @@ export default function Dashboard({
       activeQprs: activePeriodQprs,
       activeConfirmationLetters: activePeriodConfirmationLetters,
       claimPendingCount: pendingActiveQprs.length + activePeriodConfirmationLetters.filter(c => !c.closedPaid && c.status !== "CLOSED_PAID").length,
-      dynamicClaimsValue: pendingActiveQprs.reduce((acc, q) => acc + parseInt(q.claimAmount?.replace(/[^0-9]/g, "") || "0", 10), 0) + activePeriodConfirmationLetters.filter(c => !c.closedPaid && c.status !== "CLOSED_PAID").reduce((acc, cl) => acc + parseInt(cl.amount?.replace(/[^0-9]/g, "") || "0", 10), 0)
+      dynamicClaimsValue: pendingActiveQprs.reduce((acc, q) => acc + parseInt(String(q.claimAmount || "0").replace(/[^0-9]/g, "") || "0", 10), 0) + activePeriodConfirmationLetters.filter(c => !c.closedPaid && c.status !== "CLOSED_PAID").reduce((acc, cl) => acc + parseInt(String(cl.amount || "0").replace(/[^0-9]/g, "") || "0", 10), 0)
     };
   };
 
@@ -1201,9 +1201,6 @@ export default function Dashboard({
               <h4 className="text-sm font-black text-slate-900 uppercase tracking-wide">
                 Pelacakan Pipeline &amp; Lead Time Alur Dokumen Berjalan
               </h4>
-              <p className="text-xs text-slate-500 font-semibold mt-0.5">
-                Sinkronisasi alur 11 tahapan dokumen dari Create QPR hingga Close Paid SSC.
-              </p>
             </div>
           </div>
         </div>

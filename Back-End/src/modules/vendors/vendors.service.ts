@@ -26,15 +26,20 @@ export class VendorsService {
   }
 
   async findAll(): Promise<Vendor[]> {
-    return this.prisma.vendor.findMany({
-      include: {
-        vendorParts: {
-          include: {
-            part: true,
+    try {
+      return await this.prisma.vendor.findMany({
+        include: {
+          vendorParts: {
+            include: {
+              part: true,
+            },
           },
         },
-      },
-    });
+      });
+    } catch (error: any) {
+      console.warn('[VendorsService] Database not available, returning empty list:', error.message);
+      return [];
+    }
   }
 
   async createVendor(data: Prisma.VendorCreateInput): Promise<Vendor> {

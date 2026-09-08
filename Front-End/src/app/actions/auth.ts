@@ -13,12 +13,16 @@ const VALID_USERS: Record<string, { password: string; role: string; displayName:
   admin: { password: 'admin123', role: 'admin', displayName: 'Administrator' },
   // Section Head & Dept Head QPR (shared account)
   '2301': { password: '2301', role: 'sect_dept_head', displayName: 'Septian Nugraha' },
-  // Foreman / Prepare QPR
+  // Foreman / Prepare QPR (Creator QPR)
   '3079': { password: '3079', role: 'foreman', displayName: 'Deny Maulana' },
+  '0890': { password: '0890', role: 'foreman', displayName: 'Hendrik S.' },
+  '890': { password: '890', role: 'foreman', displayName: 'Hendrik S.' },
   // Division Head QPR
   '1335': { password: '1335', role: 'div_head', displayName: 'Putu Ratna Saputra' },
-  // Purchasing
-  '3790': { password: '3790', role: 'purchasing', displayName: 'Irvan H. N.' },
+  // Purchasing (Full Access: Buat CL, Approval CL, Approve QPR, etc.)
+  '3790': { password: '3790', role: 'purchasing', displayName: 'Cicik Andria' },
+  // Purchasing Approval QPR Only (Hanya Approval Purchasing di Approval QPR)
+  '1175': { password: '1175', role: 'purchasing_qpr', displayName: 'Irvan H. N.' },
   // Dept Accounting
   '3123': { password: '3123', role: 'accounting', displayName: 'Anindita Irnilaningtyas' },
   // Finance

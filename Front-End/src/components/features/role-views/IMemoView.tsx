@@ -1584,7 +1584,7 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                           id="manual-billing-sheet"
                           className="bg-white text-black p-[12mm] shadow-lg border border-slate-450 w-[210mm] min-h-[297mm] text-left mx-auto relative flex flex-col"
                           style={{
-                            fontFamily: 'Arial, sans-serif',
+                            fontFamily: '"Times New Roman", Times, serif',
                             lineHeight: '1.2'
                           }}
                         >
@@ -2160,7 +2160,7 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                           id="internal-memo-sheet"
                           className="bg-white text-black p-[12mm] shadow-lg border border-slate-450 w-[210mm] min-h-[297mm] text-left mx-auto relative flex flex-col"
                           style={{
-                            fontFamily: 'Arial, sans-serif',
+                            fontFamily: '"Times New Roman", Times, serif',
                             lineHeight: '1.2'
                           }}
                         >

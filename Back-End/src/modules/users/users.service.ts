@@ -25,9 +25,14 @@ export class UsersService {
   constructor(private prisma: PrismaService) {}
 
   async findAllRoles(): Promise<Role[]> {
-    return this.prisma.role.findMany({
-      orderBy: { name: 'asc' },
-    });
+    try {
+      return await this.prisma.role.findMany({
+        orderBy: { name: 'asc' },
+      });
+    } catch (error: any) {
+      console.warn('[UsersService] Database not available in findAllRoles():', error.message);
+      return [];
+    }
   }
 
   private formatUser(user: any) {
@@ -40,39 +45,54 @@ export class UsersService {
   }
 
   async findOne(id: string): Promise<any | null> {
-    const user = await this.prisma.user.findUnique({
-      where: { id },
-      include: {
-        userRoles: {
-          include: { role: true },
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { id },
+        include: {
+          userRoles: {
+            include: { role: true },
+          },
         },
-      },
-    });
-    return user ? this.formatUser(user) : null;
+      });
+      return user ? this.formatUser(user) : null;
+    } catch (error: any) {
+      console.warn('[UsersService] Database not available in findOne():', error.message);
+      return null;
+    }
   }
 
   async findByNpk(npk: number): Promise<any | null> {
-    const user = await this.prisma.user.findUnique({
-      where: { npk },
-      include: {
-        userRoles: {
-          include: { role: true },
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { npk },
+        include: {
+          userRoles: {
+            include: { role: true },
+          },
         },
-      },
-    });
-    return user ? this.formatUser(user) : null;
+      });
+      return user ? this.formatUser(user) : null;
+    } catch (error: any) {
+      console.warn('[UsersService] Database not available in findByNpk():', error.message);
+      return null;
+    }
   }
 
   async findAll(): Promise<any[]> {
-    const users = await this.prisma.user.findMany({
-      include: {
-        userRoles: {
-          include: { role: true },
+    try {
+      const users = await this.prisma.user.findMany({
+        include: {
+          userRoles: {
+            include: { role: true },
+          },
         },
-      },
-      orderBy: { npk: 'asc' },
-    });
-    return users.map((u) => this.formatUser(u));
+        orderBy: { npk: 'asc' },
+      });
+      return users.map((u) => this.formatUser(u));
+    } catch (error: any) {
+      console.warn('[UsersService] Database not available in findAll():', error.message);
+      return [];
+    }
   }
 
   async createUser(data: CreateUserInput): Promise<any> {

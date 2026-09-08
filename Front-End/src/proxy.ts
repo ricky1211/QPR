@@ -85,9 +85,9 @@ export function proxy(request: NextRequest) {
       }
     }
 
-    // 4. Approval QPR: Section/Dept Head, Division Head, Purchasing (Acknowledge)
+    // 4. Approval QPR: Section/Dept Head, Division Head, Purchasing (Acknowledge), Purchasing QPR (1175)
     if (isMatch(['/approve-qpr'])) {
-      if (!['sect_dept_head', 'div_head', 'purchasing'].includes(mtmUser)) {
+      if (!['sect_dept_head', 'div_head', 'purchasing', 'purchasing_qpr'].includes(mtmUser)) {
         return redirectToDashboard()
       }
     }

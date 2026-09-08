@@ -23,7 +23,7 @@ import DraftQprView from "@/components/features/role-views/DraftQprView";
 import DraftClView from "@/components/features/role-views/DraftClView";
 import { ncrService, mapNcrFromDb } from "@/services/ncrService";
 import { vendorService } from "@/services/vendorService";
-import { qprService, mapQprFromDb, getPeriodFromDate } from "@/services/qprService";
+import { qprService, mapQprFromDb, getPeriodFromDate, generateNextQprNumber } from "@/services/qprService";
 import { clService, mapClFromDb } from "@/services/clService";
 import { sscService, mapBillingFromDb } from "@/services/sscService";
 
@@ -34,10 +34,7 @@ import PartsDirectory from "@/components/features/parts/PartsDirectory";
 import EditAllowanceModal from "@/components/features/parts/EditAllowanceModal";
 import VendorsDirectory from "@/components/features/parts/VendorsDirectory";
 import UsersDirectory from "@/components/features/parts/UsersDirectory";
-
-
-// Default state without mock data
-const DEFAULT_MOCK_QPRS: any[] = [];
+import { mockPendingQprs, mockConfirmationLetters, mockSuppliers, mockParts, mockPendingNcrs } from "@/utils/mockData";
 
 export default function Home({ initialTab = "" }: { initialTab?: string }) {
   const router = useRouter();
@@ -156,6 +153,8 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
         defaultTab = "dashboard";
       } else if (user === "purchasing") {
         defaultTab = "dashboard";
+      } else if (user === "purchasing_qpr") {
+        defaultTab = "approve-qpr";
       } else if (user === "accounting") {
         defaultTab = "approve-cl";
       } else if (user === "finance") {
@@ -219,22 +218,25 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
         if (Array.isArray(dbQprs) && dbQprs.length > 0) {
           setPendingQprs(dbQprs.map((q: any) => mapQprFromDb(q)));
         } else {
-          setPendingQprs(prev => (prev && prev.length > 0 ? prev : DEFAULT_MOCK_QPRS));
+          setPendingQprs(prev => (prev && prev.length > 0 ? prev : mockPendingQprs));
         }
       })
       .catch((err) => {
         console.error("Failed to fetch real QPRs, using default mock data:", err);
-        setPendingQprs(prev => (prev && prev.length > 0 ? prev : DEFAULT_MOCK_QPRS));
+        setPendingQprs(prev => (prev && prev.length > 0 ? prev : mockPendingQprs));
       });
 
     clService.getAll()
       .then((dbCls) => {
-        if (Array.isArray(dbCls)) {
+        if (Array.isArray(dbCls) && dbCls.length > 0) {
           setConfirmationLetters(dbCls.map((cl: any) => mapClFromDb(cl)));
+        } else {
+          setConfirmationLetters(prev => (prev && prev.length > 0 ? prev : mockConfirmationLetters));
         }
       })
       .catch((err) => {
-        console.error("Failed to fetch real CLs:", err);
+        console.error("Failed to fetch real CLs, using default mock data:", err);
+        setConfirmationLetters(prev => (prev && prev.length > 0 ? prev : mockConfirmationLetters));
       });
 
     sscService.getAllBillings()
@@ -338,8 +340,8 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
   // Dynamic lists for simulation
   // NOTE: pendingQprs and confirmationLetters are persisted to sessionStorage
   // so they survive Next.js route changes (each sub-route remounts <Home />).
-  const [pendingNcrs, setPendingNcrs] = useState([]);
-  const [vendors, setVendors] = useState<any[]>([]);
+  const [pendingNcrs, setPendingNcrs] = useState<any[]>(mockPendingNcrs);
+  const [vendors, setVendors] = useState<any[]>(mockSuppliers);
   const [pendingQprs, setPendingQprs] = useState<any[]>(() => {
     if (typeof window !== "undefined") {
       try {
@@ -350,9 +352,20 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
         }
       } catch {}
     }
-    return DEFAULT_MOCK_QPRS;
+    return mockPendingQprs;
   });
-  const [confirmationLetters, setConfirmationLetters] = useState<any[]>([]);
+  const [confirmationLetters, setConfirmationLetters] = useState<any[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = sessionStorage.getItem("mtm_qpr_confirmationLetters");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch {}
+    }
+    return mockConfirmationLetters;
+  });
   const [createdSscBillings, setCreatedSscBillings] = useState<any[]>([]);
 
   // Persist pendingQprs to sessionStorage whenever it changes
@@ -634,11 +647,10 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
       setErrorPartName(`${part.partName} (${part.partNumber})`);
       setShowAllowanceError(true);
     } else {
-      // 1. Generate new QPR draft
+      // 1. Generate new QPR draft with sequential number: (No)/QI/QPR/SUB/MM/YY
       const now = new Date();
-      const monthPadded = String(now.getMonth() + 1).padStart(2, '0');
       const newQprId = Date.now();
-      const newQprNum = `QPR/${now.getFullYear()}/${monthPadded}/${part.partNumber.replace("-", "")}`;
+      const newQprNum = generateNextQprNumber(pendingQprs, now.toISOString());
       const newQpr = {
         id: newQprId,
         qprNumber: newQprNum,
@@ -791,9 +803,9 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
             } else {
               // APPROVE
               if (currentRole === "Section Head") {
-                alertMsg = `Sukses: Klaim QPR ${qprNum} disetujui oleh Section Head dan diteruskan ke Div Head!`;
-                notifMsg = `Klaim QPR ${qprNum} disetujui oleh Section Head dan diteruskan ke Div Head.`;
-                nextRole = "Div Head";
+                alertMsg = `Sukses: Klaim QPR ${qprNum} disetujui oleh Section Head dan diteruskan ke Dept Head!`;
+                notifMsg = `Klaim QPR ${qprNum} disetujui oleh Section Head dan diteruskan ke Dept Head.`;
+                nextRole = "Dept Head";
               } else if (currentRole === "Dept Head") {
                 alertMsg = `Sukses: Klaim QPR ${qprNum} disetujui oleh Dept Head dan diteruskan ke Div Head!`;
                 notifMsg = `Klaim QPR ${qprNum} disetujui oleh Dept Head dan diteruskan ke Div Head.`;
@@ -864,7 +876,7 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
         nextStatus = "REJECTED";
       } else {
         if (currentRole === "Section Head") {
-          nextRole = "Div Head";
+          nextRole = "Dept Head";
         } else if (currentRole === "Dept Head") {
           nextRole = "Div Head";
         } else if (currentRole === "Div Head") {
@@ -882,9 +894,6 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
           if (currentRole === "Section Head") {
             progressPayload.checksumSectionHead = `APPROVED_BY_SECTION_HEAD_${Date.now()}`;
             progressPayload.remarksSectionHead = reviewComment;
-            // Auto-approve Dept Head stage since accounts are unified
-            progressPayload.checksumDeptHead = `APPROVED_BY_DEPT_HEAD_AUTO_${Date.now()}`;
-            progressPayload.remarksDeptHead = "Auto-approved via unified Sect/Dept Head account";
           } else if (currentRole === "Dept Head") {
             progressPayload.checksumDeptHead = `APPROVED_BY_DEPT_HEAD_${Date.now()}`;
             progressPayload.remarksDeptHead = reviewComment;
@@ -1059,7 +1068,7 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
               />
             )}
 
-            {activeTab === "approve-qpr" && (username === "sect_dept_head" || username === "div_head" || username === "purchasing" || username === "admin") && (
+            {activeTab === "approve-qpr" && (username === "sect_dept_head" || username === "div_head" || username === "purchasing" || username === "purchasing_qpr" || username === "admin") && (
               <ApproveQprDashboard
                 pendingQprs={pendingQprs}
                 handleApproveQprAction={handleApproveQprAction}

@@ -242,18 +242,20 @@ export default function ListQprDashboard({
 
     // 3. Add CLs
     confirmationLetters.forEach((cl) => {
+      const firstItem = cl.items?.[0] || {};
       list.push({
         id: `cl-${cl.id}`,
         type: "CL",
         docNumber: cl.clNumber,
         date: cl.dateSent,
-        vendorName: cl.supplierName,
-        partNumber: cl.qprSourceData?.parts?.[0]?.partNumber || cl.partNumber || "MB-001",
-        partName: cl.qprSourceData?.parts?.[0]?.partName || cl.partName || "Motherboard X1",
+        vendorName: cl.supplierName || cl.vendorName,
+        qprNumber: cl.qprNumber || cl.qprSourceData?.qprNumber || "—",
+        partNumber: firstItem.partNumber || cl.qprSourceData?.parts?.[0]?.partNumber || cl.partNumber || "IT-650",
+        partName: firstItem.partName || firstItem.description || cl.qprSourceData?.parts?.[0]?.partName || cl.partName || "INNER TUBE,650 A",
         period: cl.qprSourceData?.period || getPeriodFromDate(cl.dateSent || cl.date),
-        qty: cl.qty || 1000,
-        reject: cl.reject || 10,
-        allowanceRatio: "0.5%",
+        qty: firstItem.totalQty || cl.qty || 1000,
+        reject: firstItem.qtyNg || firstItem.billableQty || cl.reject || 30,
+        allowanceRatio: `${firstItem.allowanceRatio || 0.5}%`,
         claimAmount: cl.amount || "Rp 0",
         defectType: cl.defectType || "-",
         disposition: "-",
@@ -513,7 +515,7 @@ export default function ListQprDashboard({
           {/* Date Filter */}
           <div className="space-y-1.5 text-left">
             <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-              Tanggal Kejadian
+              Tanggal Pembuatan
             </label>
             <input
               type="date"
@@ -948,14 +950,16 @@ export default function ListQprDashboard({
           cl={{
             ...(selectedDoc.refObject || {}),
             ...selectedDoc,
-            clNumber: selectedDoc.docNumber,
-            supplierName: selectedDoc.vendorName,
-            amount: selectedDoc.claimAmount,
-            status: selectedDoc.status,
-            requiredRole: selectedDoc.requiredRole,
+            clNumber: selectedDoc.docNumber || selectedDoc.refObject?.clNumber,
+            qprNumber: selectedDoc.qprNumber || selectedDoc.refObject?.qprNumber,
+            supplierName: selectedDoc.vendorName || selectedDoc.refObject?.supplierName,
+            amount: selectedDoc.claimAmount || selectedDoc.refObject?.amount,
+            status: selectedDoc.status || selectedDoc.refObject?.status,
+            requiredRole: selectedDoc.requiredRole || selectedDoc.refObject?.requiredRole,
             clApprovalProgress: selectedDoc.clApprovalProgress || selectedDoc.refObject?.clApprovalProgress,
             vendorApproved: selectedDoc.vendorApproved || selectedDoc.refObject?.vendorApproved,
-            approvedBy: selectedDoc.approvedBy || selectedDoc.refObject?.approvedBy
+            approvedBy: selectedDoc.approvedBy || selectedDoc.refObject?.approvedBy,
+            items: selectedDoc.refObject?.items || selectedDoc.items
           }}
           onClose={() => setSelectedDoc(null)}
         />
@@ -981,7 +985,7 @@ export default function ListQprDashboard({
                 <div 
                   id="internal-memo-sheet"
                   className="bg-white text-black p-[12mm] shadow-lg border border-slate-450 w-[210mm] min-h-[297mm] text-left mx-auto relative flex flex-col print:shadow-none print:border-none print:w-[198mm] print:h-[280mm] print:p-[8mm] print:m-0"
-                  style={{ fontFamily: 'Arial, sans-serif', lineHeight: '1.2' }}
+                  style={{ fontFamily: '"Times New Roman", Times, serif', lineHeight: '1.2' }}
                 >
                   {/* Top Section */}
                   <div className="flex justify-between items-start mb-6">
@@ -1203,9 +1207,9 @@ export default function ListQprDashboard({
                       <tbody>
                         {(() => {
                           const defaultGlRows = [
-                            { code: "OTC08002", name: "PT TEMARU ENGINEER", costCenter: "", amountDr: selectedDoc.claimAmount.replace("Rp ", ""), amountCr: "", text: "Claim Part NG" },
-                            { code: "545-102-0000", name: "FOH Subcont Fee", costCenter: "MT015FOHGE", amountDr: "", amountCr: (parseFloat(selectedDoc.claimAmount.replace(/[^0-9]/g, "")) * 0.9).toLocaleString("id-ID"), text: "Claim Part NG" },
-                            { code: "211-310-0000", name: "Tax Pay VAT Out", costCenter: "", amountDr: "", amountCr: (parseFloat(selectedDoc.claimAmount.replace(/[^0-9]/g, "")) * 0.1).toLocaleString("id-ID"), text: "ppn 11%" }
+                            { code: "OTC08002", name: "PT TEMARU ENGINEER", costCenter: "", amountDr: String(selectedDoc.claimAmount || "0").replace("Rp ", ""), amountCr: "", text: "Claim Part NG" },
+                            { code: "545-102-0000", name: "FOH Subcont Fee", costCenter: "MT015FOHGE", amountDr: "", amountCr: (parseFloat(String(selectedDoc.claimAmount || "0").replace(/[^0-9]/g, "")) * 0.9).toLocaleString("id-ID"), text: "Claim Part NG" },
+                            { code: "211-310-0000", name: "Tax Pay VAT Out", costCenter: "", amountDr: "", amountCr: (parseFloat(String(selectedDoc.claimAmount || "0").replace(/[^0-9]/g, "")) * 0.1).toLocaleString("id-ID"), text: "ppn 11%" }
                           ];
                           const rows = selectedDoc.refObject?.glRows && selectedDoc.refObject.glRows.length > 0 ? selectedDoc.refObject.glRows : defaultGlRows;
                           return Array.from({ length: Math.max(5, rows.length) }).map((_, i) => {
@@ -1265,7 +1269,7 @@ export default function ListQprDashboard({
                 <div 
                   id="internal-memo-sheet"
                   className="bg-white text-black p-[12mm] shadow-lg border border-slate-455 w-[210mm] min-h-[297mm] text-left mx-auto relative flex flex-col print:shadow-none print:border-none print:w-[198mm] print:h-[280mm] print:p-[8mm] print:m-0"
-                  style={{ fontFamily: 'Arial, sans-serif', lineHeight: '1.2' }}
+                  style={{ fontFamily: '"Times New Roman", Times, serif', lineHeight: '1.2' }}
                 >
                   <div className="flex justify-between items-start mb-6">
                     <div className="space-y-1.5 w-[55%]">
@@ -1340,7 +1344,7 @@ export default function ListQprDashboard({
                               <td className="border border-black px-1.5 py-1 text-left font-mono font-bold uppercase">POTONG TAGIH DENDA REJECT</td>
                               <td className="border border-black px-1.5 py-1 text-left font-sans font-bold">{selectedDoc.vendorName}</td>
                               <td className="border border-black px-1.5 py-1 text-center font-mono font-semibold">{selectedDoc.date}</td>
-                              <td className="border border-black px-1.5 py-1 text-right font-mono font-bold">{selectedDoc.claimAmount.replace("Rp ", "")}</td>
+                              <td className="border border-black px-1.5 py-1 text-right font-mono font-bold">{String(selectedDoc.claimAmount || "0").replace("Rp ", "")}</td>
                               <td className="border border-black px-1.5 py-1 text-center font-mono font-bold">10/{parseInt(selectedDoc.date.split("/")[1] || "6") + 1}/26</td>
                             </tr>
                           </tbody>

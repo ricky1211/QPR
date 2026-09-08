@@ -79,7 +79,7 @@ export default function NcrPrintPreview({ ncr, onClose, inline = false }: NcrPre
       id="ncr-print-area"
       className={`bg-white mx-auto ${inline ? "w-full shadow-sm" : "shadow-2xl my-4"}`}
       style={{
-        fontFamily: "Arial, sans-serif",
+        fontFamily: '"Times New Roman", Times, serif',
         fontSize: "9.5px",
         border: "1.5px solid #000",
         width: inline ? "100%" : "210mm",

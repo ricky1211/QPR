@@ -56,6 +56,48 @@ export const qprService = {
   }),
 };
 
+export const generateNextQprNumber = (qprs: any[] = [], dateStr?: string): string => {
+  const d = dateStr ? new Date(dateStr) : new Date();
+  const validDate = isNaN(d.getTime()) ? new Date() : d;
+  const month = String(validDate.getMonth() + 1).padStart(2, "0");
+  const year = String(validDate.getFullYear()).slice(-2);
+  
+  // Format target: (NO dokumen contoh 01)/QI/QPR/SUB/MM/YY
+  let maxSeq = 0;
+
+  if (Array.isArray(qprs)) {
+    qprs.forEach((q) => {
+      const qNum = String(q.qprNumber || q.docNumber || "").trim();
+      const match = qNum.match(/^(\d+)\/QI\/QPR\/SUB\/(\d+)\/(\d+)$/i);
+      if (match) {
+        const seq = parseInt(match[1], 10);
+        const m = String(parseInt(match[2], 10)).padStart(2, "0");
+        const y = String(match[3]).slice(-2);
+        if (m === month && y === year && !isNaN(seq) && seq > maxSeq) {
+          maxSeq = seq;
+        }
+      } else {
+        const matchAnyMonth = qNum.match(new RegExp(`/${month}/${year}`, "i"));
+        if (matchAnyMonth) {
+          const leadingDigits = qNum.match(/^(\d+)/);
+          if (leadingDigits) {
+            const seq = parseInt(leadingDigits[1], 10);
+            if (!isNaN(seq) && seq > maxSeq) {
+              maxSeq = seq;
+            }
+          }
+        }
+      }
+    });
+  }
+
+  // Setiap ganti bulan, nomor QPR dimulai / reset dari 1 (01)
+  const nextSeq = maxSeq + 1;
+  const paddedSeq = String(nextSeq).padStart(2, "0");
+  
+  return `${paddedSeq}/QI/QPR/SUB/${month}/${year}`;
+};
+
 export const getPeriodFromDate = (dateStr?: string) => {
   const months = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
   if (!dateStr) {

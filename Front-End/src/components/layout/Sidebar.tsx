@@ -76,6 +76,7 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
   const isSectDeptHead = username === "sect_dept_head";
   const isDivHead = username === "div_head";
   const isPurchasing = username === "purchasing";
+  const isPurchasingQpr = username === "purchasing_qpr";
   const isAccounting = username === "accounting";
   const isFinance = username === "finance";
 
@@ -84,11 +85,11 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
 
   // Buat QPR: foreman & admin
   const canBuatQpr = isForeman || isAdmin;
-  // Approve QPR: sect/dept head, div head, purchasing (view only), admin
-  const canApproveQpr = isSectDeptHead || isDivHead || isPurchasing || isAdmin;
-  // Buat CL: purchasing & admin
+  // Approve QPR: sect/dept head, div head, purchasing, purchasing_qpr, admin
+  const canApproveQpr = isSectDeptHead || isDivHead || isPurchasing || isPurchasingQpr || isAdmin;
+  // Buat CL: purchasing & admin (purchasing_qpr cannot access)
   const canBuatCL = isPurchasing || isAdmin;
-  // Approval CL: accounting, purchasing (view only), finance (view only), admin
+  // Approval CL: accounting, purchasing (view only), finance (view only), admin (purchasing_qpr cannot access)
   const canApproveCL = isAccounting || isPurchasing || isFinance || isAdmin;
   // SSC Billing & Payment: finance & admin
   const canIMemo = isFinance || isAdmin;

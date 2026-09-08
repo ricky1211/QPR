@@ -87,7 +87,7 @@ export default function AccountingView({
     );
 
     const qprs = pendingQprs ? pendingQprs.filter((q: any) => 
-      (q.status === "APPROVED" || q.status === "APPROVED_BY_VENDOR" || q.status === "APPROVED_INTERNAL" || q.requiredRole === "Purchasing" || q.requiredRole === "Vendor" || q.requiredRole === "Accounting" || q.requiredRole === "Closed") && 
+      (q.status === "APPROVED" || q.status === "APPROVED_BY_VENDOR" || q.status === "APPROVED_INTERNAL") && 
       q.status !== "CLOSED_PAID" &&
       !existingQprNumbers.has(q.qprNumber)
     ) : [];
@@ -132,12 +132,13 @@ export default function AccountingView({
             const allowanceRatio = p.allowanceRatio !== undefined ? p.allowanceRatio : (selectedQpr.allowanceRatio || 0.5);
             const stdAllowance = p.stdAllowance !== undefined ? p.stdAllowance : Math.round(totalQty * (allowanceRatio / 100));
             const billableQty = p.qtyClaim !== undefined ? p.qtyClaim : Math.max(0, rejectCount - stdAllowance);
-            const unitPrice = p.unitPrice ? String(p.unitPrice) : "250000";
+            const unitPrice = p.unitPrice ? String(p.unitPrice) : (selectedQpr.unitPrice ? String(selectedQpr.unitPrice) : "85000");
 
             return {
               id: `item-${idx}-${Date.now()}`,
               partId: p.partId || p.id,
               partName: p.partName || p.partNumber || `Part NG #${idx + 1}`,
+              description: p.partName || p.description || p.partNumber || `Part NG #${idx + 1}`,
               partNumber: p.partNumber || "",
               totalQty,
               rejectCount,
@@ -150,22 +151,24 @@ export default function AccountingView({
         );
       } else {
         const totalQty = selectedQpr.totalQty || 1000;
-        const rejectCount = selectedQpr.rejectCount || 30;
+        const rejectCount = selectedQpr.totalQtyNg !== undefined ? selectedQpr.totalQtyNg : (selectedQpr.qtyNg !== undefined ? selectedQpr.qtyNg : (selectedQpr.rejectCount || 30));
         const allowanceRatio = selectedQpr.allowanceRatio || 0.5;
-        const stdAllowance = Math.round(totalQty * (allowanceRatio / 100));
-        const billableQty = Math.max(0, rejectCount - stdAllowance);
+        const stdAllowance = selectedQpr.totalStdAllowance !== undefined ? selectedQpr.totalStdAllowance : (selectedQpr.stdAllowance !== undefined ? selectedQpr.stdAllowance : Math.round(totalQty * (allowanceRatio / 100)));
+        const billableQty = selectedQpr.billableQty !== undefined ? selectedQpr.billableQty : Math.max(0, rejectCount - stdAllowance);
+        const unitPrice = selectedQpr.unitPrice ? String(selectedQpr.unitPrice) : "85000";
 
         setClItems([
           {
             id: `item-${Date.now()}`,
-            partName: selectedQpr.partName || "Part Material NG",
-            partNumber: selectedQpr.partNumber || "",
+            partName: selectedQpr.partName || "INNER TUBE,650 A",
+            description: selectedQpr.partName || "INNER TUBE,650 A",
+            partNumber: selectedQpr.partNumber || "IT-650",
             totalQty,
             rejectCount,
             allowanceRatio,
             stdAllowance,
             billableQty,
-            unitPrice: "250000"
+            unitPrice
           }
         ]);
       }
@@ -279,9 +282,6 @@ export default function AccountingView({
       {/* Page Title */}
       <div className="pl-1">
         <h4 className="text-lg font-black text-slate-800">Buat Confirmation Letter (CL) &amp; Eksekusi Finansial</h4>
-        <p className="text-xs text-slate-400 font-semibold mt-1">
-          Auto-deteksi part dan kuantitas claim dari QPR Full-Approved, atur harga satuan komersial, dan terbitkan Confirmation Letter.
-        </p>
       </div>
 
       {/* TOP SECTION: DIVIDED INTO 2 BALANCED COLUMNS */}

@@ -106,8 +106,32 @@ export class QprsService {
       ? qprParts.filter((p: any) => p && p.partId && String(p.partId).trim() !== "")
       : [];
 
-    // Ensure unique qprNumber if a duplicate exists
-    let finalQprNumber = qprNumber || `QPR/${new Date().getFullYear()}/${Date.now()}`;
+    const targetDate = date ? new Date(date) : new Date();
+    const validDate = isNaN(targetDate.getTime()) ? new Date() : targetDate;
+    const month = String(validDate.getMonth() + 1).padStart(2, '0');
+    const year = String(validDate.getFullYear()).slice(-2);
+
+    // Ensure unique qprNumber if a duplicate exists or auto-generate resetting per month
+    let finalQprNumber = qprNumber;
+    if (!finalQprNumber) {
+      const allQprs = await this.prisma.qpr.findMany({
+        select: { qprNumber: true },
+      });
+      let maxSeq = 0;
+      for (const q of allQprs) {
+        const match = (q.qprNumber || '').match(/^(\d+)\/QI\/QPR\/SUB\/(\d+)\/(\d+)$/i);
+        if (match) {
+          const seq = parseInt(match[1], 10);
+          const m = String(parseInt(match[2], 10)).padStart(2, '0');
+          const y = String(match[3]).slice(-2);
+          if (m === month && y === year && !isNaN(seq) && seq > maxSeq) {
+            maxSeq = seq;
+          }
+        }
+      }
+      finalQprNumber = `${String(maxSeq + 1).padStart(2, '0')}/QI/QPR/SUB/${month}/${year}`;
+    }
+
     const existing = await this.prisma.qpr.findUnique({
       where: { qprNumber: finalQprNumber },
     });

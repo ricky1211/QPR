@@ -73,7 +73,7 @@ export default function AopMemoPrintPreview({ memo, onClose, onSend, inline }: A
         id="aop-memo-print-area"
         className="bg-white shadow-2xl my-4 text-slate-900 text-left border border-black mx-auto"
         style={{
-          fontFamily: "Arial, sans-serif",
+          fontFamily: '"Times New Roman", Times, serif',
           fontSize: "11px",
           width: "210mm",
           minHeight: "297mm",

@@ -24,7 +24,7 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
   const getInitialTab = () => {
     if (username === "sect_dept_head") return "section-head";
     if (username === "div_head") return "div-head";
-    if (username === "purchasing") return "purchasing";
+    if (username === "purchasing" || username === "purchasing_qpr") return "purchasing";
     return "section-head";
   };
 
@@ -175,12 +175,12 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
         </div>
         
         <div className="flex items-center gap-3 shrink-0">
-          {username === "admin" || username === "sect_dept_head" || username === "div_head" || username === "purchasing" ? (
+          {username === "admin" || username === "sect_dept_head" || username === "div_head" || username === "purchasing" || username === "purchasing_qpr" ? (
             <div className="flex bg-slate-100 p-1 rounded-md overflow-x-auto max-w-[400px] sm:max-w-none">
                {[
                  ...(username === "admin" || username === "sect_dept_head" ? [{ id: "section-head", label: "SEC HEAD" }, { id: "dept-head", label: "DEPT HEAD" }] : []),
                  ...(username === "admin" || username === "div_head" ? [{ id: "div-head", label: "DIV HEAD" }] : []),
-                 ...(username === "admin" || username === "purchasing" ? [{ id: "purchasing", label: "PURCHASING" }] : [])
+                 ...(username === "admin" || username === "purchasing" || username === "purchasing_qpr" ? [{ id: "purchasing", label: "PURCHASING" }] : [])
                ].map((tab) => (
                 <button
                   key={tab.id}
@@ -672,7 +672,7 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
                   const canUserApproveQpr = username === "admin" || 
                     (username === "sect_dept_head" && (levelTab === "section-head" || levelTab === "dept-head")) || 
                     (username === "div_head" && levelTab === "div-head") ||
-                    (username === "purchasing" && levelTab === "purchasing");
+                    ((username === "purchasing" || username === "purchasing_qpr") && levelTab === "purchasing");
 
                   if (!canUserApproveQpr) {
                     return (

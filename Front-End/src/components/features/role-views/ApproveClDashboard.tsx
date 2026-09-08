@@ -18,9 +18,12 @@ import {
   Shield,
   Clock,
   Banknote,
-  Printer
+  Printer,
+  Paperclip,
+  ExternalLink
 } from "lucide-react";
 import ConfirmationLetterPrintPreview from "./ConfirmationLetterPrintPreview";
+import QprPrintPreview from "./QprPrintPreview";
 import { getPeriodFromDate } from "@/services/qprService";
 
 interface ApproveClDashboardProps {
@@ -65,6 +68,7 @@ export default function ApproveClDashboard({
   // Modal states
   const [selectedCl, setSelectedCl] = useState<any>(null);
   const [previewCl, setPreviewCl] = useState<any>(null);
+  const [previewQprAttachment, setPreviewQprAttachment] = useState<any | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState<any>(null);
 
   // Upload modal state for Purchasing / Vendor flow
@@ -360,15 +364,15 @@ export default function ApproveClDashboard({
 
       {/* Table Container */}
       <div className="bg-white border border-slate-150 rounded-xl shadow-sm overflow-hidden p-4">
-        <div className="border border-slate-400 rounded-lg overflow-hidden">
-          <table className="w-full table-fixed text-left text-xs border-collapse min-w-[950px]">
+        <div className="border border-slate-400 rounded-lg overflow-x-auto">
+          <table className="w-full text-left text-xs border-collapse min-w-[1100px]">
             <thead>
-              <tr className="bg-slate-100 border-b border-slate-400 text-slate-800 font-extrabold uppercase text-[10px] tracking-wider text-center">
-                <th className="px-2 py-3 border-r border-slate-400 w-[18%] text-center font-bold">No. Confirmation Letter</th>
-                <th className="px-2 py-3 border-r border-slate-400 w-[18%] text-center font-bold">Detail Vendor</th>
-                <th className="px-2 py-3 border-r border-slate-400 w-[10%] text-center font-bold">Tanggal Kirim</th>
-                <th className="px-2 py-3 border-r border-slate-400 w-[38%] text-center font-bold">Status Pipeline CL</th>
-                <th className="px-2 py-3 w-[16%] text-center font-bold">Aksi & Kontrol</th>
+              <tr className="bg-slate-100 border-b border-slate-400 text-slate-800 font-extrabold uppercase text-[10.5px] tracking-wider text-center">
+                <th className="px-3 py-3 border-r border-slate-400 w-[18%] min-w-[180px] text-center font-bold">No. Confirmation Letter</th>
+                <th className="px-3 py-3 border-r border-slate-400 w-[22%] min-w-[230px] text-center font-bold">Detail Vendor</th>
+                <th className="px-3 py-3 border-r border-slate-400 w-[11%] min-w-[110px] text-center font-bold">Tanggal Kirim</th>
+                <th className="px-3 py-3 border-r border-slate-400 w-[35%] min-w-[400px] text-center font-bold">Status Pipeline CL</th>
+                <th className="px-3 py-3 w-[14%] min-w-[150px] text-center font-bold">Aksi & Kontrol</th>
               </tr>
             </thead>
             <tbody>
@@ -412,42 +416,42 @@ export default function ApproveClDashboard({
                   return (
                     <tr key={cl.id} className="border-b border-slate-400 hover:bg-slate-50/40 transition-colors text-center font-bold">
                       {/* No. Confirmation Letter */}
-                      <td className="px-2 py-3 border-r border-slate-400 text-center font-bold text-slate-800 text-[11px] whitespace-nowrap overflow-hidden text-ellipsis">
+                      <td className="px-3 py-3.5 border-r border-slate-400 text-center font-bold text-slate-800 text-[11px] whitespace-nowrap">
                         {cl.clNumber}
                       </td>
 
                       {/* Detail Vendor */}
-                      <td className="px-2 py-3 border-r border-slate-400 text-left">
-                        <div className="font-bold text-slate-700 text-[11px] whitespace-nowrap overflow-hidden text-ellipsis flex items-center gap-1.5">
+                      <td className="px-3 py-3.5 border-r border-slate-400 text-left">
+                        <div className="font-bold text-slate-700 text-[11px] flex items-center flex-wrap gap-1.5 leading-snug">
                           <span>{cl.supplierName}</span>
                           {(() => {
                             const count = vendorClaimCounts[cl.supplierName] || 1;
                             if (count > 1) {
                               return (
-                                <span className="inline-flex items-center px-1.5 py-0.5 bg-red-50 text-red-700 border border-red-200 rounded text-[9px] font-black uppercase tracking-wider" title={`${count} Claims`}>
+                                <span className="inline-flex items-center px-1.5 py-0.5 bg-red-50 text-red-700 border border-red-200 rounded text-[9px] font-black uppercase tracking-wider shrink-0" title={`${count} Claims`}>
                                   More Than One ({count}x)
                                 </span>
                               );
                             } else {
                               return (
-                                <span className="inline-flex items-center px-1.5 py-0.5 bg-slate-50 text-slate-500 border border-slate-200 rounded text-[9px] font-black uppercase tracking-wider" title="1 Claim">
+                                <span className="inline-flex items-center px-1.5 py-0.5 bg-slate-50 text-slate-500 border border-slate-200 rounded text-[9px] font-black uppercase tracking-wider shrink-0" title="1 Claim">
                                   1st Time
                                 </span>
                               );
                             }
                           })()}
                         </div>
-                        <div className="text-[9px] text-slate-400 font-bold mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">QPR: {cl.qprNumber || "Custom CL"}</div>
+                        <div className="text-[9.5px] text-slate-400 font-bold mt-1">QPR: {cl.qprNumber || "Custom CL"}</div>
                       </td>
 
                       {/* Tanggal Kirim */}
-                      <td className="px-2 py-3 border-r border-slate-400 text-center text-slate-600 text-[11px] whitespace-nowrap overflow-hidden text-ellipsis">
+                      <td className="px-3 py-3.5 border-r border-slate-400 text-center text-slate-600 text-[11px] whitespace-nowrap">
                         {cl.dateSent}
                       </td>
 
                       {/* Status Pipeline CL (5 Tahap) */}
-                      <td className="px-2 py-3 border-r border-slate-400 text-center">
-                        <div className="flex items-center gap-1 justify-center py-1 whitespace-nowrap flex-wrap">
+                      <td className="px-3 py-3.5 border-r border-slate-400 text-center">
+                        <div className="flex items-center gap-1.5 justify-center py-1 whitespace-nowrap flex-wrap">
                           {stages.map((stage, i, arr) => (
                             <React.Fragment key={i}>
                               <span
@@ -472,12 +476,12 @@ export default function ApproveClDashboard({
                       </td>
 
                       {/* Aksi & Kontrol */}
-                      <td className="px-2 py-3 text-center">
-                        <div className="flex flex-col gap-1.5 items-center justify-center">
+                      <td className="px-3 py-3.5 text-center">
+                        <div className="flex flex-col gap-1.5 items-center justify-center max-w-[140px] mx-auto">
                           <button
                             type="button"
                             onClick={() => setSelectedCl(cl)}
-                            className="w-full py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-[10.5px] font-black transition-all cursor-pointer active:scale-95 shadow-sm text-center"
+                            className="w-full py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-[10.5px] font-black transition-all cursor-pointer active:scale-95 shadow-sm text-center"
                           >
                             Review
                           </button>
@@ -534,7 +538,7 @@ export default function ApproveClDashboard({
                           )}
 
                           {isVendorApproved && !isClosedPaid && (
-                            <span className="w-full text-center text-[8.5px] font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 py-0.5 rounded">
+                            <span className="w-full text-center text-[8.5px] font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 py-1 rounded">
                               ✓ Siap ke SSC Billing
                             </span>
                           )}
@@ -700,6 +704,77 @@ export default function ApproveClDashboard({
                     <span className="text-xs text-slate-450 block mt-0.5">QPR Referensi: {selectedCl.qprNumber || "-"}</span>
                   </div>
 
+                  {/* Lampiran Dokumen QPR Terkait (QPR Attachment) */}
+                  <div className="p-4 bg-white border border-indigo-150 rounded-lg shadow-sm space-y-2.5">
+                    <div className="flex justify-between items-center border-b border-indigo-100 pb-2">
+                      <div className="flex items-center gap-1.5 text-indigo-700 font-bold text-xs">
+                        <Paperclip size={13} className="text-indigo-600" />
+                        <span>Lampiran Dokumen QPR</span>
+                      </div>
+                      <span className="text-[8px] font-extrabold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 uppercase">
+                        Full Approved
+                      </span>
+                    </div>
+
+                    <div className="text-[11px] space-y-1.5 font-semibold">
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">No. QPR:</span>
+                        <span className="font-mono font-bold text-indigo-900">{selectedCl.qprNumber || "05/QI/QPR/SUB/09/26"}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Part Material:</span>
+                        <span className="font-semibold text-slate-800">{selectedCl.items?.[0]?.partName || selectedCl.partName || "HUB CLUTCH, IMV 683N"}</span>
+                      </div>
+                      <div className="flex justify-between items-start">
+                        <span className="text-slate-500 shrink-0">Masalah / Defect:</span>
+                        <span className="text-slate-700 italic text-[10px] text-right max-w-[190px] leading-tight">
+                          {selectedCl.qprAttachment?.problem || "Dimensi ulang finish grind out of spec pada komponen Hub Clutch"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const qprData = selectedCl.qprAttachment || {
+                          qprNumber: selectedCl.qprNumber || "05/QI/QPR/SUB/09/26",
+                          date: selectedCl.dateSent || "2026-09-05",
+                          supplierName: selectedCl.supplierName,
+                          vendorCode: selectedCl.vendorCode || "31012100",
+                          partNumber: selectedCl.items?.[0]?.partNumber || "HC-IMV-683N",
+                          partName: selectedCl.items?.[0]?.partName || "HUB CLUTCH, IMV 683N",
+                          refNcrNumber: "NCR/2026/09/005",
+                          problem: "Dimensi ulang finish grind out of spec pada komponen Hub Clutch batch 09-E.",
+                          claimType: ["MATERIAL", "PROSES M/C"],
+                          totalItems: selectedCl.items?.[0]?.totalQty || 1500,
+                          rejectItems: selectedCl.items?.[0]?.qtyNg || 20,
+                          allowanceRatio: 0,
+                          claimAmount: selectedCl.amount || "Rp 1.144.283",
+                          status: "APPROVED",
+                          requiredRole: "Purchasing",
+                          period: "09/26",
+                          parts: selectedCl.items || [],
+                          remarks: "Disetujui Purchasing. Dokumen siap diterbitkan Confirmation Letter.",
+                          approvalProgress: {
+                            checksumSectionHead: "APPROVED_BY_SECTION_HEAD_1788700500",
+                            remarksSectionHead: "Inspeksi sampling lot 09-E menunjukkan 20 pcs reject.",
+                            checksumDeptHead: "APPROVED_BY_DEPT_HEAD_1788700550",
+                            remarksDeptHead: "Disetujui Dept Head.",
+                            checksumDivHead: "APPROVED_BY_DIV_HEAD_1788700600",
+                            remarksDivHead: "Approved Div Head.",
+                            checksumPurchasing: "APPROVED_BY_PURCHASING_1788700650",
+                            remarksPurchasing: "Disetujui Purchasing. Siap diterbitkan Confirmation Letter.",
+                          }
+                        };
+                        setPreviewQprAttachment(qprData);
+                      }}
+                      className="w-full mt-2 py-1.5 px-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-md text-[10.5px] font-extrabold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-sm active:scale-95"
+                    >
+                      <ExternalLink size={12} />
+                      Lihat Dokumen QPR Terlampir (Attachment)
+                    </button>
+                  </div>
+
                   <div className="bg-white border border-slate-200 rounded-lg p-4 text-[11px] space-y-2.5 shadow-sm">
                     <span className="text-[9px] font-black text-slate-455 uppercase tracking-widest block">
                       Rantai Otorisasi Internal Accounting
@@ -715,6 +790,62 @@ export default function ApproveClDashboard({
                       </div>
                     </div>
                   </div>
+
+                  {/* Rincian Finansial & Pajak Claim */}
+                  {(() => {
+                    let subtotal = 0;
+                    if (selectedCl.items && selectedCl.items.length > 0) {
+                      selectedCl.items.forEach((it: any) => {
+                        const qtyVal = it.qtyClaim ?? it.billableQty ?? it.qtyNG ?? it.qty ?? it.qtyNg ?? 0;
+                        const priceVal = typeof it.unitPrice === "string" ? parseFloat(it.unitPrice) : (it.unitPrice || 0);
+                        const amountVal = it.amount ?? it.subtotal ?? (qtyVal * priceVal);
+                        subtotal += (amountVal || 0);
+                      });
+                    }
+                    const rawTotalStr = String(selectedCl.amount || "0").replace(/[^0-9]/g, "");
+                    const totalFromStr = parseInt(rawTotalStr, 10) || 0;
+
+                    let dpp = subtotal;
+                    let tax = 0;
+                    let total = 0;
+
+                    if (dpp > 0) {
+                      tax = Math.round(dpp * 0.11);
+                      total = dpp + tax;
+                      if (totalFromStr > 0 && Math.abs(totalFromStr - total) <= 2) total = totalFromStr;
+                    } else if (totalFromStr > 0) {
+                      dpp = Math.round(totalFromStr / 1.11);
+                      tax = totalFromStr - dpp;
+                      total = totalFromStr;
+                    }
+
+                    return (
+                      <div className="bg-white border border-slate-200 rounded-lg p-4 text-[11px] space-y-2.5 shadow-sm">
+                        <div className="flex justify-between items-center border-b border-slate-150 pb-2">
+                          <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">
+                            Rincian Pajak &amp; Finansial Klaim
+                          </span>
+                          <span className="text-[8px] font-bold bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded border border-blue-200">
+                            PPN 11%
+                          </span>
+                        </div>
+                        <div className="space-y-1.5 text-xs font-semibold">
+                          <div className="flex justify-between">
+                            <span className="text-slate-500">Subtotal Nilai Part (DPP):</span>
+                            <span className="font-mono font-bold text-slate-800">Rp {dpp.toLocaleString("id-ID")}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-500">Pajak PPN (11%):</span>
+                            <span className="font-mono font-bold text-red-650">Rp {tax.toLocaleString("id-ID")}</span>
+                          </div>
+                          <div className="flex justify-between pt-2 border-t border-slate-200 items-baseline">
+                            <span className="font-black text-slate-900 text-xs">Total Klaim (CL):</span>
+                            <span className="font-mono font-black text-sm text-red-700">Rp {total.toLocaleString("id-ID")}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   <div className="p-3.5 bg-blue-50 border border-blue-100 rounded-lg text-[10px] text-slate-550 leading-relaxed font-semibold">
                     <strong className="text-blue-750 block mb-1">Panduan Otorisasi:</strong>
@@ -871,6 +1002,14 @@ export default function ApproveClDashboard({
         <ConfirmationLetterPrintPreview
           cl={previewCl}
           onClose={() => setPreviewCl(null)}
+        />
+      )}
+
+      {/* Modal Preview Dokumen QPR Lampiran (QPR Attachment) */}
+      {previewQprAttachment && (
+        <QprPrintPreview
+          qpr={previewQprAttachment}
+          onClose={() => setPreviewQprAttachment(null)}
         />
       )}
 

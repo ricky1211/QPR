@@ -14,7 +14,118 @@ import {
 } from "lucide-react";
 import QprPrintPreview from "./QprPrintPreview";
 import { vendorService } from "@/services/vendorService";
-import { qprService, mapQprFromDb } from "@/services/qprService";
+import { partService } from "@/services/partService";
+import { qprService, mapQprFromDb, generateNextQprNumber } from "@/services/qprService";
+
+function PartSearchDropdown({
+  value,
+  onChange,
+  onSelectPart,
+  parts,
+  placeholder = "Cari Part / Deskripsi..."
+}: {
+  value: string;
+  onChange: (val: string) => void;
+  onSelectPart?: (part: any) => void;
+  parts: any[];
+  placeholder?: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const selectedPart = parts.find(p => String(p.id) === String(value));
+
+  useEffect(() => {
+    if (selectedPart) {
+      setQuery(selectedPart.partName || selectedPart.partNumber || "");
+    } else if (!value) {
+      setQuery("");
+    }
+  }, [value, selectedPart]);
+
+  const filtered = parts.filter(p =>
+    (p.partName || "").toLowerCase().includes(query.toLowerCase()) ||
+    (p.partNumber || "").toLowerCase().includes(query.toLowerCase())
+  );
+
+  return (
+    <div className="relative w-full text-left">
+      <div className="relative">
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => {
+            const val = e.target.value;
+            setQuery(val);
+            setIsOpen(true);
+            const found = parts.find(p =>
+              (p.partName || "").toLowerCase() === val.toLowerCase() ||
+              (p.partNumber || "").toLowerCase() === val.toLowerCase()
+            );
+            if (found) {
+              onChange(String(found.id));
+              if (onSelectPart) onSelectPart(found);
+            } else {
+              onChange("");
+            }
+          }}
+          onFocus={() => setIsOpen(true)}
+          placeholder={placeholder}
+          className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-800 font-semibold bg-white cursor-pointer pr-8"
+        />
+        {query && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onChange("");
+              setQuery("");
+              setIsOpen(false);
+            }}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold cursor-pointer"
+          >
+            ✕
+          </button>
+        )}
+      </div>
+
+      {isOpen && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
+          <div className="absolute left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-lg z-20 divide-y divide-slate-100 font-sans text-xs">
+            {filtered.length === 0 ? (
+              <div className="p-3 text-center text-slate-400 italic">
+                Tidak ada part ditemukan
+              </div>
+            ) : (
+              filtered.map(p => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => {
+                    onChange(String(p.id));
+                    setQuery(p.partName || p.partNumber);
+                    setIsOpen(false);
+                    if (onSelectPart) onSelectPart(p);
+                  }}
+                  className={`w-full text-left px-3 py-2.5 hover:bg-blue-50 transition-colors block cursor-pointer ${
+                    String(p.id) === String(value) ? "bg-blue-50/80 font-bold text-blue-700" : "text-slate-800 font-bold"
+                  }`}
+                >
+                  <div className="font-bold">{p.partName}</div>
+                  <div className="text-[10px] text-slate-500 flex items-center justify-between mt-0.5">
+                    <span>No: {p.partNumber}</span>
+                    {p.vendorName && <span className="text-slate-400 truncate max-w-[140px] font-normal">{p.vendorName}</span>}
+                    <span className="text-emerald-600 font-semibold">Std Allowance: {p.allowanceRatio ?? 0.5}%</span>
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 interface PartRow {
   id: number;
@@ -41,6 +152,7 @@ export default function BuatQprView({
 }: BuatQprViewProps) {
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [partsBySupplier, setPartsBySupplier] = useState<Record<string, any[]>>({});
+  const [allParts, setAllParts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [supplierId, setSupplierId] = useState<string | "">("");
   const [supplierSearchQuery, setSupplierSearchQuery] = useState("");
@@ -94,8 +206,12 @@ export default function BuatQprView({
 
   // Fetch real vendors and parts mapping on mount
   useEffect(() => {
-    vendorService.getAll()
-      .then((vendorsList) => {
+    setIsLoading(true);
+    Promise.all([
+      vendorService.getAll(),
+      partService.getAll().catch(() => [])
+    ])
+      .then(([vendorsList, partsListResponse]) => {
         if (Array.isArray(vendorsList)) {
           const mappedSuppliers = vendorsList.map((v: any) => ({
             id: v.id,
@@ -105,27 +221,57 @@ export default function BuatQprView({
           setSuppliers(mappedSuppliers);
 
           const mappedPartsBySup: Record<string, any[]> = {};
+          const flatParts: any[] = [];
+
           vendorsList.forEach((v: any) => {
             const partsList: any[] = [];
             if (v.vendorParts && Array.isArray(v.vendorParts)) {
               v.vendorParts.forEach((vp: any) => {
                 if (vp.part) {
-                  partsList.push({
+                  const partItem = {
                     id: vp.part.id,
                     partNumber: vp.part.partNumber,
                     partName: vp.part.partDesc || vp.part.partNumber,
                     allowanceRatio: vp.part.allowanceRatio !== undefined && vp.part.allowanceRatio !== null ? vp.part.allowanceRatio : 0.5,
-                  });
+                    vendorId: v.id,
+                    vendorName: v.vendorName
+                  };
+                  partsList.push(partItem);
+                  flatParts.push(partItem);
                 }
               });
             }
             mappedPartsBySup[v.id] = partsList;
           });
+
+          // Also merge standalone parts if any
+          if (Array.isArray(partsListResponse)) {
+            partsListResponse.forEach((p: any) => {
+              if (!flatParts.some(fp => String(fp.id) === String(p.id))) {
+                const vpVendor = p.vendorParts?.[0]?.vendor;
+                const partItem = {
+                  id: p.id,
+                  partNumber: p.partNumber,
+                  partName: p.partDesc || p.partNumber,
+                  allowanceRatio: p.allowanceRatio !== undefined && p.allowanceRatio !== null ? p.allowanceRatio : 0.5,
+                  vendorId: vpVendor?.id || "",
+                  vendorName: vpVendor?.vendorName || ""
+                };
+                flatParts.push(partItem);
+                if (partItem.vendorId) {
+                  if (!mappedPartsBySup[partItem.vendorId]) mappedPartsBySup[partItem.vendorId] = [];
+                  mappedPartsBySup[partItem.vendorId].push(partItem);
+                }
+              }
+            });
+          }
+
           setPartsBySupplier(mappedPartsBySup);
+          setAllParts(flatParts);
         }
       })
       .catch((err) => {
-        console.error("Failed to load vendors:", err);
+        console.error("Failed to load vendors & parts:", err);
       })
       .finally(() => {
         setIsLoading(false);
@@ -310,10 +456,11 @@ export default function BuatQprView({
   };
 
   const selectedSupplier = suppliers.find(s => s.id === supplierId);
-  const availableParts = supplierId ? (partsBySupplier[supplierId] || []) : [];
+  const availableParts = (supplierId ? partsBySupplier[supplierId] : allParts) || [];
+  const partsListForSelection = availableParts.length > 0 ? availableParts : allParts;
 
   const getPartsForRow = (rowId: number) => {
-    return availableParts.filter(
+    return partsListForSelection.filter(
       p => !partRows.some(r => r.id !== rowId && String(r.partId) === String(p.id))
     );
   };
@@ -324,7 +471,7 @@ export default function BuatQprView({
         const updated = { ...r, [field]: value };
         if (field === "totalQty" || field === "partId") {
           const qty = parseInt(updated.totalQty) || 0;
-          const matchedPart = availableParts.find(p => String(p.id) === String(updated.partId));
+          const matchedPart = partsListForSelection.find(p => String(p.id) === String(updated.partId));
           const ratio = matchedPart?.allowanceRatio !== undefined && matchedPart?.allowanceRatio !== null ? matchedPart.allowanceRatio : 0.5;
           updated.stdAllowance = String(Math.round(qty * (ratio / 100)));
         }
@@ -426,7 +573,7 @@ export default function BuatQprView({
 
     const qprNum = selectedQprForEdit 
       ? selectedQprForEdit.qprNumber 
-      : `QPR/${date.slice(0, 7).replace("-", "/")}/${selectedSupplier?.name.replace("PT ", "").replace(/ /g, "_").toUpperCase()}`;
+      : generateNextQprNumber(pendingQprs || [], date);
 
     const payload = {
       qprNumber: qprNum,
@@ -713,26 +860,26 @@ export default function BuatQprView({
                 />
               </div>
 
-              {/* Upload PDF */}
+              {/* Upload Lampiran (PDF / Foto / JPEG / PNG) */}
               <div className="space-y-1.5 sm:col-span-2">
                 <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                  Upload File PDF Lampiran <span className="text-red-500">*</span>
+                  Upload File Lampiran (PDF, Foto / JPG / PNG) <span className="text-red-500">*</span>
                 </label>
                 <div className="flex items-center gap-3">
                   <label className="flex items-center gap-2 px-4 py-2 border border-dashed border-blue-300 bg-blue-50/50 hover:bg-blue-50 text-blue-700 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-sm">
                     <FileText size={14} />
-                    Pilih File PDF
+                    Pilih File PDF / Foto
                     <input
                       type="file"
-                      accept="application/pdf"
+                      accept="application/pdf,image/*,.png,.jpg,.jpeg,.webp"
                       multiple
                       onChange={e => {
                         const files = Array.from(e.target.files || []);
                         if (files.length === 0) return;
                         
-                        const nonPdf = files.find(f => f.type !== "application/pdf");
-                        if (nonPdf) {
-                          alert("Hanya diperbolehkan mengupload file PDF!");
+                        const invalidFiles = files.filter(f => !f.type.startsWith("image/") && f.type !== "application/pdf" && !/\.(pdf|png|jpg|jpeg|webp)$/i.test(f.name));
+                        if (invalidFiles.length > 0) {
+                          alert("Hanya diperbolehkan mengupload file PDF, JPEG, JPG, atau PNG!");
                           return;
                         }
 
@@ -800,15 +947,23 @@ export default function BuatQprView({
                 )}
 
                 {attachments.length > 0 && attachments[activePreviewIdx] && (
-                  <div className="w-full h-[250px] bg-slate-50 border border-slate-250 rounded-lg overflow-hidden relative shadow-inner mt-3">
+                  <div className="w-full h-[250px] bg-slate-50 border border-slate-250 rounded-lg overflow-hidden relative shadow-inner mt-3 flex items-center justify-center">
                     <div className="absolute top-2 right-2 z-10 bg-slate-900/60 text-white text-[9px] font-black px-2 py-1 rounded backdrop-blur-[1.5px] uppercase tracking-wider select-none">
                       Preview File: {attachments[activePreviewIdx].name}
                     </div>
-                    <iframe
-                      src={pdfBlobUrl}
-                      className="w-full h-full border-0"
-                      title="Direct Upload Preview"
-                    />
+                    {attachments[activePreviewIdx].base64.startsWith("data:image/") || /\.(png|jpg|jpeg|webp)$/i.test(attachments[activePreviewIdx].name) ? (
+                      <img
+                        src={attachments[activePreviewIdx].base64}
+                        alt={attachments[activePreviewIdx].name}
+                        className="max-h-full max-w-full object-contain p-2"
+                      />
+                    ) : (
+                      <iframe
+                        src={pdfBlobUrl}
+                        className="w-full h-full border-0"
+                        title="Direct Upload Preview"
+                      />
+                    )}
                   </div>
                 )}
               </div>
@@ -822,7 +977,7 @@ export default function BuatQprView({
                   value={remarks}
                   onChange={e => setRemarks(e.target.value)}
                   placeholder="Masukkan remarks/catatan tambahan untuk QPR di sini..."
-                  rows={2}
+                  rows={3}
                   className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-800 font-semibold bg-white placeholder-slate-400"
                 />
               </div>
@@ -837,8 +992,7 @@ export default function BuatQprView({
               </h4>
               <button
                 onClick={addRow}
-                disabled={!supplierId}
-                className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:cursor-not-allowed text-white text-[10px] font-bold rounded-lg transition-all cursor-pointer"
+                className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold rounded-lg transition-all cursor-pointer shadow-sm"
               >
                 <Plus size={11} /> Tambah Part
               </button>
@@ -867,18 +1021,23 @@ export default function BuatQprView({
                     const isNgExceeded = qty > 0 && ng > qty;
                     return (
                       <tr key={row.id} className="border border-slate-300 hover:bg-slate-50/50 transition-colors">
-                        <td className="border border-slate-300 px-2 py-1.5">
-                          <select
+                        <td className="border border-slate-300 px-2 py-1.5 min-w-[220px]">
+                          <PartSearchDropdown
                             value={row.partId}
-                            onChange={e => updateRow(row.id, "partId", e.target.value)}
-                            disabled={!supplierId}
-                            className="w-full text-xs border-0 bg-transparent focus:ring-0 text-slate-800 font-semibold disabled:text-slate-400 cursor-pointer"
-                          >
-                            <option value="">— Pilih Part —</option>
-                            {getPartsForRow(row.id).map(p => (
-                              <option key={p.id} value={p.id}>{p.partName} ({p.partNumber})</option>
-                            ))}
-                          </select>
+                            onChange={(val) => updateRow(row.id, "partId", val)}
+                            onSelectPart={(selectedP) => {
+                              if (!supplierId && selectedP.vendorId) {
+                                setSupplierId(selectedP.vendorId);
+                                setSupplierSearchQuery(selectedP.vendorName || "");
+                              }
+                              const ratio = selectedP.allowanceRatio !== undefined && selectedP.allowanceRatio !== null ? selectedP.allowanceRatio : 0.5;
+                              const rowTotal = parseInt(row.totalQty) || 0;
+                              if (rowTotal > 0) {
+                                updateRow(row.id, "stdAllowance", String(Math.round(rowTotal * (ratio / 100))));
+                              }
+                            }}
+                            parts={partsListForSelection}
+                          />
                         </td>
                         <td className="border border-slate-300 px-2 py-1.5">
                           <input
@@ -1033,7 +1192,7 @@ export default function BuatQprView({
                   return;
                 }
                 setPreviewQpr({
-                  qprNumber: `QPR/${date.slice(0,7).replace("-","/")}/${selectedSupplier?.name.replace("PT ","").replace(/ /g,"_").toUpperCase()}`,
+                  qprNumber: selectedQprForEdit?.qprNumber || generateNextQprNumber(pendingQprs || [], date),
                   supplierName: selectedSupplier?.name || "",
                   partName: (() => {
                     const firstRow = partRows[0];

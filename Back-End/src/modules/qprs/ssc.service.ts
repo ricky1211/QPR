@@ -9,16 +9,21 @@ export class SscService {
   // ==================== SSC BILLING ====================
 
   async findAllBillings(): Promise<SscBilling[]> {
-    return this.prisma.sscBilling.findMany({
-      include: {
-        cl: {
-          include: {
-            vendor: true,
-            qpr: true,
+    try {
+      return await this.prisma.sscBilling.findMany({
+        include: {
+          cl: {
+            include: {
+              vendor: true,
+              qpr: true,
+            },
           },
         },
-      },
-    });
+      });
+    } catch (error: any) {
+      console.warn('[SscService] Database not available in findAllBillings():', error.message);
+      return [];
+    }
   }
 
   async findBillingById(id: string): Promise<SscBilling | null> {
@@ -121,16 +126,21 @@ export class SscService {
   // ==================== SSC PAYMENT ====================
 
   async findAllPayments(): Promise<SscPayment[]> {
-    return this.prisma.sscPayment.findMany({
-      include: {
-        cl: {
-          include: {
-            vendor: true,
-            qpr: true,
+    try {
+      return await this.prisma.sscPayment.findMany({
+        include: {
+          cl: {
+            include: {
+              vendor: true,
+              qpr: true,
+            },
           },
         },
-      },
-    });
+      });
+    } catch (error: any) {
+      console.warn('[SscService] Database not available in findAllPayments():', error.message);
+      return [];
+    }
   }
 
   async findPaymentById(id: string): Promise<SscPayment | null> {
