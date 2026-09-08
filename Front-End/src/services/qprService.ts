@@ -158,12 +158,20 @@ export const mapQprFromDb = (dbQpr: any) => {
     }
   }
 
+  const isMultipleParts = parts.length > 1;
+  const partName = isMultipleParts ? "All Type" : (parts[0]?.partName || "ALL TYPE PART FINISH");
+  const partNumber = (dbQpr.partNumber && dbQpr.partNumber !== "All Type" && dbQpr.partNumber !== "ALL TYPE")
+    ? dbQpr.partNumber
+    : (parts[0]?.partNumber || "-");
+
   return {
     id: dbQpr.id,
     qprNumber: dbQpr.qprNumber,
     date: dbQpr.date ? dbQpr.date.split("T")[0] : new Date().toISOString().split("T")[0],
     supplierName: dbQpr.vendor?.vendorName || `Vendor ${dbQpr.vendor?.vendorCode}`,
     supplierId: dbQpr.vendorId,
+    partName,
+    partNumber,
     period: getPeriodFromDate(dbQpr.date),
     totalItems: dbQpr.totalQty || 0,
     rejectItems: dbQpr.totalQtyNg || 0,

@@ -1195,20 +1195,23 @@ export default function BuatQprView({
                   qprNumber: selectedQprForEdit?.qprNumber || generateNextQprNumber(pendingQprs || [], date),
                   supplierName: selectedSupplier?.name || "",
                   partName: (() => {
-                    const firstRow = partRows[0];
+                    const validRows = partRows.filter(r => r.partId);
+                    if (validRows.length > 1) return "All Type";
+                    const firstRow = validRows[0];
                     if (firstRow && firstRow.partId) {
                       const matched = availableParts.find(p => String(p.id) === String(firstRow.partId));
                       return matched ? matched.partName : "ALL TYPE PART FINISH";
                     }
-                    return "ALL TYPE PART FINISH";
+                    return "All Type";
                   })(),
                   partNumber: (() => {
-                    const firstRow = partRows[0];
+                    const validRows = partRows.filter(r => r.partId);
+                    const firstRow = validRows[0];
                     if (firstRow && firstRow.partId) {
                       const matched = availableParts.find(p => String(p.id) === String(firstRow.partId));
-                      return matched ? matched.partNumber : "";
+                      return matched ? matched.partNumber : "-";
                     }
-                    return "";
+                    return "-";
                   })(),
                   period,
                   date,

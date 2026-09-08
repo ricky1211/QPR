@@ -169,22 +169,25 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
     };
   }, [initialTab, router]);
 
-  // Fetch real NCRs, Parts, QPRs, CLs, and Billings from backend PostgreSQL database on mount
+  // Fetch real NCRs, Parts, QPRs, CLs, and Billings from backend database on mount
   useEffect(() => {
     ncrService.getAll()
       .then((data) => {
-        if (Array.isArray(data)) {
+        if (Array.isArray(data) && data.length > 0) {
           const mapped = data.map((dbNcr: any) => mapNcrFromDb(dbNcr));
           setPendingNcrs(mapped);
+        } else {
+          setPendingNcrs([]);
         }
       })
       .catch((err) => {
-        console.error("Failed to fetch real NCRs:", err);
+        console.warn("Notice: Fetching NCRs:", err);
+        setPendingNcrs([]);
       });
 
     vendorService.getAll()
       .then((vendorsList) => {
-        if (Array.isArray(vendorsList)) {
+        if (Array.isArray(vendorsList) && vendorsList.length > 0) {
           setVendors(vendorsList);
           const mappedParts: any[] = [];
           vendorsList.forEach((v: any) => {
@@ -209,43 +212,46 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
         }
       })
       .catch((err) => {
-        console.error("Failed to fetch real parts:", err);
+        console.warn("Notice: Fetching parts:", err);
       });
 
     qprService.getAll()
       .then((dbQprs) => {
-        if (Array.isArray(dbQprs)) {
+        if (Array.isArray(dbQprs) && dbQprs.length > 0) {
           setPendingQprs(dbQprs.map((q: any) => mapQprFromDb(q)));
         } else {
           setPendingQprs([]);
         }
       })
       .catch((err) => {
-        console.error("Failed to fetch real QPRs:", err);
+        console.warn("Notice: Fetching QPRs:", err);
         setPendingQprs([]);
       });
 
     clService.getAll()
       .then((dbCls) => {
-        if (Array.isArray(dbCls)) {
+        if (Array.isArray(dbCls) && dbCls.length > 0) {
           setConfirmationLetters(dbCls.map((cl: any) => mapClFromDb(cl)));
         } else {
           setConfirmationLetters([]);
         }
       })
       .catch((err) => {
-        console.error("Failed to fetch real CLs:", err);
+        console.warn("Notice: Fetching CLs:", err);
         setConfirmationLetters([]);
       });
 
     sscService.getAllBillings()
       .then((dbBillings) => {
-        if (Array.isArray(dbBillings)) {
+        if (Array.isArray(dbBillings) && dbBillings.length > 0) {
           setCreatedSscBillings(dbBillings.map((b: any) => mapBillingFromDb(b)));
+        } else {
+          setCreatedSscBillings([]);
         }
       })
       .catch((err) => {
-        console.error("Failed to fetch real Billings:", err);
+        console.warn("Notice: Fetching Billings:", err);
+        setCreatedSscBillings([]);
       });
 
     // Lead-time auto-close logic:

@@ -217,14 +217,21 @@ export default function ListQprDashboard({
 
     // 2. Add QPRs
     pendingQprs.forEach((qpr) => {
+      const qprPartsList = (qpr.parts && qpr.parts.length > 0) ? qpr.parts : (qpr.items && qpr.items.length > 0 ? qpr.items : (qpr.qprParts && qpr.qprParts.length > 0 ? qpr.qprParts : []));
+      const isMulti = qprPartsList.length > 1;
+      const computedPartName = isMulti ? "All Type" : (qprPartsList[0]?.partName || qpr.partName || "Motherboard X1");
+      const computedPartNumber = (qpr.partNumber && qpr.partNumber !== "All Type" && qpr.partNumber !== "ALL TYPE")
+        ? qpr.partNumber
+        : (qprPartsList[0]?.partNumber || "-");
+
       list.push({
         id: `qpr-${qpr.id}`,
         type: "QPR",
         docNumber: qpr.qprNumber,
         date: qpr.date,
         vendorName: qpr.supplierName,
-        partNumber: qpr.parts?.[0]?.partNumber || qpr.partNumber || "MB-001",
-        partName: qpr.parts?.[0]?.partName || qpr.partName || "Motherboard X1",
+        partNumber: computedPartNumber,
+        partName: computedPartName,
         period: qpr.period || getPeriodFromDate(qpr.date),
         qty: qpr.totalItems || 1000,
         reject: qpr.rejectItems || 30,
@@ -236,7 +243,10 @@ export default function ListQprDashboard({
         requiredRole: qpr.requiredRole,
         approvalProgress: qpr.approvalProgress,
         approvedBy: qpr.approvedBy || (qpr.status === "APPROVED" || qpr.status === "CLOSED" || qpr.status === "APPROVED_INTERNAL" ? ["Section Head", "Dept Head", "Div Head", "Purchasing"] : []),
-        refObject: qpr
+        refObject: {
+          ...qpr,
+          parts: qprPartsList.length > 0 ? qprPartsList : qpr.parts
+        }
       });
     });
 
@@ -294,10 +304,11 @@ export default function ListQprDashboard({
         refObject: bill
       });
 
+      const paymentDocNumber = bill.clNumber ? `PAY-${bill.clNumber}` : `PAY-${bill.id || "001"}`;
       list.push({
         id: `payment-${bill.id}`,
         type: "SSC Payment",
-        docNumber: `PAY-${bill.clNumber}` || `PAY-${bill.id}`,
+        docNumber: paymentDocNumber,
         date: bill.dateSent || new Date().toISOString().split("T")[0],
         vendorName: bill.supplierName || "—",
         partNumber: "—",
@@ -329,6 +340,22 @@ export default function ListQprDashboard({
 
   // Details modal state
   const [selectedDoc, setSelectedDoc] = useState<any | null>(null);
+
+  React.useEffect(() => {
+    if (selectedDoc && (selectedDoc.type === "SSC Billing" || selectedDoc.type === "SSC Payment")) {
+      document.body.classList.add("print-imemo-active");
+      return () => {
+        document.body.classList.remove("print-imemo-active");
+      };
+    }
+  }, [selectedDoc]);
+
+  const handlePrintMemo = () => {
+    document.body.classList.add("print-imemo-active");
+    setTimeout(() => {
+      window.print();
+    }, 50);
+  };
 
   const handleViewDetail = (doc: any) => {
     setSelectedDoc(doc);
@@ -924,7 +951,11 @@ export default function ListQprDashboard({
             requiredRole: selectedDoc.requiredRole || selectedDoc.refObject?.requiredRole,
             approvalProgress: selectedDoc.approvalProgress || selectedDoc.refObject?.approvalProgress,
             approvedBy: selectedDoc.approvedBy || selectedDoc.refObject?.approvedBy,
-            parts: selectedDoc.refObject?.parts || [],
+            parts: (selectedDoc.refObject?.parts && selectedDoc.refObject.parts.length > 0)
+              ? selectedDoc.refObject.parts
+              : (selectedDoc.refObject?.items && selectedDoc.refObject.items.length > 0
+                  ? selectedDoc.refObject.items
+                  : (selectedDoc.refObject?.qprParts && selectedDoc.refObject.qprParts.length > 0 ? selectedDoc.refObject.qprParts : undefined)),
             problem: selectedDoc.refObject?.problem || "",
             claimType: selectedDoc.refObject?.claimType || [],
             refNcrNumber: selectedDoc.refObject?.refNcrNumber || "",
@@ -966,7 +997,7 @@ export default function ListQprDashboard({
       )}
 
       {selectedDoc && (selectedDoc.type === "SSC Billing" || selectedDoc.type === "SSC Payment") && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+        <div id="qpr-dashboard-imemo-modal" className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-slate-100 rounded-xl w-full max-w-4xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]">
             <div className="p-4 bg-slate-800 text-white flex justify-between items-center shrink-0">
               <div>
@@ -1083,16 +1114,9 @@ export default function ListQprDashboard({
                             Non PKP
                           </label>
                         </div>
-                        <div className="flex items-center gap-1.5 mr-2 font-sans">
+                        <div className="flex items-center gap-2">
                           <span className="font-bold">NPWP:</span>
-                          <div className="flex items-center gap-0.5 font-bold font-mono text-[10px] select-none">
-                            {(selectedDoc.refObject?.memoNpwp || "815710249408000").replace(/[^0-9]/g, "").slice(0, 15).padEnd(15, " ").split("").map((char, charIdx) => (
-                              <React.Fragment key={charIdx}>
-                                <span className="w-3 h-4 border border-black flex items-center justify-center bg-white text-black text-[9px] font-mono">{char}</span>
-                                {(charIdx === 1 || charIdx === 4 || charIdx === 7 || charIdx === 8 || charIdx === 11) && <span className="mx-0.2">-</span>}
-                              </React.Fragment>
-                            ))}
-                          </div>
+                          <span className="font-mono text-xs">{selectedDoc.refObject?.memoNpwp || "-"}</span>
                         </div>
                       </div>
                     </div>
@@ -1101,93 +1125,25 @@ export default function ListQprDashboard({
                     </div>
                     <div className="flex divide-x divide-black">
                       <div className="w-[180px] p-2 font-bold bg-slate-50/50 shrink-0 font-sans">Supporting Document</div>
-                      <div className="flex-1 p-2 bg-white font-semibold">{selectedDoc.refObject?.memoSupportingDoc || "-"}</div>
+                      <div className="flex-1 p-2 bg-white font-semibold">{selectedDoc.refObject?.memoSupportingDoc || "Terlampir Form QPR & Confirmation Letter"}</div>
                     </div>
                     <div className="flex divide-x divide-black">
                       <div className="w-[180px] p-2 font-bold bg-slate-50/50 shrink-0 font-sans">Billing Addressed to</div>
-                      <div className="flex-1 p-2 bg-white font-semibold min-h-[28px]">{selectedDoc.refObject?.memoBillingAddressedTo || ""}</div>
+                      <div className="flex-1 p-2 bg-white font-semibold min-h-[28px]">{selectedDoc.refObject?.memoBillingAddressedTo || selectedDoc.vendorName}</div>
                     </div>
                     <div className="flex divide-x divide-black">
                       <div className="w-[180px] p-2 font-bold bg-slate-50/50 shrink-0 font-sans">Customer Name</div>
                       <div className="flex-1 p-2 bg-white font-extrabold text-[12px] uppercase min-h-[28px]">{selectedDoc.refObject?.memoCustomerName || selectedDoc.vendorName}</div>
                     </div>
                     <div className="flex divide-x divide-black items-center">
-                      <div className="w-[180px] p-2 font-bold bg-slate-50/50 shrink-0 font-sans">Currency</div>
-                      <div className="flex-1 p-2 bg-white flex items-center gap-0.5 min-h-[28px]">
-                        {(selectedDoc.refObject?.memoCurrency || "IDR").split("").map((c, i) => (
-                          <span key={i} className="w-3.5 h-4.5 border border-black flex items-center justify-center bg-white text-black text-[9px] font-bold font-mono">{c}</span>
-                        ))}
+                      <div className="w-[180px] p-2 font-bold bg-slate-50/50 shrink-0 font-sans">Currency / Amount</div>
+                      <div className="flex-1 p-2 bg-white flex items-center gap-0.5 min-h-[28px] text-blue-900 font-mono font-bold">
+                        {selectedDoc.refObject?.memoCurrency || "IDR"} {typeof selectedDoc.refObject?.memoAmount === "number" ? selectedDoc.refObject.memoAmount.toLocaleString("id-ID") : (selectedDoc.claimAmount || selectedDoc.amount || "-")}
                       </div>
-                    </div>
-                    <div className="flex divide-x divide-black">
-                      <div className="w-[180px] p-2 font-bold bg-slate-50/50 shrink-0 font-sans">Amount</div>
-                      <div className="flex-1 p-2 bg-white font-extrabold text-[12px] min-h-[28px]">{selectedDoc.claimAmount}</div>
                     </div>
                     <div className="flex divide-x divide-black">
                       <div className="w-[180px] p-2 font-bold bg-slate-50/50 shrink-0 font-sans">Says</div>
-                      <div className="flex-1 p-2 bg-white font-semibold italic min-h-[28px]">{selectedDoc.refObject?.memoSays || ""}</div>
-                    </div>
-                  </div>
-
-                  {/* Data Accounting Block */}
-                  <div className="border border-black text-[10.5px] mb-4 font-sans">
-                    <div className="p-1.5 font-extrabold bg-slate-100 border-b border-black uppercase tracking-wider text-[8px] font-sans">
-                      DATA ACCOUNTING (Filled In by Accounting BU)
-                    </div>
-                    <div className="grid grid-cols-2 divide-x divide-black">
-                      <div className="flex flex-col divide-y divide-black">
-                        <div className="flex items-center p-1.5 gap-2">
-                          <span className="font-bold w-[120px] shrink-0 font-sans">Customer Code</span>
-                          <span className="mr-1.5 font-sans">:</span>
-                          <div className="flex items-center gap-0.5 font-bold font-mono text-xs select-none">
-                            {(selectedDoc.refObject?.acctCustomerCode || "OTC08002").split("").map((char, charIdx) => (
-                              <span key={charIdx} className="w-3.5 h-4.5 border border-black flex items-center justify-center bg-white text-black text-[10px]">{char}</span>
-                            ))}
-                          </div>
-                        </div>
-                        <div className="flex items-center p-1.5 font-sans gap-2">
-                          <span className="font-bold w-[120px] shrink-0 font-sans">Customer Type</span>
-                          <span className="mr-1.5 font-sans">:</span>
-                          <div className="flex items-center gap-3">
-                            <label className="flex items-center gap-1 font-bold">
-                              <span className={`w-3.5 h-3.5 border border-black flex items-center justify-center text-[10px] ${selectedDoc.refObject?.acctCustomerType === "Trade" ? "bg-black text-white" : ""}`}>
-                                {selectedDoc.refObject?.acctCustomerType === "Trade" ? "✓" : ""}
-                              </span>
-                              Trade
-                            </label>
-                            <label className="flex items-center gap-1 font-bold">
-                              <span className={`w-3.5 h-3.5 border border-black flex items-center justify-center text-[10px] ${(selectedDoc.refObject?.acctCustomerType === "Non Trade" || !selectedDoc.refObject?.acctCustomerType) ? "bg-black text-white" : ""}`}>
-                                {(selectedDoc.refObject?.acctCustomerType === "Non Trade" || !selectedDoc.refObject?.acctCustomerType) ? "✓" : ""}
-                              </span>
-                              Non Trade
-                            </label>
-                          </div>
-                        </div>
-                        <div className="flex items-center p-1.5 font-sans gap-2">
-                          <span className="font-bold w-[120px] shrink-0 font-sans">Trading Partner</span>
-                          <span className="mr-1.5 font-sans">:</span>
-                          <div className="flex items-center gap-0.5 font-bold font-mono text-xs select-none">
-                            {(selectedDoc.refObject?.acctTradingPartner || "").padEnd(5, " ").split("").map((char, charIdx) => (
-                              <span key={charIdx} className="w-3.5 h-4.5 border border-black flex items-center justify-center bg-white text-black text-[10px]">{char}</span>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex flex-col divide-y divide-black font-sans">
-                        <div className="flex items-center p-2 min-h-[32px] font-sans gap-2">
-                          <span className="font-bold w-[120px] shrink-0 font-sans">Exchange Rate*</span>
-                          <span className="mr-1.5 font-sans">:</span>
-                          <span className="font-semibold">{selectedDoc.refObject?.acctExchangeRate || "—"}</span>
-                        </div>
-                        <div className="flex items-center p-2 min-h-[32px] font-sans gap-2">
-                          <span className="font-bold w-[120px] shrink-0 font-sans">Journal</span>
-                          <span className="mr-1.5 font-sans">:</span>
-                          <span className="font-semibold">{selectedDoc.refObject?.acctJournal || "—"}</span>
-                        </div>
-                        <div className="p-1.5 px-2 text-[7.5px] text-slate-500 italic bg-slate-50/50 flex-1 flex items-center leading-normal font-sans">
-                          *if foreign currency applied and exchange rate is left blank, then exchange rate at SAP will be used
-                        </div>
-                      </div>
+                      <div className="flex-1 p-2 bg-white font-semibold italic min-h-[28px]">{selectedDoc.refObject?.memoSays || "—"}</div>
                     </div>
                   </div>
 
@@ -1207,9 +1163,8 @@ export default function ListQprDashboard({
                       <tbody>
                         {(() => {
                           const defaultGlRows = [
-                            { code: "OTC08002", name: "PT TEMARU ENGINEER", costCenter: "", amountDr: String(selectedDoc.claimAmount || "0").replace("Rp ", ""), amountCr: "", text: "Claim Part NG" },
-                            { code: "545-102-0000", name: "FOH Subcont Fee", costCenter: "MT015FOHGE", amountDr: "", amountCr: (parseFloat(String(selectedDoc.claimAmount || "0").replace(/[^0-9]/g, "")) * 0.9).toLocaleString("id-ID"), text: "Claim Part NG" },
-                            { code: "211-310-0000", name: "Tax Pay VAT Out", costCenter: "", amountDr: "", amountCr: (parseFloat(String(selectedDoc.claimAmount || "0").replace(/[^0-9]/g, "")) * 0.1).toLocaleString("id-ID"), text: "ppn 11%" }
+                            { code: "11310000", name: "Piutang Klaim Vendor", costCenter: "CC-QA01", amountDr: (parseFloat(String(selectedDoc.claimAmount || "0").replace(/[^0-9]/g, ""))).toLocaleString("id-ID"), amountCr: "", text: "Claim Part NG" },
+                            { code: "51200000", name: "Beban Denda Kualitas", costCenter: "CC-PROD01", amountDr: "", amountCr: (parseFloat(String(selectedDoc.claimAmount || "0").replace(/[^0-9]/g, ""))).toLocaleString("id-ID"), text: "Claim Part NG" }
                           ];
                           const rows = selectedDoc.refObject?.glRows && selectedDoc.refObject.glRows.length > 0 ? selectedDoc.refObject.glRows : defaultGlRows;
                           return Array.from({ length: Math.max(5, rows.length) }).map((_, i) => {
@@ -1239,8 +1194,8 @@ export default function ListQprDashboard({
                       <div className="p-1 border-b border-black bg-slate-50/50">Checked by <sup>1)</sup></div>
                     </div>
                     <div className="grid grid-cols-5 text-center divide-x divide-black h-[58px] items-end pb-2 bg-white">
-                      <div className="px-1 text-center font-sans font-bold border-b border-dashed border-slate-350 mx-1">{selectedDoc.refObject?.sigPrepared || "Bagas"}</div>
-                      <div className="px-1 text-center font-sans font-bold border-b border-dashed border-slate-350 mx-1">{selectedDoc.refObject?.sigApproved1 || "Anindita"}</div>
+                      <div className="px-1 text-center font-sans font-bold border-b border-dashed border-slate-350 mx-1">{selectedDoc.refObject?.sigPrepared || "Bagas Nur Pratama"}</div>
+                      <div className="px-1 text-center font-sans font-bold border-b border-dashed border-slate-350 mx-1">{selectedDoc.refObject?.sigApproved1 || "Anindita Irnilaningtyas"}</div>
                       <div className="px-1 text-center font-sans font-bold border-b border-dashed border-slate-350 mx-1">{selectedDoc.refObject?.sigApproved2 || "Evi Sulistyorini"}</div>
                       <div className="px-1 text-center font-sans font-bold border-b border-dashed border-slate-350 mx-1">{selectedDoc.refObject?.sigEntry || "—"}</div>
                       <div className="px-1 text-center font-sans font-bold border-b border-dashed border-slate-350 mx-1">{selectedDoc.refObject?.sigChecked || "—"}</div>
@@ -1253,21 +1208,10 @@ export default function ListQprDashboard({
                       <div className="p-1 py-1.5 truncate text-center">AR Function Lead</div>
                     </div>
                   </div>
-
-                  {/* Footer / Remark */}
-                  <div className="text-[8px] text-slate-500 leading-tight space-y-0.5 font-sans">
-                    <div><strong>Remark:</strong></div>
-                    <div>*) Only filled if billing type is recurring</div>
-                    <div>1) Every signing person must write down his / her full name in the grey box and his/her function in the blue box</div>
-                    <div className="flex justify-between pt-2 border-t border-slate-200 mt-2 text-[7.5px] font-mono text-slate-450 font-sans">
-                      <span>Approved by System {new Date(selectedDoc.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} 17:02</span>
-                      <span>Internal Memo - Onetime Billing {selectedDoc.refObject?.acctCustomerCode || "TEIN"}1 of 1</span>
-                    </div>
-                  </div>
                 </div>
               ) : (
                 <div 
-                  id="internal-memo-sheet"
+                  id="internal-memo-sheet-others"
                   className="bg-white text-black p-[12mm] shadow-lg border border-slate-455 w-[210mm] min-h-[297mm] text-left mx-auto relative flex flex-col print:shadow-none print:border-none print:w-[198mm] print:h-[280mm] print:p-[8mm] print:m-0"
                   style={{ fontFamily: '"Times New Roman", Times, serif', lineHeight: '1.2' }}
                 >
@@ -1282,18 +1226,6 @@ export default function ListQprDashboard({
                         <span className="font-bold w-24 shrink-0 font-sans">Business Area</span>
                         <span className="mr-2">:</span>
                         <span className="font-bold border-b border-black flex-1 min-h-[16px]">{selectedDoc.refObject?.memoBusinessArea || "MT"}</span>
-                      </div>
-                      <div className="flex text-xs">
-                        <span className="font-bold w-24 shrink-0 font-sans">Request Date</span>
-                        <span className="mr-2">:</span>
-                        <div className="flex items-center gap-0.5 font-bold font-mono text-xs select-none border-b border-black flex-1 pb-0.5">
-                          {(selectedDoc.refObject?.memoRequestDate || selectedDoc.date || "").replace(/[^0-9]/g, "").slice(0, 8).padEnd(8, " ").split("").map((char, charIdx) => (
-                            <React.Fragment key={charIdx}>
-                              <span className="w-3.5 h-4.5 border border-black flex items-center justify-center bg-white text-black text-[10px]">{char}</span>
-                              {(charIdx === 1 || charIdx === 3) && <span className="mx-0.5">/</span>}
-                            </React.Fragment>
-                          ))}
-                        </div>
                       </div>
                     </div>
 
@@ -1310,45 +1242,43 @@ export default function ListQprDashboard({
 
                   <div className="border border-black flex flex-col divide-y divide-black text-[11px] mb-4">
                     <div className="flex divide-x divide-black">
-                      <div className="w-[180px] p-2 font-bold bg-slate-50/50 shrink-0 font-sans">Title</div>
-                      <div className="flex-1 p-2 font-bold bg-white min-h-[28px] uppercase">{selectedDoc.refObject?.memoTitle || "Permintaan Pemotongan Tagihan Reject Vendor"}</div>
+                      <div className="w-[140px] p-2 font-bold bg-slate-50/50 shrink-0 font-sans">Title</div>
+                      <div className="flex-1 min-w-0 p-2 font-bold bg-white min-h-[28px] uppercase">{selectedDoc.refObject?.memoTitle || "Permintaan Pemotongan Tagihan Reject Vendor"}</div>
                     </div>
                     <div className="flex divide-x divide-black">
-                      <div className="w-[180px] p-2 font-bold bg-slate-50/50 shrink-0 font-sans">To</div>
-                      <div className="flex-1 p-2 font-semibold bg-white min-h-[28px]">SSC Invoicing & Payment</div>
+                      <div className="w-[140px] p-2 font-bold bg-slate-50/50 shrink-0 font-sans">To</div>
+                      <div className="flex-1 min-w-0 p-2 font-semibold bg-white min-h-[28px]">SSC Invoicing & Payment</div>
                     </div>
                     <div className="flex divide-x divide-black">
-                      <div className="w-[180px] p-2 font-bold bg-slate-50/50 shrink-0 font-sans">Instruction</div>
-                      <div className="flex-1 p-2 bg-white leading-relaxed font-sans pr-4">{selectedDoc.refObject?.memoInstruction || `Mohon diproses untuk pemotongan tagihan terhadap vendor ${selectedDoc.supplierName || "terkait"} sebesar ${selectedDoc.claimAmount || selectedDoc.amount || "-"} atas denda kualitas reject part.`}</div>
-                    </div>
-                    
-                    {/* Gold nested table matching ssc payment template preview */}
-                    <div className="w-full p-2 bg-white flex flex-col font-sans">
-                      <div className="pl-16 pr-2 py-2">
-                        <table className="w-full text-[9px] border-collapse border border-black">
-                          <thead>
-                            <tr className="text-black border border-black text-[8.5px] text-center font-bold">
-                              <th className="border border-black px-1.5 py-1 font-bold" style={{ backgroundColor: '#f2c811' }}>Customer</th>
-                              <th className="border border-black px-1.5 py-1 font-bold" style={{ backgroundColor: '#f2c811' }}>DocumentNo</th>
-                              <th className="border border-black px-1.5 py-1 font-bold" style={{ backgroundColor: '#f2c811' }}>Text</th>
-                              <th className="border border-black px-1.5 py-1 font-bold" style={{ backgroundColor: '#f2c811' }}>Vendor</th>
-                              <th className="border border-black px-1.5 py-1 font-bold" style={{ backgroundColor: '#f2c811' }}>Doc. Date</th>
-                              <th className="border border-black px-1.5 py-1 text-right font-bold" style={{ backgroundColor: '#f2c811' }}>Local Crcy Amt</th>
-                              <th className="border border-black px-1.5 py-1 font-bold" style={{ backgroundColor: '#f2c811' }}>Potong tagih payment date</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            <tr className="bg-white border border-black text-black">
-                              <td className="border border-black px-1.5 py-1 text-center font-mono font-bold">OTC08002</td>
-                              <td className="border border-black px-1.5 py-1 text-center font-mono font-bold">{selectedDoc.docNumber.replace("PAY-", "")}</td>
-                              <td className="border border-black px-1.5 py-1 text-left font-mono font-bold uppercase">POTONG TAGIH DENDA REJECT</td>
-                              <td className="border border-black px-1.5 py-1 text-left font-sans font-bold">{selectedDoc.vendorName}</td>
-                              <td className="border border-black px-1.5 py-1 text-center font-mono font-semibold">{selectedDoc.date}</td>
-                              <td className="border border-black px-1.5 py-1 text-right font-mono font-bold">{String(selectedDoc.claimAmount || "0").replace("Rp ", "")}</td>
-                              <td className="border border-black px-1.5 py-1 text-center font-mono font-bold">10/{parseInt(selectedDoc.date.split("/")[1] || "6") + 1}/26</td>
-                            </tr>
-                          </tbody>
-                        </table>
+                      <div className="w-[140px] p-2 font-bold bg-slate-50/50 shrink-0 font-sans">Instruction</div>
+                      <div className="flex-1 min-w-0 p-2 bg-white font-sans flex flex-col">
+                        <p className="leading-relaxed text-[10.5px] mb-2 pr-1 break-words">
+                          {selectedDoc.refObject?.memoInstruction || `Mohon diproses untuk pemotongan tagihan terhadap vendor ${selectedDoc.vendorName || "terkait"} sebesar ${selectedDoc.claimAmount || selectedDoc.amount || "-"} atas denda kualitas reject part.`}
+                        </p>
+                        <div className="w-full mt-1 mb-1">
+                          <table className="w-full text-[8.5px] border-collapse border border-black table-fixed">
+                            <thead>
+                              <tr className="text-black border border-black text-[8px] text-center font-bold">
+                                <th className="border border-black px-1 py-1 font-bold w-[14%]" style={{ backgroundColor: '#dce7f5' }}>Customer</th>
+                                <th className="border border-black px-1 py-1 font-bold w-[22%]" style={{ backgroundColor: '#dce7f5' }}>DocumentNo</th>
+                                <th className="border border-black px-1 py-1 font-bold w-[24%]" style={{ backgroundColor: '#dce7f5' }}>Text</th>
+                                <th className="border border-black px-1 py-1 font-bold w-[20%]" style={{ backgroundColor: '#dce7f5' }}>Vendor</th>
+                                <th className="border border-black px-1 py-1 font-bold w-[9%]" style={{ backgroundColor: '#dce7f5' }}>Doc. Date</th>
+                                <th className="border border-black px-1 py-1 text-right font-bold w-[11%]" style={{ backgroundColor: '#dce7f5' }}>Local Crcy Amt</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr className="bg-white border border-black text-black">
+                                <td className="border border-black px-1 py-1 text-center font-mono font-bold truncate">OTC08002</td>
+                                <td className="border border-black px-1 py-1 text-center font-mono font-bold truncate">{String(selectedDoc.docNumber || selectedDoc.refObject?.clNumber || "").replace("PAY-", "")}</td>
+                                <td className="border border-black px-1 py-1 text-left font-mono font-bold text-[7.5px] uppercase leading-tight">POTONG TAGIH DENDA REJECT</td>
+                                <td className="border border-black px-1 py-1 text-left font-sans font-bold text-[8px] leading-tight break-words">{selectedDoc.vendorName}</td>
+                                <td className="border border-black px-1 py-1 text-center font-mono font-semibold text-[8px]">{selectedDoc.date}</td>
+                                <td className="border border-black px-1 py-1 text-right font-mono font-bold text-[8.5px] whitespace-nowrap">{String(selectedDoc.claimAmount || selectedDoc.amount || "0").replace("Rp ", "")}</td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1361,8 +1291,8 @@ export default function ListQprDashboard({
                       <div className="p-1 border-b border-black bg-slate-50/50">Checked by <sup>1)</sup></div>
                     </div>
                     <div className="grid grid-cols-5 text-center divide-x divide-black h-[58px] items-end pb-2 bg-white">
-                      <div className="px-1 text-center font-sans font-bold border-b border-dashed border-slate-350 mx-1">{selectedDoc.refObject?.sigPrepared || "Bagas"}</div>
-                      <div className="px-1 text-center font-sans font-bold border-b border-dashed border-slate-350 mx-1">{selectedDoc.refObject?.sigApproved1 || "Anindita"}</div>
+                      <div className="px-1 text-center font-sans font-bold border-b border-dashed border-slate-350 mx-1">{selectedDoc.refObject?.sigPrepared || "Bagas Nur Pratama"}</div>
+                      <div className="px-1 text-center font-sans font-bold border-b border-dashed border-slate-350 mx-1">{selectedDoc.refObject?.sigApproved1 || "Anindita Irnilaningtyas"}</div>
                       <div className="px-1 text-center font-sans font-bold border-b border-dashed border-slate-350 mx-1">{selectedDoc.refObject?.sigApproved2 || "Evi Sulistyorini"}</div>
                       <div className="px-1 text-center font-sans font-bold border-b border-dashed border-slate-350 mx-1">{selectedDoc.refObject?.sigEntry || "—"}</div>
                       <div className="px-1 text-center font-sans font-bold border-b border-dashed border-slate-350 mx-1">{selectedDoc.refObject?.sigChecked || "—"}</div>
@@ -1380,36 +1310,8 @@ export default function ListQprDashboard({
             </div>
             <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-2 shrink-0 print:hidden">
               <button
-                onClick={() => {
-                  const el = document.getElementById("internal-memo-sheet");
-                  if (!el) return;
-                  const content = el.innerHTML;
-                  const styles = Array.from(document.querySelectorAll("link[rel='stylesheet'], style"))
-                    .map(s => s.outerHTML)
-                    .join("\n");
-                  const pw = window.open("", "_blank", "width=900,height=1200");
-                  if (!pw) return;
-                  pw.document.open();
-                  pw.document.write(`<!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8"/>
-    <title>Internal Memo</title>
-    ${styles}
-    <style>
-      *{box-sizing:border-box;}
-      html,body{margin:0;padding:0;background:white;font-family:Arial,sans-serif;}
-      @page{size:A4 portrait;margin:0;}
-      body>div{width:210mm;min-height:297mm;padding:12mm;background:white;font-family:Arial,sans-serif;line-height:1.2;font-size:12px;color:black;}
-    </style>
-  </head>
-  <body><div>${content}</div></body>
-</html>`);
-                  pw.document.close();
-                  pw.focus();
-                  setTimeout(() => { pw.print(); pw.close(); }, 500);
-                }}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg shadow-md transition-all cursor-pointer active:scale-95"
+                onClick={handlePrintMemo}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg shadow-md transition-all cursor-pointer active:scale-95 flex items-center gap-1.5"
               >
                 Print PDF
               </button>
@@ -1423,67 +1325,58 @@ export default function ListQprDashboard({
           </div>
           <style>{`
             @media print {
-              /* Sembunyikan semua elemen di luar modal dialog */
-              body > div:not(.fixed),
-              aside,
-              nav,
-              header,
-              footer,
-              .print\\:hidden,
-              button {
-                display: none !important;
+              @page {
+                size: A4 portrait;
+                margin: 0 !important;
               }
-
-              /* Atur kontainer dialog agar membiarkan children terlihat */
-              .fixed {
-                position: absolute !important;
-                left: 0 !important;
-                top: 0 !important;
+              html, body {
+                background: #ffffff !important;
+                margin: 0 !important;
+                padding: 0 !important;
                 width: 100% !important;
-                height: auto !important;
-                background: white !important;
-                overflow: visible !important;
-                display: block !important;
+                height: 100% !important;
               }
-
-              .fixed > div {
-                background: white !important;
-                border: none !important;
-                box-shadow: none !important;
-                max-height: none !important;
-                overflow: visible !important;
-                display: block !important;
-              }
-
-              /* Hilangkan header modal berwarna gelap */
-              .bg-slate-800, .shrink-0 {
-                display: none !important;
-              }
-
-              /* Pastikan sheet terlihat dan berukuran pas A4 */
-              #internal-memo-sheet {
-                visibility: visible !important;
-                display: flex !important;
-                margin: 0 auto !important;
-                padding: 10mm !important;
-                width: 198mm !important;
-                height: 280mm !important;
-                border: none !important;
-                box-shadow: none !important;
-                background: white !important;
-                page-break-inside: avoid !important;
+              * {
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
               }
-              
-              #internal-memo-sheet * {
+
+              body.print-imemo-active * {
+                visibility: hidden !important;
+              }
+
+              body.print-imemo-active #internal-memo-sheet,
+              body.print-imemo-active #internal-memo-sheet *,
+              body.print-imemo-active #internal-memo-sheet-others,
+              body.print-imemo-active #internal-memo-sheet-others * {
                 visibility: visible !important;
+              }
+
+              body.print-imemo-active #internal-memo-sheet,
+              body.print-imemo-active #internal-memo-sheet-others {
+                position: fixed !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 210mm !important;
+                min-height: 297mm !important;
+                max-width: 210mm !important;
+                margin: 0 auto !important;
+                padding: 10mm 12mm !important;
+                border: none !important;
+                box-shadow: none !important;
+                background: #ffffff !important;
+                display: flex !important;
+                flex-direction: column !important;
+                box-sizing: border-box !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+                overflow: visible !important;
+                z-index: 999999 !important;
               }
             }
           `}</style>
         </div>
       )}
-
 
 
     </div>

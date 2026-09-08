@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 
 import ConfirmationLetterPrintPreview from "../role-views/ConfirmationLetterPrintPreview";
+import QprPrintPreview from "../role-views/QprPrintPreview";
 
 interface PipelineStage {
   name: string;
@@ -220,6 +221,7 @@ export default function Dashboard({
   handleMarkClosedPaid
 }: DashboardProps) {
   const [previewClDoc, setPreviewClDoc] = useState<any | null>(null);
+  const [previewQprDoc, setPreviewQprDoc] = useState<any | null>(null);
   const [selectedRoleCard, setSelectedRoleCard] = useState<string | null>(null);
   const [globalSearch, setGlobalSearch] = useState("");
   const [selectedPipelineDoc, setSelectedPipelineDoc] = useState<any | null>(null);
@@ -936,10 +938,15 @@ export default function Dashboard({
 
         {/* QPR Card */}
         {(() => {
-          const qprPct = totalQprs > 0 ? Math.round((qprClosed / totalQprs) * 100) : 0;
-          const avgQprLt = currentActiveQprs.length > 0
-            ? Math.round(currentActiveQprs.reduce((s: number, q: any) => s + getDocLeadTimes(q).totalLeadTime, 0) / currentActiveQprs.length)
-            : 7;
+          const qprStageProgressSum = currentActiveQprs.reduce((acc: number, q: any) => {
+            if (q.status === "APPROVED" || q.status === "CLOSED" || q.status === "CLOSED_PAID" || q.requiredRole === "Closed") return acc + 100;
+            if (q.requiredRole === "Purchasing") return acc + 75;
+            if (q.requiredRole === "Div Head") return acc + 50;
+            if (q.requiredRole === "Dept Head") return acc + 35;
+            if (q.requiredRole === "Section Head") return acc + 20;
+            return acc + 15;
+          }, 0) + (baselineClosedQprs * 100);
+          const qprPct = totalQprs > 0 ? Math.min(100, Math.max(0, Math.round(qprStageProgressSum / totalQprs))) : 0;
           return (
             <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-3">
               <div>
@@ -949,11 +956,16 @@ export default function Dashboard({
               </div>
               <div className="space-y-1.5">
                 <div className="flex justify-between text-xs font-bold text-slate-700">
-                  <span className="text-indigo-600">{qprInProgress} Proses</span>
-                  <span className="text-emerald-600">{qprClosed} Selesai</span>
+                  <span className="text-indigo-600 font-extrabold">{qprInProgress} Proses</span>
+                  <span className="text-emerald-600 font-extrabold">{qprClosed} Selesai</span>
                 </div>
-                <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                  <div className="bg-emerald-500 h-full rounded-full transition-all duration-500" style={{ width: `${qprPct}%` }} />
+                <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden p-0.5 border border-slate-200/60 shadow-inner">
+                  <div 
+                    className={`h-full rounded-full transition-all duration-500 ${
+                      qprClosed >= totalQprs && totalQprs > 0 ? "bg-emerald-500" : "bg-gradient-to-r from-indigo-500 to-indigo-600 shadow-xs"
+                    }`} 
+                    style={{ width: `${Math.max(qprPct > 0 ? 8 : 0, qprPct)}%` }} 
+                  />
                 </div>
               </div>
             </div>
@@ -962,13 +974,14 @@ export default function Dashboard({
 
         {/* CL Card */}
         {(() => {
-          const clPct = totalCl > 0 ? Math.round((clLunas / totalCl) * 100) : 0;
-          const avgClLt = currentActiveConfirmationLetters.length > 0
-            ? Math.round(currentActiveConfirmationLetters.reduce((s: number, cl: any) => s + getDocLeadTimes(cl).totalLeadTime, 0) / currentActiveConfirmationLetters.length)
-            : 5;
-          const totalClaimVal = totalClaimsVal > 0
-            ? `Rp ${(totalClaimsVal / 1_000_000).toFixed(1)}jt`
-            : "-";
+          const clStageProgressSum = currentActiveConfirmationLetters.reduce((acc: number, cl: any) => {
+            if (cl.status === "CLOSED_PAID" || cl.closedPaid) return acc + 100;
+            if (cl.status === "APPROVED_BY_VENDOR" || cl.vendorApproved || cl.status === "FULLY_APPROVED") return acc + 80;
+            if (cl.purchasingSentCl || cl.status === "SENT_TO_VENDOR" || cl.status === "WAITING_VENDOR") return acc + 60;
+            if (cl.status === "APPROVED" || cl.status === "APPROVED_DEPT" || cl.clApprovalProgress?.deptAccounting || (Array.isArray(cl.approvedBy) && cl.approvedBy.includes("Accounting"))) return acc + 40;
+            return acc + 20;
+          }, 0) + (currentConfig.claimClosedPaidCount * 100);
+          const clPct = totalCl > 0 ? Math.min(100, Math.max(0, Math.round(clStageProgressSum / totalCl))) : 0;
           return (
             <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-3">
               <div>
@@ -978,11 +991,16 @@ export default function Dashboard({
               </div>
               <div className="space-y-1.5">
                 <div className="flex justify-between text-xs font-bold text-slate-700">
-                  <span className="text-blue-600">{clProgress} Proses</span>
-                  <span className="text-emerald-600">{clLunas} Lunas</span>
+                  <span className="text-blue-600 font-extrabold">{clProgress} Proses</span>
+                  <span className="text-emerald-600 font-extrabold">{clLunas} Lunas</span>
                 </div>
-                <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                  <div className="bg-emerald-500 h-full rounded-full transition-all duration-500" style={{ width: `${clPct}%` }} />
+                <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden p-0.5 border border-slate-200/60 shadow-inner">
+                  <div 
+                    className={`h-full rounded-full transition-all duration-500 ${
+                      clLunas >= totalCl && totalCl > 0 ? "bg-emerald-500" : "bg-gradient-to-r from-blue-500 to-indigo-600 shadow-xs"
+                    }`} 
+                    style={{ width: `${Math.max(clPct > 0 ? 8 : 0, clPct)}%` }} 
+                  />
                 </div>
               </div>
             </div>
@@ -1174,11 +1192,36 @@ export default function Dashboard({
                           <td className="px-4 py-3 font-bold text-slate-700">{doc.amount}</td>
                           <td className="px-4 py-3 text-right">
                             <button
-                              onClick={() => setActiveTab(doc.activeTab)}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-[11px] font-bold shadow-sm transition-all cursor-pointer"
+                              onClick={() => {
+                                if (doc.type === "CL" || doc.type === "Confirmation Letter") {
+                                  const targetCl = confirmationLetters.find(c => c.clNumber === doc.docNumber || c.id === doc.id.replace("cl-", ""));
+                                  setPreviewClDoc(targetCl || {
+                                    id: doc.id,
+                                    clNumber: doc.docNumber,
+                                    supplierName: doc.vendor,
+                                    dateSent: doc.date,
+                                    amount: doc.amount,
+                                    status: "PENDING"
+                                  });
+                                } else if (doc.type === "QPR") {
+                                  const targetQpr = pendingQprs.find(q => q.qprNumber === doc.docNumber || q.id === doc.id.replace("qpr-", ""));
+                                  setPreviewQprDoc(targetQpr || {
+                                    id: doc.id,
+                                    qprNumber: doc.docNumber,
+                                    supplierName: doc.vendor,
+                                    date: doc.date,
+                                    claimAmount: doc.amount,
+                                    status: "WAITING_APPROVAL"
+                                  });
+                                } else {
+                                  setActiveTab(doc.activeTab);
+                                }
+                              }}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white border border-blue-200 hover:border-transparent rounded-lg text-[11px] font-bold shadow-sm transition-all cursor-pointer active:scale-95"
+                              title="Lihat Pratinjau Dokumen"
                             >
-                              Buka Approval
-                              <ArrowRight size={11} />
+                              <Eye size={12} />
+                              Preview
                             </button>
                           </td>
                         </tr>
@@ -1490,6 +1533,13 @@ export default function Dashboard({
         <ConfirmationLetterPrintPreview
           cl={previewClDoc}
           onClose={() => setPreviewClDoc(null)}
+        />
+      )}
+
+      {previewQprDoc && (
+        <QprPrintPreview
+          qpr={previewQprDoc}
+          onClose={() => setPreviewQprDoc(null)}
         />
       )}
 

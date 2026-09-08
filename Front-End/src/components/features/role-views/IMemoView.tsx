@@ -89,9 +89,9 @@ export default function IMemoView({
   ]);
 
   // Signatures
-  const [sigPrepared, setSigPrepared] = useState("Bagas");
+  const [sigPrepared, setSigPrepared] = useState("Bagas Nur Pratama");
   const [sigPreparedRole, setSigPreparedRole] = useState("Accounting BU");
-  const [sigApproved1, setSigApproved1] = useState("Anindita");
+  const [sigApproved1, setSigApproved1] = useState("Anindita Irnilaningtyas");
   const [sigApproved1Role, setSigApproved1Role] = useState("Accounting Dept Head");
   const [sigApproved2, setSigApproved2] = useState("Evi Sulistyorini");
   const [sigApproved2Role, setSigApproved2Role] = useState("Admin Div/BOD");
@@ -310,9 +310,9 @@ export default function IMemoView({
     setPayTitle("Permohonan Pemotongan Invoice Vendor");
     setPayTo("SSC Invoicing & Payment");
     setPayInstruction("Sehubungan dengan ditemukannya komponen NG yang bukan disebabkan oleh proses internal kami, mohon dapat dilakukan pemotongan pembayaran terhadap vendor berikut :");
-    setPaySigPrepared("Bagas Nur P");
+    setPaySigPrepared("Bagas Nur Pratama");
     setPaySigPreparedRole("Accounting BU");
-    setPaySigApproved1("Anindita I");
+    setPaySigApproved1("Anindita Irnilaningtyas");
     setPaySigApproved1Role("Accounting Dept Head");
     setPaySigApproved2("Evi Sulistyorini");
     setPaySigApproved2Role("Admin Div/BOD");
@@ -413,23 +413,16 @@ export default function IMemoView({
         console.error("Failed to save SSC Billing in DB:", err);
       });
 
-    // Tentukan sheet mana yang aktif
-    const sheetId = document.getElementById("manual-billing-sheet") ? "manual-billing-sheet" : "internal-memo-sheet";
-    const el = document.getElementById(sheetId);
-    if (!el) {
-      console.error("Print sheet element tidak ditemukan");
-      return;
-    }
-
-    // Tandai elemen root agar @media print CSS tahu sheet mana yang harus ditampilkan
-    document.documentElement.setAttribute("data-printing-memo", sheetId);
-
-    // Gunakan window.print() langsung — styling 100% identik dengan preview
+    // Pastikan sheet preview ter-mount sebelum print
+    setShowSscBillingPreview(true);
     setTimeout(() => {
+      const sheetId = "manual-billing-sheet";
+      document.documentElement.setAttribute("data-printing-memo", sheetId);
       window.print();
-      // Hapus atribut setelah print selesai / dibatalkan
-      document.documentElement.removeAttribute("data-printing-memo");
-    }, 100);
+      setTimeout(() => {
+        document.documentElement.removeAttribute("data-printing-memo");
+      }, 1000);
+    }, 150);
   };
 
   const handlePrintPayment = () => {
@@ -484,18 +477,16 @@ export default function IMemoView({
       return cl;
     }));
 
-    const sheetId = "internal-memo-sheet";
-    const el = document.getElementById(sheetId);
-    if (!el) {
-      console.error("Print sheet element tidak ditemukan");
-      return;
-    }
-
-    document.documentElement.setAttribute("data-printing-memo", sheetId);
+    // Pastikan sheet preview ter-mount sebelum print
+    setShowSscPaymentPreview(true);
     setTimeout(() => {
+      const sheetId = "internal-memo-sheet";
+      document.documentElement.setAttribute("data-printing-memo", sheetId);
       window.print();
-      document.documentElement.removeAttribute("data-printing-memo");
-    }, 100);
+      setTimeout(() => {
+        document.documentElement.removeAttribute("data-printing-memo");
+      }, 1000);
+    }, 150);
   };
 
   const handleConfirmToPayment = () => {
@@ -814,9 +805,9 @@ export default function IMemoView({
     "Sehubungan dengan ditemukannya komponen NG yang bukan disebabkan oleh proses internal kami, mohon dapat dilakukan pemotongan pembayaran terhadap vendor berikut :"
   );
   const [payRequestDate, setPayRequestDate] = useState("10/04/2026");
-  const [paySigPrepared, setPaySigPrepared] = useState("Bagas Nur P");
+  const [paySigPrepared, setPaySigPrepared] = useState("Bagas Nur Pratama");
   const [paySigPreparedRole, setPaySigPreparedRole] = useState("Accounting BU");
-  const [paySigApproved1, setPaySigApproved1] = useState("Anindita I");
+  const [paySigApproved1, setPaySigApproved1] = useState("Anindita Irnilaningtyas");
   const [paySigApproved1Role, setPaySigApproved1Role] = useState("Accounting Dept Head");
   const [paySigApproved2, setPaySigApproved2] = useState("Evi Sulistyorini");
   const [paySigApproved2Role, setPaySigApproved2Role] = useState("Admin Div/BOD");
@@ -837,9 +828,9 @@ export default function IMemoView({
     setPayRequestDate(billing.memoRequestDate || "");
     setPayTitle("Permohonan Pemotongan Invoice Vendor");
     setPayTo("SSC Invoicing & Payment");
-    setPaySigPrepared(billing.sigPrepared || "Bagas Nur P");
+    setPaySigPrepared(billing.sigPrepared || "Bagas Nur Pratama");
     setPaySigPreparedRole(billing.sigPreparedRole || "Accounting BU");
-    setPaySigApproved1(billing.sigApproved1 || "Anindita I");
+    setPaySigApproved1(billing.sigApproved1 || "Anindita Irnilaningtyas");
     setPaySigApproved1Role(billing.sigApproved1Role || "Accounting Dept Head");
     setPaySigApproved2(billing.sigApproved2 || "Evi Sulistyorini");
     setPaySigApproved2Role(billing.sigApproved2Role || "Admin Div/BOD");
@@ -1351,8 +1342,8 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                                 { code: "545-102-0000", name: "FOH Subcont Fee", costCenter: "MT015FOHGE", amountDr: "", amountCr: "22.311", text: "Claim Part NG" },
                                 { code: "211-310-0000", name: "Tax Pay VAT Out", costCenter: "", amountDr: "", amountCr: "2.454", text: "ppn 11%" }
                               ]);
-                              setSigPrepared("Bagas");
-                              setSigApproved1("Anindita");
+                              setSigPrepared("Bagas Nur Pratama");
+                              setSigApproved1("Anindita Irnilaningtyas");
                               setSigApproved2("Evi Sulistyorini");
                               setSigEntry("");
                               setSigChecked("");
@@ -2021,9 +2012,9 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                                 setPayTitle("Permohonan Pemotongan Invoice Vendor");
                                 setPayTo("SSC Invoicing & Payment");
                                 setPayInstruction("Sehubungan dengan ditemukannya komponen NG yang bukan disebabkan oleh proses internal kami, mohon dapat dilakukan pemotongan pembayaran terhadap vendor berikut :");
-                                setPaySigPrepared("Bagas Nur P");
+                                setPaySigPrepared("Bagas Nur Pratama");
                                 setPaySigPreparedRole("Accounting BU");
-                                setPaySigApproved1("Anindita I");
+                                setPaySigApproved1("Anindita Irnilaningtyas");
                                 setPaySigApproved1Role("Accounting Dept Head");
                                 setPaySigApproved2("Evi Sulistyorini");
                                 setPaySigApproved2Role("Admin Div/BOD");
@@ -2272,22 +2263,18 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                             </div>
                             <div className="flex divide-x divide-black">
                               <div className="w-[180px] p-2 font-bold bg-slate-50/50 shrink-0 font-sans">Instruction</div>
-                              <div className="flex-1 p-2 bg-white leading-relaxed font-sans leading-relaxed text-[11.5px] pr-4">{payInstruction}</div>
-                            </div>
-                            
-                            {/* Gold Table (Embedded inside thick border content, aligned right/indented) */}
-                            <div className="w-full p-2 bg-white flex flex-col">
-                              <div className="pl-24 pr-2 py-2">
-                                <table className="w-full text-[9.5px] border-collapse border border-black font-sans">
+                              <div className="flex-1 p-2 bg-white leading-relaxed font-sans leading-relaxed text-[11.5px] pr-4">
+                                <p className="mb-3">{payInstruction}</p>
+                                <table className="w-full text-[9.5px] border-collapse border border-black font-sans table-fixed">
                                   <thead>
                                     <tr className="text-black border border-black text-[9px] text-center font-bold">
-                                      <th className="border border-black px-1.5 py-1 font-bold" style={{ backgroundColor: '#f2c811' }}>Customer</th>
-                                      <th className="border border-black px-1.5 py-1 font-bold" style={{ backgroundColor: '#f2c811' }}>DocumentNo</th>
-                                      <th className="border border-black px-1.5 py-1 font-bold" style={{ backgroundColor: '#f2c811' }}>Text</th>
-                                      <th className="border border-black px-1.5 py-1 font-bold" style={{ backgroundColor: '#f2c811' }}>Vendor</th>
-                                      <th className="border border-black px-1.5 py-1 font-bold" style={{ backgroundColor: '#f2c811' }}>Doc. Date</th>
-                                      <th className="border border-black px-1.5 py-1 text-right font-bold" style={{ backgroundColor: '#f2c811' }}>Local Crcy Amt</th>
-                                      <th className="border border-black px-1.5 py-1 font-bold" style={{ backgroundColor: '#f2c811' }}>Potong tagih payment date</th>
+                                      <th className="border border-black px-1.5 py-1 font-bold w-[13%]" style={{ backgroundColor: '#f2c811' }}>Customer</th>
+                                      <th className="border border-black px-1.5 py-1 font-bold w-[17%]" style={{ backgroundColor: '#f2c811' }}>DocumentNo</th>
+                                      <th className="border border-black px-1.5 py-1 font-bold w-[18%]" style={{ backgroundColor: '#f2c811' }}>Text</th>
+                                      <th className="border border-black px-1.5 py-1 font-bold w-[15%]" style={{ backgroundColor: '#f2c811' }}>Vendor</th>
+                                      <th className="border border-black px-1.5 py-1 font-bold w-[10%]" style={{ backgroundColor: '#f2c811' }}>Doc. Date</th>
+                                      <th className="border border-black px-1.5 py-1 text-right font-bold w-[12%]" style={{ backgroundColor: '#f2c811' }}>Amount</th>
+                                      <th className="border border-black px-1.5 py-1 font-bold w-[15%]" style={{ backgroundColor: '#f2c811' }}>Pay Date</th>
                                     </tr>
                                   </thead>
                                   <tbody>
@@ -2297,16 +2284,16 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                                       const formattedAmt = isNaN(numAmt) ? cl.amount : numAmt.toLocaleString("id-ID");
                                       return (
                                         <tr key={cl.id} className="bg-white border border-black text-black">
-                                          <td className="border border-black px-1.5 py-1 text-center font-mono font-bold">
+                                          <td className="border border-black px-1.5 py-1 text-center font-mono font-bold truncate">
                                             {cl.customerCode !== undefined ? cl.customerCode : "OTC08002"}
                                           </td>
-                                          <td className="border border-black px-1.5 py-1 text-center font-mono font-bold">
+                                          <td className="border border-black px-1.5 py-1 text-center font-mono font-bold truncate">
                                             {cl.documentNo !== undefined ? cl.documentNo : (cl.clNumber.replace(/[^0-9]/g, "").slice(-11) || `180000000${53 + idx}`)}
                                           </td>
                                           <td className="border border-black px-1.5 py-1 text-left font-mono font-bold text-[9px] uppercase">
                                             {cl.customText !== undefined ? cl.customText : `POTONG TAGIH ${getClaimText(cl)}`}
                                           </td>
-                                          <td className="border border-black px-1.5 py-1 text-left font-sans font-bold">
+                                          <td className="border border-black px-1.5 py-1 text-left font-sans font-bold text-[9px]">
                                             {cl.supplierName}
                                           </td>
                                           <td className="border border-black px-1.5 py-1 text-center font-mono font-semibold">
@@ -2330,8 +2317,11 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                                     )}
                                   </tbody>
                                 </table>
-
-                                {/* Demikian Terimakasih */}
+                              </div>
+                            </div>
+                            
+                            {/* Demikian Terimakasih */}
+                            <div className="w-full p-2 bg-white flex flex-col">
                                 <div className="mt-4 space-y-2.5 text-left font-sans">
                                   <div className="font-bold text-[11px] text-black">
                                     Demikian Terimakasih
@@ -2343,7 +2333,6 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                                 </div>
                               </div>
                             </div>
-                          </div>
 
                           {/* Signatures Panel */}
                           <div className="border border-black overflow-hidden mb-6 text-[11px] mt-auto font-sans print-signatures-panel">

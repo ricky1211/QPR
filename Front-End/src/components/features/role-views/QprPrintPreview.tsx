@@ -181,6 +181,24 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
   const claimCount = getClaimCountForVendor(qpr.supplierName);
   const isMoreThanOne = claimCount > 1;
 
+  // Unified parts list for both header and table
+  const tableParts = React.useMemo(() => {
+    if (qpr.parts && Array.isArray(qpr.parts) && qpr.parts.length > 0) return qpr.parts;
+    if (qpr.items && Array.isArray(qpr.items) && qpr.items.length > 0) return qpr.items;
+    if (qpr.qprParts && Array.isArray(qpr.qprParts) && qpr.qprParts.length > 0) return qpr.qprParts;
+    return PART_ITEMS;
+  }, [qpr]);
+
+  const isMultiplePartsInTable = tableParts.length > 1;
+  const headerPartName = isMultiplePartsInTable
+    ? "All Type"
+    : (tableParts[0]?.partName || qpr.partName || "ALL TYPE PART FINISH");
+  const headerPartNumber = (qpr.partNumber && qpr.partNumber !== "All Type" && qpr.partNumber !== "ALL TYPE")
+    ? qpr.partNumber
+    : (tableParts[0]?.partNumber && tableParts[0]?.partNumber !== "All Type" && tableParts[0]?.partNumber !== "ALL TYPE"
+        ? tableParts[0].partNumber
+        : (qpr.partNumber || "-"));
+
   // Local state for interactive editing
   const [localClaimTypes, setLocalClaimTypes] = React.useState<string[]>(
     Array.isArray(qpr.claimType) ? qpr.claimType : ["PROSES PACKING", "PROSES CHECK"]
@@ -374,11 +392,15 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
               <div style={{ fontSize: "8.5px", lineHeight: "1.5", fontWeight: "bold", color: "#334155" }}>
                 <div style={{ display: "grid", gridTemplateColumns: "85px 1fr" }}>
                   <span>Part Name</span>
-                  <span>: <span contentEditable suppressContentEditableWarning className="focus:bg-yellow-50 focus:outline-none print:bg-transparent">{qpr.partName || qpr.parts?.[0]?.partName || "ALL TYPE PART FINISH"}</span></span>
+                  <span>: <span contentEditable suppressContentEditableWarning className="focus:bg-yellow-50 focus:outline-none print:bg-transparent">
+                    {headerPartName}
+                  </span></span>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "85px 1fr" }}>
                   <span>Part Number</span>
-                  <span>: <span contentEditable suppressContentEditableWarning className="focus:bg-yellow-50 focus:outline-none print:bg-transparent">{qpr.partNumber || qpr.parts?.[0]?.partNumber || "-"}</span></span>
+                  <span>: <span contentEditable suppressContentEditableWarning className="focus:bg-yellow-50 focus:outline-none print:bg-transparent">
+                    {headerPartNumber}
+                  </span></span>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "85px 1fr" }}>
                   <span>Model</span>
@@ -520,15 +542,16 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
               </tr>
             </thead>
             <tbody>
-              {(qpr.parts || PART_ITEMS).map((item: any) => {
+              {tableParts.map((item: any, idx: number) => {
+                const itemNo = item.no !== undefined ? item.no : idx + 1;
                 const totalQty = item.totalQty || 0;
-                const qtyNG = item.qtyNG !== undefined ? item.qtyNG : item.qtyNg || 0;
+                const qtyNG = item.qtyNG !== undefined ? item.qtyNG : (item.qtyNg !== undefined ? item.qtyNg : 0);
                 const stdAllowance = item.stdAllowance !== undefined ? item.stdAllowance : Math.round(totalQty * 0.005);
                 const ngActual = item.ngActual !== undefined ? item.ngActual : (totalQty > 0 ? (qtyNG / totalQty) * 100 : 0);
                 const qtyClaim = item.qtyClaim !== undefined ? item.qtyClaim : qtyNG - stdAllowance;
                 return (
-                  <tr key={item.no}>
-                    <td style={{ border: "1px solid #000", padding: "3px 4px", textAlign: "center" }}>{item.no}</td>
+                  <tr key={itemNo}>
+                    <td style={{ border: "1px solid #000", padding: "3px 4px", textAlign: "center" }}>{itemNo}</td>
                     <td style={{ border: "1px solid #000", padding: "4px 8px", fontWeight: "bold", wordBreak: "break-word", whiteSpace: "normal", lineHeight: "1.35", color: "#0f172a" }}>{item.partName}</td>
                     <td style={{ border: "1px solid #000", padding: "2.5px 4px", textAlign: "center" }}>{totalQty.toLocaleString("id-ID")}</td>
                     <td style={{ border: "1px solid #000", padding: "2.5px 4px", textAlign: "center" }}>{qtyNG.toLocaleString("id-ID")}</td>
@@ -538,7 +561,7 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
                   </tr>
                 );
               })}
-              {[...Array(2)].map((_, i) => (
+              {[...Array(Math.max(0, 4 - tableParts.length))].map((_, i) => (
                 <tr key={`empty-${i}`}>
                   {[...Array(7)].map((__, j) => (
                     <td key={j} style={{ border: "1px solid #000", padding: "2.5px 4px", height: "12px" }}>&nbsp;</td>

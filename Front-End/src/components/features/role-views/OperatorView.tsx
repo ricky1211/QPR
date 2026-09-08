@@ -337,13 +337,11 @@ export default function OperatorView({
     const ncrNum = `NCR/2026/06/SIM-${Math.floor(100 + Math.random() * 900)}`;
 
     let mainPartName = "";
-    let mainPartNumber = "";
-    if (isAllPartsSelected) {
-      mainPartName = "CONE RACE ALL TYPE";
-      mainPartNumber = "ALL-TYPE-001";
+    let mainPartNumber = partsDetail[0]?.partNumber || "-";
+    if (isAllPartsSelected || partsDetail.length > 1) {
+      mainPartName = "All Type";
     } else {
-      mainPartName = partsDetail.map(p => p.partName).join(", ");
-      mainPartNumber = partsDetail.map(p => p.partNumber).join(", ");
+      mainPartName = partsDetail[0]?.partName || "";
     }
 
     const newNcr = {
@@ -505,13 +503,11 @@ export default function OperatorView({
       const ncrNum = `NCR/2026/06/DFT-${Math.floor(100 + Math.random() * 900)}`;
 
       let mainPartName = "";
-      let mainPartNumber = "";
-      if (isAllPartsSelected) {
-        mainPartName = "CONE RACE ALL TYPE";
-        mainPartNumber = "ALL-TYPE-001";
+      let mainPartNumber = partsDetail[0]?.partNumber || "-";
+      if (isAllPartsSelected || partsDetail.length > 1) {
+        mainPartName = "All Type";
       } else {
-        mainPartName = partsDetail.map(p => p.partName).join(", ");
-        mainPartNumber = partsDetail.map(p => p.partNumber).join(", ");
+        mainPartName = partsDetail[0]?.partName || "";
       }
 
       const newNcr = {

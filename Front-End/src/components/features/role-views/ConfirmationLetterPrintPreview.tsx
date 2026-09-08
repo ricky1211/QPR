@@ -324,12 +324,12 @@ export default function ConfirmationLetterPrintPreview({ cl, onClose, inline = f
               <img
                 src="/qpr/logo-mtm.png"
                 alt="MTM Logo"
-                className="h-[34px] w-auto object-contain"
+                className="h-[26px] w-auto object-contain"
               />
               <img
                 src="/qpr/stiker.png"
                 alt="TUV Certifications"
-                className="h-[38px] w-auto object-contain"
+                className="h-[26px] w-auto object-contain"
               />
             </div>
             {/* Garis Pembatas Header Logo */}
@@ -475,7 +475,7 @@ export default function ConfirmationLetterPrintPreview({ cl, onClose, inline = f
             className="mb-3 text-black"
           >
             <p className="text-justify mb-2">
-              Based on the data above, we will proceed with deducting the amount directly from the payment to <strong style={{ fontWeight: "800" }}>{formatSupplierForLetter(cl.supplierName)}</strong> if we do not receive any confirmation within 10 (ten) working days. We look forward to your confirmation.
+              Based on the data above, we will proceed with deducting the amount directly from the payment to {formatSupplierForLetter(cl.supplierName)} if we do not receive any confirmation within 10 (ten) working days. We look forward to your confirmation.
             </p>
             
             <div className="mt-2" style={{ fontWeight: "700" }}>

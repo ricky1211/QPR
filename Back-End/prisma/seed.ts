@@ -215,8 +215,8 @@ async function main() {
   }
   console.log('Vendor-part associations created.');
 
-  // Clean any mock/testing transactional records (QPR, CL, Billing, Payment, NCR) if present
-  console.log('Cleaning transactional test records...');
+  // Clean any mock/testing transactional records
+  console.log('Clearing any mock/testing transactional records...');
   await prisma.sscPayment.deleteMany({});
   await prisma.sscBilling.deleteMany({});
   await prisma.confirmationLetter.deleteMany({});
@@ -225,9 +225,8 @@ async function main() {
   await prisma.qpr.deleteMany({});
   await prisma.ncrApprovalProgress.deleteMany({});
   await prisma.ncr.deleteMany({});
-  console.log('Cleaned transactional test records.');
 
-  console.log('Master data seeding completed successfully!');
+  console.log('Database master data seeding completed successfully!');
 }
 
 main()
