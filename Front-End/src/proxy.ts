@@ -106,9 +106,9 @@ export function proxy(request: NextRequest) {
       }
     }
 
-    // 7. SSC Billing & Payments (I-Memo): Finance only
+    // 7. SSC Billing & Payments (I-Memo): Finance & Purchasing
     if (isMatch(['/i-memo'])) {
-      if (mtmUser !== 'finance') {
+      if (!['finance', 'purchasing'].includes(mtmUser)) {
         return redirectToDashboard()
       }
     }

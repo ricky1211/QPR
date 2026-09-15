@@ -21,6 +21,11 @@ export class QprsController {
     return this.qprsService.createConfirmationLetter(data);
   }
 
+  @Post('confirmation-letters/send-email')
+  async sendConfirmationLetterEmail(@Body() data: any): Promise<any> {
+    return this.qprsService.sendConfirmationLetterEmail(data);
+  }
+
   @Put('confirmation-letters/:id')
   async updateConfirmationLetter(@Param('id') id: string, @Body() data: any): Promise<any> {
     return this.qprsService.updateConfirmationLetter(id, data);

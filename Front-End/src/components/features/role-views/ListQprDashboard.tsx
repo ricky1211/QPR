@@ -745,33 +745,79 @@ export default function ListQprDashboard({
                               if (doc.type === "QPR" && doc.refObject) {
                                 const qpr = doc.refObject;
                                 const progress = qpr.approvalProgress;
+                                const startDate = qpr.createdAt || qpr.date;
                                 if (i === 0) {
                                   // Section Head
                                   if (stage.status === "APPROVED") {
-                                    stepDaysNum = getDaysBetween(qpr.date, progress?.approvedAtSectionHead || qpr.date);
+                                    stepDaysNum = getDaysBetween(startDate, progress?.approvedAtSectionHead || startDate);
                                   } else if (stage.status === "PENDING") {
-                                    stepDaysNum = getDaysBetween(qpr.date, new Date());
+                                    stepDaysNum = getDaysBetween(startDate, new Date());
                                   }
                                 } else if (i === 1) {
                                   // Dept Head
+                                  const s = progress?.approvedAtSectionHead || startDate;
                                   if (stage.status === "APPROVED") {
-                                    stepDaysNum = getDaysBetween(progress?.approvedAtSectionHead, progress?.approvedAtDeptHead || progress?.approvedAtSectionHead);
+                                    stepDaysNum = getDaysBetween(s, progress?.approvedAtDeptHead || s);
                                   } else if (stage.status === "PENDING") {
-                                    stepDaysNum = getDaysBetween(progress?.approvedAtSectionHead, new Date());
+                                    stepDaysNum = getDaysBetween(s, new Date());
                                   }
                                 } else if (i === 2) {
                                   // Div Head
+                                  const s = progress?.approvedAtDeptHead || progress?.approvedAtSectionHead || startDate;
                                   if (stage.status === "APPROVED") {
-                                    stepDaysNum = getDaysBetween(progress?.approvedAtDeptHead, progress?.approvedAtDivHead || progress?.approvedAtDeptHead);
+                                    stepDaysNum = getDaysBetween(s, progress?.approvedAtDivHead || s);
                                   } else if (stage.status === "PENDING") {
-                                    stepDaysNum = getDaysBetween(progress?.approvedAtDeptHead, new Date());
+                                    stepDaysNum = getDaysBetween(s, new Date());
                                   }
                                 } else if (i === 3) {
-                                  // Accounting
+                                  // Purchasing
+                                  const s = progress?.approvedAtDivHead || progress?.approvedAtDeptHead || startDate;
                                   if (stage.status === "APPROVED") {
-                                    stepDaysNum = getDaysBetween(progress?.approvedAtDivHead, progress?.approvedAtVendor || progress?.approvedAtDivHead);
+                                    stepDaysNum = getDaysBetween(s, progress?.approvedAtPurchasing || progress?.approvedAtVendor || s);
                                   } else if (stage.status === "PENDING") {
-                                    stepDaysNum = getDaysBetween(progress?.approvedAtDivHead, new Date());
+                                    stepDaysNum = getDaysBetween(s, new Date());
+                                  }
+                                }
+                              } else if (doc.type === "NCR" && doc.refObject) {
+                                const ncr = doc.refObject;
+                                const progress = ncr.ncrApprovalProgress;
+                                const startDate = ncr.createdAt || ncr.date;
+                                if (i === 0) {
+                                  // Foreman
+                                  stepDaysNum = 1;
+                                } else if (i === 1) {
+                                  // Section Head
+                                  if (stage.status === "APPROVED") {
+                                    stepDaysNum = getDaysBetween(startDate, progress?.approvedAtSectionHead || startDate);
+                                  } else if (stage.status === "PENDING") {
+                                    stepDaysNum = getDaysBetween(startDate, new Date());
+                                  }
+                                } else if (i === 2) {
+                                  // Dept Head
+                                  const s = progress?.approvedAtSectionHead || startDate;
+                                  if (stage.status === "APPROVED") {
+                                    stepDaysNum = getDaysBetween(s, progress?.approvedAtDeptHead || s);
+                                  } else if (stage.status === "PENDING") {
+                                    stepDaysNum = getDaysBetween(s, new Date());
+                                  }
+                                }
+                              } else if (doc.type === "CL" && doc.refObject) {
+                                const cl = doc.refObject;
+                                const startDate = cl.createdAt || cl.dateSent;
+                                if (i === 0) {
+                                  // Vendor
+                                  if (stage.status === "APPROVED") {
+                                    stepDaysNum = getDaysBetween(startDate, cl.vendorApprovedDate || cl.updatedAt || startDate);
+                                  } else if (stage.status === "PENDING") {
+                                    stepDaysNum = getDaysBetween(startDate, new Date());
+                                  }
+                                } else if (i === 1) {
+                                  // Accounting
+                                  const s = cl.vendorApprovedDate || startDate;
+                                  if (stage.status === "APPROVED") {
+                                    stepDaysNum = getDaysBetween(s, cl.updatedAt || s);
+                                  } else if (stage.status === "PENDING") {
+                                    stepDaysNum = getDaysBetween(s, new Date());
                                   }
                                 }
                               } else {

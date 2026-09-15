@@ -27,18 +27,38 @@ export const clService = {
     method: 'PUT',
     body: JSON.stringify(data),
   }),
+  sendEmail: (data: {
+    clId?: string;
+    clIds?: string[];
+    to: string;
+    subject: string;
+    body: string;
+    vendorName?: string;
+    dueDate?: string;
+    attachments?: Array<{ filename: string; content?: string; path?: string; contentType?: string }>;
+  }) => apiRequest('/qprs/confirmation-letters/send-email', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
 };
 
 export const mapClFromDb = (dbCl: any) => {
   const isApproved = dbCl.status === 'APPROVED';
+  const qprParts = dbCl.qpr?.qprParts || [];
+  const firstPart = qprParts[0]?.part?.partDesc || qprParts[0]?.part?.partNumber || "ALL TYPE PART FINISH";
+  const numAmount = typeof dbCl.amount === 'number' ? dbCl.amount : parseFloat(String(dbCl.amount || '0').replace(/[^0-9]/g, '')) || 0;
   
   return {
     id: dbCl.id,
     clNumber: dbCl.clNumber,
     qprNumber: dbCl.qpr?.qprNumber || "",
     supplierName: dbCl.vendor?.vendorName || `Vendor ${dbCl.vendor?.vendorCode}`,
+    partName: firstPart,
     dateSent: dbCl.dateSent ? dbCl.dateSent.split("T")[0] : new Date().toISOString().split("T")[0],
-    amount: dbCl.amount ? `Rp ${dbCl.amount.toLocaleString("id-ID")}` : "-",
+    amount: numAmount > 0 ? `Rp ${numAmount.toLocaleString("id-ID")}` : (dbCl.amount ? `Rp ${dbCl.amount}` : "-"),
+    rawAmount: numAmount,
+    totalClaimAmount: numAmount,
+    claimAmount: numAmount,
     status: dbCl.closedPaid ? "CLOSED_PAID" : (isApproved ? "FULLY_APPROVED" : dbCl.status === 'REJECTED' ? "REJECTED" : "PENDING"),
     requiredRole: isApproved ? "Closed" : "Dept Accounting",
     memoStatus: "SENT_AOP",
@@ -59,7 +79,7 @@ export const mapClFromDb = (dbCl: any) => {
     reminderCount: 1,
     items: (dbCl.qpr?.qprParts || []).map((qp: any) => {
       const qtyClaim = qp.qtyClaim !== undefined && qp.qtyClaim !== null ? qp.qtyClaim : (qp.qtyNg ? Math.max(0, qp.qtyNg - (qp.stdAllowance || 0)) : 0);
-      const unitPrice = qp.unitPrice || 250000;
+      const unitPrice = qp.unitPrice || 85000;
       return {
         id: qp.id,
         partId: qp.partId,
@@ -97,6 +117,7 @@ export const mapClFromDb = (dbCl: any) => {
       allowanceRatio: `${(((dbCl.qpr?.totalStdAllowance || 0) / (dbCl.qpr?.totalQty || 1)) * 100).toFixed(1)}%`,
       remarks: ""
     },
+    createdAt: dbCl.createdAt || dbCl.dateSent,
     updatedAt: dbCl.updatedAt,
   };
 };

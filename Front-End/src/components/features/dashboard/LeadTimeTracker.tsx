@@ -23,7 +23,7 @@ import {
   CreditCard,
   Check
 } from "lucide-react";
-import { getPeriodFromDate } from "@/services/qprService";
+import { getPeriodFromDate, formatLeadTime } from "@/services/qprService";
 
 interface LeadTimeTrackerProps {
   pendingQprs: any[];
@@ -34,133 +34,148 @@ export default function LeadTimeTracker({ pendingQprs = [], confirmationLetters 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL"); // ALL, ACTIVE, CLOSED_PAID
 
-  // Today reference matching Dashboard.tsx
-  const today = new Date("2026-07-10");
+  const now = new Date();
 
   // Dynamically calculate stages for active QPRs
   const activeDocs = pendingQprs.map(qpr => {
-    const docDate = new Date(qpr.date || new Date());
+    const createdAt = new Date(qpr.createdAt || qpr.date || now);
+    const assocCl = confirmationLetters.find(cl => cl.qprNumber === qpr.qprNumber || cl.id === qpr.id || cl.qprId === qpr.id);
     
-    // Determine if document is closed
+    // Milestones from QPR approvalProgress and CL
+    const secApprovedAt = qpr.approvalProgress?.approvedAtSectionHead ? new Date(qpr.approvalProgress.approvedAtSectionHead) : null;
+    const deptApprovedAt = qpr.approvalProgress?.approvedAtDeptHead ? new Date(qpr.approvalProgress.approvedAtDeptHead) : null;
+    const divApprovedAt = qpr.approvalProgress?.approvedAtDivHead ? new Date(qpr.approvalProgress.approvedAtDivHead) : null;
+    const purchasingApprovedAt = qpr.approvalProgress?.approvedAtPurchasing ? new Date(qpr.approvalProgress.approvedAtPurchasing) : null;
+    
+    const clSentAt = assocCl?.purchasingSentDate ? new Date(assocCl.purchasingSentDate) : (assocCl?.createdAt ? new Date(assocCl.createdAt) : null);
+    const vendorApprovedAt = (assocCl?.vendorApprovedDate ? new Date(assocCl.vendorApprovedDate) : null) || (qpr.approvalProgress?.approvedAtVendor ? new Date(qpr.approvalProgress.approvedAtVendor) : null);
+
     const isClosed = 
+      qpr.status === "CLOSED_PAID" || 
+      assocCl?.closedPaid === true || 
+      assocCl?.status === "CLOSED_PAID";
+
+    const isQprApproved = 
       qpr.status === "APPROVED" || 
       qpr.status === "CLOSED" || 
       qpr.status === "CLOSED_PAID" || 
-      qpr.status === "FULLY_APPROVED";
+      qpr.status === "FULLY_APPROVED" || 
+      qpr.requiredRole === "Closed" ||
+      !!purchasingApprovedAt ||
+      (!!assocCl && assocCl.status !== "DRAFT");
 
-    const endDate = isClosed && qpr.updatedAt ? new Date(qpr.updatedAt) : new Date();
-    
-    const diffTime = Math.max(0, endDate.getTime() - docDate.getTime());
-    const totalDaysElapsed = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+    // Phase 1: Inisiasi & Draf
+    const draftDays = 1; // Inisiasi draf
+    const draftStatus: "APPROVED" | "PENDING" | "UPCOMING" = "APPROVED";
 
-    // Determine current role index
-    const rolesOrder = ["Section Head", "Dept Head", "Div Head", "Purchasing", "Closed"];
-    const currentRole = qpr.requiredRole;
-    const currentIdx = rolesOrder.indexOf(currentRole);
+    // Phase 2: Otorisasi Internal (Section Head -> Dept Head -> Div Head -> Purchasing)
+    const approvalsStatus: "APPROVED" | "PENDING" | "UPCOMING" = isQprApproved ? "APPROVED" : "PENDING";
 
-    // Draft stage is always approved
-    const draftDays = 1;
-    let approvalsDays = 0;
-    let approvalsStatus: "APPROVED" | "PENDING" | "UPCOMING" = "UPCOMING";
-
+    // Phase 3: Confirmation Letter (CL Preparation & Sent to Vendor)
     let clDays = 0;
     let clStatus: "APPROVED" | "PENDING" | "UPCOMING" = "UPCOMING";
 
+    const clStart = purchasingApprovedAt || new Date(qpr.updatedAt || createdAt);
+    const isClSentOrApproved = !!assocCl && (assocCl.purchasingSentCl || assocCl.vendorApproved || assocCl.closedPaid || assocCl.status === "APPROVED_BY_VENDOR" || assocCl.status === "FULLY_APPROVED" || assocCl.status === "CLOSED_PAID");
+
+    if (isClSentOrApproved) {
+      clStatus = "APPROVED";
+      const clEnd = clSentAt || new Date(assocCl?.updatedAt || now);
+      clDays = Math.max(1, Math.round(Math.max(0, clEnd.getTime() - clStart.getTime()) / (1000 * 60 * 60)));
+    } else if (assocCl || isQprApproved) {
+      clStatus = "PENDING";
+      clDays = Math.max(1, Math.round(Math.max(0, now.getTime() - clStart.getTime()) / (1000 * 60 * 60)));
+    } else {
+      clStatus = "UPCOMING";
+      clDays = 0;
+    }
+
+    // Phase 4: Vendor Settlement (PICA & Approval)
     let vendorDays = 0;
     let vendorStatus: "APPROVED" | "PENDING" | "UPCOMING" = "UPCOMING";
 
+    const vendorStart = clSentAt || (assocCl?.createdAt ? new Date(assocCl.createdAt) : clStart);
+    const isVendorSettled = !!vendorApprovedAt || (!!assocCl && (assocCl.vendorApproved || assocCl.closedPaid || assocCl.status === "CLOSED_PAID" || assocCl.status === "APPROVED_BY_VENDOR"));
+
+    if (isVendorSettled) {
+      vendorStatus = "APPROVED";
+      const vendorEnd = vendorApprovedAt || new Date(assocCl?.updatedAt || now);
+      vendorDays = Math.max(1, Math.round(Math.max(0, vendorEnd.getTime() - vendorStart.getTime()) / (1000 * 60 * 60)));
+    } else if (clStatus === "APPROVED") {
+      vendorStatus = "PENDING";
+      vendorDays = Math.max(1, Math.round(Math.max(0, now.getTime() - vendorStart.getTime()) / (1000 * 60 * 60)));
+    } else {
+      vendorStatus = "UPCOMING";
+      vendorDays = 0;
+    }
+
+    // Phase 5: Closed Paid
     let closePaidDays = 0;
     let closePaidStatus: "APPROVED" | "PENDING" | "UPCOMING" = "UPCOMING";
 
-    // Sub-stage breakdown logic
+    const closePaidStart = vendorApprovedAt || (assocCl?.updatedAt ? new Date(assocCl.updatedAt) : vendorStart);
+
     if (isClosed) {
-      approvalsDays = 4;
-      approvalsStatus = "APPROVED";
-      clDays = 3;
-      clStatus = "APPROVED";
-      vendorDays = 4;
-      vendorStatus = "APPROVED";
-      closePaidDays = Math.max(1, totalDaysElapsed - draftDays - approvalsDays - clDays - vendorDays);
       closePaidStatus = "APPROVED";
-    } else if (currentIdx < 3 || (currentIdx === 3 && qpr.status === "WAITING_APPROVAL" && !qpr.approvalProgress?.checksumPurchasing)) {
-      // Still in internal / Purchasing approvals (Section Head, Dept Head, Div Head, Purchasing)
-      approvalsDays = Math.max(1, totalDaysElapsed - draftDays);
-      approvalsStatus = "PENDING";
-    } else if (currentIdx === 3 || qpr.status === "APPROVED") {
-      // Approved by Purchasing, now in Confirmation Letter preparation
-      approvalsDays = 4;
-      approvalsStatus = "APPROVED";
-      
-      const assocCl = confirmationLetters.find(cl => cl.qprNumber === qpr.qprNumber || cl.id === qpr.id);
-      if (assocCl) {
-        clDays = 3;
-        clStatus = "APPROVED";
-        if (assocCl.closedPaid || assocCl.status === "CLOSED_PAID") {
-          vendorDays = 4;
-          vendorStatus = "APPROVED";
-          closePaidDays = Math.max(1, totalDaysElapsed - draftDays - approvalsDays - clDays - vendorDays);
-          closePaidStatus = "APPROVED";
-        } else if (assocCl.purchasingSentCl || assocCl.vendorApproved || assocCl.status === "APPROVED_BY_VENDOR" || assocCl.status === "FULLY_APPROVED") {
-          vendorDays = 4;
-          vendorStatus = "APPROVED";
-          closePaidDays = Math.max(1, totalDaysElapsed - draftDays - approvalsDays - clDays - vendorDays);
-          closePaidStatus = "PENDING";
-        } else {
-          vendorDays = Math.max(1, totalDaysElapsed - draftDays - approvalsDays - clDays);
-          vendorStatus = "PENDING";
-        }
-      } else {
-        clDays = Math.max(1, totalDaysElapsed - draftDays - approvalsDays);
-        clStatus = "PENDING";
-      }
+      const closePaidEnd = new Date(qpr.updatedAt || assocCl?.updatedAt || now);
+      closePaidDays = Math.max(1, Math.round(Math.max(0, closePaidEnd.getTime() - closePaidStart.getTime()) / (1000 * 60 * 60)));
+    } else if (vendorStatus === "APPROVED") {
+      closePaidStatus = "PENDING";
+      closePaidDays = Math.max(1, Math.round(Math.max(0, now.getTime() - closePaidStart.getTime()) / (1000 * 60 * 60)));
     } else {
-      // Internal and Purchasing are closed. Check Confirmation Letter status if exists
-      approvalsDays = 4;
-      approvalsStatus = "APPROVED";
-      
-      const assocCl = confirmationLetters.find(cl => cl.qprNumber === qpr.qprNumber || cl.id === qpr.id);
-      if (assocCl) {
-        clDays = 3;
-        clStatus = "APPROVED";
-        if (assocCl.closedPaid || assocCl.status === "CLOSED_PAID") {
-          vendorDays = 4;
-          vendorStatus = "APPROVED";
-          closePaidDays = Math.max(1, totalDaysElapsed - draftDays - approvalsDays - clDays - vendorDays);
-          closePaidStatus = "APPROVED";
-        } else if (assocCl.purchasingSentCl || assocCl.vendorApproved || assocCl.status === "APPROVED_BY_VENDOR" || assocCl.status === "FULLY_APPROVED") {
-          vendorDays = 4;
-          vendorStatus = "APPROVED";
-          closePaidDays = Math.max(1, totalDaysElapsed - draftDays - approvalsDays - clDays - vendorDays);
-          closePaidStatus = "PENDING";
-        } else {
-          vendorDays = Math.max(1, totalDaysElapsed - draftDays - approvalsDays - clDays);
-          vendorStatus = "PENDING";
-        }
-      } else {
-        clDays = Math.max(1, totalDaysElapsed - draftDays - approvalsDays);
-        clStatus = "PENDING";
-      }
+      closePaidStatus = "UPCOMING";
+      closePaidDays = 0;
     }
 
-    const assocCl = confirmationLetters.find(cl => cl.qprNumber === qpr.qprNumber || cl.id === qpr.id);
-    const isActuallyClosed = (qpr.status === "CLOSED_PAID" || (assocCl && (assocCl.closedPaid || assocCl.status === "CLOSED_PAID")));
+    // Sub-role breakdown for internal approvals (sequential timer from 0)
+    const isSecApproved = !!secApprovedAt || !!qpr.approvalProgress?.checksumSectionHead || (qpr.requiredRole !== "Section Head" && qpr.requiredRole !== "Foreman");
+    const secHours = secApprovedAt
+      ? Math.max(1, Math.round(Math.max(0, secApprovedAt.getTime() - createdAt.getTime()) / (1000 * 60 * 60)))
+      : (qpr.requiredRole === "Section Head" ? Math.max(1, Math.round(Math.max(0, now.getTime() - createdAt.getTime()) / (1000 * 60 * 60))) : 0);
+
+    const isDeptApproved = !!deptApprovedAt || !!qpr.approvalProgress?.checksumDeptHead || (qpr.requiredRole === "Div Head" || qpr.requiredRole === "Purchasing" || qpr.requiredRole === "Closed" || isQprApproved);
+    const deptStart = secApprovedAt || createdAt;
+    const deptHours = deptApprovedAt
+      ? Math.max(1, Math.round(Math.max(0, deptApprovedAt.getTime() - deptStart.getTime()) / (1000 * 60 * 60)))
+      : (qpr.requiredRole === "Dept Head" ? Math.max(1, Math.round(Math.max(0, now.getTime() - deptStart.getTime()) / (1000 * 60 * 60))) : 0);
+
+    const isDivApproved = !!divApprovedAt || !!qpr.approvalProgress?.checksumDivHead || (qpr.requiredRole === "Purchasing" || qpr.requiredRole === "Closed" || isQprApproved);
+    const divStart = deptApprovedAt || deptStart;
+    const divHours = divApprovedAt
+      ? Math.max(1, Math.round(Math.max(0, divApprovedAt.getTime() - divStart.getTime()) / (1000 * 60 * 60)))
+      : (qpr.requiredRole === "Div Head" ? Math.max(1, Math.round(Math.max(0, now.getTime() - divStart.getTime()) / (1000 * 60 * 60))) : 0);
+
+    const isPurchasingApproved = !!purchasingApprovedAt || !!qpr.approvalProgress?.checksumPurchasing || (qpr.requiredRole === "Closed" || isQprApproved);
+    const purchStart = divApprovedAt || divStart;
+    const purchasingHours = purchasingApprovedAt
+      ? Math.max(1, Math.round(Math.max(0, purchasingApprovedAt.getTime() - purchStart.getTime()) / (1000 * 60 * 60)))
+      : (qpr.requiredRole === "Purchasing" ? Math.max(1, Math.round(Math.max(0, now.getTime() - purchStart.getTime()) / (1000 * 60 * 60))) : 0);
+
+    // Total internal approval duration equals the sequential sum of all 4 sub-stages
+    const approvalsDays = Math.max(1, secHours + deptHours + divHours + purchasingHours);
 
     return {
       id: `active-${qpr.id}`,
       docNumber: qpr.qprNumber,
       supplierName: qpr.supplierName,
       dateCreated: qpr.date,
-      dateClosed: isActuallyClosed ? qpr.updatedAt || new Date().toISOString() : null,
+      dateClosed: isClosed ? qpr.updatedAt || now.toISOString() : null,
       claimAmount: qpr.claimAmount || "-",
-      status: isActuallyClosed ? "CLOSED_PAID" : "ACTIVE",
+      status: isClosed ? "CLOSED_PAID" : "ACTIVE",
       requiredRole: qpr.requiredRole,
       period: qpr.period || getPeriodFromDate(qpr.date),
       stages: {
-        draft: { days: draftDays, status: "APPROVED" as const },
+        draft: { days: draftDays, status: draftStatus },
         approvals: { days: approvalsDays, status: approvalsStatus },
         cl: { days: clDays, status: clStatus },
         vendor: { days: vendorDays, status: vendorStatus },
         closePaid: { days: closePaidDays, status: closePaidStatus }
+      },
+      subApprovals: {
+        sectionHead: { approved: isSecApproved, hours: secHours, role: qpr.requiredRole === "Section Head", approvedAt: secApprovedAt },
+        deptHead: { approved: isDeptApproved, hours: deptHours, role: qpr.requiredRole === "Dept Head", approvedAt: deptApprovedAt },
+        divHead: { approved: isDivApproved, hours: divHours, role: qpr.requiredRole === "Div Head", approvedAt: divApprovedAt },
+        purchasing: { approved: isPurchasingApproved, hours: purchasingHours, role: qpr.requiredRole === "Purchasing", approvedAt: purchasingApprovedAt }
       }
     };
   });
@@ -192,25 +207,25 @@ export default function LeadTimeTracker({ pendingQprs = [], confirmationLetters 
   // Selected document info
   const selectedDoc = allDocs.find(d => d.id === selectedDocId) || allDocs[0];
 
-  // Helper: calculate total lead time for a document
+  // Helper: calculate total lead time for a document (in hours)
   const calculateTotalLeadTime = (doc: typeof allDocs[0]) => {
     const s = doc.stages;
     return s.draft.days + s.approvals.days + s.cl.days + s.vendor.days + s.closePaid.days;
   };
 
-  // Helper: get SLA state
+  // Helper: get SLA state in hours
   const getSlaStatus = (doc: typeof allDocs[0]) => {
-    const totalDays = calculateTotalLeadTime(doc);
-    const targetSla = 15;
+    const totalHours = calculateTotalLeadTime(doc);
+    const targetSla = 120; // 120 Hours (5 Days)
     
     if (doc.status === "CLOSED_PAID") {
-      return totalDays <= targetSla 
+      return totalHours <= targetSla 
         ? { text: "On SLA", color: "bg-emerald-500/15 text-emerald-700 border-emerald-500/20" } 
         : { text: "Breached SLA", color: "bg-rose-500/15 text-rose-700 border-rose-500/20" };
     } else {
-      if (totalDays > targetSla) {
+      if (totalHours > targetSla) {
         return { text: "Breached SLA", color: "bg-rose-500/15 text-rose-700 border-rose-500/20" };
-      } else if (totalDays >= 12) {
+      } else if (totalHours >= 96) {
         return { text: "Warning SLA", color: "bg-amber-500/15 text-amber-700 border-amber-500/20" };
       } else {
         return { text: "On Track", color: "bg-blue-500/15 text-blue-700 border-blue-500/20" };
@@ -222,9 +237,9 @@ export default function LeadTimeTracker({ pendingQprs = [], confirmationLetters 
   const closedDocs = allDocs.filter(d => d.status === "CLOSED_PAID");
   const avgLeadTime = closedDocs.length > 0
     ? (closedDocs.reduce((acc, doc) => acc + calculateTotalLeadTime(doc), 0) / closedDocs.length).toFixed(1)
-    : "12.3";
+    : "48.5";
 
-  const slaCompliantCount = closedDocs.filter(doc => calculateTotalLeadTime(doc) <= 15).length;
+  const slaCompliantCount = closedDocs.filter(doc => calculateTotalLeadTime(doc) <= 120).length;
   const slaRate = closedDocs.length > 0
     ? Math.round((slaCompliantCount / closedDocs.length) * 100)
     : 100;
@@ -265,13 +280,13 @@ export default function LeadTimeTracker({ pendingQprs = [], confirmationLetters 
           <div className="px-3.5 py-1.5 bg-slate-50 border border-slate-150 rounded-xl shadow-xs flex items-center gap-2 transition-all hover:bg-slate-100/50">
             <span className="text-[9px] font-black text-slate-400 block uppercase tracking-wider">Rerata Siklus</span>
             <strong className="text-xs font-black text-indigo-600 leading-none font-mono">
-              {avgLeadTime} Hari
+              {formatLeadTime(avgLeadTime)}
             </strong>
           </div>
           <div className="px-3.5 py-1.5 bg-slate-50 border border-slate-150 rounded-xl shadow-xs flex items-center gap-2 transition-all hover:bg-slate-100/50">
             <span className="text-[9px] font-black text-slate-400 block uppercase tracking-wider">SLA Target</span>
             <strong className="text-xs font-black text-slate-800 leading-none font-mono">
-              &lt; 15 Hari
+              &lt; 5 Hari (120 Jam)
             </strong>
           </div>
           <div className="px-3.5 py-1.5 bg-emerald-50 border border-emerald-100 rounded-xl shadow-xs flex items-center gap-2 transition-all hover:bg-emerald-100/60">
@@ -435,7 +450,7 @@ export default function LeadTimeTracker({ pendingQprs = [], confirmationLetters 
                           {sla.text}
                         </span>
                         <div className="text-[10px] text-slate-550 font-bold block">
-                          Total: <span className="font-extrabold text-slate-850 font-mono">{totalLt} Hari</span>
+                          Total: <span className="font-extrabold text-slate-850 font-mono">{formatLeadTime(totalLt)}</span>
                         </div>
                       </div>
                     </button>
@@ -480,7 +495,7 @@ export default function LeadTimeTracker({ pendingQprs = [], confirmationLetters 
                   <div className="flex items-center justify-between">
                     <h6 className="font-extrabold text-slate-800">Fase 1: Inisiasi &amp; Draf QPR</h6>
                     <span className="font-mono text-[9px] font-black text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                      Selesai ({selectedDoc.stages.draft.days} Hari)
+                      Selesai ({formatLeadTime(selectedDoc.stages.draft.days)})
                     </span>
                   </div>
                   <p className="text-[10px] text-slate-450 font-semibold leading-relaxed">
@@ -509,11 +524,11 @@ export default function LeadTimeTracker({ pendingQprs = [], confirmationLetters 
                     <h6 className="font-extrabold text-slate-800">Fase 2: Otorisasi Internal Departemen</h6>
                     {selectedDoc.stages.approvals.status === "APPROVED" ? (
                       <span className="font-mono text-[9px] font-black text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                        Selesai ({selectedDoc.stages.approvals.days} Hari)
+                        Selesai ({formatLeadTime(selectedDoc.stages.approvals.days)})
                       </span>
                     ) : selectedDoc.stages.approvals.status === "PENDING" ? (
                       <span className="font-mono text-[9px] font-black text-blue-600 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20 animate-pulse">
-                        Proses ({selectedDoc.stages.approvals.days} Hari berjalan)
+                        Proses ({formatLeadTime(selectedDoc.stages.approvals.days)} berjalan)
                       </span>
                     ) : (
                       <span className="font-mono text-[9px] font-black text-slate-400 bg-slate-50 px-2 py-0.5 rounded border border-slate-200">
@@ -527,45 +542,101 @@ export default function LeadTimeTracker({ pendingQprs = [], confirmationLetters 
                   
                   {/* Visual checklist showing approvals track */}
                   <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 mt-2.5 space-y-2 shadow-xs">
+                    {/* 1. Section Head */}
                     <div className="flex items-center justify-between text-[9.5px] font-bold">
                       <span className="flex items-center gap-1.5 text-slate-650">
                         <UserCheck size={11} className="text-indigo-500/80" />
-                        1. Section Head Approval
+                        1. Section Head QA
                       </span>
-                      {selectedDoc.stages.approvals.status === "APPROVED" || selectedDoc.requiredRole !== "Section Head" ? (
-                        <span className="text-emerald-600 font-extrabold flex items-center gap-0.5">
+                      {selectedDoc.subApprovals?.sectionHead?.approved ? (
+                        <span className="text-emerald-600 font-extrabold flex items-center gap-1">
                           <CheckCircle2 size={10} /> Disetujui
+                          <span className="font-mono text-[8.5px] text-emerald-700/80 bg-emerald-100/60 px-1.5 py-0.2 rounded font-black">
+                            {formatLeadTime(selectedDoc.subApprovals.sectionHead.hours)}
+                          </span>
                         </span>
-                      ) : (
-                        <span className="text-blue-600 font-extrabold animate-pulse">Sedang Diajukan</span>
-                      )}
-                    </div>
-                    <div className="flex items-center justify-between text-[9.5px] font-bold border-t border-slate-200/60 pt-2">
-                      <span className="flex items-center gap-1.5 text-slate-650">
-                        <UserCheck size={11} className="text-indigo-500/80" />
-                        2. Dept Head Approval
-                      </span>
-                      {selectedDoc.stages.approvals.status === "APPROVED" || (selectedDoc.requiredRole !== "Section Head" && selectedDoc.requiredRole !== "Dept Head") ? (
-                        <span className="text-emerald-600 font-extrabold flex items-center gap-0.5">
-                          <CheckCircle2 size={10} /> Disetujui
+                      ) : selectedDoc.subApprovals?.sectionHead?.role ? (
+                        <span className="text-blue-600 font-extrabold animate-pulse flex items-center gap-1">
+                          Sedang Diajukan
+                          <span className="font-mono text-[8.5px] text-blue-700 bg-blue-100/80 px-1.5 py-0.2 rounded font-black">
+                            {formatLeadTime(selectedDoc.subApprovals.sectionHead.hours)} berjalan
+                          </span>
                         </span>
-                      ) : selectedDoc.requiredRole === "Dept Head" ? (
-                        <span className="text-blue-600 font-extrabold animate-pulse">Sedang Diajukan</span>
                       ) : (
                         <span className="text-slate-400">Belum Mulai</span>
                       )}
                     </div>
+
+                    {/* 2. Dept Head */}
                     <div className="flex items-center justify-between text-[9.5px] font-bold border-t border-slate-200/60 pt-2">
                       <span className="flex items-center gap-1.5 text-slate-650">
                         <UserCheck size={11} className="text-indigo-500/80" />
-                        3. Div Head Approval
+                        2. Dept Head QA
                       </span>
-                      {selectedDoc.stages.approvals.status === "APPROVED" || (selectedDoc.requiredRole === "Purchasing" || selectedDoc.requiredRole === "Closed") ? (
-                        <span className="text-emerald-600 font-extrabold flex items-center gap-0.5">
+                      {selectedDoc.subApprovals?.deptHead?.approved ? (
+                        <span className="text-emerald-600 font-extrabold flex items-center gap-1">
                           <CheckCircle2 size={10} /> Disetujui
+                          <span className="font-mono text-[8.5px] text-emerald-700/80 bg-emerald-100/60 px-1.5 py-0.2 rounded font-black">
+                            {formatLeadTime(selectedDoc.subApprovals.deptHead.hours)}
+                          </span>
                         </span>
-                      ) : selectedDoc.requiredRole === "Div Head" ? (
-                        <span className="text-blue-600 font-extrabold animate-pulse">Sedang Diajukan</span>
+                      ) : selectedDoc.subApprovals?.deptHead?.role ? (
+                        <span className="text-blue-600 font-extrabold animate-pulse flex items-center gap-1">
+                          Sedang Diajukan
+                          <span className="font-mono text-[8.5px] text-blue-700 bg-blue-100/80 px-1.5 py-0.2 rounded font-black">
+                            {formatLeadTime(selectedDoc.subApprovals.deptHead.hours)} berjalan
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="text-slate-400">Belum Mulai</span>
+                      )}
+                    </div>
+
+                    {/* 3. Div Head */}
+                    <div className="flex items-center justify-between text-[9.5px] font-bold border-t border-slate-200/60 pt-2">
+                      <span className="flex items-center gap-1.5 text-slate-650">
+                        <UserCheck size={11} className="text-indigo-500/80" />
+                        3. Div Head
+                      </span>
+                      {selectedDoc.subApprovals?.divHead?.approved ? (
+                        <span className="text-emerald-600 font-extrabold flex items-center gap-1">
+                          <CheckCircle2 size={10} /> Disetujui
+                          <span className="font-mono text-[8.5px] text-emerald-700/80 bg-emerald-100/60 px-1.5 py-0.2 rounded font-black">
+                            {formatLeadTime(selectedDoc.subApprovals.divHead.hours)}
+                          </span>
+                        </span>
+                      ) : selectedDoc.subApprovals?.divHead?.role ? (
+                        <span className="text-blue-600 font-extrabold animate-pulse flex items-center gap-1">
+                          Sedang Diajukan
+                          <span className="font-mono text-[8.5px] text-blue-700 bg-blue-100/80 px-1.5 py-0.2 rounded font-black">
+                            {formatLeadTime(selectedDoc.subApprovals.divHead.hours)} berjalan
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="text-slate-400">Belum Mulai</span>
+                      )}
+                    </div>
+
+                    {/* 4. Purchasing */}
+                    <div className="flex items-center justify-between text-[9.5px] font-bold border-t border-slate-200/60 pt-2">
+                      <span className="flex items-center gap-1.5 text-slate-650">
+                        <UserCheck size={11} className="text-indigo-500/80" />
+                        4. Purchasing Approval
+                      </span>
+                      {selectedDoc.subApprovals?.purchasing?.approved ? (
+                        <span className="text-emerald-600 font-extrabold flex items-center gap-1">
+                          <CheckCircle2 size={10} /> Disetujui
+                          <span className="font-mono text-[8.5px] text-emerald-700/80 bg-emerald-100/60 px-1.5 py-0.2 rounded font-black">
+                            {formatLeadTime(selectedDoc.subApprovals.purchasing.hours)}
+                          </span>
+                        </span>
+                      ) : selectedDoc.subApprovals?.purchasing?.role ? (
+                        <span className="text-blue-600 font-extrabold animate-pulse flex items-center gap-1">
+                          Sedang Diajukan
+                          <span className="font-mono text-[8.5px] text-blue-700 bg-blue-100/80 px-1.5 py-0.2 rounded font-black">
+                            {formatLeadTime(selectedDoc.subApprovals.purchasing.hours)} berjalan
+                          </span>
+                        </span>
                       ) : (
                         <span className="text-slate-400">Belum Mulai</span>
                       )}
@@ -594,11 +665,11 @@ export default function LeadTimeTracker({ pendingQprs = [], confirmationLetters 
                     <h6 className="font-extrabold text-slate-800">Fase 3: Konfirmasi Komersial (CL)</h6>
                     {selectedDoc.stages.cl.status === "APPROVED" ? (
                       <span className="font-mono text-[9px] font-black text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                        Selesai ({selectedDoc.stages.cl.days} Hari)
+                        Selesai ({formatLeadTime(selectedDoc.stages.cl.days)})
                       </span>
                     ) : selectedDoc.stages.cl.status === "PENDING" ? (
                       <span className="font-mono text-[9px] font-black text-blue-600 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20 animate-pulse">
-                        Proses ({selectedDoc.stages.cl.days} Hari berjalan)
+                        Proses ({formatLeadTime(selectedDoc.stages.cl.days)} berjalan)
                       </span>
                     ) : (
                       <span className="font-mono text-[9px] font-black text-slate-400 bg-slate-50 px-2 py-0.5 rounded border border-slate-200">
@@ -632,11 +703,11 @@ export default function LeadTimeTracker({ pendingQprs = [], confirmationLetters 
                     <h6 className="font-extrabold text-slate-800">Fase 4: Penyelesaian Vendor (PICA &amp; Pembayaran)</h6>
                     {selectedDoc.stages.vendor.status === "APPROVED" ? (
                       <span className="font-mono text-[9px] font-black text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                        Selesai ({selectedDoc.stages.vendor.days} Hari)
+                        Selesai ({formatLeadTime(selectedDoc.stages.vendor.days)})
                       </span>
                     ) : selectedDoc.stages.vendor.status === "PENDING" ? (
                       <span className="font-mono text-[9px] font-black text-blue-600 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20 animate-pulse">
-                        Proses ({selectedDoc.stages.vendor.days} Hari berjalan)
+                        Proses ({formatLeadTime(selectedDoc.stages.vendor.days)} berjalan)
                       </span>
                     ) : (
                       <span className="font-mono text-[9px] font-black text-slate-400 bg-slate-50 px-2 py-0.5 rounded border border-slate-200">
@@ -670,11 +741,11 @@ export default function LeadTimeTracker({ pendingQprs = [], confirmationLetters 
                     <h6 className="font-extrabold text-slate-800">Fase 5: Kasus Selesai (Closed Paid)</h6>
                     {selectedDoc.stages.closePaid.status === "APPROVED" ? (
                       <span className="font-mono text-[9px] font-black text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                        Selesai ({selectedDoc.stages.closePaid.days} Hari)
+                        Selesai ({formatLeadTime(selectedDoc.stages.closePaid.days)})
                       </span>
                     ) : selectedDoc.stages.closePaid.status === "PENDING" ? (
                       <span className="font-mono text-[9px] font-black text-blue-600 bg-blue-505/10 px-2 py-0.5 rounded border border-blue-500/20 animate-pulse">
-                        Proses ({selectedDoc.stages.closePaid.days} Hari berjalan)
+                        Proses ({formatLeadTime(selectedDoc.stages.closePaid.days)} berjalan)
                       </span>
                     ) : (
                       <span className="font-mono text-[9px] font-black text-slate-400 bg-slate-50 px-2 py-0.5 rounded border border-slate-200">
@@ -697,8 +768,8 @@ export default function LeadTimeTracker({ pendingQprs = [], confirmationLetters 
                 <span>Akumulasi Waktu Siklus:</span>
               </span>
               <span className="text-slate-800">
-                <strong className="text-sm font-black font-mono text-indigo-700">{calculateTotalLeadTime(selectedDoc)} Hari</strong> 
-                {" "}/ Target SLA: <span className="font-bold text-slate-450 font-mono">15 Hari</span>
+                <strong className="text-sm font-black font-mono text-indigo-700">{formatLeadTime(calculateTotalLeadTime(selectedDoc))}</strong> 
+                {" "}/ Target SLA: <span className="font-bold text-slate-450 font-mono">5 Hari (120 Jam)</span>
               </span>
             </div>
 

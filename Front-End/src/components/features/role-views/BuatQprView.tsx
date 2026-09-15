@@ -141,6 +141,7 @@ interface BuatQprViewProps {
   pendingNcrs?: any[];
   selectedQprForEdit?: any;
   setSelectedQprForEdit?: (qpr: any) => void;
+  setNotifications?: React.Dispatch<React.SetStateAction<any[]>>;
 }
 
 export default function BuatQprView({
@@ -148,7 +149,8 @@ export default function BuatQprView({
   setPendingQprs,
   pendingNcrs = [],
   selectedQprForEdit = null,
-  setSelectedQprForEdit = () => {}
+  setSelectedQprForEdit = () => {},
+  setNotifications = null
 }: BuatQprViewProps) {
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [partsBySupplier, setPartsBySupplier] = useState<Record<string, any[]>>({});
@@ -620,6 +622,20 @@ export default function BuatQprView({
     setSelectedQprForEdit(null);
     setSubmittedNum(qprNum);
     setSubmitted(true);
+
+    if (setNotifications) {
+      const supName = selectedSupplier?.name || "Vendor";
+      const notifMessage = selectedQprForEdit
+        ? `Revisi Draf QPR ${qprNum} (${supName}) berhasil diperbarui dan diteruskan ke Section Head QA untuk review.`
+        : `Draf QPR ${qprNum} berhasil dibuat untuk ${supName} dan diteruskan ke Section Head QA untuk persetujuan.`;
+      setNotifications(prev => [{
+        id: Date.now(),
+        message: notifMessage,
+        time: "Baru saja",
+        type: "success" as const,
+        unread: true
+      }, ...prev]);
+    }
   };
 
   const handleReset = () => {

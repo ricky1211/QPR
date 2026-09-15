@@ -254,6 +254,62 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
         setCreatedSscBillings([]);
       });
 
+    // Auto-populate contextual initial notifications from database documents if none stored
+    Promise.all([
+      qprService.getAll().catch(() => []),
+      clService.getAll().catch(() => [])
+    ]).then(([dbQprs, dbCls]) => {
+      setNotifications(prev => {
+        if (prev && prev.length > 0) return prev;
+        const initialNotifs: any[] = [];
+        if (Array.isArray(dbQprs)) {
+          dbQprs.slice(0, 4).forEach((q: any) => {
+            const mapped = mapQprFromDb(q);
+            if (mapped.status === "WAITING_APPROVAL") {
+              initialNotifs.push({
+                id: Date.now() - Math.floor(Math.random() * 100000),
+                message: `Dokumen QPR ${mapped.qprNumber} (${mapped.supplierName}) menunggu persetujuan ${mapped.requiredRole || "Section Head QA"}.`,
+                time: "1 jam lalu",
+                type: "info",
+                unread: true
+              });
+            } else if (mapped.status === "APPROVED") {
+              initialNotifs.push({
+                id: Date.now() - Math.floor(Math.random() * 100000),
+                message: `Dokumen QPR ${mapped.qprNumber} (${mapped.supplierName}) telah disetujui (Approved) & siap dibuatkan Confirmation Letter.`,
+                time: "2 jam lalu",
+                type: "success",
+                unread: false
+              });
+            }
+          });
+        }
+        if (Array.isArray(dbCls)) {
+          dbCls.slice(0, 4).forEach((cl: any) => {
+            const mapped = mapClFromDb(cl);
+            if (mapped.status === "PENDING" && !mapped.clApprovalProgress?.deptAccounting) {
+              initialNotifs.push({
+                id: Date.now() - Math.floor(Math.random() * 100000),
+                message: `Confirmation Letter ${mapped.clNumber} (${mapped.supplierName}) menunggu persetujuan Dept Accounting.`,
+                time: "3 jam lalu",
+                type: "warning",
+                unread: true
+              });
+            } else if (mapped.status === "APPROVED" || mapped.status === "FULLY_APPROVED") {
+              initialNotifs.push({
+                id: Date.now() - Math.floor(Math.random() * 100000),
+                message: `Confirmation Letter ${mapped.clNumber} (${mapped.supplierName}) telah disetujui Dept Accounting.`,
+                time: "4 jam lalu",
+                type: "success",
+                unread: false
+              });
+            }
+          });
+        }
+        return initialNotifs.length > 0 ? initialNotifs : prev;
+      });
+    });
+
     // Lead-time auto-close logic:
     // Every 10th of the next month following the document's creation date, 
     // it automatically changes status to CLOSED_PAID if not already closed.
@@ -322,7 +378,23 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
 
   // Notification bell state
   const [showNotifications, setShowNotifications] = useState(false);
-  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<any[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const saved = sessionStorage.getItem("mtm_qpr_notifications") || localStorage.getItem("mtm_qpr_notifications");
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+
+  // Persist notifications to sessionStorage & localStorage
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        sessionStorage.setItem("mtm_qpr_notifications", JSON.stringify(notifications));
+        localStorage.setItem("mtm_qpr_notifications", JSON.stringify(notifications));
+      } catch {}
+    }
+  }, [notifications]);
 
   // Selected QPR for revision editing
   const [selectedQprForEdit, setSelectedQprForEdit] = useState<any>(() => {
@@ -519,11 +591,25 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
           progress.deptAccounting = true;
           newStatus = "FULLY_APPROVED";
           nextRole = "Closed";
+          setNotifications(prevNotifs => [{
+            id: Date.now(),
+            message: `CL ${cl.clNumber} (${cl.supplierName}) telah disetujui sepenuhnya oleh Dept Accounting dan siap dikirim ke Vendor oleh Purchasing.`,
+            time: "Baru saja",
+            type: "success" as const,
+            unread: true
+          }, ...prevNotifs]);
           alert(`Sukses: CL ${cl.clNumber} disetujui sepenuhnya oleh Dept Accounting!`);
         } else if (level === "sect" && !progress.sectAccounting) {
           progress.sectAccounting = true;
           newStatus = "APPROVED_SECT";
           nextRole = "Dept Accounting";
+          setNotifications(prevNotifs => [{
+            id: Date.now(),
+            message: `CL ${cl.clNumber} (${cl.supplierName}) disetujui oleh Section Head Accounting dan diteruskan ke Dept Head Accounting.`,
+            time: "Baru saja",
+            type: "info" as const,
+            unread: true
+          }, ...prevNotifs]);
           alert(`Sukses: CL ${cl.clNumber} disetujui oleh Sect Accounting!`);
         }
         return { ...cl, clApprovalProgress: progress, status: newStatus, requiredRole: nextRole };
@@ -545,20 +631,31 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
     }
   };
 
-  // Handler: Mark CL as Close Paid (Purchasing only)
-  const handleMarkClosedPaid = (clId: string) => {
-    if (username !== "purchasing" && username !== "admin") {
-      alert("Akses Ditolak: Hanya Purchasing yang memiliki wewenang untuk mengubah status Confirmation Letter menjadi Lunas (Paid)!");
+  // Handler: Mark CL / SSC Billing as Close Paid (Purchasing / Finance / Admin)
+  const handleMarkClosedPaid = (docId: string) => {
+    if (!docId) return;
+    if (username !== "purchasing" && username !== "finance" && username !== "admin") {
+      alert("Akses Ditolak: Anda tidak memiliki wewenang untuk mengubah status dokumen menjadi Lunas (Paid)!");
       return;
     }
 
     const proceedWithLocalStateUpdate = () => {
+      // 1. Update confirmationLetters
       setConfirmationLetters(prev => prev.map(cl =>
-        cl.id === clId ? { ...cl, closedPaid: true, status: "CLOSED_PAID", requiredRole: "Closed" } : cl
+        (cl.id === docId || cl.clNumber === docId)
+          ? { ...cl, closedPaid: true, status: "CLOSED_PAID", requiredRole: "Closed" }
+          : cl
       ));
 
-      // Keep QPR state in sync
-      const targetCl = confirmationLetters.find(cl => cl.id === clId);
+      // 2. Update createdSscBillings
+      setCreatedSscBillings(prev => prev.map(bill =>
+        (bill.id === docId || bill.clId === docId || bill.clNumber === docId)
+          ? { ...bill, closedPaid: true, status: "CLOSED_PAID" }
+          : bill
+      ));
+
+      // 3. Keep QPR state in sync
+      const targetCl = confirmationLetters.find(cl => cl.id === docId || cl.clNumber === docId);
       if (targetCl?.qprNumber) {
         setPendingQprs(prev => prev.map(q =>
           q.qprNumber === targetCl.qprNumber ? { ...q, status: "CLOSED_PAID", requiredRole: "Closed" } : q
@@ -567,17 +664,17 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
 
       setNotifications(prev => [{
         id: Date.now(),
-        message: `Status Confirmation Letter ${targetCl?.clNumber || clId} telah diubah menjadi LUNAS (Closed Paid) oleh Purchasing.`,
+        message: `Status dokumen ${targetCl?.clNumber || docId} telah diubah menjadi LUNAS (Closed Paid).`,
         time: "Baru saja",
         type: "success" as const,
         unread: true
       }, ...prev]);
 
-      alert(`Sukses: Status Confirmation Letter ${targetCl?.clNumber || ""} berhasil diubah menjadi Lunas (Closed Paid) dan dipindahkan ke riwayat!`);
+      alert(`Sukses: Dokumen ${targetCl?.clNumber || docId} berhasil diubah menjadi Lunas (Closed Paid)!`);
     };
 
-    if (typeof clId === "string" && clId.length > 10) {
-      clService.update(clId, { closedPaid: true, status: "APPROVED" })
+    if (typeof docId === "string" && docId.length > 10) {
+      clService.update(docId, { closedPaid: true, status: "APPROVED" })
         .then(() => {
           proceedWithLocalStateUpdate();
         })
@@ -591,6 +688,28 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
   };
 
   const handleUpdateCLPipeline = (clId: string, data: any) => {
+    const targetCl = confirmationLetters.find(cl => cl.id === clId || cl.clNumber === clId);
+    const clNum = targetCl?.clNumber || clId;
+    const supName = targetCl?.supplierName || "Vendor";
+
+    if (data.sentToVendor || data.purchasingSentCl) {
+      setNotifications(prev => [{
+        id: Date.now(),
+        message: `CL ${clNum} (${supName}) telah dikirim ke Vendor dan menunggu konfirmasi/approval Vendor.`,
+        time: "Baru saja",
+        type: "info" as const,
+        unread: true
+      }, ...prev]);
+    } else if (data.vendorApproved) {
+      setNotifications(prev => [{
+        id: Date.now(),
+        message: `Approval Dokumen CL ${clNum} dari Vendor (${supName}) telah diterima dan diverifikasi (siap diproses ke SSC Billing & Payment).`,
+        time: "Baru saja",
+        type: "success" as const,
+        unread: true
+      }, ...prev]);
+    }
+
     const proceedWithLocalStateUpdate = () => {
       setConfirmationLetters(prev => prev.map(cl =>
         cl.id === clId ? { ...cl, ...data } : cl
@@ -797,32 +916,32 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
 
             if (actionType === "REVISE") {
               alertMsg = `Sukses: Klaim QPR ${qprNum} dikembalikan ke Operator untuk revisi dengan catatan: "${reviewComment}"`;
-              notifMsg = `Klaim QPR ${qprNum} di-revise oleh ${q.requiredRole}.`;
+              notifMsg = `Klaim QPR ${qprNum} (${q.supplierName}) dikembalikan ke Operator untuk revisi (${reviewComment || "Perbaikan data"}).`;
               nextRole = "Operator";
               nextStatus = "UNDER_REVISION";
             } else if (actionType === "REJECT") {
               alertMsg = `Sukses: Klaim QPR ${qprNum} ditolak (REJECTED) dengan catatan: "${reviewComment}"`;
-              notifMsg = `Klaim QPR ${qprNum} ditolak oleh ${q.requiredRole}.`;
+              notifMsg = `Klaim QPR ${qprNum} (${q.supplierName}) ditolak oleh ${currentRole} (${reviewComment || "Ditolak"}).`;
               nextRole = "Closed";
               nextStatus = "REJECTED";
             } else {
               // APPROVE
               if (currentRole === "Section Head") {
                 alertMsg = `Sukses: Klaim QPR ${qprNum} disetujui oleh Section Head dan diteruskan ke Dept Head!`;
-                notifMsg = `Klaim QPR ${qprNum} disetujui oleh Section Head dan diteruskan ke Dept Head.`;
+                notifMsg = `Klaim QPR ${qprNum} (${q.supplierName}) disetujui oleh Section Head QA dan diteruskan ke Dept Head QA.`;
                 nextRole = "Dept Head";
               } else if (currentRole === "Dept Head") {
                 alertMsg = `Sukses: Klaim QPR ${qprNum} disetujui oleh Dept Head dan diteruskan ke Div Head!`;
-                notifMsg = `Klaim QPR ${qprNum} disetujui oleh Dept Head dan diteruskan ke Div Head.`;
+                notifMsg = `Klaim QPR ${qprNum} (${q.supplierName}) disetujui oleh Dept Head QA dan diteruskan ke Division Head.`;
                 nextRole = "Div Head";
               } else if (currentRole === "Div Head") {
                 alertMsg = `Sukses: Klaim QPR ${qprNum} disetujui oleh Div Head dan diteruskan ke Purchasing untuk approval!`;
-                notifMsg = `Klaim QPR ${qprNum} disetujui oleh Div Head dan diteruskan ke Purchasing.`;
+                notifMsg = `Klaim QPR ${qprNum} (${q.supplierName}) disetujui oleh Division Head dan diteruskan ke Purchasing.`;
                 nextRole = "Purchasing";
                 nextStatus = "WAITING_APPROVAL";
               } else if (currentRole === "Purchasing") {
                 alertMsg = `Sukses: Klaim QPR ${qprNum} telah disetujui oleh Purchasing! Dokumen siap diproses ke Confirmation Letter.`;
-                notifMsg = `Klaim QPR ${qprNum} telah disetujui oleh Purchasing (Approved).`;
+                notifMsg = `Klaim QPR ${qprNum} (${q.supplierName}) telah disetujui oleh Purchasing (Fully Approved) & siap dibuatkan Confirmation Letter (CL).`;
                 nextRole = "Purchasing";
                 nextStatus = "APPROVED";
               }
@@ -1042,6 +1161,8 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
                 setActiveTab={handleTabChange}
                 confirmationLetters={confirmationLetters}
                 setConfirmationLetters={setConfirmationLetters}
+                createdSscBillings={createdSscBillings}
+                setCreatedSscBillings={setCreatedSscBillings}
                 username={username}
                 handleMarkClosedPaid={handleMarkClosedPaid}
               />
@@ -1089,6 +1210,7 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
                 pendingNcrs={pendingNcrs}
                 selectedQprForEdit={selectedQprForEdit}
                 setSelectedQprForEdit={setSelectedQprForEdit}
+                setNotifications={setNotifications}
               />
             )}
 
@@ -1131,11 +1253,12 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
                 handleMarkClosedPaid={handleMarkClosedPaid}
                 handleDebitNote={handleDebitNote}
                 handleUpdateCLPipeline={handleUpdateCLPipeline}
+                setNotifications={setNotifications}
                 username={username}
               />
             )}
 
-            {activeTab === "i-memo" && (username === "finance" || username === "admin") && (
+            {activeTab === "i-memo" && (username === "finance" || username === "purchasing" || username === "admin") && (
               <IMemoView
                 confirmationLetters={confirmationLetters}
                 setConfirmationLetters={setConfirmationLetters}
@@ -1143,6 +1266,8 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
                 createdSscBillings={createdSscBillings}
                 setCreatedSscBillings={setCreatedSscBillings}
                 setActiveTab={handleTabChange}
+                setNotifications={setNotifications}
+                username={username}
               />
             )}
 
@@ -1302,9 +1427,9 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
 
             {/* CUSTOM SUCCESS / ALERT MODAL POPUP */}
             {customAlert.isOpen && (
-              <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-[3px] z-50 flex items-center justify-center p-4">
-                <div className="bg-white rounded-xl w-full max-w-sm shadow-2xl overflow-hidden border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
-                  <div className="p-6 flex flex-col items-center text-center space-y-4">
+              <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-[3px] z-50 flex items-center justify-center p-4 animate-in fade-in duration-150">
+                <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden border border-slate-150 animate-in zoom-in-95 duration-200">
+                  <div className="p-6 flex flex-col items-center text-center space-y-3.5">
                     {customAlert.message.toLowerCase().includes("gagal") || 
                      customAlert.message.toLowerCase().includes("peringatan") || 
                      customAlert.message.toLowerCase().includes("harus") ||
@@ -1316,18 +1441,17 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
                      customAlert.message.toLowerCase().includes("tidak") ||
                      customAlert.message.toLowerCase().includes("popup") ||
                      customAlert.message.toLowerCase().includes("diblokir") ? (
-                      <div className="w-14 h-14 rounded-full bg-amber-50 text-amber-600 border border-amber-250 flex items-center justify-center shadow-inner">
-                        <AlertTriangle size={28} className="animate-bounce" />
+                      <div className="w-12 h-12 rounded-full bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center shadow-xs">
+                        <AlertTriangle size={24} className="animate-bounce" />
                       </div>
                     ) : (
-                      <div className="w-16 h-16 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-250 flex items-center justify-center shadow-inner relative">
-                        <CheckCircle2 size={32} className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-20" />
-                        <CheckCircle2 size={32} className="relative z-10" />
+                      <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center shadow-xs">
+                        <CheckCircle2 size={26} />
                       </div>
                     )}
                     
-                    <div className="space-y-1">
-                      <h4 className="text-sm font-extrabold text-slate-950 uppercase tracking-tight">
+                    <div>
+                      <h4 className="text-sm font-extrabold text-slate-900 uppercase tracking-tight">
                         {customAlert.title || (
                           customAlert.message.toLowerCase().includes("gagal") || 
                           customAlert.message.toLowerCase().includes("peringatan") || 
@@ -1343,20 +1467,23 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
                             ? "Pemberitahuan"
                             : customAlert.message.toLowerCase().includes("sinkronisasi")
                             ? "Sinkronisasi Sukses"
-                            : "Approval Sukses"
+                            : "Pengiriman Sukses"
                         )}
                       </h4>
                     </div>
                     
-                    <p className="text-xs text-slate-600 leading-relaxed font-semibold">
-                      {customAlert.message}
-                    </p>
+                    <div className="w-full max-h-[50vh] overflow-y-auto px-1">
+                      <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 text-xs text-slate-700 leading-relaxed font-medium whitespace-pre-line break-words text-left space-y-1.5 selection:bg-blue-100">
+                        {customAlert.message}
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-center">
+                  <div className="px-6 pb-5 pt-1 bg-white flex justify-center">
                     <button
+                      type="button"
                       onClick={() => setCustomAlert({ isOpen: false, message: "" })}
-                      className="w-full px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-xs shadow-md shadow-blue-600/10 transition-colors cursor-pointer"
+                      className="w-full px-5 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white rounded-xl font-bold text-xs shadow-md shadow-blue-600/15 transition-all cursor-pointer"
                     >
                       OK / Selesai
                     </button>

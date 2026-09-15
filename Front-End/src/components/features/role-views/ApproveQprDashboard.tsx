@@ -672,7 +672,7 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
                   const canUserApproveQpr = username === "admin" || 
                     (username === "sect_dept_head" && (levelTab === "section-head" || levelTab === "dept-head")) || 
                     (username === "div_head" && levelTab === "div-head") ||
-                    ((username === "purchasing" || username === "purchasing_qpr") && levelTab === "purchasing");
+                    (username === "purchasing_qpr" && levelTab === "purchasing");
 
                   if (!canUserApproveQpr) {
                     return (

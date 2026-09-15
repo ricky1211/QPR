@@ -25,6 +25,7 @@ import {
 import ConfirmationLetterPrintPreview from "./ConfirmationLetterPrintPreview";
 import QprPrintPreview from "./QprPrintPreview";
 import { getPeriodFromDate } from "@/services/qprService";
+import { clService } from "@/services/clService";
 
 interface ApproveClDashboardProps {
   confirmationLetters: any[];
@@ -33,6 +34,7 @@ interface ApproveClDashboardProps {
   handleMarkClosedPaid?: (clId: string) => void;
   handleDebitNote?: (clId: string) => void;
   handleUpdateCLPipeline?: (clId: string, data: any) => void;
+  setNotifications?: React.Dispatch<React.SetStateAction<any[]>>;
   username?: string;
 }
 
@@ -43,6 +45,7 @@ export default function ApproveClDashboard({
   handleMarkClosedPaid, 
   handleDebitNote, 
   handleUpdateCLPipeline,
+  setNotifications = null,
   username = "admin" 
 }: ApproveClDashboardProps) {
   
@@ -91,29 +94,90 @@ export default function ApproveClDashboard({
     } else if (setConfirmationLetters) {
       setConfirmationLetters(prev => prev.map(c => c.id === cl.id ? { ...c, ...payload } : c));
     }
+    if (setNotifications) {
+      setNotifications((prev: any[]) => [{
+        id: Date.now(),
+        message: `CL ${cl.clNumber} berhasil dikirim ke Vendor (${cl.supplierName}) dan menunggu konfirmasi/approval Vendor.`,
+        time: "Baru saja",
+        type: "info",
+        unread: true
+      }, ...prev]);
+    }
     setUploadModalCl(null);
     setSelectedFile(null);
     alert(`CL ${cl.clNumber} berhasil dikirim ke Vendor! Status kini beralih ke "4. WAITING VENDOR APPROVAL".`);
   };
 
-  const handleVendorApproveCl = (cl: any, file?: File) => {
+  const handleVendorApproveCl = async (cl: any, file?: File) => {
     const payload: any = {
       vendorApproved: true,
       vendorApprovedDate: new Date().toISOString().split("T")[0],
       readyForSSC: true,
+      status: "APPROVED"
     };
     if (file) {
       payload.vendorApprovedDocName = file.name;
       payload.vendorApprovedDocUrl = URL.createObjectURL(file);
+    }
+    try {
+      await clService.update(cl.id, payload);
+    } catch (err) {
+      console.warn("Notice: Failed to update vendor approval on server:", err);
     }
     if (handleUpdateCLPipeline) {
       handleUpdateCLPipeline(cl.id, payload);
     } else if (setConfirmationLetters) {
       setConfirmationLetters(prev => prev.map(c => c.id === cl.id ? { ...c, ...payload } : c));
     }
+    if (setNotifications) {
+      setNotifications((prev: any[]) => [{
+        id: Date.now(),
+        message: `Dokumen Approval CL ${cl.clNumber} dari Vendor (${cl.supplierName}) telah diterima & diverifikasi. Dokumen siap diproses ke SSC Billing & Payment.`,
+        time: "Baru saja",
+        type: "success",
+        unread: true
+      }, ...prev]);
+    }
+    if (selectedCl && selectedCl.id === cl.id) {
+      setSelectedCl((prev: any) => ({ ...prev, ...payload }));
+    }
     setUploadModalCl(null);
     setSelectedFile(null);
-    alert(`CL ${cl.clNumber} berhasil disetujui Vendor! Dokumen diteruskan ke modul SSC Billing (I-Memo).`);
+    alert(`CL ${cl.clNumber} berhasil disetujui Vendor! Dokumen otomatis diteruskan dan siap diproses pada modul SSC Billing & SSC Payment.`);
+  };
+
+  const handleToggleVendorApproval = async (cl: any, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const newStatus = !cl.vendorApproved;
+    const todayStr = new Date().toISOString().split("T")[0];
+    const payload: any = {
+      vendorApproved: newStatus,
+      vendorApprovedDate: newStatus ? todayStr : null,
+      readyForSSC: newStatus,
+      status: newStatus ? "APPROVED" : (cl.status === "APPROVED" || cl.status === "FULLY_APPROVED" ? "PENDING" : cl.status)
+    };
+
+    try {
+      await clService.update(cl.id, payload);
+    } catch (err) {
+      console.warn("Notice: Failed to update vendor approval on server:", err);
+    }
+
+    if (handleUpdateCLPipeline) {
+      handleUpdateCLPipeline(cl.id, payload);
+    } else if (setConfirmationLetters) {
+      setConfirmationLetters(prev => prev.map(c => c.id === cl.id ? { ...c, ...payload } : c));
+    }
+
+    if (selectedCl && selectedCl.id === cl.id) {
+      setSelectedCl((prev: any) => ({ ...prev, ...payload }));
+    }
+
+    if (newStatus) {
+      alert(`Status CL ${cl.clNumber} (${cl.supplierName}) berhasil diubah menjadi: DISETUJUI VENDOR!\n\nData CL otomatis terlempar dan siap diproses pada SSC Billing & SSC Payment.`);
+    } else {
+      alert(`Status CL ${cl.clNumber} diubah menjadi: BELUM DISETUJUI VENDOR.`);
+    }
   };
 
   // Calculate claim count for each vendor dynamically based on CLs
@@ -538,9 +602,21 @@ export default function ApproveClDashboard({
                           )}
 
                           {isVendorApproved && !isClosedPaid && (
-                            <span className="w-full text-center text-[8.5px] font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 py-1 rounded">
-                              ✓ Siap ke SSC Billing
-                            </span>
+                            <div className="flex flex-col gap-1 w-full">
+                              <span className="w-full text-center text-[8.5px] font-extrabold text-emerald-800 bg-emerald-100 border border-emerald-300 py-1 rounded shadow-xs">
+                                ✓ Siap ke SSC Billing &amp; Payment
+                              </span>
+                              {(username === "purchasing" || username === "admin") && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => handleToggleVendorApproval(cl, e)}
+                                  className="w-full py-0.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-250 rounded text-[8px] font-bold cursor-pointer transition-all active:scale-95"
+                                  title="Batalkan status approval vendor"
+                                >
+                                  Batal Setujui
+                                </button>
+                              )}
+                            </div>
                           )}
                         </div>
                       </td>
@@ -846,6 +922,37 @@ export default function ApproveClDashboard({
                       </div>
                     );
                   })()}
+
+                  {/* Status & Kontrol Persetujuan Vendor */}
+                  <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-lg text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div>
+                      <span className="text-[9.5px] font-black text-slate-500 block uppercase tracking-wider">Status Approval Vendor:</span>
+                      {selectedCl.vendorApproved ? (
+                        <span className="inline-flex items-center gap-1 font-extrabold text-emerald-750 mt-0.5">
+                          <CheckCircle2 size={13} className="text-emerald-600 shrink-0" />
+                          Disetujui Vendor (Terlempar ke SSC Billing &amp; Payment)
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 font-bold text-amber-700 mt-0.5">
+                          <Clock size={13} className="text-amber-500 shrink-0" />
+                          Menunggu / Belum Disetujui Vendor
+                        </span>
+                      )}
+                    </div>
+                    {(username === "purchasing" || username === "admin") && (
+                      <button
+                        type="button"
+                        onClick={() => handleToggleVendorApproval(selectedCl)}
+                        className={`px-3 py-1.5 text-xs font-black rounded-md transition-all cursor-pointer shadow-xs active:scale-95 shrink-0 ${
+                          selectedCl.vendorApproved
+                            ? "bg-amber-100 hover:bg-amber-200 text-amber-800 border border-amber-300"
+                            : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/20"
+                        }`}
+                      >
+                        {selectedCl.vendorApproved ? "Batal Setujui Vendor" : "✓ Setujui Vendor"}
+                      </button>
+                    )}
+                  </div>
 
                   <div className="p-3.5 bg-blue-50 border border-blue-100 rounded-lg text-[10px] text-slate-550 leading-relaxed font-semibold">
                     <strong className="text-blue-750 block mb-1">Panduan Otorisasi:</strong>

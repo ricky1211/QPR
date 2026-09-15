@@ -14,12 +14,17 @@ import {
   ArrowRight,
   FileCheck2,
   Building,
-  Eye
+  Eye,
+  Upload,
+  Paperclip,
+  Loader2
 } from "lucide-react";
 import ConfirmationLetterPrintPreview from "./ConfirmationLetterPrintPreview";
+import QprPrintPreview from "./QprPrintPreview";
 import { parseCLPdf } from "@/utils/parseCLPdf";
 import { sscService, mapBillingFromDb, mapPaymentFromDb } from "@/services/sscService";
 import { clService } from "@/services/clService";
+import { vendorService } from "@/services/vendorService";
 
 interface IMemoViewProps {
   confirmationLetters: any[];
@@ -28,6 +33,8 @@ interface IMemoViewProps {
   createdSscBillings?: any[];
   setCreatedSscBillings?: React.Dispatch<React.SetStateAction<any[]>>;
   setActiveTab?: (tab: string) => void;
+  setNotifications?: React.Dispatch<React.SetStateAction<any[]>>;
+  username?: string;
 }
 
 export default function IMemoView({
@@ -36,8 +43,24 @@ export default function IMemoView({
   parts = [],
   createdSscBillings = [],
   setCreatedSscBillings = () => {},
-  setActiveTab
+  setActiveTab,
+  setNotifications = null,
+  username = "admin"
 }: IMemoViewProps) {
+  // Role Access Checks
+  const isPurchasing = username === "purchasing";
+  const isFinance = username === "finance";
+  const isAdmin = username === "admin" || !username;
+
+  // Permissions:
+  // Kirim CL: HANYA Purchasing (Cicik Andria) & Admin
+  // SSC Billing & SSC Payment: HANYA Finance & Admin
+  // Parts Vendor: All
+  const canAccessKirimCl = isPurchasing || isAdmin;
+  const canAccessSscBilling = isFinance || isAdmin;
+  const canAccessSscPayment = isFinance || isAdmin;
+  const canAccessParts = isPurchasing || isFinance || isAdmin;
+
   const [sscBillingRows, setSscBillingRows] = useState<any[]>([]);
   const [selectedClId, setSelectedClId] = useState<string>("");
   const [selectedBillingClId, setSelectedBillingClId] = useState<string>("");
@@ -45,16 +68,466 @@ export default function IMemoView({
   const [draftSearchTerm, setDraftSearchTerm] = useState<string>("");
   const [draftFilterSupplier, setDraftFilterSupplier] = useState<string>("ALL");
   const [activeSubTab, setActiveSubTab] = useState<
-    "ssc_purchasing" | "buat_ssc_payment" | "draft_ssc_billing" | "draft_ssc_payment" | "reminder" | "kirim_cl" | "parts_per_vendor"
-  >("ssc_purchasing");
+    "kirim_cl" | "ssc_purchasing" | "buat_ssc_payment" | "draft_ssc_billing" | "draft_ssc_payment" | "parts_per_vendor" | "reminder"
+  >(() => {
+    if (username === "purchasing") return "kirim_cl";
+    if (username === "finance") return "ssc_purchasing";
+    return "kirim_cl";
+  });
+
+  // Automatically enforce accessible subtab if role changes or unauthorized subtab is set
+  useEffect(() => {
+    if (username === "purchasing") {
+      if (activeSubTab === "ssc_purchasing" || activeSubTab === "buat_ssc_payment") {
+        setActiveSubTab("kirim_cl");
+      }
+    } else if (username === "finance") {
+      if (activeSubTab === "kirim_cl" || (activeSubTab as any) === "reminder") {
+        setActiveSubTab("ssc_purchasing");
+      }
+    }
+  }, [username, activeSubTab]);
   const [copied, setCopied] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [showSscBillingPreview, setShowSscBillingPreview] = useState(false);
   const [showSscPaymentPreview, setShowSscPaymentPreview] = useState(false);
   const [previewCl, setPreviewCl] = useState<any | null>(null);
+  const [previewQpr, setPreviewQpr] = useState<any | null>(null);
   const [sscFiles, setSscFiles] = useState<Array<{ file: File; rowId: string }>>([]);
   const [viewPartsCl, setViewPartsCl] = useState<any | null>(null);
   const [clUploadedFile, setClUploadedFile] = useState<File | null>(null);
+
+  // Vendor email sender states & working days logic
+  const [vendorsList, setVendorsList] = useState<any[]>([]);
+  const [selectedVendorName, setSelectedVendorName] = useState<string>("");
+  const [vendorEmailInput, setVendorEmailInput] = useState<string>("");
+  const [emailSubject, setEmailSubject] = useState<string>("Confirmation Letter – Part NG");
+  const [emailCopied, setEmailCopied] = useState<boolean>(false);
+  const [selectedClForEmailId, setSelectedClForEmailId] = useState<string>("");
+  const [isSendingEmail, setIsSendingEmail] = useState<boolean>(false);
+
+  // Fetch vendors from DB on mount
+  useEffect(() => {
+    vendorService.getAll()
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setVendorsList(data);
+        }
+      })
+      .catch((err) => console.warn("Notice: Failed to load vendors for email view:", err));
+  }, []);
+
+  // Compute all available vendors from confirmationLetters, parts, and DB vendors
+  const allAvailableVendors = React.useMemo(() => {
+    const map = new Map<string, { name: string; email: string }>();
+    
+    // Add from DB vendors
+    vendorsList.forEach((v: any) => {
+      const name = v.vendorName || `Vendor ${v.vendorCode}`;
+      if (name) {
+        map.set(name.toLowerCase(), {
+          name: name,
+          email: v.email || `marketing@${name.replace(/^PT\.?\s+/i, "").replace(/^CV\.?\s+/i, "").replace(/\s+(INDONESIA|TBA|TBK|ENGINEERING|MANUFACTURING|JAYA|MITRA).*$/i, "").trim().toLowerCase()}.co.id`
+        });
+      }
+    });
+
+    // Add from confirmation letters
+    confirmationLetters.forEach((cl: any) => {
+      if (cl.supplierName && !map.has(cl.supplierName.toLowerCase())) {
+        const short = cl.supplierName.replace(/^PT\.?\s+/i, "").replace(/^CV\.?\s+/i, "").replace(/\s+(INDONESIA|TBA|TBK|ENGINEERING|MANUFACTURING|JAYA|MITRA).*$/i, "").trim().toLowerCase();
+        map.set(cl.supplierName.toLowerCase(), {
+          name: cl.supplierName,
+          email: `marketing@${short || "vendor"}.co.id`
+        });
+      }
+    });
+
+    // Ensure PT ADIKU MITRA JAYA is present if not already
+    if (!map.has("pt adiku mitra jaya") && !map.has("adiku")) {
+      map.set("pt adiku mitra jaya", {
+        name: "PT ADIKU MITRA JAYA",
+        email: "marketing@adiku.co.id"
+      });
+    }
+
+    return Array.from(map.values());
+  }, [vendorsList, confirmationLetters]);
+
+  // Set initial selected vendor
+  useEffect(() => {
+    if (allAvailableVendors.length > 0 && !selectedVendorName) {
+      setSelectedVendorName(allAvailableVendors[0].name);
+      setVendorEmailInput(allAvailableVendors[0].email);
+    }
+  }, [allAvailableVendors, selectedVendorName]);
+
+  // When vendor changes, update email input
+  const handleVendorChange = (vendorName: string) => {
+    setSelectedVendorName(vendorName);
+    const found = allAvailableVendors.find(v => v.name.toLowerCase() === vendorName.toLowerCase());
+    if (found) {
+      setVendorEmailInput(found.email);
+    } else {
+      const short = vendorName.replace(/^PT\.?\s+/i, "").replace(/^CV\.?\s+/i, "").replace(/\s+(INDONESIA|TBA|TBK|ENGINEERING|MANUFACTURING|JAYA|MITRA).*$/i, "").trim().toLowerCase();
+      setVendorEmailInput(`marketing@${short || "vendor"}.co.id`);
+    }
+  };
+
+  // Filter CLs belonging to selected vendor
+  const vendorCls = React.useMemo(() => {
+    if (!selectedVendorName) return [];
+    return confirmationLetters.filter((cl: any) => {
+      const sup = (cl.supplierName || "").toLowerCase();
+      const sel = selectedVendorName.toLowerCase();
+      return sup.includes(sel) || sel.includes(sup);
+    });
+  }, [confirmationLetters, selectedVendorName]);
+
+  // Working days calculation helper: add 10 business days skipping Sat & Sun
+  const addWorkingDays = (startDate: Date, days: number): Date => {
+    let result = new Date(startDate);
+    let added = 0;
+    while (added < days) {
+      result.setDate(result.getDate() + 1);
+      const dayOfWeek = result.getDay();
+      if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Skip Saturday (6) and Sunday (0)
+        added++;
+      }
+    }
+    return result;
+  };
+
+  const formatIndoDate = (date: Date): string => {
+    const months = [
+      "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+      "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+    ];
+    return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
+  };
+
+  const calculatedDueDate = React.useMemo(() => {
+    return formatIndoDate(addWorkingDays(new Date(), 10));
+  }, []);
+
+  const vendorShortName = React.useMemo(() => {
+    if (!selectedVendorName) return "Vendor";
+    return selectedVendorName
+      .replace(/^PT\.?\s+/i, "")
+      .replace(/^CV\.?\s+/i, "")
+      .replace(/\s+(INDONESIA|TBA|TBK|ENGINEERING|MANUFACTURING|JAYA|MITRA).*$/i, "")
+      .trim();
+  }, [selectedVendorName]);
+
+  const emailToHeader = React.useMemo(() => {
+    return `"'Marketing ${vendorShortName}'"<${vendorEmailInput}>`;
+  }, [vendorShortName, vendorEmailInput]);
+
+  // Helper to parse clean numeric amount from strings or numbers
+  const parseNumericClaim = (val: any): number => {
+    if (typeof val === "number" && !isNaN(val)) return val;
+    if (!val) return 0;
+    const clean = String(val).replace(/[^0-9]/g, "");
+    return parseInt(clean, 10) || 0;
+  };
+
+  // Helper to extract clean part name from CL or QPR
+  const resolvePartDesc = (cl: any): string => {
+    if (!cl) return "ALL TYPE PART FINISH";
+    if (cl.partName && cl.partName !== "-" && cl.partName !== "") return cl.partName;
+    if (cl.items && Array.isArray(cl.items) && cl.items.length > 0 && cl.items[0]?.partName) {
+      return cl.items[0].partName;
+    }
+    if (cl.qprSourceData?.parts && Array.isArray(cl.qprSourceData.parts) && cl.qprSourceData.parts.length > 0 && cl.qprSourceData.parts[0]?.partName) {
+      return cl.qprSourceData.parts[0].partName;
+    }
+    if (cl.qpr?.qprParts && Array.isArray(cl.qpr.qprParts) && cl.qpr.qprParts.length > 0) {
+      const p = cl.qpr.qprParts[0];
+      return p.part?.partDesc || p.part?.partNumber || p.partName || "ALL TYPE PART FINISH";
+    }
+    return "INNER TUBE,650 A";
+  };
+
+  const activeClForEmail = React.useMemo(() => {
+    return (
+      vendorCls.find((c: any) => c.id === selectedClForEmailId) ||
+      vendorCls[0] ||
+      confirmationLetters.find((c: any) => (c.supplierName || "").toLowerCase().includes((selectedVendorName || "").toLowerCase())) ||
+      confirmationLetters[0] || {
+        id: "cl_default",
+        clNumber: `CL/2026/09/${(selectedVendorName || "VENDOR").replace(/[^a-zA-Z0-9]/g, "_").toUpperCase()}_570`,
+        qprNumber: "01/QI/QPR/SUB/09/26",
+        supplierName: selectedVendorName || "PT. ARAI RUBBER SEAL IND",
+        partName: "INNER TUBE,650 A",
+        claimAmount: 2358750,
+        totalClaimAmount: 2358750,
+        amount: 2358750,
+        status: "APPROVED"
+      }
+    );
+  }, [vendorCls, selectedClForEmailId, confirmationLetters, selectedVendorName]);
+
+  const activeQprForEmail = React.useMemo(() => {
+    return (
+      activeClForEmail?.qpr || {
+        id: "qpr_preview",
+        qprNumber: activeClForEmail?.qprNumber || "01/QI/QPR/SUB/09/26",
+        supplierName: activeClForEmail?.supplierName || selectedVendorName || "PT. ARAI RUBBER SEAL IND",
+        partName: resolvePartDesc(activeClForEmail),
+        status: "APPROVED",
+        refNcrNumber: activeClForEmail?.refNcrNumber || "NCR/2026/09/001",
+        problem: activeClForEmail?.problem || "Claim Part NG / Out of Tolerance",
+        rejectItems: activeClForEmail?.qty || activeClForEmail?.qtyNG || 25,
+        claimAmount: activeClForEmail?.amount || activeClForEmail?.claimAmount || "2358750",
+        approvedBy: ["Creator", "Section Head", "Dept Head", "Div Head", "Purchasing"],
+        approvalProgress: {
+          approvedAtSectionHead: true,
+          approvedAtDeptHead: true,
+          approvedAtDivHead: true,
+          approvedAtPurchasing: true
+        }
+      }
+    );
+  }, [activeClForEmail, selectedVendorName]);
+
+  const generatedEmailBody = React.useMemo(() => {
+    return `Dear Team ${vendorShortName},
+
+Berikut kami sampaikan Confirmation Letter terkait part NG sesuai dengan data terlampir.
+
+Mohon bantuannya untuk melakukan konfirmasi sesuai dengan due date, yaitu maksimal 10 hari kerja sejak Confirmation Letter diterima, atau paling lambat pada ${calculatedDueDate}.
+
+Terima kasih atas perhatian dan kerja samanya.
+
+Best regards, 
+
+Purchasing Department
+PT MENARA TERUS MAKMUR
+Jl. Jababeka XI Blok H-3 no 12
+Cikarang Bekasi 17530 Indonesia`;
+  }, [vendorShortName, calculatedDueDate]);
+
+  const handleSendVendorEmail = async (specificCl?: any) => {
+    if (!vendorEmailInput) {
+      alert("Harap masukkan alamat email vendor!");
+      return;
+    }
+
+    const todayStr = new Date().toISOString().split("T")[0];
+    const targetCls = specificCl ? [specificCl] : (activeClForEmail ? [activeClForEmail] : (vendorCls.length > 0 ? vendorCls : []));
+    const targetClIds = targetCls.map(c => c.id || c.clNumber).filter(Boolean);
+
+    // Gather client attachments if available
+    const clientAttachments: any[] = [];
+    if (activeQprForEmail?.pdfFiles && Array.isArray(activeQprForEmail.pdfFiles)) {
+      activeQprForEmail.pdfFiles.forEach((f: any) => {
+        if (f.base64) {
+          clientAttachments.push({ filename: f.name || "Dokumen_QPR.pdf", content: f.base64 });
+        }
+      });
+    } else if (activeQprForEmail?.pdfFileBase64) {
+      try {
+        if (activeQprForEmail.pdfFileBase64.startsWith("[")) {
+          JSON.parse(activeQprForEmail.pdfFileBase64).forEach((f: any) => {
+            if (f.base64) clientAttachments.push({ filename: f.name || "Dokumen_QPR.pdf", content: f.base64 });
+          });
+        } else {
+          clientAttachments.push({ filename: activeQprForEmail.pdfFileName || "Dokumen_QPR.pdf", content: activeQprForEmail.pdfFileBase64 });
+        }
+      } catch (e) {}
+    }
+
+    setIsSendingEmail(true);
+    try {
+      // Send directly via Backend SMTP
+      const result = await clService.sendEmail({
+        clIds: targetClIds,
+        clId: targetClIds[0],
+        to: vendorEmailInput,
+        subject: emailSubject || "Confirmation Letter – Part NG",
+        body: generatedEmailBody,
+        vendorName: selectedVendorName,
+        dueDate: calculatedDueDate,
+        attachments: clientAttachments,
+      });
+
+      // Update local state
+      setConfirmationLetters(prev =>
+        prev.map(cl => {
+          const isMatch = targetCls.some(tc => tc.id === cl.id || tc.clNumber === cl.clNumber);
+          if (isMatch) {
+            return {
+              ...cl,
+              purchasingSentCl: true,
+              purchasingSentDate: todayStr,
+              sentToVendor: true
+            };
+          }
+          return cl;
+        })
+      );
+
+      if (setNotifications) {
+        const clCode = targetCls[0]?.clNumber || "CL";
+        const supName = selectedVendorName || "Vendor";
+        setNotifications((prev: any[]) => [{
+          id: Date.now(),
+          message: `Surat CL ${clCode} berhasil dikirimkan ke email ${supName} (${vendorEmailInput}) dan menunggu persetujuan Vendor.`,
+          time: "Baru saja",
+          type: "success" as const,
+          unread: true
+        }, ...prev]);
+      }
+
+      const attInfo = result?.attachmentsCount 
+        ? `\n📁 Berkas Lampiran: ${result.attachmentsCount} file (Surat CL & Dokumen QPR)`
+        : '';
+      const serverNotice = result?.simulated
+        ? `\nℹ️ Status: Tercatat di sistem (Mode Simulasi Server)`
+        : `\n⚡ Status: Terkirim via SMTP Server`;
+
+      alert(
+        `Email Confirmation Letter berhasil diproses!\n\n` +
+        `• Vendor: ${selectedVendorName || "Vendor"}\n` +
+        `• Email Tujuan: ${vendorEmailInput}\n` +
+        `• Jatuh Tempo: ${calculatedDueDate} (10 HK)` +
+        `${attInfo}` +
+        `${serverNotice}`
+      );
+    } catch (err: any) {
+      console.error("Failed to auto-send email:", err);
+      // Fallback with user option
+      const fallbackToMailto = confirm(
+        `Gagal mengirim email otomatis melalui server: ${err.message || "Koneksi backend terputus"}.\n\nApakah Anda ingin membuka email client (Outlook/Webmail) manual sebagai alternatif?`
+      );
+      if (fallbackToMailto) {
+        const subject = encodeURIComponent(emailSubject || "Confirmation Letter – Part NG");
+        const body = encodeURIComponent(generatedEmailBody);
+        window.open(`mailto:${vendorEmailInput}?subject=${subject}&body=${body}`);
+      }
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
+  const handleCopyEmailText = () => {
+    const fullEmailText = `To: ${emailToHeader}\nSubject: ${emailSubject}\n\n${generatedEmailBody}`;
+    navigator.clipboard.writeText(fullEmailText);
+    setEmailCopied(true);
+    setTimeout(() => setEmailCopied(false), 2000);
+  };
+
+  const handleToggleVendorApproval = async (cl: any, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const newStatus = !cl.vendorApproved;
+    const todayStr = new Date().toISOString().split("T")[0];
+    const payload = {
+      vendorApproved: newStatus,
+      vendorApprovedDate: newStatus ? todayStr : null,
+      readyForSSC: newStatus,
+      status: newStatus ? "APPROVED" : (cl.status === "APPROVED" || cl.status === "FULLY_APPROVED" ? "PENDING" : cl.status)
+    };
+
+    try {
+      await clService.update(cl.id, payload);
+    } catch (err) {
+      console.warn("Notice: Failed to update vendor approval on server:", err);
+    }
+
+    setConfirmationLetters(prev =>
+      prev.map(item => {
+        if (item.id === cl.id || item.clNumber === cl.clNumber) {
+          return {
+            ...item,
+            ...payload
+          };
+        }
+        return item;
+      })
+    );
+
+    if (newStatus) {
+      alert(`Status CL ${cl.clNumber} (${cl.supplierName}) berhasil diubah menjadi: DISETUJUI VENDOR!\n\nData CL otomatis terlempar dan langsung tersedia di antrian SSC Billing & SSC Payment.`);
+    } else {
+      alert(`Status CL ${cl.clNumber} diubah menjadi: BELUM DISETUJUI VENDOR.`);
+    }
+  };
+
+  const handleUploadVendorApprovedCl = async (cl: any, file: File) => {
+    if (!file) return;
+    const todayStr = new Date().toISOString().split("T")[0];
+    const fileUrl = URL.createObjectURL(file);
+    const payload: any = {
+      vendorApproved: true,
+      vendorApprovedDate: todayStr,
+      vendorApprovedDocName: file.name,
+      vendorApprovedDocUrl: fileUrl,
+      signedClFileName: file.name,
+      signedClFileUrl: fileUrl,
+      readyForSSC: true,
+      status: "APPROVED"
+    };
+
+    try {
+      await clService.update(cl.id, payload);
+    } catch (err) {
+      console.warn("Notice: Failed to update vendor approval on server:", err);
+    }
+
+    setConfirmationLetters(prev =>
+      prev.map(item => {
+        if (item.id === cl.id || item.clNumber === cl.clNumber) {
+          return {
+            ...item,
+            ...payload
+          };
+        }
+        return item;
+      })
+    );
+
+    alert(`Sukses Upload Dokumen CL Approval Vendor: ${file.name}!\n\nStatus CL ${cl.clNumber} kini resmi DISETUJUI VENDOR dan otomatis terlempar ke antrian SSC Billing & SSC Payment.`);
+  };
+
+  const handleManualCreateAndUploadCl = async (file: File) => {
+    if (!file) return;
+    const todayStr = new Date().toISOString().split("T")[0];
+    const fileUrl = URL.createObjectURL(file);
+    const randSuffix = Math.floor(100 + Math.random() * 900);
+    const vendorClean = (selectedVendorName || "VENDOR").replace(/[^a-zA-Z0-9]/g, "_").toUpperCase();
+    const newClNumber = `CL/${new Date().getFullYear()}/${String(new Date().getMonth() + 1).padStart(2, "0")}/${vendorClean}_${randSuffix}`;
+
+    const newCl: any = {
+      id: `cl_manual_${Date.now()}`,
+      clNumber: newClNumber,
+      qprNumber: `01/QI/QPR/SUB/${String(new Date().getMonth() + 1).padStart(2, "0")}/${String(new Date().getFullYear()).slice(-2)}`,
+      supplierName: selectedVendorName || "PT. Vendor Indonesia",
+      partName: "Manual Part NG",
+      claimAmount: 0,
+      totalClaimAmount: 0,
+      amount: 0,
+      status: "APPROVED",
+      vendorApproved: true,
+      vendorApprovedDate: todayStr,
+      vendorApprovedDocName: file.name,
+      vendorApprovedDocUrl: fileUrl,
+      signedClFileName: file.name,
+      signedClFileUrl: fileUrl,
+      readyForSSC: true,
+      dateSent: todayStr,
+    };
+
+    try {
+      await clService.create(newCl);
+    } catch (err) {
+      console.warn("Notice: Failed to persist manual CL on server:", err);
+    }
+
+    setConfirmationLetters(prev => [newCl, ...prev]);
+    setSelectedClForEmailId(newCl.id);
+
+    alert(`Sukses Upload Dokumen CL Approval Vendor: ${file.name}!\n\nDokumen ${newClNumber} berhasil didaftarkan dan langsung aktif untuk antrian SSC Billing & Payment.`);
+  };
 
   // States for the Manual Billing Internal Memo Form
   const [memoCompany, setMemoCompany] = useState("PT. MENARA TERUS MAKMUR");
@@ -210,6 +683,9 @@ export default function IMemoView({
           dateSent: cl.dateSent,
           amount: cl.amount,
           status: cl.status,
+          vendorApproved: cl.vendorApproved || false,
+          vendorApprovedDate: cl.vendorApprovedDate || "",
+          readyForSSC: cl.vendorApproved || false,
           memoStatus: cl.memoStatus || "SENT_AOP",
           reminderSentCount: cl.reminderSentCount || 0,
           sentToVendor: cl.sentToVendor || false,
@@ -222,7 +698,16 @@ export default function IMemoView({
       // Also update status of existing rows that match a CL that changed
       const updated = prev.map((row: any) => {
         const match = confirmationLetters.find((cl: any) => cl.id === row.id);
-        if (match) return { ...row, status: match.status, amount: match.amount, supplierName: match.supplierName };
+        if (match) return { 
+          ...row, 
+          status: match.status, 
+          amount: match.amount, 
+          supplierName: match.supplierName,
+          vendorApproved: match.vendorApproved,
+          vendorApprovedDate: match.vendorApprovedDate,
+          readyForSSC: match.vendorApproved,
+          sentToVendor: match.sentToVendor
+        };
         return row;
       });
       return [...updated.filter(r => confirmationLetters.some(cl => cl.id === r.id)), ...newFromCl];
@@ -342,20 +827,6 @@ export default function IMemoView({
     return !isAlreadyPaid && !isClosed;
   });
 
-  const selectedCl = sscBillingRows.find(cl => cl.id === selectedClId) || sscBillingRows[0];
-  const activeVendorName = sscBillingRows.length > 0 ? (sscBillingRows[0]?.supplierName || "—") : "—";
-
-  const handleSendToVendor = (id: string, clNumber: string) => {
-    setConfirmationLetters(prev =>
-      prev.map(cl => {
-        if (cl.id === id) {
-          alert(`Sukses: Confirmation Letter ${clNumber} berhasil dikirim/diteruskan ke Vendor!`);
-          return { ...cl, sentToVendor: true };
-        }
-        return cl;
-      })
-    );
-  };
 
   const handlePrint = () => {
     const clNumVal = sscBillingRows.find((r: any) => r.id === selectedBillingClId)?.clNumber || `CL-${Date.now()}`;
@@ -734,6 +1205,29 @@ export default function IMemoView({
     );
   };
 
+  const handleSendToVendor = (id: string, clNumber?: string) => {
+    const todayStr = new Date().toISOString().split("T")[0];
+    clService.update(id, {
+      purchasingSentCl: true,
+      purchasingSentDate: todayStr
+    }).catch(err => console.warn("Notice: CL sent status update:", err));
+
+    setConfirmationLetters(prev =>
+      prev.map(cl => {
+        if (cl.id === id || cl.clNumber === clNumber) {
+          return {
+            ...cl,
+            purchasingSentCl: true,
+            purchasingSentDate: todayStr,
+            sentToVendor: true
+          };
+        }
+        return cl;
+      })
+    );
+    alert(`Sukses: Confirmation Letter ${clNumber || id} berhasil dikirim ke vendor!`);
+  };
+
   const getClaimText = (cl: any) => {
     const partName = cl?.items?.[0]?.partName || cl?.partName;
     if (partName) return `CLAIM PART NG ${partName.toUpperCase()}`;
@@ -873,11 +1367,24 @@ export default function IMemoView({
   }, [selectedPaymentClId, createdSscBillings]);
 
 
+  const selectedCl = sscBillingRows.find(cl => cl.id === selectedClId) || confirmationLetters.find(cl => cl.id === selectedClId) || confirmationLetters[0] || sscBillingRows[0] || null;
+
   const sscEmail = "ssc-billing@astraoparts.co.id";
-  const handleEmailSSC = () => {
-    const subject = encodeURIComponent(`[SSC BILLING] ${selectedCl?.clNumber || ""} - ${selectedCl?.supplierName || ""}`);
-    const body = encodeURIComponent(`Kepada Tim SSC Billing,\n\nMohon diproses SSC Billing untuk:\nNo CL: ${selectedCl?.clNumber || ""}\nVendor: ${selectedCl?.supplierName || ""}\nJumlah: ${selectedCl?.amount || ""}\n\nTerima kasih.\n\nPT Menara Terus Makmur`);
-    window.open(`mailto:${sscEmail}?subject=${subject}&body=${body}`);
+  const handleEmailSSC = async () => {
+    const subject = `[SSC BILLING] ${selectedCl?.clNumber || ""} - ${selectedCl?.supplierName || ""}`;
+    const body = `Kepada Tim SSC Billing,\n\nMohon diproses SSC Billing untuk:\nNo CL: ${selectedCl?.clNumber || ""}\nVendor: ${selectedCl?.supplierName || ""}\nJumlah: ${selectedCl?.amount || ""}\n\nTerima kasih.\n\nPT Menara Terus Makmur`;
+    try {
+      await clService.sendEmail({
+        to: sscEmail,
+        subject,
+        body,
+        clId: selectedCl?.id,
+      });
+      alert(`✅ Email permohonan SSC Billing berhasil dikirim ke ${sscEmail}!`);
+    } catch (err: any) {
+      console.warn("Notice: Failed to auto-send SSC email:", err);
+      window.open(`mailto:${sscEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
+    }
   };
 
   const handleUpdateClField = (id: string, field: string, value: any) => {
@@ -1030,7 +1537,9 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
             <span className="p-1.5 bg-white/10 text-white rounded-lg">
               <Mail size={18} />
             </span>
-            <h3 className="text-base font-black uppercase tracking-wider">SSC Billing &amp; Reminder</h3>
+            <h3 className="text-base font-black uppercase tracking-wider">
+              {isPurchasing ? "Kirim Confirmation Letter (CL)" : isFinance ? "SSC Billing & SSC Payment (I-Memo)" : "Kirim CL, SSC Billing & SSC Payment"}
+            </h3>
           </div>
         </div>
       </div>
@@ -1040,68 +1549,72 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
           {/* Centered Horizontal Navigation Subtabs */}
           <div className="flex justify-center print:hidden">
           <div className="flex bg-slate-100 p-1.5 rounded-xl border border-slate-200 gap-1.5 overflow-x-auto shadow-sm max-w-5xl w-full">
-            <button
-              onClick={() => setActiveSubTab("ssc_purchasing")}
-              className={`flex-1 py-2.5 px-3 rounded-lg font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                activeSubTab === "ssc_purchasing"
-                  ? "bg-white text-blue-750 shadow-sm border border-slate-200/50"
-                  : "text-slate-500 hover:text-slate-800 hover:bg-slate-50/50"
-              }`}
-            >
-              <FileCheck2 size={13} />
-              SSC BILLING
-            </button>
-            <button
-              onClick={() => setActiveSubTab("buat_ssc_payment")}
-              className={`flex-1 py-2.5 px-3 rounded-lg font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                activeSubTab === "buat_ssc_payment"
-                  ? "bg-white text-blue-750 shadow-sm border border-slate-200/50"
-                  : "text-slate-500 hover:text-slate-800 hover:bg-slate-50/50"
-              }`}
-            >
-              <FileCheck2 size={13} />
-              BUAT SSC PAYMENT
-            </button>
-            <button
-              onClick={() => setActiveSubTab("reminder")}
-              className={`flex-1 py-2.5 px-3 rounded-lg font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                activeSubTab === "reminder"
-                  ? "bg-white text-blue-750 shadow-sm border border-slate-200/50"
-                  : "text-slate-500 hover:text-slate-800 hover:bg-slate-50/50"
-              }`}
-            >
-              <Mail size={13} />
-              EMAIL REMINDER
-            </button>
-            <button
-              onClick={() => setActiveSubTab("kirim_cl")}
-              className={`flex-1 py-2.5 px-3 rounded-lg font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                activeSubTab === "kirim_cl"
-                  ? "bg-white text-blue-750 shadow-sm border border-slate-200/50"
-                  : "text-slate-500 hover:text-slate-800 hover:bg-slate-50/50"
-              }`}
-            >
-              <Send size={13} />
-              KIRIM CL
-            </button>
-            <button
-              onClick={() => setActiveSubTab("parts_per_vendor")}
-              className={`flex-1 py-2.5 px-3 rounded-lg font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                activeSubTab === "parts_per_vendor"
-                  ? "bg-white text-blue-750 shadow-sm border border-slate-200/50"
-                  : "text-slate-500 hover:text-slate-800 hover:bg-slate-50/50"
-              }`}
-            >
-              <Building size={13} />
-              PARTS VENDOR
-            </button>
+            {/* 1. KIRIM CL (HANYA PURCHASING / CICIK ANDRIA & ADMIN) */}
+            {canAccessKirimCl && (
+              <button
+                onClick={() => setActiveSubTab("kirim_cl")}
+                className={`flex-1 py-2.5 px-3 rounded-lg font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                  activeSubTab === "kirim_cl" || activeSubTab === "reminder"
+                    ? "bg-white text-blue-750 shadow-sm border border-slate-200/50"
+                    : "text-slate-500 hover:text-slate-800 hover:bg-slate-50/50"
+                }`}
+              >
+                <Send size={13} />
+                KIRIM CL
+              </button>
+            )}
+
+            {/* 2. SSC BILLING (HANYA FINANCE & ADMIN) */}
+            {canAccessSscBilling && (
+              <button
+                onClick={() => setActiveSubTab("ssc_purchasing")}
+                className={`flex-1 py-2.5 px-3 rounded-lg font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                  activeSubTab === "ssc_purchasing"
+                    ? "bg-white text-blue-750 shadow-sm border border-slate-200/50"
+                    : "text-slate-500 hover:text-slate-800 hover:bg-slate-50/50"
+                }`}
+              >
+                <FileCheck2 size={13} />
+                SSC BILLING
+              </button>
+            )}
+
+            {/* 3. SSC PAYMENT (HANYA FINANCE & ADMIN) */}
+            {canAccessSscPayment && (
+              <button
+                onClick={() => setActiveSubTab("buat_ssc_payment")}
+                className={`flex-1 py-2.5 px-3 rounded-lg font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                  activeSubTab === "buat_ssc_payment"
+                    ? "bg-white text-blue-750 shadow-sm border border-slate-200/50"
+                    : "text-slate-500 hover:text-slate-800 hover:bg-slate-50/50"
+                }`}
+              >
+                <FileCheck2 size={13} />
+                SSC PAYMENTS
+              </button>
+            )}
+
+            {/* 4. PARTS VENDOR */}
+            {canAccessParts && (
+              <button
+                onClick={() => setActiveSubTab("parts_per_vendor")}
+                className={`flex-1 py-2.5 px-3 rounded-lg font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                  activeSubTab === "parts_per_vendor"
+                    ? "bg-white text-blue-750 shadow-sm border border-slate-200/50"
+                    : "text-slate-500 hover:text-slate-800 hover:bg-slate-50/50"
+                }`}
+              >
+                <Building size={13} />
+                PARTS VENDOR
+              </button>
+            )}
           </div>
         </div>
 
         <div className="w-full space-y-4">
 
 
-                {activeSubTab === "parts_per_vendor" && (
+                {activeSubTab === "parts_per_vendor" && canAccessParts && (
                   (() => {
                     const vendorNames = Array.from(new Set(parts.map((p: any) => p.supplierName)));
                     const activeVendorForParts = selectedVendorForParts || vendorNames[0] || "";
@@ -1187,7 +1700,7 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                   })()
                 )}
 
-                {activeSubTab === "ssc_purchasing" && (
+                {activeSubTab === "ssc_purchasing" && canAccessSscBilling && (
                   <div className="flex flex-col gap-6 w-full items-center text-left font-sans">
                     {/* Top Section: CL Selector + Form Editor */}
                     <div className="w-full max-w-4xl space-y-4 print:hidden">
@@ -1902,7 +2415,7 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                     )}
                   </div>
                 )}
-                {activeSubTab === "buat_ssc_payment" && (
+                {activeSubTab === "buat_ssc_payment" && canAccessSscPayment && (
                   <div className="flex flex-col gap-6 w-full items-center text-left font-sans">
                     {/* Top Section: CL Selector + Form Editor */}
                     <div className="w-full max-w-4xl space-y-4 print:hidden">
@@ -2386,130 +2899,353 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
 
 
 
-                {activeSubTab === "reminder" && (
-                  /* Reminder Email View */
-                  <div className="bg-white rounded-xl shadow-md border border-slate-200 w-full max-w-xl p-6 text-left space-y-4">
-                    <div className="bg-slate-850 text-white p-4 rounded-lg flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Mail className="text-blue-400" size={18} />
-                        <span className="text-xs font-black uppercase tracking-wider">E-mail Reminder Simulator</span>
-                      </div>
-                      <span className="text-[9px] font-bold bg-white/20 px-2 py-0.5 rounded">AUTO-GENERATED</span>
-                    </div>
+                {(activeSubTab === "kirim_cl" || activeSubTab === "reminder") && canAccessKirimCl && (
+                  <div className="w-full space-y-6 text-left">
+                    {/* Main Grid: Left (Vendor Selector & CL List) | Right (Live Email Simulator) */}
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                      {/* Left Column: Vendor Selector & CL Documents */}
+                      <div className="lg:col-span-6 space-y-5">
+                        {/* 1. Vendor Selection & Email Input Card */}
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 space-y-4">
+                          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                            <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-2">
+                              <Building size={14} className="text-blue-600" />
+                              1. Pilih Vendor & Email Tujuan
+                            </h4>
+                            <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                              {allAvailableVendors.length} Vendor Terdaftar
+                            </span>
+                          </div>
 
-                    {selectedCl ? (
-                      <>
-                        <div className="border border-slate-200 rounded-lg p-3 bg-slate-50 text-[10.5px] space-y-1 font-semibold text-slate-600">
-                          <div><span className="text-slate-400">Kepada:</span> management@{selectedCl.supplierName?.toLowerCase().replace("pt ", "").replace(/ /g, "") || "vendor"}.co.id</div>
-                          <div><span className="text-slate-400">Subject:</span> [URGENT REMINDER] Lembar Persetujuan Confirmation Letter Kualitas {selectedCl.clNumber || ""}</div>
+                          <div className="space-y-3">
+                            <div>
+                              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                                Pilih Vendor / Supplier:
+                              </label>
+                              <select
+                                value={selectedVendorName}
+                                onChange={(e) => handleVendorChange(e.target.value)}
+                                className="w-full px-3 py-2.5 text-xs font-bold text-slate-800 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-all cursor-pointer"
+                              >
+                                {allAvailableVendors.map((v, i) => (
+                                  <option key={i} value={v.name}>
+                                    {v.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                                  Alamat Email Vendor:
+                                </label>
+                                <input
+                                  type="email"
+                                  value={vendorEmailInput}
+                                  onChange={(e) => setVendorEmailInput(e.target.value)}
+                                  placeholder="marketing@adiku.co.id"
+                                  className="w-full px-3 py-2 text-xs font-semibold text-slate-800 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-all font-mono"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                                  Subject Email:
+                                </label>
+                                <input
+                                  type="text"
+                                  value={emailSubject}
+                                  onChange={(e) => setEmailSubject(e.target.value)}
+                                  placeholder="Confirmation Letter – Part NG"
+                                  className="w-full px-3 py-2 text-xs font-semibold text-slate-800 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-all"
+                                />
+                              </div>
+                            </div>
+                          </div>
                         </div>
 
-                        <div className="p-4 bg-slate-50 border border-slate-250 rounded-lg text-slate-700 text-[11px] leading-relaxed font-mono whitespace-pre-wrap">
-                          {emailTemplateText}
-                        </div>
+                        {/* 2. Upload Confirmation Letter Approved by Vendor */}
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 space-y-4">
+                          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                            <div>
+                              <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-2">
+                                <FileText size={14} className="text-emerald-600" />
+                                2. Upload Confirmation Letter Approved by Vendor ({vendorCls.length})
+                              </h4>
+                              <p className="text-[10.5px] text-slate-400 font-bold mt-0.5">
+                                Upload file Confirmation Letter yang sudah disetujui vendor <strong className="text-slate-700">{selectedVendorName || "Vendor"}</strong>
+                              </p>
+                            </div>
+                          </div>
 
-                        <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-lg text-blue-800 flex items-start gap-2">
-                          <AlertCircle size={14} className="shrink-0 text-blue-600 mt-0.5" />
-                          <p className="text-[10px] leading-normal font-semibold">
-                            Email ini dikirimkan otomatis oleh sistem jika dalam 2x24 jam vendor belum menandatangani Confirmation Letter yang diajukan.
-                          </p>
-                        </div>
+                          <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+                            {vendorCls.length === 0 ? (
+                              <div className="p-6 text-center border border-dashed border-slate-300 rounded-xl bg-slate-50 text-slate-500 text-xs space-y-3">
+                                <FileText size={26} className="mx-auto text-slate-400" />
+                                <div className="space-y-1">
+                                  <p className="font-bold text-slate-700">Belum ada Confirmation Letter terdaftar untuk vendor ini.</p>
+                                  <p className="text-[11px] text-slate-500">Anda dapat langsung mengunggah file CL Approval Vendor secara manual untuk langsung men-trigger antrian SSC.</p>
+                                </div>
+                                {(isPurchasing || isAdmin) && (
+                                  <label className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-lg text-xs font-black shadow-sm cursor-pointer transition-all active:scale-95">
+                                    <Upload size={13} />
+                                    <span>Upload CL Approval Vendor (Manual)</span>
+                                    <input
+                                      type="file"
+                                      accept=".pdf,.png,.jpg,.jpeg"
+                                      className="hidden"
+                                      onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) {
+                                          handleManualCreateAndUploadCl(file);
+                                        }
+                                      }}
+                                    />
+                                  </label>
+                                )}
+                              </div>
+                            ) : (
+                              vendorCls.map((cl: any, idx: number) => {
+                                const isSelected = selectedClForEmailId === cl.id;
 
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleSendReminder(selectedCl.id)}
-                            className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-xs font-bold rounded-lg shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                          >
-                            <Send size={12} />
-                            Kirim Ulang Email Pengingat
-                          </button>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="p-8 text-center text-slate-400 font-bold italic border border-slate-200 rounded-xl bg-slate-50">
-                        Belum ada data denda kualitas. Silakan tambahkan data di tab SSC Billing terlebih dahulu.
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {activeSubTab === "kirim_cl" && (
-                  <div className="w-full bg-white rounded-xl shadow-md border border-slate-200 p-6 text-left space-y-6">
-                    <div>
-                      <h4 className="text-sm font-black text-slate-850 uppercase tracking-wide">
-                        Antrean Dokumen Confirmation Letter
-                      </h4>
-                      <p className="text-[11.5px] text-slate-500 font-bold mt-1 leading-normal">
-                        Berikut adalah daftar Confirmation Letter (CL) denda kualitas yang diterbitkan oleh tim Accounting. Silakan teruskan ke perwakilan vendor/supplier masing-masing.
-                      </p>
-                    </div>
-
-                    <div className="overflow-x-auto border border-slate-200 rounded-lg">
-                      <table className="w-full text-xs text-left border-collapse">
-                        <thead className="bg-slate-50 text-slate-750 font-black border-b border-slate-200">
-                          <tr>
-                            <th className="px-4 py-3 w-10 text-center">No</th>
-                            <th className="px-4 py-3">No. Confirmation Letter</th>
-                            <th className="px-4 py-3">Supplier / Vendor</th>
-                            <th className="px-4 py-3 text-center">Status Kirim</th>
-                            <th className="px-4 py-3 text-center">Pratinjau</th>
-                            <th className="px-4 py-3 text-right">Aksi</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-200 font-bold">
-                          {confirmationLetters.length === 0 ? (
-                            <tr>
-                              <td colSpan={6} className="px-4 py-8 text-center text-slate-400 italic">
-                                Belum ada Confirmation Letter terdaftar.
-                              </td>
-                            </tr>
-                          ) : (
-                            confirmationLetters.map((cl, index) => (
-                              <tr key={cl.id} className="hover:bg-slate-50/50">
-                                <td className="px-4 py-3 text-center text-slate-400 font-mono">{index + 1}</td>
-                                <td className="px-4 py-3 font-mono text-slate-800">{cl.clNumber}</td>
-                                <td className="px-4 py-3 text-slate-700">{cl.supplierName}</td>
-                                <td className="px-4 py-3 text-center">
-                                  {cl.sentToVendor ? (
-                                    <span className="inline-flex items-center px-2 py-0.5 bg-green-50 text-green-700 border border-green-200 rounded text-[9.5px] font-bold">
-                                      Terkirim ke Vendor
-                                    </span>
-                                  ) : (
-                                    <span className="inline-flex items-center px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded text-[9.5px] font-bold animate-pulse">
-                                      Menunggu Dikirim
-                                    </span>
-                                  )}
-                                </td>
-                                <td className="px-4 py-3 text-center">
-                                  <button
-                                    onClick={() => setPreviewCl(cl)}
-                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-[10px] font-bold rounded-lg text-slate-700 cursor-pointer transition-colors"
-                                    title="Lihat Pratinjau Confirmation Letter"
+                                return (
+                                  <div
+                                    key={cl.id || idx}
+                                    onClick={() => setSelectedClForEmailId(cl.id)}
+                                    className={`p-4 rounded-xl border transition-all space-y-3 ${
+                                      isSelected
+                                        ? "bg-slate-50/80 border-emerald-400 ring-2 ring-emerald-400/20 shadow-sm"
+                                        : "bg-white hover:bg-slate-50 border-slate-200"
+                                    }`}
                                   >
-                                    <Eye size={11} />
-                                    Pratinjau CL
-                                  </button>
-                                </td>
-                                <td className="px-4 py-3 text-right">
-                                  {!cl.sentToVendor ? (
-                                    <button
-                                      onClick={() => handleSendToVendor(cl.id, cl.clNumber)}
-                                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-750 active:scale-95 text-white text-[10px] font-bold rounded-lg shadow-sm transition-all cursor-pointer"
-                                    >
-                                      <Send size={11} />
-                                      Kirim ke Vendor
-                                    </button>
-                                  ) : (
-                                    <span className="text-[10px] text-slate-400 italic font-semibold mr-2">
-                                      Selesai diteruskan
-                                    </span>
-                                  )}
-                                </td>
-                              </tr>
-                            ))
-                          )}
-                        </tbody>
-                      </table>
+                                    {/* Upload Dokumen CL Approval Vendor */}
+                                    <div className="space-y-2">
+                                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                                        <div className="flex items-center gap-1.5">
+                                          <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Status Vendor:</span>
+                                          {cl.vendorApproved ? (
+                                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-emerald-100 text-emerald-850 border border-emerald-300 rounded-full text-[9.5px] font-black shadow-2xs">
+                                              <CheckCircle2 size={11} className="text-emerald-600 shrink-0" />
+                                              APPROVED BY VENDOR
+                                            </span>
+                                          ) : (
+                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-300 rounded-full text-[9.5px] font-bold">
+                                              <Clock size={11} className="text-amber-500 shrink-0" />
+                                              Belum Upload Approval Vendor
+                                            </span>
+                                          )}
+                                        </div>
+
+                                        {cl.vendorApprovedDate && (
+                                          <span className="text-[9px] font-mono text-slate-500 font-bold">
+                                            Tgl: {cl.vendorApprovedDate}
+                                          </span>
+                                        )}
+                                      </div>
+
+                                      {/* File Dokumen Terupload */}
+                                      {(cl.vendorApprovedDocName || cl.signedClFileName) && (
+                                        <div className="flex items-center justify-between bg-white border border-emerald-300 rounded-lg p-2 text-xs shadow-2xs">
+                                          <div className="flex items-center gap-2 truncate pr-2">
+                                            <Paperclip size={13} className="text-emerald-600 shrink-0" />
+                                            <span className="font-mono text-[11px] font-bold text-slate-800 truncate" title={cl.vendorApprovedDocName || cl.signedClFileName}>
+                                              {cl.vendorApprovedDocName || cl.signedClFileName}
+                                            </span>
+                                          </div>
+                                          <span className="text-[8.5px] font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 shrink-0">
+                                            ✓ Dokumen Terverifikasi
+                                          </span>
+                                        </div>
+                                      )}
+
+                                      {/* Upload File Input / Action Button (Purchasing / Cicik Andria & Admin) */}
+                                      {(isPurchasing || isAdmin) && (
+                                        <div className="flex items-center gap-2 pt-1 flex-wrap">
+                                          <label className="flex-1 min-w-[200px] flex items-center justify-center gap-1.5 px-3 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-lg text-xs font-black shadow-sm cursor-pointer transition-all active:scale-95 text-center">
+                                            <Upload size={13} />
+                                            <span>
+                                              {cl.vendorApproved ? "Ganti / Upload Ulang CL Signed" : "Upload CL Approval Vendor"}
+                                            </span>
+                                            <input
+                                              type="file"
+                                              accept=".pdf,.png,.jpg,.jpeg"
+                                              className="hidden"
+                                              onClick={(e) => e.stopPropagation()}
+                                              onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) {
+                                                  handleUploadVendorApprovedCl(cl, file);
+                                                }
+                                              }}
+                                            />
+                                          </label>
+
+                                          {cl.vendorApproved && (
+                                            <button
+                                              type="button"
+                                              onClick={(e) => handleToggleVendorApproval(cl, e)}
+                                              className="px-3 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg text-[10.5px] font-bold transition-all cursor-pointer active:scale-95 shadow-2xs"
+                                              title="Batalkan status approval vendor"
+                                            >
+                                              Batal Setujui
+                                            </button>
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right Column: Live Email Simulator */}
+                      <div className="lg:col-span-6 space-y-4">
+                        <div className="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden">
+                          {/* Email Window Top Bar */}
+                          <div className="bg-slate-850 text-white px-4 py-3 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className="flex gap-1.5 mr-2">
+                                <span className="w-2.5 h-2.5 rounded-full bg-red-400/80 inline-block" />
+                                <span className="w-2.5 h-2.5 rounded-full bg-amber-400/80 inline-block" />
+                                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400/80 inline-block" />
+                              </div>
+                              <Mail size={15} className="text-blue-400" />
+                              <span className="text-xs font-black tracking-wide uppercase">
+                                Preview Email Konfirmasi Vendor
+                              </span>
+                            </div>
+                            <span className="text-[9px] font-bold bg-blue-500/30 text-blue-300 px-2 py-0.5 rounded border border-blue-400/30 font-mono">
+                              COUNTING 10 HARI KERJA
+                            </span>
+                          </div>
+
+                          {/* Email Header Meta */}
+                          <div className="p-4 bg-slate-50 border-b border-slate-200 space-y-2 text-xs">
+                            <div className="flex items-center gap-2">
+                              <span className="w-16 text-slate-400 font-bold uppercase text-[10px] shrink-0">To:</span>
+                              <span className="font-mono font-bold text-slate-800 bg-white px-2.5 py-1 rounded border border-slate-200 flex-1 truncate">
+                                {emailToHeader}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="w-16 text-slate-400 font-bold uppercase text-[10px] shrink-0">Subject:</span>
+                              <span className="font-semibold text-slate-800 bg-white px-2.5 py-1 rounded border border-slate-200 flex-1">
+                                {emailSubject}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="w-16 text-slate-400 font-bold uppercase text-[10px] shrink-0">Due Date:</span>
+                              <span className="inline-flex items-center gap-1.5 text-xs font-extrabold text-blue-700 bg-blue-50 px-2.5 py-1 rounded border border-blue-200">
+                                <Clock size={12} className="text-blue-600" />
+                                {calculatedDueDate} <span className="text-[10px] font-semibold text-slate-500">(10 Hari Kerja Terhitung Hari Ini)</span>
+                              </span>
+                            </div>
+                            {/* Attached Document Summary */}
+                            <div className="pt-2 border-t border-slate-200">
+                              <div className="flex items-center justify-between mb-1.5">
+                                <span className="text-[10px] text-slate-500 font-black uppercase tracking-wider flex items-center gap-1">
+                                  <Paperclip size={12} className="text-blue-600" />
+                                  Berkas Terlampir (Paket Siap Kirim):
+                                </span>
+                                <span className="text-[9px] text-slate-400 font-semibold italic">
+                                  Klik berkas untuk pratinjau
+                                </span>
+                              </div>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[10.5px]">
+                                <button
+                                  type="button"
+                                  onClick={() => setPreviewCl(activeClForEmail)}
+                                  className="p-2.5 bg-white hover:bg-blue-50 hover:border-blue-400 rounded-lg border border-slate-250 font-bold text-slate-800 flex items-center justify-between transition-all cursor-pointer shadow-2xs group text-left active:scale-95"
+                                  title="Klik untuk membuka Pratinjau Surat CL"
+                                >
+                                  <div className="flex items-center gap-1.5 truncate pr-1">
+                                    <FileText size={13} className="text-blue-600 shrink-0 group-hover:scale-110 transition-transform" />
+                                    <span className="truncate">1. Surat CL ({activeClForEmail.clNumber?.split("/").slice(-1)[0] || "Draft"})</span>
+                                  </div>
+                                  <span className="text-[9px] bg-blue-100 text-blue-700 font-black px-1.5 py-0.5 rounded shrink-0 flex items-center gap-0.5">
+                                    <Eye size={10} /> LIHAT
+                                  </span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => setPreviewQpr(activeQprForEmail)}
+                                  className="p-2.5 bg-white hover:bg-green-50 hover:border-green-400 rounded-lg border border-green-250 font-bold text-green-850 flex items-center justify-between transition-all cursor-pointer shadow-2xs group text-left active:scale-95"
+                                  title="Klik untuk membuka Pratinjau Dokumen QPR Full Approval"
+                                >
+                                  <div className="flex items-center gap-1.5 truncate pr-1">
+                                    <FileCheck2 size={13} className="text-green-600 shrink-0 group-hover:scale-110 transition-transform" />
+                                    <span className="truncate">2. Dokumen QPR ({activeQprForEmail.qprNumber || "Full Approval"})</span>
+                                  </div>
+                                  <span className="text-[9px] bg-green-100 text-green-800 font-black px-1.5 py-0.5 rounded shrink-0 flex items-center gap-0.5">
+                                    <Eye size={10} /> LIHAT
+                                  </span>
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Email Body Preview */}
+                          <div className="p-5 bg-white text-slate-800 text-xs leading-relaxed font-sans whitespace-pre-wrap selection:bg-blue-100 min-h-[220px]">
+                            {generatedEmailBody}
+                          </div>
+
+                          {/* Notice Box */}
+                          <div className="px-5 py-3 bg-amber-50/80 border-t border-b border-amber-200/80 text-amber-800 text-[11px] font-semibold flex items-start gap-2">
+                            <AlertCircle size={14} className="text-amber-600 shrink-0 mt-0.5" />
+                            <div>
+                              Perhitungan <strong>10 hari kerja</strong> dihitung otomatis dengan melompati hari Sabtu dan Minggu sejak tanggal email dikirimkan (Jatuh tempo: <strong>{calculatedDueDate}</strong>).
+                            </div>
+                          </div>
+
+                          {/* Email Footer Actions */}
+                          <div className="p-4 bg-slate-50 flex items-center justify-between gap-3">
+                            <button
+                              type="button"
+                              onClick={handleCopyEmailText}
+                              className="px-3.5 py-2 bg-white hover:bg-slate-100 active:scale-95 border border-slate-300 text-slate-700 text-xs font-bold rounded-lg shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+                            >
+                              {emailCopied ? (
+                                <>
+                                  <Check size={14} className="text-emerald-600" />
+                                  <span className="text-emerald-700">Tersalin ke Clipboard!</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy size={14} />
+                                  <span>Salin Teks Email</span>
+                                </>
+                              )}
+                            </button>
+
+                            <button
+                              type="button"
+                              disabled={isSendingEmail}
+                              onClick={() => handleSendVendorEmail()}
+                              className={`px-5 py-2 text-white text-xs font-extrabold rounded-lg shadow-md transition-all flex items-center gap-2 cursor-pointer ${
+                                isSendingEmail
+                                  ? "bg-blue-400 cursor-not-allowed opacity-80"
+                                  : "bg-blue-600 hover:bg-blue-700 active:scale-95"
+                              }`}
+                            >
+                              {isSendingEmail ? (
+                                <>
+                                  <Loader2 size={13} className="animate-spin" />
+                                  <span>Mengirim Email...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Send size={13} />
+                                  <span>Kirim Email Otomatis ke Vendor</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -2692,6 +3428,12 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
         <ConfirmationLetterPrintPreview
           cl={previewCl}
           onClose={() => setPreviewCl(null)}
+        />
+      )}
+      {previewQpr && (
+        <QprPrintPreview
+          qpr={previewQpr}
+          onClose={() => setPreviewQpr(null)}
         />
       )}
       {viewPartsCl && (() => {

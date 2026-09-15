@@ -106,10 +106,24 @@ export const getPeriodFromDate = (dateStr?: string) => {
   }
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) {
-    const now = new Date();
-    return `${months[now.getMonth()]} ${now.getFullYear()}`;
+    const fallback = new Date();
+    return `${months[fallback.getMonth()]} ${fallback.getFullYear()}`;
   }
   return `${months[d.getMonth()]} ${d.getFullYear()}`;
+};
+
+export const formatLeadTime = (totalHours: number | string | null | undefined): string => {
+  if (totalHours === null || totalHours === undefined || totalHours === "") return "-";
+  const h = typeof totalHours === "number" ? totalHours : parseFloat(String(totalHours)) || 0;
+  if (h < 24) {
+    return `${Math.round(h)} Jam`;
+  }
+  const days = Math.floor(h / 24);
+  const remainingHours = Math.round(h % 24);
+  if (remainingHours === 0) {
+    return `${days} Hari`;
+  }
+  return `${days} Hari ${remainingHours} Jam`;
 };
 
 export const mapQprFromDb = (dbQpr: any) => {
@@ -188,6 +202,7 @@ export const mapQprFromDb = (dbQpr: any) => {
     pdfFiles,
     remarks: dbQpr.approvalProgress?.remarksSectionHead || "", // fallback to remarks
     approvalProgress: dbQpr.approvalProgress || null,
+    createdAt: dbQpr.createdAt || dbQpr.date,
     updatedAt: dbQpr.updatedAt,
   };
 };

@@ -18,11 +18,19 @@ import {
   X,
   Eye,
   Banknote,
-  ShieldCheck
+  ShieldCheck,
+  AlertTriangle,
+  TrendingUp,
+  AlertCircle,
+  FileText,
+  DollarSign,
+  Filter,
+  Check
 } from "lucide-react";
 
 import ConfirmationLetterPrintPreview from "../role-views/ConfirmationLetterPrintPreview";
 import QprPrintPreview from "../role-views/QprPrintPreview";
+import { formatLeadTime } from "../../../services/qprService";
 
 interface PipelineStage {
   name: string;
@@ -206,6 +214,8 @@ interface DashboardProps {
   setActiveTab: (tab: string) => void;
   confirmationLetters?: any[];
   setConfirmationLetters?: React.Dispatch<React.SetStateAction<any[]>>;
+  createdSscBillings?: any[];
+  setCreatedSscBillings?: React.Dispatch<React.SetStateAction<any[]>>;
   username?: string;
   handleMarkClosedPaid?: (clId: string) => void;
 }
@@ -217,6 +227,8 @@ export default function Dashboard({
   setActiveTab,
   confirmationLetters = [],
   setConfirmationLetters,
+  createdSscBillings = [],
+  setCreatedSscBillings,
   username = "admin",
   handleMarkClosedPaid
 }: DashboardProps) {
@@ -228,6 +240,8 @@ export default function Dashboard({
   const [showPipeline, setShowPipeline] = useState(false);
 
   const [roleDetailFilter, setRoleDetailFilter] = useState<"all" | "stuck" | "running" | "completed">("all");
+  const [potongTagihFilter, setPotongTagihFilter] = useState<"all" | "unpaid" | "paid">("all");
+  const [potongTagihSearch, setPotongTagihSearch] = useState("");
 
   const months = React.useMemo(() => [
     "Januari", "Februari", "Maret", "April", "Mei", "Juni",
@@ -241,10 +255,10 @@ export default function Dashboard({
     const list = new Set<string>();
     list.add("Semua Periode");
     
-    [...pendingQprs, ...confirmationLetters, ...pendingNcrs].forEach((item: any) => {
-      const d = item.date || item.dateSent;
-      if (item.period) {
-        list.add(item.period);
+    [...pendingQprs, ...confirmationLetters, ...pendingNcrs, ...createdSscBillings].forEach((item: any) => {
+      const d = item.date || item.dateSent || item.billingDate || (item.memoRequestDate ? item.memoRequestDate.split('/').reverse().join('-') : null);
+      if (item.period || item.memoPeriod) {
+        list.add(item.period || item.memoPeriod);
       } else if (d) {
         const dateObj = new Date(d);
         if (!isNaN(dateObj.getTime())) {
@@ -255,7 +269,7 @@ export default function Dashboard({
 
     months.forEach(m => list.add(`${m} ${currentYear}`));
     return Array.from(list);
-  }, [pendingQprs, confirmationLetters, pendingNcrs, months, currentYear]);
+  }, [pendingQprs, confirmationLetters, pendingNcrs, createdSscBillings, months, currentYear]);
   
   // Set default period: "Semua Periode" (index 0) so user immediately sees live data
   const [periodIndex, setPeriodIndex] = useState(0);
@@ -364,9 +378,176 @@ export default function Dashboard({
   const claimRejectedCount = currentConfig.claimRejectedCount + currentActiveQprs.filter((q: any) => q.status === "REJECTED").length;
   const totalClaimsCount = claimClosedPaidCount + claimPendingCount + claimRejectedCount;
 
-  // Helper to calculate elapsed days dynamically
+  // Helper: Working days calculation excluding Saturdays (6) and Sundays (0)
+  const getWorkingDaysElapsed = (startDateStr?: string | Date, endDateStr?: string | Date): number => {
+    if (!startDateStr) return 0;
+    const start = new Date(startDateStr);
+    const end = endDateStr ? new Date(endDateStr) : new Date();
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) return 0;
+    if (start > end) return 0;
+
+    let workingDays = 0;
+    const cur = new Date(start);
+    cur.setHours(0, 0, 0, 0);
+    const finish = new Date(end);
+    finish.setHours(0, 0, 0, 0);
+
+    while (cur < finish) {
+      cur.setDate(cur.getDate() + 1);
+      const day = cur.getDay();
+      if (day !== 0 && day !== 6) {
+        workingDays++;
+      }
+    }
+    return Math.max(1, workingDays);
+  };
+
+  // Helper: Format date after 10 working days
+  const getTarget10WorkingDaysDate = (startDateStr?: string | Date): string => {
+    if (!startDateStr) return "-";
+    const start = new Date(startDateStr);
+    if (isNaN(start.getTime())) return "-";
+    
+    let added = 0;
+    const cur = new Date(start);
+    while (added < 10) {
+      cur.setDate(cur.getDate() + 1);
+      const day = cur.getDay();
+      if (day !== 0 && day !== 6) {
+        added++;
+      }
+    }
+    return cur.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
+  };
+
+  const parseAmountValue = (amt: any): number => {
+    if (typeof amt === "number") return amt;
+    if (!amt) return 0;
+    const cleaned = String(amt).replace(/[^0-9]/g, "");
+    return parseInt(cleaned, 10) || 0;
+  };
+
+  // Consolidated Potong Tagih data triggered by SSC Billing
+  const potongTagihItems = React.useMemo(() => {
+    const isAll = activePeriod === "Semua Periode";
+    const itemsMap = new Map<string, any>();
+
+    const getPeriodFromDate = (dateStr?: string) => {
+      if (!dateStr) return "";
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return "";
+      return `${months[d.getMonth()]} ${d.getFullYear()}`;
+    };
+
+    // 1. Process from createdSscBillings (SSC Billing direct records)
+    createdSscBillings.forEach((b: any) => {
+      const d = b.dateSent || b.billingDate || (b.memoRequestDate ? b.memoRequestDate.split('/').reverse().join('-') : null) || b.createdAt;
+      const p = b.period || getPeriodFromDate(d);
+      if (!isAll && p && p !== activePeriod) return;
+
+      const amtNum = parseAmountValue(b.totalAmount || b.amount || b.memoAmount);
+      const workingDays = getWorkingDaysElapsed(d);
+      const isPaid = b.status === "CLOSED_PAID" || b.status === "PAID" || b.closedPaid === true;
+      const isTriggered10Days = workingDays >= 10;
+      const key = b.clNumber || b.billingNo || b.id;
+
+      itemsMap.set(key, {
+        id: b.id,
+        clId: b.clId || b.id,
+        docNumber: b.billingNo || b.clNumber || "SSC-BILLING",
+        clNumber: b.clNumber || "",
+        vendor: b.supplierName || b.memoCustomerName || b.cl?.vendor?.vendorName || "Vendor",
+        date: d ? (typeof d === "string" ? d.split("T")[0] : new Date(d).toISOString().split("T")[0]) : new Date().toISOString().split("T")[0],
+        workingDays,
+        target10DaysDate: getTarget10WorkingDaysDate(d),
+        amount: amtNum,
+        formattedAmount: `Rp ${amtNum.toLocaleString("id-ID")}`,
+        isPaid,
+        isTriggered10Days,
+        status: isPaid ? "PAID" : (isTriggered10Days ? "TRIGGERED_10_DAYS" : "WAITING_DAYS"),
+        sourceType: "SSC_BILLING",
+        rawObject: b
+      });
+    });
+
+    // 2. Process from activePeriodConfirmationLetters that are in Potong Tagih / SSC Billing flow
+    currentActiveConfirmationLetters.forEach((cl: any) => {
+      const key = cl.clNumber || cl.id;
+      if (!itemsMap.has(key)) {
+        const d = cl.dateSent || cl.date || cl.createdAt;
+        const amtNum = parseAmountValue(cl.amount);
+        const workingDays = getWorkingDaysElapsed(d);
+        const isPaid = cl.status === "CLOSED_PAID" || cl.closedPaid === true;
+        const isTriggered10Days = workingDays >= 10;
+
+        itemsMap.set(key, {
+          id: cl.id,
+          clId: cl.id,
+          docNumber: cl.clNumber,
+          clNumber: cl.clNumber,
+          vendor: cl.supplierName || cl.vendor?.vendorName || "Vendor",
+          date: d ? (typeof d === "string" ? d.split("T")[0] : new Date(d).toISOString().split("T")[0]) : new Date().toISOString().split("T")[0],
+          workingDays,
+          target10DaysDate: getTarget10WorkingDaysDate(d),
+          amount: amtNum,
+          formattedAmount: `Rp ${amtNum.toLocaleString("id-ID")}`,
+          isPaid,
+          isTriggered10Days,
+          status: isPaid ? "PAID" : (isTriggered10Days ? "TRIGGERED_10_DAYS" : "WAITING_DAYS"),
+          sourceType: "CL_POTONG_TAGIH",
+          rawObject: cl
+        });
+      }
+    });
+
+    return Array.from(itemsMap.values());
+  }, [createdSscBillings, currentActiveConfirmationLetters, activePeriod, months]);
+
+  // Aggregate Metrics for Potong Tagih (Triggered by SSC Billing)
+  const totalPotongTagihAmount = potongTagihItems.reduce((sum, item) => sum + item.amount, 0);
+  const totalPotongTagihCount = potongTagihItems.length;
+
+  const unpaidPotongTagihItems = potongTagihItems.filter(item => !item.isPaid);
+  const unpaidPotongTagihAmount = unpaidPotongTagihItems.reduce((sum, item) => sum + item.amount, 0);
+  const unpaidPotongTagihCount = unpaidPotongTagihItems.length;
+
+  // Breakdown Sebelum Paid: Trigger 10 Hari Kerja
+  const maturedUnpaidItems = unpaidPotongTagihItems.filter(item => item.isTriggered10Days);
+  const maturedUnpaidAmount = maturedUnpaidItems.reduce((sum, item) => sum + item.amount, 0);
+  const maturedUnpaidCount = maturedUnpaidItems.length;
+
+  const waitingUnpaidItems = unpaidPotongTagihItems.filter(item => !item.isTriggered10Days);
+  const waitingUnpaidAmount = waitingUnpaidItems.reduce((sum, item) => sum + item.amount, 0);
+  const waitingUnpaidCount = waitingUnpaidItems.length;
+
+  // Amount Sudah Paid (Lunas)
+  const paidPotongTagihItems = potongTagihItems.filter(item => item.isPaid);
+  const paidPotongTagihAmount = paidPotongTagihItems.reduce((sum, item) => sum + item.amount, 0);
+  const paidPotongTagihCount = paidPotongTagihItems.length;
+
+  const paidRealizationPct = totalPotongTagihAmount > 0 
+    ? Math.min(100, Math.round((paidPotongTagihAmount / totalPotongTagihAmount) * 100)) 
+    : (totalPotongTagihCount > 0 ? Math.round((paidPotongTagihCount / totalPotongTagihCount) * 100) : 0);
+
+  // Filtered list for display table
+  const displayedPotongTagihDocs = potongTagihItems.filter(item => {
+    if (potongTagihFilter === "unpaid" && item.isPaid) return false;
+    if (potongTagihFilter === "paid" && !item.isPaid) return false;
+    if (potongTagihSearch) {
+      const q = potongTagihSearch.toLowerCase();
+      return (
+        item.docNumber.toLowerCase().includes(q) ||
+        item.vendor.toLowerCase().includes(q) ||
+        item.formattedAmount.toLowerCase().includes(q)
+      );
+    }
+    return true;
+  });
+
+  // Helper to calculate elapsed hours dynamically
   const getDocLeadTimes = (doc: any) => {
-    const docDate = new Date(doc.date || doc.dateSent || new Date());
+    const docDate = new Date(doc.createdAt || doc.date || doc.dateSent || new Date());
+    const now = new Date();
     
     // Determine if document is closed/completed
     const isClosed = 
@@ -377,63 +558,145 @@ export default function Dashboard({
       doc.closedPaid === true;
 
     // Use updatedAt as closure date if closed, otherwise use current live system time
-    const endDate = isClosed && doc.updatedAt ? new Date(doc.updatedAt) : new Date();
+    const endDate = isClosed && doc.updatedAt ? new Date(doc.updatedAt) : now;
     
-    // Calculate difference (with a minimum of 0 to prevent negative values)
+    // Calculate difference in hours (with a minimum of 0 to prevent negative values)
     const diffTime = Math.max(0, endDate.getTime() - docDate.getTime());
-    const diffDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+    const diffHours = Math.max(1, Math.round(diffTime / (1000 * 60 * 60)));
 
     if (doc.clNumber || doc.type === "CL" || doc.type === "Confirmation Letter") {
+      const isClApproved = doc.closedPaid || doc.status === "CLOSED_PAID" || doc.status === "FULLY_APPROVED" || doc.vendorApproved;
       return {
         roles: ["Accounting"],
         leadTimes: {
-          "Accounting": { days: diffDays, status: doc.closedPaid || doc.status === "CLOSED_PAID" || doc.status === "FULLY_APPROVED" ? "APPROVED" as const : "PENDING" as const }
+          "Accounting": { 
+            hours: diffHours, 
+            days: diffHours, 
+            status: isClApproved ? "APPROVED" as const : "PENDING" as const 
+          }
         },
-        totalLeadTime: diffDays
+        totalLeadTime: diffHours
       };
     }
 
     if (doc.qprNumber || doc.type === "QPR") {
       const roles = ["Section Head", "Dept Head", "Div Head", "Purchasing"];
       const currentRole = doc.requiredRole;
-      const isDocClosed = doc.status === "APPROVED" || doc.status === "CLOSED" || doc.status === "CLOSED_PAID";
-      const leadTimes: Record<string, { days: number; status: "APPROVED" | "PENDING" | "UPCOMING" }> = {};
-      let currentIdx = roles.indexOf(currentRole);
-      if (currentIdx === -1) {
-        currentIdx = isDocClosed ? 4 : 0;
-      }
+      const progress = doc.approvalProgress || doc.refObject?.approvalProgress;
+      
+      const secApprovedAt = progress?.approvedAtSectionHead ? new Date(progress.approvedAtSectionHead) : null;
+      const deptApprovedAt = progress?.approvedAtDeptHead ? new Date(progress.approvedAtDeptHead) : null;
+      const divApprovedAt = progress?.approvedAtDivHead ? new Date(progress.approvedAtDivHead) : null;
+      const purchasingApprovedAt = progress?.approvedAtPurchasing ? new Date(progress.approvedAtPurchasing) : null;
 
-      roles.forEach((role, idx) => {
-        if (isDocClosed || idx < currentIdx) {
-          leadTimes[role] = { days: Math.min(3, Math.max(1, idx + 1)), status: "APPROVED" };
-        } else if (idx === currentIdx) {
-          const approvedSum = idx === 0 ? 0 : Array.from({ length: idx }, (_, i) => Math.min(3, Math.max(1, i + 1))).reduce((a, b) => a + b, 0);
-          leadTimes[role] = { days: Math.max(1, diffDays - approvedSum), status: "PENDING" };
-        } else {
-          leadTimes[role] = { days: 0, status: "UPCOMING" };
-        }
-      });
-      const totalLeadTime = Object.values(leadTimes).reduce((sum, item) => sum + item.days, 0);
+      const isDocClosed = doc.status === "APPROVED" || doc.status === "CLOSED" || doc.status === "CLOSED_PAID" || doc.status === "FULLY_APPROVED" || !!purchasingApprovedAt;
+      const leadTimes: Record<string, { hours: number; days: number; status: "APPROVED" | "PENDING" | "UPCOMING" }> = {};
+      
+      // 1. Section Head
+      const isSecApproved = !!secApprovedAt || !!progress?.checksumSectionHead || (currentRole !== "Section Head" && currentRole !== "Foreman") || isDocClosed;
+      let secHours = 0;
+      if (secApprovedAt) {
+        secHours = Math.max(1, Math.round(Math.max(0, secApprovedAt.getTime() - docDate.getTime()) / (1000 * 60 * 60)));
+      } else if (currentRole === "Section Head" && !isDocClosed) {
+        secHours = Math.max(1, Math.round(Math.max(0, now.getTime() - docDate.getTime()) / (1000 * 60 * 60)));
+      } else if (isSecApproved) {
+        secHours = Math.min(24, Math.max(1, Math.round(diffHours * 0.25)));
+      }
+      leadTimes["Section Head"] = {
+        hours: isSecApproved ? secHours : (currentRole === "Section Head" ? secHours : 0),
+        days: isSecApproved ? secHours : (currentRole === "Section Head" ? secHours : 0),
+        status: isSecApproved ? "APPROVED" : (currentRole === "Section Head" ? "PENDING" : "UPCOMING")
+      };
+
+      // 2. Dept Head
+      const isDeptApproved = !!deptApprovedAt || !!progress?.checksumDeptHead || (currentRole === "Div Head" || currentRole === "Purchasing" || currentRole === "Closed") || isDocClosed;
+      const deptStart = secApprovedAt || docDate;
+      let deptHours = 0;
+      if (deptApprovedAt) {
+        deptHours = Math.max(1, Math.round(Math.max(0, deptApprovedAt.getTime() - deptStart.getTime()) / (1000 * 60 * 60)));
+      } else if (currentRole === "Dept Head" && !isDocClosed) {
+        deptHours = Math.max(1, Math.round(Math.max(0, now.getTime() - deptStart.getTime()) / (1000 * 60 * 60)));
+      } else if (isDeptApproved) {
+        deptHours = Math.min(24, Math.max(1, Math.round(diffHours * 0.25)));
+      }
+      leadTimes["Dept Head"] = {
+        hours: isDeptApproved ? deptHours : (currentRole === "Dept Head" ? deptHours : 0),
+        days: isDeptApproved ? deptHours : (currentRole === "Dept Head" ? deptHours : 0),
+        status: isDeptApproved ? "APPROVED" : (currentRole === "Dept Head" ? "PENDING" : "UPCOMING")
+      };
+
+      // 3. Div Head
+      const isDivApproved = !!divApprovedAt || !!progress?.checksumDivHead || (currentRole === "Purchasing" || currentRole === "Closed") || isDocClosed;
+      const divStart = deptApprovedAt || deptStart;
+      let divHours = 0;
+      if (divApprovedAt) {
+        divHours = Math.max(1, Math.round(Math.max(0, divApprovedAt.getTime() - divStart.getTime()) / (1000 * 60 * 60)));
+      } else if (currentRole === "Div Head" && !isDocClosed) {
+        divHours = Math.max(1, Math.round(Math.max(0, now.getTime() - divStart.getTime()) / (1000 * 60 * 60)));
+      } else if (isDivApproved) {
+        divHours = Math.min(24, Math.max(1, Math.round(diffHours * 0.25)));
+      }
+      leadTimes["Div Head"] = {
+        hours: isDivApproved ? divHours : (currentRole === "Div Head" ? divHours : 0),
+        days: isDivApproved ? divHours : (currentRole === "Div Head" ? divHours : 0),
+        status: isDivApproved ? "APPROVED" : (currentRole === "Div Head" ? "PENDING" : "UPCOMING")
+      };
+
+      // 4. Purchasing
+      const isPurchasingApproved = !!purchasingApprovedAt || !!progress?.checksumPurchasing || currentRole === "Closed" || isDocClosed;
+      const purchStart = divApprovedAt || divStart;
+      let purchHours = 0;
+      if (purchasingApprovedAt) {
+        purchHours = Math.max(1, Math.round(Math.max(0, purchasingApprovedAt.getTime() - purchStart.getTime()) / (1000 * 60 * 60)));
+      } else if (currentRole === "Purchasing" && !isDocClosed) {
+        purchHours = Math.max(1, Math.round(Math.max(0, now.getTime() - purchStart.getTime()) / (1000 * 60 * 60)));
+      } else if (isPurchasingApproved) {
+        purchHours = Math.min(24, Math.max(1, Math.round(diffHours * 0.25)));
+      }
+      leadTimes["Purchasing"] = {
+        hours: isPurchasingApproved ? purchHours : (currentRole === "Purchasing" ? purchHours : 0),
+        days: isPurchasingApproved ? purchHours : (currentRole === "Purchasing" ? purchHours : 0),
+        status: isPurchasingApproved ? "APPROVED" : (currentRole === "Purchasing" ? "PENDING" : "UPCOMING")
+      };
+
+      const totalLeadTime = Object.values(leadTimes).reduce((sum, item) => sum + item.hours, 0) || diffHours;
       return { roles, leadTimes, totalLeadTime };
     } else {
       // NCR document!
       const roles = ["Foreman", "Section Head", "Dept Head"];
       const currentRole = doc.requiredRole || "Section Head";
-      const leadTimes: Record<string, { days: number; status: "APPROVED" | "PENDING" | "UPCOMING" }> = {};
-      let currentIdx = roles.indexOf(currentRole);
-      if (currentIdx === -1) currentIdx = 1;
+      const progress = doc.ncrApprovalProgress || doc.refObject?.ncrApprovalProgress;
+      
+      const secApprovedAt = progress?.approvedAtSectionHead ? new Date(progress.approvedAtSectionHead) : null;
+      const deptApprovedAt = progress?.approvedAtDeptHead ? new Date(progress.approvedAtDeptHead) : null;
+      const isDocClosed = doc.status === "APPROVED" || doc.status === "CLOSED" || !!deptApprovedAt;
 
-      roles.forEach((role, idx) => {
-        if (idx < currentIdx) {
-          leadTimes[role] = { days: Math.min(2, idx + 1), status: "APPROVED" };
-        } else if (idx === currentIdx) {
-          const approvedSum = idx === 0 ? 0 : Array.from({ length: idx }, (_, i) => Math.min(2, i + 1)).reduce((a, b) => a + b, 0);
-          leadTimes[role] = { days: Math.max(1, diffDays - approvedSum), status: "PENDING" };
-        } else {
-          leadTimes[role] = { days: 0, status: "UPCOMING" };
-        }
-      });
-      const totalLeadTime = Object.values(leadTimes).reduce((sum, item) => sum + item.days, 0);
+      const leadTimes: Record<string, { hours: number; days: number; status: "APPROVED" | "PENDING" | "UPCOMING" }> = {};
+      
+      leadTimes["Foreman"] = { hours: 1, days: 1, status: "APPROVED" };
+
+      const isSecApproved = !!secApprovedAt || !!progress?.checksumApprovalSectionHead || currentRole === "Dept Head" || isDocClosed;
+      let secHours = secApprovedAt 
+        ? Math.max(1, Math.round(Math.max(0, secApprovedAt.getTime() - docDate.getTime()) / (1000 * 60 * 60)))
+        : (currentRole === "Section Head" ? Math.max(1, Math.round(Math.max(0, now.getTime() - docDate.getTime()) / (1000 * 60 * 60))) : 4);
+      leadTimes["Section Head"] = {
+        hours: isSecApproved ? secHours : (currentRole === "Section Head" ? secHours : 0),
+        days: isSecApproved ? secHours : (currentRole === "Section Head" ? secHours : 0),
+        status: isSecApproved ? "APPROVED" : (currentRole === "Section Head" ? "PENDING" : "UPCOMING")
+      };
+
+      const isDeptApproved = !!deptApprovedAt || !!progress?.checksumApprovalDeptHead || isDocClosed;
+      const deptStart = secApprovedAt || docDate;
+      let deptHours = deptApprovedAt
+        ? Math.max(1, Math.round(Math.max(0, deptApprovedAt.getTime() - deptStart.getTime()) / (1000 * 60 * 60)))
+        : (currentRole === "Dept Head" ? Math.max(1, Math.round(Math.max(0, now.getTime() - deptStart.getTime()) / (1000 * 60 * 60))) : 4);
+      leadTimes["Dept Head"] = {
+        hours: isDeptApproved ? deptHours : (currentRole === "Dept Head" ? deptHours : 0),
+        days: isDeptApproved ? deptHours : (currentRole === "Dept Head" ? deptHours : 0),
+        status: isDeptApproved ? "APPROVED" : (currentRole === "Dept Head" ? "PENDING" : "UPCOMING")
+      };
+
+      const totalLeadTime = Object.values(leadTimes).reduce((sum, item) => sum + item.hours, 0) || diffHours;
       return { roles, leadTimes, totalLeadTime };
     }
   };
@@ -537,7 +800,7 @@ export default function Dashboard({
           date: ncr.date,
           requiredRole: ncr.requiredRole,
           daysStuck: days,
-          isStuck: days >= 2,
+          isStuck: days >= 24,
           amount: `${ncr.reject || ncr.qty || 0} Reject`,
           activeTab: "approve-ncr"
         };
@@ -558,7 +821,7 @@ export default function Dashboard({
           date: qpr.date,
           requiredRole: qpr.requiredRole,
           daysStuck: days,
-          isStuck: days >= 2,
+          isStuck: days >= 24,
           amount: qpr.claimAmount || "-",
           activeTab: "approve-qpr"
         };
@@ -583,7 +846,7 @@ export default function Dashboard({
           date: ncr.date,
           requiredRole: ncr.requiredRole,
           daysStuck: days,
-          isStuck: days >= 2,
+          isStuck: days >= 24,
           amount: `${ncr.reject || ncr.qty || 0} Reject`,
           activeTab: "approve-ncr"
         };
@@ -604,7 +867,7 @@ export default function Dashboard({
           date: qpr.date,
           requiredRole: qpr.requiredRole,
           daysStuck: days,
-          isStuck: days >= 2,
+          isStuck: days >= 24,
           amount: qpr.claimAmount || "-",
           activeTab: "approve-qpr"
         };
@@ -629,7 +892,7 @@ export default function Dashboard({
           date: qpr.date,
           requiredRole: qpr.requiredRole,
           daysStuck: days,
-          isStuck: days >= 2,
+          isStuck: days >= 24,
           amount: qpr.claimAmount || "-",
           activeTab: "approve-qpr"
         };
@@ -655,7 +918,7 @@ export default function Dashboard({
           date: qpr.date,
           requiredRole: qpr.requiredRole || "Purchasing",
           daysStuck: days,
-          isStuck: days >= 2,
+          isStuck: days >= 24,
           amount: qpr.claimAmount || "-",
           activeTab: qpr.status === "WAITING_APPROVAL" ? "approve-qpr" : "confirmation-letter"
         };
@@ -677,7 +940,7 @@ export default function Dashboard({
           date: cl.dateSent || cl.date,
           requiredRole: "Kirim ke Vendor",
           daysStuck: lt.totalLeadTime,
-          isStuck: lt.totalLeadTime >= 2,
+          isStuck: lt.totalLeadTime >= 24,
           amount: cl.amount,
           activeTab: "approve-cl"
         };
@@ -702,7 +965,7 @@ export default function Dashboard({
           date: cl.dateSent || cl.date,
           requiredRole: "Dept Accounting Approval",
           daysStuck: lt.totalLeadTime,
-          isStuck: lt.totalLeadTime >= 2,
+          isStuck: lt.totalLeadTime >= 24,
           amount: cl.amount,
           activeTab: "approve-cl"
         };
@@ -728,7 +991,7 @@ export default function Dashboard({
           date: cl.dateSent || cl.date,
           requiredRole: "Vendor Confirmation",
           daysStuck: lt.totalLeadTime,
-          isStuck: lt.totalLeadTime >= 3,
+          isStuck: lt.totalLeadTime >= 48,
           amount: cl.amount,
           activeTab: "approve-cl"
         };
@@ -754,7 +1017,7 @@ export default function Dashboard({
           date: cl.dateSent || cl.date,
           requiredRole: "Finance SSC Billing / Payment",
           daysStuck: lt.totalLeadTime,
-          isStuck: lt.totalLeadTime >= 3,
+          isStuck: lt.totalLeadTime >= 48,
           amount: cl.amount,
           activeTab: "i-memo"
         };
@@ -933,7 +1196,7 @@ export default function Dashboard({
 
       </div>
 
-      {/* ── 3 SYNCHRONIZED SUMMARY CARDS: NCR / QPR / CL ────────────────── */}
+      {/* ── 4 SYNCHRONIZED SUMMARY CARDS: NCR / QPR / CL ────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
         {/* QPR Card */}
@@ -1008,6 +1271,236 @@ export default function Dashboard({
         })()}
       </div>
 
+      {/* ── 💰 SECTION: AMOUNT MONITORING POTONG TAGIH (TRIGGERED BY SSC BILLING - 10 HARI KERJA) ── */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-5 transition-all">
+        {/* Section Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-gradient-to-br from-indigo-500 to-blue-600 text-white rounded-xl shadow-md shadow-blue-500/20 shrink-0">
+              <Banknote size={22} className="stroke-[2.2]" />
+            </div>
+            <div>
+              <h3 className="text-sm sm:text-base font-black text-slate-900 uppercase tracking-wide">
+                Monitoring Amount Potong Tagih
+              </h3>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-600 shadow-2xs">
+              <Calendar size={13} className="text-blue-600" />
+              <span>{activePeriod}</span>
+            </span>
+          </div>
+        </div>
+
+        {/* 2 KPI Summary Cards: Total Collection & Total Outstanding */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* 1. Total Collection (Sudah Paid / Lunas) */}
+          <div className="bg-gradient-to-br from-emerald-50/40 via-white to-emerald-50/20 border border-emerald-200/90 rounded-xl p-5 shadow-2xs space-y-2 hover:border-emerald-400 transition-all">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-extrabold text-emerald-900 uppercase tracking-wider">Total Collection</span>
+              <div className="p-2 bg-emerald-100 text-emerald-700 rounded-lg border border-emerald-200 shadow-2xs">
+                <CheckCircle2 size={16} />
+              </div>
+            </div>
+            <div>
+              <h4 className="text-2xl sm:text-3xl font-black text-emerald-700 tracking-tight font-mono leading-none">
+                Rp {paidPotongTagihAmount.toLocaleString("id-ID")}
+              </h4>
+              <span className="text-xs text-emerald-800/80 font-bold mt-2 block">
+                {paidPotongTagihCount} Dokumen Selesai Lunas
+              </span>
+            </div>
+          </div>
+
+          {/* 2. Total Outstanding (Sebelum Paid / Belum Lunas) */}
+          <div className="bg-gradient-to-br from-amber-50/40 via-white to-rose-50/30 border border-amber-200/90 rounded-xl p-5 shadow-2xs space-y-2 hover:border-amber-400 transition-all">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-extrabold text-amber-900 uppercase tracking-wider">Total Outstanding</span>
+              <div className="p-2 bg-amber-100 text-amber-700 rounded-lg border border-amber-200 shadow-2xs">
+                <Clock size={16} />
+              </div>
+            </div>
+            <div>
+              <h4 className="text-2xl sm:text-3xl font-black text-amber-700 tracking-tight font-mono leading-none">
+                Rp {unpaidPotongTagihAmount.toLocaleString("id-ID")}
+              </h4>
+              <span className="text-xs text-amber-800/80 font-bold mt-2 block">
+                {unpaidPotongTagihCount} Dokumen Belum Lunas
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Interactive Filter Pills & Search */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <button
+              type="button"
+              onClick={() => setPotongTagihFilter("all")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                potongTagihFilter === "all"
+                  ? "bg-slate-900 text-white shadow-sm"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+              }`}
+            >
+              Semua ({totalPotongTagihCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => setPotongTagihFilter("unpaid")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                potongTagihFilter === "unpaid"
+                  ? "bg-amber-600 text-white shadow-sm"
+                  : "bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200"
+              }`}
+            >
+              Belum Paid ({unpaidPotongTagihCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => setPotongTagihFilter("paid")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                potongTagihFilter === "paid"
+                  ? "bg-emerald-600 text-white shadow-sm"
+                  : "bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200"
+              }`}
+            >
+              Sudah Paid / Lunas ({paidPotongTagihCount})
+            </button>
+          </div>
+
+          <div className="relative min-w-[220px]">
+            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Cari Dokumen / Vendor..."
+              value={potongTagihSearch}
+              onChange={(e) => setPotongTagihSearch(e.target.value)}
+              className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-lg text-xs font-medium text-slate-800 placeholder:text-slate-400 outline-none transition-all"
+            />
+          </div>
+        </div>
+
+        {/* Detailed Table for Potong Tagih Documents */}
+        <div className="overflow-x-auto border border-slate-200 rounded-xl">
+          <table className="w-full text-xs text-left text-slate-600">
+            <thead className="text-[10.5px] text-slate-600 bg-slate-50 uppercase tracking-wider font-extrabold border-b border-slate-200">
+              <tr>
+                <th className="px-4 py-3 w-12 text-center">No</th>
+                <th className="px-4 py-3">No. Dokumen</th>
+                <th className="px-4 py-3">Vendor / Supplier</th>
+                <th className="px-4 py-3">Tgl SSC Billing</th>
+                <th className="px-4 py-3 text-center">Target Jatuh Tempo</th>
+                <th className="px-4 py-3 text-right">Nominal Potong Tagih</th>
+                <th className="px-4 py-3 text-center">Status Pembayaran</th>
+                <th className="px-4 py-3 text-center w-28">Aksi</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {displayedPotongTagihDocs.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="px-4 py-10 text-center text-slate-400 italic font-medium">
+                    Tidak ada dokumen potong tagih pada filter ini.
+                  </td>
+                </tr>
+              ) : (
+                displayedPotongTagihDocs.map((doc, idx) => (
+                  <tr key={doc.id || idx} className="hover:bg-slate-50/80 transition-colors font-medium">
+                    <td className="px-4 py-3 text-center font-mono font-bold text-slate-400">{idx + 1}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-col">
+                        <span className="font-mono font-bold text-slate-900 text-xs">{doc.docNumber}</span>
+                        {doc.clNumber && doc.clNumber !== doc.docNumber && (
+                          <span className="text-[10px] font-mono text-slate-400">Ref: {doc.clNumber}</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 font-bold text-slate-800">{doc.vendor}</td>
+                    <td className="px-4 py-3 font-mono text-slate-600">{doc.date}</td>
+
+                    {/* Target Date */}
+                    <td className="px-4 py-3 text-center font-mono text-slate-600 font-semibold text-[11px]">
+                      {doc.target10DaysDate}
+                    </td>
+
+                    {/* Amount */}
+                    <td className="px-4 py-3 text-right font-mono font-bold text-slate-900 text-xs">
+                      {doc.formattedAmount}
+                    </td>
+
+                    {/* Status Pembayaran */}
+                    <td className="px-4 py-3 text-center">
+                      {doc.isPaid ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-300 rounded font-extrabold text-[10px] shadow-2xs">
+                          <CheckCircle2 size={10} className="text-emerald-600" />
+                          Sudah Paid (Lunas)
+                        </span>
+                      ) : doc.isTriggered10Days ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-rose-100 text-rose-800 border border-rose-300 rounded font-black text-[10px] shadow-2xs">
+                          <AlertTriangle size={10} className="text-rose-600" />
+                          Belum Paid (Jatuh Tempo)
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-amber-100 text-amber-800 border border-amber-300 rounded font-bold text-[10px] shadow-2xs">
+                          <Clock size={10} className="text-amber-600" />
+                          Belum Paid (Masa Tunggu)
+                        </span>
+                      )}
+                    </td>
+
+                    {/* Actions */}
+                    <td className="px-4 py-3 text-center">
+                      <div className="flex items-center justify-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const targetCl = confirmationLetters.find(c => c.clNumber === doc.clNumber || c.id === doc.clId || c.id === doc.id);
+                            setPreviewClDoc(targetCl || {
+                              id: doc.id,
+                              clNumber: doc.clNumber || doc.docNumber,
+                              supplierName: doc.vendor,
+                              dateSent: doc.date,
+                              amount: doc.formattedAmount,
+                              status: doc.isPaid ? "CLOSED_PAID" : "PENDING",
+                              closedPaid: doc.isPaid
+                            });
+                          }}
+                          className="px-2.5 py-1 bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white border border-blue-200 hover:border-transparent rounded-lg text-[11px] font-bold shadow-2xs transition-all cursor-pointer active:scale-95 inline-flex items-center gap-1"
+                          title="Lihat Pratinjau Dokumen"
+                        >
+                          <Eye size={11} />
+                          Preview
+                        </button>
+
+                        {!doc.isPaid && (username === "purchasing" || username === "finance" || username === "admin") && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm(`Konfirmasi pelunasan (Paid) untuk dokumen ${doc.docNumber} senilai ${doc.formattedAmount}?`)) {
+                                if (handleMarkClosedPaid) {
+                                  handleMarkClosedPaid(doc.clId || doc.id);
+                                }
+                              }
+                            }}
+                            className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-bold shadow-2xs transition-all cursor-pointer active:scale-95 inline-flex items-center gap-1"
+                            title="Tandai Dokumen Ini Sebagai Lunas (Paid)"
+                          >
+                            <Check size={11} className="stroke-[3]" />
+                            Lunas
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       {/* Grid: 7 Authorization Role Cards (Status Lead Time & Dokumen Mengendap Berdasarkan Peran Otorisasi) */}
       <div className="space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -1061,7 +1554,7 @@ export default function Dashboard({
 
                 <div className="pt-2 mt-1 border-t border-slate-100/90">
                   <p className="text-[10px] sm:text-[11px] font-semibold text-slate-500">
-                    Akumulasi: <span className="font-bold text-slate-700">{accumulatedDays} Hari</span>
+                    Akumulasi: <span className="font-bold text-slate-700">{formatLeadTime(accumulatedDays)}</span>
                   </p>
                 </div>
 
@@ -1094,7 +1587,7 @@ export default function Dashboard({
                     Rincian Monitoring Otorisasi: {activeRole.title}
                   </h5>
                   <p className="text-xs text-slate-500 font-semibold mt-0.5">
-                    Data Berjalan: <strong className="text-blue-700">{roleData.totalRunning} Dokumen</strong> | Mengendap: <strong className="text-rose-700">{roleData.totalStuck} Dokumen ({roleData.totalStuckDays} Hari)</strong> | Selesai: <strong className="text-emerald-700">{roleData.totalCompleted} Dokumen</strong>
+                    Data Berjalan: <strong className="text-blue-700">{roleData.totalRunning} Dokumen</strong> | Mengendap: <strong className="text-rose-700">{roleData.totalStuck} Dokumen ({formatLeadTime(roleData.totalStuckDays)})</strong> | Selesai: <strong className="text-emerald-700">{roleData.totalCompleted} Dokumen</strong>
                   </p>
                 </div>
 
@@ -1180,12 +1673,12 @@ export default function Dashboard({
                             {doc.isStuck ? (
                               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-rose-50 text-rose-700 border border-rose-200 rounded font-bold text-[10px]">
                                 <Clock size={10} className="text-rose-500 shrink-0" />
-                                Mengendap {doc.daysStuck} Hari
+                                Mengendap {formatLeadTime(doc.daysStuck)}
                               </span>
                             ) : (
                               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded font-bold text-[10px]">
                                 <Activity size={10} className="text-blue-500 shrink-0" />
-                                Berjalan ({doc.daysStuck} Hari)
+                                Berjalan ({formatLeadTime(doc.daysStuck)})
                               </span>
                             )}
                           </td>
@@ -1293,7 +1786,7 @@ export default function Dashboard({
                           {/* Approval Stages Chain */}
                           <div className="flex items-center gap-1.5 py-1">
                             {getDocPipelineStages(doc.type, doc.requiredRole, doc.status, doc.clApprovalProgress, doc.linkedCl).map((stage, idx, arr) => {
-                              const stepDays = stage.status === "APPROVED" ? "1 Hari" : (stage.status === "PENDING" ? `${Math.max(1, Math.ceil((doc.leadTime || 3) / Math.max(1, idx + 1)))} Hari` : "-");
+                              const stepHours = stage.status === "APPROVED" ? formatLeadTime(2) : (stage.status === "PENDING" ? formatLeadTime(Math.max(1, Math.ceil((doc.leadTime || 12) / Math.max(1, idx + 1)))) : "-");
                               return (
                                 <React.Fragment key={idx}>
                                   <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-bold border transition-all ${
@@ -1311,7 +1804,7 @@ export default function Dashboard({
                                     <div className="flex flex-col items-center justify-center shrink-0 px-1 select-none">
                                       <span className="text-slate-400 text-xs font-black leading-none">→</span>
                                       <span className="text-[8px] font-bold text-slate-500 bg-slate-100 px-1 py-0.2 rounded mt-0.5 leading-none">
-                                        {stepDays}
+                                        {stepHours}
                                       </span>
                                     </div>
                                   )}
@@ -1352,11 +1845,11 @@ export default function Dashboard({
                           {/* Lead Time Info at the end */}
                           {doc.isClosed ? (
                             <span className="text-[10px] font-bold text-green-700 bg-green-50/50 border border-green-150 px-2 py-0.5 rounded font-mono shadow-sm">
-                              ✅ Selesai: {doc.leadTime} Hari
+                              ✅ Selesai: {formatLeadTime(doc.leadTime)}
                             </span>
                           ) : (
                             <span className="text-[10px] font-bold text-amber-800 bg-amber-50/50 border border-amber-150 px-2 py-0.5 rounded font-mono shadow-sm">
-                              ⏳ Aktif: {doc.leadTime} Hari
+                              ⏳ Aktif: {formatLeadTime(doc.leadTime)}
                             </span>
                           )}
                         </div>
@@ -1436,12 +1929,12 @@ export default function Dashboard({
                     {selectedPipelineDoc.isClosed ? (
                       <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-green-50 text-green-700 border border-green-200 rounded-full font-bold">
                         <CheckCircle2 size={11} className="text-green-600" />
-                        Close Paid: {selectedPipelineDoc.leadTime} Hari
+                        Close Paid: {formatLeadTime(selectedPipelineDoc.leadTime)}
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-full font-bold animate-pulse">
                         <Clock size={11} className="text-amber-500" />
-                        Aktif: {selectedPipelineDoc.leadTime} Hari
+                        Aktif: {formatLeadTime(selectedPipelineDoc.leadTime)}
                       </span>
                     )}
                   </div>

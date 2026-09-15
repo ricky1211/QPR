@@ -94,6 +94,8 @@ export const mapNcrFromDb = (dbNcr: any) => {
     foundBy: dbNcr.inspectors && Array.isArray(dbNcr.inspectors) && dbNcr.inspectors.length > 0
       ? dbNcr.inspectors.map((ins: any) => ins.name).join(", ")
       : (dbNcr.foundBy || "-"),
+    ncrApprovalProgress: dbNcr.ncrApprovalProgress || null,
+    createdAt: dbNcr.createdAt || dbNcr.date,
     updatedAt: dbNcr.updatedAt,
   };
 };

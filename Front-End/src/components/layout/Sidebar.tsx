@@ -15,6 +15,7 @@ import {
   ChevronRight,
   ChevronDown,
   Mail,
+  Send,
   ClipboardList,
   Shield
 } from "lucide-react";
@@ -91,8 +92,8 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
   const canBuatCL = isPurchasing || isAdmin;
   // Approval CL: accounting, purchasing (view only), finance (view only), admin (purchasing_qpr cannot access)
   const canApproveCL = isAccounting || isPurchasing || isFinance || isAdmin;
-  // SSC Billing & Payment: finance & admin
-  const canIMemo = isFinance || isAdmin;
+  // SSC Billing & Payment (I-Memo) / Reminder & Kirim CL: finance, purchasing & admin
+  const canIMemo = isFinance || isPurchasing || isAdmin;
   // List QPR & CL: everyone except no-one is excluded
   const canListQpr = true;
 
@@ -301,7 +302,7 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
                 </button>
               )}
 
-              {/* SSC Billing & Reminder */}
+              {/* SSC Billing & Reminder / Kirim CL */}
               {canIMemo && (
                 <button
                   onClick={() => handleMenuClick("i-memo")}
@@ -312,10 +313,16 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
                       ? "bg-blue-600 text-white shadow-sm"
                       : "text-slate-500 hover:text-white hover:bg-blue-600"
                   }`}
-                  title={!sidebarOpen ? "SSC Billing & Reminder" : undefined}
+                  title={!sidebarOpen ? (isPurchasing ? "Kirim CL" : isFinance ? "SSC Billing & Payment" : "Kirim CL & SSC Memo") : undefined}
                 >
-                  <Mail size={20} className={activeTab === "i-memo" ? "text-white shrink-0" : "text-blue-500 group-hover:text-white transition-colors shrink-0"} />
-                  <span className={`text-sm font-bold truncate transition-all ${sidebarOpen ? "block animate-in fade-in" : "xl:hidden"}`}>SSC Billing &amp; Reminder</span>
+                  {isPurchasing ? (
+                    <Send size={20} className={activeTab === "i-memo" ? "text-white shrink-0" : "text-blue-500 group-hover:text-white transition-colors shrink-0"} />
+                  ) : (
+                    <FileCheck2 size={20} className={activeTab === "i-memo" ? "text-white shrink-0" : "text-blue-500 group-hover:text-white transition-colors shrink-0"} />
+                  )}
+                  <span className={`text-sm font-bold truncate transition-all ${sidebarOpen ? "block animate-in fade-in" : "xl:hidden"}`}>
+                    {isPurchasing ? "Kirim CL" : isFinance ? "SSC Billing & Payment" : "Kirim CL & SSC Memo"}
+                  </span>
                 </button>
               )}
 

@@ -742,11 +742,205 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
           </div>
         </div>
       </div>
+    );
+  const isImageAttachment = (file: { name?: string; base64?: string } | null) => {
+    if (!file) return false;
+    if (file.base64 && (file.base64.startsWith("data:image/") || file.base64.startsWith("blob:"))) return true;
+    if (file.name && /\.(png|jpe?g|webp|gif|bmp)$/i.test(file.name)) return true;
+    return false;
+  };
+
+  const attachmentPrintPages = (
+    <div id="qpr-attachments-print-area" className="w-full flex flex-col gap-4">
+      {parsedAttachments.length > 0 ? (
+        parsedAttachments.map((file: any, idx: number) => {
+          const isImg = isImageAttachment(file);
+          return (
+            <div
+              key={idx}
+              className="qpr-attachment-print-page bg-white mx-auto shadow-md border border-slate-300 p-6 text-left font-sans text-slate-800 flex flex-col justify-between"
+              style={{
+                width: inline ? "100%" : "210mm",
+                minHeight: inline ? "auto" : "297mm",
+                boxSizing: "border-box"
+              }}
+            >
+              {/* Header */}
+              <div>
+                <div className="border-b-2 border-black pb-3 flex justify-between items-start">
+                  <div>
+                    <h3 className="text-sm font-black text-black uppercase tracking-wider">
+                      LAMPIRAN BUKTI KETIDAKSESUAIAN PART NG {isImg ? "(FOTO TEMUAN)" : "(DOKUMEN LAMPIRAN)"}
+                    </h3>
+                    <p className="text-[9.5px] text-slate-600 font-bold mt-0.5">
+                      Lampiran Dokumen #{idx + 1}: <span className="font-mono text-black">{file.name || `Lampiran_${idx + 1}`}</span> | Ref QPR: <span className="font-mono text-blue-700">{qpr.qprNumber}</span>
+                    </p>
+                  </div>
+                  <span className="text-[10px] font-black text-red-700 bg-red-50 border border-red-200 px-2.5 py-1 rounded">
+                    EVIDENCE ATTACHED
+                  </span>
+                </div>
+
+                {/* Metadata Summary */}
+                <div className="grid grid-cols-3 gap-3 my-3 p-3 bg-slate-50 border border-slate-200 rounded-lg text-[9.5px] font-semibold">
+                  <div>
+                    <span className="text-slate-500 uppercase text-[8px] font-bold block">Vendor / Supplier</span>
+                    <span className="text-black font-extrabold">{qpr.supplierName || "-"}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 uppercase text-[8px] font-bold block">Ref. No. NCR</span>
+                    <span className="text-black font-mono font-bold">{qpr.refNcrNumber || "-"}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 uppercase text-[8px] font-bold block">Part Name / Number</span>
+                    <span className="text-black font-bold">{headerPartName} ({headerPartNumber})</span>
+                  </div>
+                </div>
+
+                {/* Defect Description */}
+                <div className="mb-3">
+                  <span className="text-slate-500 uppercase text-[8.5px] font-bold block mb-1">
+                    Deskripsi Masalah / Problem Analisis
+                  </span>
+                  <div className="p-2.5 bg-slate-50 border border-slate-200 rounded text-[10px] text-slate-800 italic leading-relaxed">
+                    "{qpr.problem || "Ditemukan komponen NG saat proses verifikasi mutu."}"
+                  </div>
+                </div>
+
+                {/* Attachment Content Body */}
+                <div className="my-2">
+                  {isImg ? (
+                    <div className="border border-slate-300 rounded-lg p-3 bg-slate-50/50 flex flex-col items-center justify-center min-h-[140mm]">
+                      <img
+                        src={file.base64}
+                        alt={file.name || "Foto Part NG"}
+                        className="max-h-[135mm] max-w-full object-contain rounded border border-slate-200 shadow-sm"
+                      />
+                      <span className="text-[9px] text-slate-500 font-bold mt-2">
+                        Foto Bukti Visual Ketidaksesuaian Part NG: {file.name}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="border border-slate-300 rounded-lg p-4 bg-slate-50/50 space-y-3">
+                      <div className="flex items-center gap-2 text-blue-700 font-bold text-xs">
+                        <FileText size={16} />
+                        <span>Dokumen Terlampir: {file.name}</span>
+                      </div>
+                      <div className="text-[10px] text-slate-600 leading-relaxed font-mono p-3 bg-white border border-slate-200 rounded">
+                        Dokumen PDF / File bukti ketidaksesuaian telah diintegrasikan pada berkas Quality Problem Report {qpr.qprNumber}.
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Table of NG Parts */}
+              <div className="pt-2 border-t border-slate-200">
+                <span className="text-slate-500 uppercase text-[8px] font-bold block mb-1">
+                  Rincian Part NG Terpengaruh
+                </span>
+                <table className="w-full border-collapse border border-slate-200 text-[8.5px]">
+                  <thead>
+                    <tr className="bg-slate-100 text-slate-700 font-black">
+                      <th className="border border-slate-200 p-1 text-left">Nama Part</th>
+                      <th className="border border-slate-200 p-1 text-center">Qty Total</th>
+                      <th className="border border-slate-200 p-1 text-center">Qty NG</th>
+                      <th className="border border-slate-200 p-1 text-center">Claim Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tableParts.map((p: any, pIdx: number) => (
+                      <tr key={pIdx} className="font-semibold text-slate-700">
+                        <td className="border border-slate-200 p-1">{p.partName || headerPartName}</td>
+                        <td className="border border-slate-200 p-1 text-center font-mono">{p.totalQty || qpr.totalItems || 0} pcs</td>
+                        <td className="border border-slate-200 p-1 text-center font-bold text-red-650 font-mono">{p.qtyNG !== undefined ? p.qtyNG : (p.qtyNg || p.qtyClaim || qpr.rejectItems || 0)} pcs</td>
+                        <td className="border border-slate-200 p-1 text-center font-bold text-emerald-700">REJECT / CLAIM</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          );
+        })
+      ) : (
+        /* Default Simulated Proof Sheet when no custom upload file exists */
+        <div
+          className="qpr-attachment-print-page bg-white mx-auto shadow-md border border-slate-300 p-6 text-left font-sans text-slate-800 flex flex-col justify-between"
+          style={{
+            width: inline ? "100%" : "210mm",
+            minHeight: inline ? "auto" : "297mm",
+            boxSizing: "border-box"
+          }}
+        >
+          <div>
+            <div className="border-b-2 border-black pb-3 flex justify-between items-start">
+              <div>
+                <h3 className="text-sm font-black text-black uppercase tracking-wider">
+                  LAMPIRAN BUKTI KETIDAKSESUAIAN (NCR ATTACHMENT)
+                </h3>
+                <p className="text-[9.5px] text-slate-600 font-bold mt-0.5">
+                  Reference NCR No: <span className="font-mono text-black">{qpr.refNcrNumber || "NCR/2026/06/020"}</span> | Ref QPR: <span className="font-mono text-blue-700">{qpr.qprNumber}</span>
+                </p>
+              </div>
+              <span className="text-[10px] font-black text-red-700 bg-red-50 border border-red-200 px-2.5 py-1 rounded">
+                CLAIM ATTACHED
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 my-4 text-[9.5px] font-semibold">
+              <div className="space-y-1">
+                <span className="text-slate-400 text-[8px] uppercase tracking-wider block">Vendor Name</span>
+                <span className="text-slate-800 font-bold">{qpr.supplierName}</span>
+              </div>
+              <div className="space-y-1">
+                <span className="text-slate-400 text-[8px] uppercase tracking-wider block">QPR Ref No</span>
+                <span className="text-slate-800 font-bold font-mono">{qpr.qprNumber}</span>
+              </div>
+            </div>
+
+            <div className="space-y-2 mb-4">
+              <span className="text-slate-500 text-[8.5px] uppercase tracking-wider block font-bold">Defect / Problem Analysis Description</span>
+              <div className="bg-slate-50 p-3 rounded border border-slate-200 text-[10.5px] leading-relaxed text-slate-800 italic">
+                "{qpr.problem || "Defect visual/dimensi pada komponen luar setelah proses assembly"}"
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-slate-500 text-[8.5px] uppercase tracking-wider block font-bold">Daftar Part Terpengaruh</span>
+              <table className="w-full border-collapse border border-slate-200 text-[9px]">
+                <thead>
+                  <tr className="bg-slate-50 text-slate-600 font-black">
+                    <th className="border border-slate-200 p-1.5 text-left">Part Name</th>
+                    <th className="border border-slate-200 p-1.5 text-center">Qty Total</th>
+                    <th className="border border-slate-200 p-1.5 text-center">Qty NG</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tableParts.map((p: any, idx: number) => (
+                    <tr key={idx} className="font-semibold text-slate-700">
+                      <td className="border border-slate-200 p-1.5">{p.partName || headerPartName}</td>
+                      <td className="border border-slate-200 p-1.5 text-center font-mono">{p.totalQty || qpr.totalItems || 0} pcs</td>
+                      <td className="border border-slate-200 p-1.5 text-center font-bold text-red-650 font-mono">{(p.qtyNG !== undefined ? p.qtyNG : (p.qtyNg || p.qtyClaim || qpr.rejectItems || 0))} pcs</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-slate-200 text-[9px] text-slate-500 font-semibold italic flex justify-between items-center">
+            <span>Dokumen ini dicetak otomatis sebagai lampiran resmi Quality Problem Report.</span>
+            <span>PT Menara Terus Makmur - Quality Division</span>
+          </div>
+        </div>
+      )}
+    </div>
   );
 
   if (inline) {
     return (
-      <div className="w-full flex flex-col items-center">
+      <div className="w-full">
         {!hideVendorToggle && (
           <div className="flex justify-end mb-3 print:hidden w-full max-w-[210mm] mx-auto">
             <label className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 hover:bg-slate-200/70 border border-slate-250 rounded-lg text-xs font-bold text-slate-700 cursor-pointer transition-all">
@@ -760,100 +954,10 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
             </label>
           </div>
         )}
-        {documentContent}
-
-        {/* Lampiran PDF check block (inline) */}
-        {parsedAttachments.length > 0 && (
-          <div className="w-full max-w-[210mm] mt-4 print:hidden flex flex-col gap-2">
-            {parsedAttachments.length > 1 && (
-              <div className="flex flex-wrap gap-1.5 p-1.5 bg-slate-100 border border-slate-200 rounded-lg w-full">
-                {parsedAttachments.map((file: any, idx: number) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => setActiveAttachmentIdx(idx)}
-                    className={`px-3 py-1.5 text-[10px] font-bold rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
-                      activeAttachmentIdx === idx
-                        ? "bg-blue-600 text-white shadow-sm"
-                        : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
-                    }`}
-                  >
-                    <FileText size={11} />
-                    <span className="truncate max-w-[150px]">{file.name}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-            {/* Direct File View (PDF Embed or Simulation) - Inline version */}
-            <div className="w-full h-[450px] bg-slate-50 rounded-lg overflow-hidden border border-slate-200 relative shadow-sm">
-              {activeAttachment && activeAttachment.base64 ? (
-                <iframe
-                  src={pdfBlobUrl}
-                  className="w-full h-full border-0"
-                  title={`Uploaded PDF Attachment: ${activeAttachment.name}`}
-                />
-              ) : (
-                <div className="w-full h-full pt-9 px-6 pb-4 overflow-y-auto flex flex-col items-center">
-                  {/* Simulated A4 PDF Document Sheet */}
-                  <div className="w-full max-w-[170mm] min-h-[300px] bg-white border border-slate-200 shadow-sm p-6 text-left font-sans text-slate-650 space-y-4">
-                    <div className="border-b border-slate-200 pb-2.5 flex justify-between items-start">
-                      <div>
-                        <h4 className="text-xs font-black text-slate-800">BUKTI KETIDAKSESUAIAN (NCR ATTACHMENT)</h4>
-                        <p className="text-[8px] text-slate-400 font-bold mt-0.5">Reference NCR No: {qpr.refNcrNumber || "NCR/2026/06/020"}</p>
-                      </div>
-                      <span className="text-[9px] font-black text-red-650 bg-red-50 border border-red-100 px-2 py-0.5 rounded">CLAIM ATTACHED</span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4 text-[9px] font-semibold">
-                      <div className="space-y-1">
-                        <span className="text-slate-400 text-[8px] uppercase tracking-wider block">Vendor Name</span>
-                        <span className="text-slate-700 font-bold">{qpr.supplierName}</span>
-                      </div>
-                      <div className="space-y-1">
-                        <span className="text-slate-400 text-[8px] uppercase tracking-wider block">QPR Ref No</span>
-                        <span className="text-slate-700 font-bold font-mono">{qpr.qprNumber}</span>
-                      </div>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <span className="text-slate-400 text-[8px] uppercase tracking-wider block">Defect / Problem Analysis Description</span>
-                      <div className="bg-slate-50/50 p-2.5 rounded border border-slate-150 text-[9.5px] leading-relaxed text-slate-700 italic">
-                        "{qpr.problem || "Defect visual/dimensi pada komponen luar setelah proses assembly"}"
-                      </div>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <span className="text-slate-400 text-[8px] uppercase tracking-wider block">Daftar Part Terpengaruh</span>
-                      <table className="w-full border-collapse border border-slate-150 text-[8.5px]">
-                        <thead>
-                          <tr className="bg-slate-50 text-slate-500 font-black">
-                            <th className="border border-slate-150 p-1 text-left">Part Name</th>
-                            <th className="border border-slate-150 p-1 text-center">Qty NG</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {qpr.parts && qpr.parts.length > 0 ? (
-                            qpr.parts.map((p: any, idx: number) => (
-                              <tr key={idx} className="font-semibold text-slate-650">
-                                <td className="border border-slate-150 p-1">{p.partName}</td>
-                                <td className="border border-slate-150 p-1 text-center font-bold text-red-650">{p.qtyNG || p.qtyNg || p.qtyClaim || 0} pcs</td>
-                              </tr>
-                            ))
-                          ) : (
-                            <tr className="font-semibold text-slate-650">
-                              <td className="border border-slate-150 p-1">{qpr.partName || "ALL TYPE PART FINISH"}</td>
-                              <td className="border border-slate-150 p-1 text-center font-bold text-red-650">{qpr.rejectItems || 0} pcs</td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+        <div id="qpr-print-root" className="w-full flex flex-col gap-6">
+          {documentContent}
+          {attachmentPrintPages}
+        </div>
       </div>
     );
   }
@@ -876,7 +980,7 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-lg transition-colors cursor-pointer"
         >
           <Printer size={14} />
-          Cetak / Print
+          Cetak / Print (QPR + Bukti Lampiran)
         </button>
         {onEditRevision && qpr.status === "UNDER_REVISION" && (
           <button
@@ -897,102 +1001,15 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
           </button>
         )}
       </div>
-      <div className="pt-16 pb-8 w-full flex flex-col items-center gap-4">
-        {documentContent}
-        {/* Lampiran PDF check block */}
-        {parsedAttachments.length > 0 && (
-          <div className="w-full max-w-[210mm] mx-auto print:hidden mt-4 flex flex-col gap-2">
-            {parsedAttachments.length > 1 && (
-              <div className="flex flex-wrap gap-1.5 p-1.5 bg-slate-100 border border-slate-200 rounded-lg w-full">
-                {parsedAttachments.map((file: any, idx: number) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => setActiveAttachmentIdx(idx)}
-                    className={`px-3 py-1.5 text-[10px] font-bold rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
-                      activeAttachmentIdx === idx
-                        ? "bg-blue-600 text-white shadow-sm"
-                        : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
-                    }`}
-                  >
-                    <FileText size={11} />
-                    <span className="truncate max-w-[150px]">{file.name}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-            {/* Direct File View (PDF Simulation) */}
-            <div className="w-full h-[600px] bg-slate-50 rounded-lg overflow-hidden border border-slate-300 relative shadow-sm">
-              {activeAttachment && activeAttachment.base64 ? (
-                <iframe
-                  src={pdfBlobUrl}
-                  className="w-full h-full border-0"
-                  title={`Uploaded PDF Attachment: ${activeAttachment.name}`}
-                />
-              ) : (
-                <div className="w-full h-full pt-9 px-8 pb-4 overflow-y-auto flex flex-col items-center">
-                  {/* Simulated A4 PDF Document Sheet */}
-                  <div className="w-full max-w-[180mm] min-h-[400px] bg-white border border-slate-300 shadow-sm p-8 text-left font-sans text-slate-700 space-y-4">
-                    <div className="border-b-2 border-slate-400 pb-3 flex justify-between items-start">
-                      <div>
-                        <h4 className="text-sm font-black text-slate-800">BUKTI KETIDAKSESUAIAN (NCR ATTACHMENT)</h4>
-                        <p className="text-[9px] text-slate-500 font-semibold mt-0.5">Reference NCR No: {qpr.refNcrNumber || "-"}</p>
-                      </div>
-                      <span className="text-xs font-bold text-red-650 bg-red-50 border border-red-200 px-2.5 py-1 rounded">CLAIM ATTACHED</span>
-                    </div>
 
-                    <div className="grid grid-cols-2 gap-4 text-[10px] font-semibold">
-                      <div className="space-y-1.5">
-                        <span className="text-slate-400 text-[9px] uppercase tracking-wider block">Vendor Name</span>
-                        <span className="text-slate-800 font-bold">{qpr.supplierName}</span>
-                      </div>
-                      <div className="space-y-1.5">
-                        <span className="text-slate-400 text-[9px] uppercase tracking-wider block">QPR Ref No</span>
-                        <span className="text-slate-855 font-bold font-mono">{qpr.qprNumber}</span>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <span className="text-slate-450 text-[9px] uppercase tracking-wider block">Defect / Problem Analysis Description</span>
-                      <div className="bg-slate-50 p-3 rounded border border-slate-200 text-[10.5px] leading-relaxed text-slate-800 italic">
-                        "{qpr.problem || "Defect visual/dimensi pada komponen luar setelah proses assembly"}"
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <span className="text-slate-450 text-[9px] uppercase tracking-wider block">Daftar Part Terpengaruh</span>
-                      <table className="w-full border-collapse border border-slate-200 text-[9px]">
-                        <thead>
-                          <tr className="bg-slate-50 text-slate-600 font-black">
-                            <th className="border border-slate-200 p-1.5 text-left">Part Name</th>
-                            <th className="border border-slate-200 p-1.5 text-center">Qty NG</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {qpr.parts && qpr.parts.length > 0 ? (
-                            qpr.parts.map((p: any, idx: number) => (
-                              <tr key={idx} className="font-semibold text-slate-700">
-                                <td className="border border-slate-200 p-1.5">{p.partName}</td>
-                                <td className="border border-slate-200 p-1.5 text-center font-bold text-red-650">{(p.qtyNG !== undefined ? p.qtyNG : (p.qtyNg || p.qtyClaim || 0))} pcs</td>
-                              </tr>
-                            ))
-                          ) : (
-                            <tr className="font-semibold text-slate-750">
-                              <td className="border border-slate-200 p-1.5">{qpr.partName || "ALL TYPE PART FINISH"}</td>
-                              <td className="border border-slate-200 p-1.5 text-center font-bold text-red-650">{qpr.rejectItems || 0} pcs</td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+      <div className="pt-16 pb-8 w-full flex flex-col items-center gap-6">
+        <div id="qpr-print-root" className="w-full flex flex-col items-center gap-6">
+          {documentContent}
+          {attachmentPrintPages}
+        </div>
       </div>
-      {!inline && <style>{`
+
+      <style>{`
         @media print {
           @page {
             size: A4 portrait;
@@ -1009,9 +1026,21 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
             print-color-adjust: exact !important;
           }
           body.print-qpr-active * { visibility: hidden !important; }
-          body.print-qpr-active #qpr-print-area, body.print-qpr-active #qpr-print-area * { visibility: visible !important; }
-          body.print-qpr-active #qpr-print-area {
+          body.print-qpr-active #qpr-print-root,
+          body.print-qpr-active #qpr-print-root * { 
+            visibility: visible !important; 
+          }
+          body.print-qpr-active #qpr-print-root {
             position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            display: block !important;
+          }
+          body.print-qpr-active #qpr-print-area {
+            position: relative !important;
             left: 0 !important;
             top: 0 !important;
             width: 100% !important;
@@ -1026,15 +1055,40 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
             box-sizing: border-box !important;
             page-break-inside: avoid !important;
             break-inside: avoid !important;
-            page-break-after: avoid !important;
-            break-after: avoid !important;
+            page-break-after: always !important;
+            break-after: page !important;
             display: flex !important;
             flex-direction: column !important;
             justify-content: space-between !important;
             overflow: hidden !important;
           }
+          body.print-qpr-active .qpr-attachment-print-page {
+            position: relative !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            max-width: 194mm !important;
+            min-height: 283mm !important;
+            margin: 0 auto !important;
+            padding: 6mm 8mm !important;
+            border: 1px solid #000 !important;
+            box-shadow: none !important;
+            box-sizing: border-box !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+            page-break-after: always !important;
+            break-after: page !important;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: space-between !important;
+            background: #ffffff !important;
+          }
+          body.print-qpr-active .qpr-attachment-print-page:last-child {
+            page-break-after: auto !important;
+            break-after: auto !important;
+          }
         }
-      `}</style>}
+      `}</style>
     </div>
   );
 }
