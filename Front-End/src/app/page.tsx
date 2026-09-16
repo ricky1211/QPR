@@ -631,11 +631,11 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
     }
   };
 
-  // Handler: Mark CL / SSC Billing as Close Paid (Purchasing / Finance / Admin)
+  // Handler: Mark CL / SSC Billing as Close Paid (Purchasing / Admin)
   const handleMarkClosedPaid = (docId: string) => {
     if (!docId) return;
-    if (username !== "purchasing" && username !== "finance" && username !== "admin") {
-      alert("Akses Ditolak: Anda tidak memiliki wewenang untuk mengubah status dokumen menjadi Lunas (Paid)!");
+    if (username !== "purchasing" && username !== "admin") {
+      alert("Akses Ditolak: Hanya Purchasing yang memiliki wewenang untuk mengubah status pembayaran menjadi Lunas (Paid)!");
       return;
     }
 

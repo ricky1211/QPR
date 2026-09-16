@@ -514,8 +514,18 @@ export default function Dashboard({
   const totalClaimsVal = aprilClaims + mayClaimsClosed + mayClaimsPending + dynamicClaimsValue;
 
   // CL Progress and Closed Paid dynamic calculations
-  const clLunas = currentConfig.claimClosedPaidCount + currentActiveConfirmationLetters.filter((cl: any) => cl.closedPaid || cl.status === "CLOSED_PAID").length;
-  const clProgress = currentActiveConfirmationLetters.filter((cl: any) => !cl.closedPaid && cl.status !== "CLOSED_PAID").length;
+  const clLunas = currentConfig.claimClosedPaidCount + currentActiveConfirmationLetters.filter((cl: any) => {
+    const isSent = !!(cl.purchasingSentCl || cl.purchasingSentDate || cl.dateSent);
+    const d = cl.purchasingSentDate || cl.dateSent;
+    const workingDays = isSent && d ? getWorkingDaysElapsed(d) : 0;
+    return cl.closedPaid || cl.status === "CLOSED_PAID" || (isSent && workingDays >= 10);
+  }).length;
+  const clProgress = currentActiveConfirmationLetters.filter((cl: any) => {
+    const isSent = !!(cl.purchasingSentCl || cl.purchasingSentDate || cl.dateSent);
+    const d = cl.purchasingSentDate || cl.dateSent;
+    const workingDays = isSent && d ? getWorkingDaysElapsed(d) : 0;
+    return !cl.closedPaid && cl.status !== "CLOSED_PAID" && (!isSent || workingDays < 10);
+  }).length;
   const totalCl = clLunas + clProgress;
 
   const claimClosedPaidCount = clLunas;
@@ -544,7 +554,7 @@ export default function Dashboard({
         workingDays++;
       }
     }
-    return Math.max(1, workingDays);
+    return workingDays;
   };
 
   // Helper: Format date after 10 working days
@@ -592,7 +602,8 @@ export default function Dashboard({
 
       const amtNum = parseAmountValue(b.totalAmount || b.amount || b.memoAmount);
       const workingDays = getWorkingDaysElapsed(d);
-      const isPaid = b.status === "CLOSED_PAID" || b.status === "PAID" || b.closedPaid === true;
+      const isDue10Days = workingDays >= 10;
+      const isPaid = b.status === "CLOSED_PAID" || b.status === "PAID" || b.closedPaid === true || isDue10Days;
       const isTriggered10Days = workingDays >= 10;
       const key = b.clNumber || b.billingNo || b.id;
 
@@ -609,7 +620,8 @@ export default function Dashboard({
         formattedAmount: `Rp ${amtNum.toLocaleString("id-ID")}`,
         isPaid,
         isTriggered10Days,
-        status: isPaid ? "PAID" : (isTriggered10Days ? "TRIGGERED_10_DAYS" : "WAITING_DAYS"),
+        isDue10Days,
+        status: isPaid ? "PAID" : "WAITING_DAYS",
         sourceType: "SSC_BILLING",
         rawObject: b
       });
@@ -619,10 +631,11 @@ export default function Dashboard({
     currentActiveConfirmationLetters.forEach((cl: any) => {
       const key = cl.clNumber || cl.id;
       if (!itemsMap.has(key)) {
-        const d = cl.dateSent || cl.date || cl.createdAt;
+        const d = cl.purchasingSentDate || cl.dateSent || cl.date || cl.createdAt;
         const amtNum = parseAmountValue(cl.amount);
         const workingDays = getWorkingDaysElapsed(d);
-        const isPaid = cl.status === "CLOSED_PAID" || cl.closedPaid === true;
+        const isDue10Days = workingDays >= 10;
+        const isPaid = cl.status === "CLOSED_PAID" || cl.closedPaid === true || isDue10Days;
         const isTriggered10Days = workingDays >= 10;
 
         itemsMap.set(key, {
@@ -638,7 +651,8 @@ export default function Dashboard({
           formattedAmount: `Rp ${amtNum.toLocaleString("id-ID")}`,
           isPaid,
           isTriggered10Days,
-          status: isPaid ? "PAID" : (isTriggered10Days ? "TRIGGERED_10_DAYS" : "WAITING_DAYS"),
+          isDue10Days,
+          status: isPaid ? "PAID" : "WAITING_DAYS",
           sourceType: "CL_POTONG_TAGIH",
           rawObject: cl
         });
@@ -1625,7 +1639,7 @@ export default function Dashboard({
                           Preview
                         </button>
 
-                        {!doc.isPaid && (username === "purchasing" || username === "finance" || username === "admin") && (
+                        {!doc.isPaid && (username === "purchasing" || username === "admin") && (
                           <button
                             type="button"
                             onClick={() => {
