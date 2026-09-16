@@ -184,17 +184,10 @@ export default function IMemoView({
     });
   }, [confirmationLetters, selectedVendorName]);
 
-  // Working days calculation helper: add 10 business days skipping Sat & Sun
+  // Date calculation helper: add N days directly to start date (e.g. 17 Sept + 10 days = 27 Sept)
   const addWorkingDays = (startDate: Date, days: number): Date => {
-    let result = new Date(startDate);
-    let added = 0;
-    while (added < days) {
-      result.setDate(result.getDate() + 1);
-      const dayOfWeek = result.getDay();
-      if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Skip Saturday (6) and Sunday (0)
-        added++;
-      }
-    }
+    const result = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+    result.setDate(result.getDate() + days);
     return result;
   };
 
@@ -206,9 +199,55 @@ export default function IMemoView({
     return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
   };
 
+  const countWorkingDaysBetween = (start: Date, end: Date): number => {
+    const s = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    const e = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+    if (e <= s) return 0;
+    let count = 0;
+    const cur = new Date(s);
+    while (cur < e) {
+      cur.setDate(cur.getDate() + 1);
+      const day = cur.getDay();
+      if (day !== 0 && day !== 6) {
+        count++;
+      }
+    }
+    return count;
+  };
+
+  const [sendDateIso, setSendDateIso] = useState<string>(() => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, "0");
+    const day = String(today.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  });
+
+  const [workingDays, setWorkingDays] = useState<number>(10);
+
+  const parsedSendDate = React.useMemo(() => {
+    if (!sendDateIso) return new Date();
+    const parts = sendDateIso.split("-");
+    if (parts.length === 3) {
+      const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+      if (!isNaN(d.getTime())) return d;
+    }
+    const d = new Date(sendDateIso);
+    return isNaN(d.getTime()) ? new Date() : d;
+  }, [sendDateIso]);
+
+  const formattedSendDate = React.useMemo(() => {
+    return formatIndoDate(parsedSendDate);
+  }, [parsedSendDate]);
+
+  // Due Date is automatically calculated 10 working days from the send date
   const calculatedDueDate = React.useMemo(() => {
-    return formatIndoDate(addWorkingDays(new Date(), 10));
-  }, []);
+    return formatIndoDate(addWorkingDays(parsedSendDate, workingDays));
+  }, [parsedSendDate, workingDays]);
+
+  const handleQuickDueDays = (days: number) => {
+    setWorkingDays(days);
+  };
 
   const vendorShortName = React.useMemo(() => {
     if (!selectedVendorName) return "Vendor";
@@ -249,7 +288,7 @@ export default function IMemoView({
   };
 
   const activeClForEmail = React.useMemo(() => {
-    return (
+    const baseCl = (
       vendorCls.find((c: any) => c.id === selectedClForEmailId) ||
       vendorCls[0] ||
       confirmationLetters.find((c: any) => (c.supplierName || "").toLowerCase().includes((selectedVendorName || "").toLowerCase())) ||
@@ -265,7 +304,11 @@ export default function IMemoView({
         status: "APPROVED"
       }
     );
-  }, [vendorCls, selectedClForEmailId, confirmationLetters, selectedVendorName]);
+    return {
+      ...baseCl,
+      dateSent: sendDateIso
+    };
+  }, [vendorCls, selectedClForEmailId, confirmationLetters, selectedVendorName, sendDateIso]);
 
   const activeQprForEmail = React.useMemo(() => {
     return (
@@ -295,7 +338,7 @@ export default function IMemoView({
 
 Berikut kami sampaikan Confirmation Letter terkait part NG sesuai dengan data terlampir.
 
-Mohon bantuannya untuk melakukan konfirmasi sesuai dengan due date, yaitu maksimal 10 hari kerja sejak Confirmation Letter diterima, atau paling lambat pada ${calculatedDueDate}.
+Mohon bantuannya untuk melakukan konfirmasi sesuai dengan due date, yaitu maksimal ${workingDays} hari sejak Confirmation Letter diterima, atau paling lambat pada ${calculatedDueDate}.
 
 Terima kasih atas perhatian dan kerja samanya.
 
@@ -305,7 +348,7 @@ Purchasing Department
 PT MENARA TERUS MAKMUR
 Jl. Jababeka XI Blok H-3 no 12
 Cikarang Bekasi 17530 Indonesia`;
-  }, [vendorShortName, calculatedDueDate]);
+  }, [vendorShortName, workingDays, calculatedDueDate]);
 
   const handleSendVendorEmail = async (specificCl?: any) => {
     if (!vendorEmailInput) {
@@ -390,7 +433,8 @@ Cikarang Bekasi 17530 Indonesia`;
         `Email Confirmation Letter berhasil diproses!\n\n` +
         `• Vendor: ${selectedVendorName || "Vendor"}\n` +
         `• Email Tujuan: ${vendorEmailInput}\n` +
-        `• Jatuh Tempo: ${calculatedDueDate} (10 HK)` +
+        `• Tgl Kirim Dokumen: ${formattedSendDate}\n` +
+        `• Jatuh Tempo: ${calculatedDueDate} (${workingDays} HK)\n` +
         `${attInfo}` +
         `${serverNotice}`
       );
@@ -2935,7 +2979,7 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                               </select>
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                               <div>
                                 <label className="block text-[11px] font-bold text-slate-700 mb-1">
                                   Alamat Email Vendor:
@@ -2958,6 +3002,17 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                                   onChange={(e) => setEmailSubject(e.target.value)}
                                   placeholder="Confirmation Letter – Part NG"
                                   className="w-full px-3 py-2 text-xs font-semibold text-slate-800 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-all"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                                  Tgl Dokumen Dikirim / Dibuat:
+                                </label>
+                                <input
+                                  type="date"
+                                  value={sendDateIso}
+                                  onChange={(e) => setSendDateIso(e.target.value)}
+                                  className="w-full px-3 py-2 text-xs font-bold text-slate-800 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-all cursor-pointer font-sans"
                                 />
                               </div>
                             </div>
@@ -3118,30 +3173,45 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                               </span>
                             </div>
                             <span className="text-[9px] font-bold bg-blue-500/30 text-blue-300 px-2 py-0.5 rounded border border-blue-400/30 font-mono">
-                              COUNTING 10 HARI KERJA
+                              DUE DATE: 10 HARI KERJA
                             </span>
                           </div>
 
                           {/* Email Header Meta */}
                           <div className="p-4 bg-slate-50 border-b border-slate-200 space-y-2 text-xs">
-                            <div className="flex items-center gap-2">
-                              <span className="w-16 text-slate-400 font-bold uppercase text-[10px] shrink-0">To:</span>
-                              <span className="font-mono font-bold text-slate-800 bg-white px-2.5 py-1 rounded border border-slate-200 flex-1 truncate">
+                            <div className="grid grid-cols-[75px_1fr] items-center gap-2">
+                              <span className="text-slate-400 font-bold uppercase text-[10px]">To:</span>
+                              <span className="font-mono font-bold text-slate-800 bg-white px-2.5 py-1 rounded border border-slate-200 truncate">
                                 {emailToHeader}
                               </span>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <span className="w-16 text-slate-400 font-bold uppercase text-[10px] shrink-0">Subject:</span>
-                              <span className="font-semibold text-slate-800 bg-white px-2.5 py-1 rounded border border-slate-200 flex-1">
+                            <div className="grid grid-cols-[75px_1fr] items-center gap-2">
+                              <span className="text-slate-400 font-bold uppercase text-[10px]">Subject:</span>
+                              <span className="font-semibold text-slate-800 bg-white px-2.5 py-1 rounded border border-slate-200 truncate">
                                 {emailSubject}
                               </span>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <span className="w-16 text-slate-400 font-bold uppercase text-[10px] shrink-0">Due Date:</span>
-                              <span className="inline-flex items-center gap-1.5 text-xs font-extrabold text-blue-700 bg-blue-50 px-2.5 py-1 rounded border border-blue-200">
-                                <Clock size={12} className="text-blue-600" />
-                                {calculatedDueDate} <span className="text-[10px] font-semibold text-slate-500">(10 Hari Kerja Terhitung Hari Ini)</span>
-                              </span>
+                            <div className="grid grid-cols-[75px_1fr] items-center gap-2">
+                              <span className="text-slate-400 font-bold uppercase text-[10px]">Tgl Kirim:</span>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="date"
+                                  value={sendDateIso}
+                                  onChange={(e) => setSendDateIso(e.target.value)}
+                                  className="px-2.5 py-1 text-xs font-bold text-slate-800 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none cursor-pointer shadow-2xs hover:border-blue-500 transition-colors"
+                                />
+                                <span className="text-xs font-semibold text-slate-600">({formattedSendDate})</span>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-[75px_1fr] items-center gap-2">
+                              <span className="text-slate-400 font-bold uppercase text-[10px]">Due Date:</span>
+                              <div className="flex items-center gap-2">
+                                <span className="inline-flex items-center gap-1.5 text-xs font-extrabold text-blue-700 bg-blue-50 px-2.5 py-1 rounded border border-blue-200 shrink-0">
+                                  <Clock size={12} className="text-blue-600 shrink-0" />
+                                  <span>{calculatedDueDate}</span>
+                                  <span className="text-[10px] font-semibold text-slate-500">(10 Hari Kerja)</span>
+                                </span>
+                              </div>
                             </div>
                             {/* Attached Document Summary */}
                             <div className="pt-2 border-t border-slate-200">
@@ -3197,7 +3267,7 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                           <div className="px-5 py-3 bg-amber-50/80 border-t border-b border-amber-200/80 text-amber-800 text-[11px] font-semibold flex items-start gap-2">
                             <AlertCircle size={14} className="text-amber-600 shrink-0 mt-0.5" />
                             <div>
-                              Perhitungan <strong>10 hari kerja</strong> dihitung otomatis dengan melompati hari Sabtu dan Minggu sejak tanggal email dikirimkan (Jatuh tempo: <strong>{calculatedDueDate}</strong>).
+                              Perhitungan batas waktu <strong>10 hari kerja</strong> dihitung sejak tanggal kirim dokumen (<strong>{formattedSendDate}</strong>). Batas waktu konfirmasi jatuh tempo pada: <strong>{calculatedDueDate}</strong>.
                             </div>
                           </div>
 

@@ -114,12 +114,25 @@ export const getPeriodFromDate = (dateStr?: string) => {
 
 export const formatLeadTime = (totalHours: number | string | null | undefined): string => {
   if (totalHours === null || totalHours === undefined || totalHours === "") return "-";
-  const h = typeof totalHours === "number" ? totalHours : parseFloat(String(totalHours)) || 0;
-  if (h < 24) {
-    return `${Math.round(h)} Jam`;
+  const h = typeof totalHours === "number" ? totalHours : parseFloat(String(totalHours));
+  if (isNaN(h) || h < 0) return "-";
+  
+  const totalSec = Math.round(h * 3600);
+  if (totalSec < 60) {
+    return `${totalSec} Detik`;
   }
-  const days = Math.floor(h / 24);
-  const remainingHours = Math.round(h % 24);
+  if (totalSec < 3600) {
+    const mins = Math.floor(totalSec / 60);
+    const secs = totalSec % 60;
+    return secs > 0 ? `${mins} Menit ${secs} Detik` : `${mins} Menit`;
+  }
+  if (totalSec < 86400) {
+    const hours = Math.floor(totalSec / 3600);
+    const mins = Math.floor((totalSec % 3600) / 60);
+    return mins > 0 ? `${hours} Jam ${mins} Menit` : `${hours} Jam`;
+  }
+  const days = Math.floor(totalSec / 86400);
+  const remainingHours = Math.floor((totalSec % 86400) / 3600);
   if (remainingHours === 0) {
     return `${days} Hari`;
   }

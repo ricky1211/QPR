@@ -729,13 +729,14 @@ export default function ConfirmationLetterPrintPreview({ cl, onClose, inline = f
         @media print {
           @page {
             size: A4 portrait;
-            margin: 6mm 8mm !important;
+            margin: 5mm 8mm !important;
           }
           html, body {
             height: auto !important;
+            min-height: 100% !important;
             margin: 0 !important;
             padding: 0 !important;
-            background: #fff !important;
+            background: #ffffff !important;
             overflow: visible !important;
           }
           body * {
@@ -768,7 +769,7 @@ export default function ConfirmationLetterPrintPreview({ cl, onClose, inline = f
             position: static !important;
             width: 100% !important;
             height: auto !important;
-            margin: 0 !important;
+            margin: 0 auto !important;
             padding: 0 !important;
             overflow: visible !important;
             float: none !important;
@@ -776,12 +777,21 @@ export default function ConfirmationLetterPrintPreview({ cl, onClose, inline = f
 
           /* Tab-based visibility in print */
           body.print-cl-active #cl-print-area[data-active-tab="cl"] #cl-page-2-container,
-          body.print-cl-active #cl-print-area[data-active-tab="cl"] #cl-sheet-page-2 {
+          body.print-cl-active #cl-print-area[data-active-tab="cl"] #cl-sheet-page-2,
+          body.print-cl-active #cl-print-area[data-active-tab="cl"] #cl-sheet-inline-2 {
             display: none !important;
           }
           body.print-cl-active #cl-print-area[data-active-tab="qpr"] #cl-page-1-container,
-          body.print-cl-active #cl-print-area[data-active-tab="qpr"] #cl-sheet-page-1 {
+          body.print-cl-active #cl-print-area[data-active-tab="qpr"] #cl-sheet-page-1,
+          body.print-cl-active #cl-print-area[data-active-tab="qpr"] #cl-sheet-inline-1 {
             display: none !important;
+          }
+
+          /* Hide attachment photo sheet on CL print so CL print is strictly 1 CL sheet + 1 Approved QPR sheet */
+          body.print-cl-active #cl-sheet-page-2 #qpr-attachments-print-area,
+          body.print-cl-active #cl-sheet-inline-2 #qpr-attachments-print-area {
+            display: none !important;
+            visibility: hidden !important;
           }
 
           /* When tab is 'all': Page 1 breaks cleanly to Page 2 */
@@ -801,15 +811,16 @@ export default function ConfirmationLetterPrintPreview({ cl, onClose, inline = f
           }
 
           /* Page 1: CL Sheet (Exact 1 page fit) */
-          body.print-cl-active #cl-sheet-page-1 {
+          body.print-cl-active #cl-sheet-page-1,
+          body.print-cl-active #cl-sheet-inline-1 {
             width: 100% !important;
             max-width: 194mm !important;
-            height: 283mm !important;
-            max-height: 283mm !important;
-            min-height: 283mm !important;
+            height: 278mm !important;
+            max-height: 278mm !important;
+            min-height: 278mm !important;
             margin: 0 auto !important;
             padding: 4mm 6mm !important;
-            border: 1.5px solid #000 !important;
+            border: 1.5px solid #000000 !important;
             box-shadow: none !important;
             box-sizing: border-box !important;
             font-family: "Times New Roman", Times, serif !important;
@@ -818,17 +829,23 @@ export default function ConfirmationLetterPrintPreview({ cl, onClose, inline = f
             justify-content: space-between !important;
             page-break-inside: avoid !important;
             break-inside: avoid !important;
+            page-break-after: always !important;
+            break-after: page !important;
             overflow: hidden !important;
+            background: #ffffff !important;
           }
-          body.print-cl-active #cl-sheet-page-1 * {
+          body.print-cl-active #cl-sheet-page-1 *,
+          body.print-cl-active #cl-sheet-inline-1 * {
             font-family: "Times New Roman", Times, serif !important;
             color: #000000 !important;
           }
 
-          /* Page 2: QPR Sheet (Exact 1 page fit) */
+          /* Page 2: Approved QPR Sheet (Exact 1 page fit) */
           body.print-cl-active #cl-page-2-container,
           body.print-cl-active #cl-sheet-page-2,
-          body.print-cl-active #cl-sheet-page-2 > div {
+          body.print-cl-active #cl-sheet-inline-2,
+          body.print-cl-active #cl-sheet-page-2 > div,
+          body.print-cl-active #cl-sheet-inline-2 > div {
             width: 100% !important;
             display: block !important;
             page-break-inside: avoid !important;
@@ -838,15 +855,16 @@ export default function ConfirmationLetterPrintPreview({ cl, onClose, inline = f
             border: none !important;
             box-shadow: none !important;
           }
-          body.print-cl-active #cl-sheet-page-2 #qpr-print-area {
+          body.print-cl-active #cl-sheet-page-2 #qpr-print-area,
+          body.print-cl-active #cl-sheet-inline-2 #qpr-print-area {
             width: 100% !important;
             max-width: 194mm !important;
-            height: 283mm !important;
-            max-height: 283mm !important;
-            min-height: 283mm !important;
+            height: 278mm !important;
+            max-height: 278mm !important;
+            min-height: 278mm !important;
             margin: 0 auto !important;
             padding: 4mm 6mm !important;
-            border: 1px solid #000 !important;
+            border: 1px solid #000000 !important;
             box-shadow: none !important;
             box-sizing: border-box !important;
             font-family: Arial, sans-serif !important;
@@ -858,8 +876,10 @@ export default function ConfirmationLetterPrintPreview({ cl, onClose, inline = f
             page-break-after: auto !important;
             break-after: auto !important;
             overflow: hidden !important;
+            background: #ffffff !important;
           }
-          body.print-cl-active #cl-sheet-page-2 * {
+          body.print-cl-active #cl-sheet-page-2 *,
+          body.print-cl-active #cl-sheet-inline-2 * {
             color: #000000 !important;
           }
 

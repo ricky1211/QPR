@@ -34,11 +34,30 @@ export default function LeadTimeTracker({ pendingQprs = [], confirmationLetters 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL"); // ALL, ACTIVE, CLOSED_PAID
 
+  const [, setLiveTick] = useState(0);
+  React.useEffect(() => {
+    const timer = setInterval(() => {
+      setLiveTick(t => (t + 1) % 100000);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   const now = new Date();
 
   // Dynamically calculate stages for active QPRs
   const activeDocs = pendingQprs.map(qpr => {
-    const createdAt = new Date(qpr.createdAt || qpr.date || now);
+    const rawDate = qpr.createdAt || qpr.date;
+    const isDateOnly = rawDate && (!String(rawDate).includes("T") || String(rawDate).includes("T00:00:00"));
+    let createdAt = rawDate ? new Date(rawDate) : now;
+    if (isDateOnly && !isNaN(createdAt.getTime())) {
+      if (
+        createdAt.getUTCFullYear() === now.getUTCFullYear() &&
+        createdAt.getUTCMonth() === now.getUTCMonth() &&
+        createdAt.getUTCDate() === now.getUTCDate()
+      ) {
+        createdAt = now;
+      }
+    }
     const assocCl = confirmationLetters.find(cl => cl.qprNumber === qpr.qprNumber || cl.id === qpr.id || cl.qprId === qpr.id);
     
     // Milestones from QPR approvalProgress and CL
@@ -65,7 +84,7 @@ export default function LeadTimeTracker({ pendingQprs = [], confirmationLetters 
       (!!assocCl && assocCl.status !== "DRAFT");
 
     // Phase 1: Inisiasi & Draf
-    const draftDays = 1; // Inisiasi draf
+    const draftDays = 0; // Inisiasi draf
     const draftStatus: "APPROVED" | "PENDING" | "UPCOMING" = "APPROVED";
 
     // Phase 2: Otorisasi Internal (Section Head -> Dept Head -> Div Head -> Purchasing)
@@ -81,10 +100,10 @@ export default function LeadTimeTracker({ pendingQprs = [], confirmationLetters 
     if (isClSentOrApproved) {
       clStatus = "APPROVED";
       const clEnd = clSentAt || new Date(assocCl?.updatedAt || now);
-      clDays = Math.max(1, Math.round(Math.max(0, clEnd.getTime() - clStart.getTime()) / (1000 * 60 * 60)));
+      clDays = Math.max(0, (clEnd.getTime() - clStart.getTime()) / (1000 * 60 * 60));
     } else if (assocCl || isQprApproved) {
       clStatus = "PENDING";
-      clDays = Math.max(1, Math.round(Math.max(0, now.getTime() - clStart.getTime()) / (1000 * 60 * 60)));
+      clDays = Math.max(0, (now.getTime() - clStart.getTime()) / (1000 * 60 * 60));
     } else {
       clStatus = "UPCOMING";
       clDays = 0;
@@ -100,10 +119,10 @@ export default function LeadTimeTracker({ pendingQprs = [], confirmationLetters 
     if (isVendorSettled) {
       vendorStatus = "APPROVED";
       const vendorEnd = vendorApprovedAt || new Date(assocCl?.updatedAt || now);
-      vendorDays = Math.max(1, Math.round(Math.max(0, vendorEnd.getTime() - vendorStart.getTime()) / (1000 * 60 * 60)));
+      vendorDays = Math.max(0, (vendorEnd.getTime() - vendorStart.getTime()) / (1000 * 60 * 60));
     } else if (clStatus === "APPROVED") {
       vendorStatus = "PENDING";
-      vendorDays = Math.max(1, Math.round(Math.max(0, now.getTime() - vendorStart.getTime()) / (1000 * 60 * 60)));
+      vendorDays = Math.max(0, (now.getTime() - vendorStart.getTime()) / (1000 * 60 * 60));
     } else {
       vendorStatus = "UPCOMING";
       vendorDays = 0;
@@ -118,10 +137,10 @@ export default function LeadTimeTracker({ pendingQprs = [], confirmationLetters 
     if (isClosed) {
       closePaidStatus = "APPROVED";
       const closePaidEnd = new Date(qpr.updatedAt || assocCl?.updatedAt || now);
-      closePaidDays = Math.max(1, Math.round(Math.max(0, closePaidEnd.getTime() - closePaidStart.getTime()) / (1000 * 60 * 60)));
+      closePaidDays = Math.max(0, (closePaidEnd.getTime() - closePaidStart.getTime()) / (1000 * 60 * 60));
     } else if (vendorStatus === "APPROVED") {
       closePaidStatus = "PENDING";
-      closePaidDays = Math.max(1, Math.round(Math.max(0, now.getTime() - closePaidStart.getTime()) / (1000 * 60 * 60)));
+      closePaidDays = Math.max(0, (now.getTime() - closePaidStart.getTime()) / (1000 * 60 * 60));
     } else {
       closePaidStatus = "UPCOMING";
       closePaidDays = 0;
@@ -130,29 +149,29 @@ export default function LeadTimeTracker({ pendingQprs = [], confirmationLetters 
     // Sub-role breakdown for internal approvals (sequential timer from 0)
     const isSecApproved = !!secApprovedAt || !!qpr.approvalProgress?.checksumSectionHead || (qpr.requiredRole !== "Section Head" && qpr.requiredRole !== "Foreman");
     const secHours = secApprovedAt
-      ? Math.max(1, Math.round(Math.max(0, secApprovedAt.getTime() - createdAt.getTime()) / (1000 * 60 * 60)))
-      : (qpr.requiredRole === "Section Head" ? Math.max(1, Math.round(Math.max(0, now.getTime() - createdAt.getTime()) / (1000 * 60 * 60))) : 0);
+      ? Math.max(0, (secApprovedAt.getTime() - createdAt.getTime()) / (1000 * 60 * 60))
+      : (qpr.requiredRole === "Section Head" ? Math.max(0, (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60)) : 0);
 
     const isDeptApproved = !!deptApprovedAt || !!qpr.approvalProgress?.checksumDeptHead || (qpr.requiredRole === "Div Head" || qpr.requiredRole === "Purchasing" || qpr.requiredRole === "Closed" || isQprApproved);
     const deptStart = secApprovedAt || createdAt;
     const deptHours = deptApprovedAt
-      ? Math.max(1, Math.round(Math.max(0, deptApprovedAt.getTime() - deptStart.getTime()) / (1000 * 60 * 60)))
-      : (qpr.requiredRole === "Dept Head" ? Math.max(1, Math.round(Math.max(0, now.getTime() - deptStart.getTime()) / (1000 * 60 * 60))) : 0);
+      ? Math.max(0, (deptApprovedAt.getTime() - deptStart.getTime()) / (1000 * 60 * 60))
+      : (qpr.requiredRole === "Dept Head" ? Math.max(0, (now.getTime() - deptStart.getTime()) / (1000 * 60 * 60)) : 0);
 
     const isDivApproved = !!divApprovedAt || !!qpr.approvalProgress?.checksumDivHead || (qpr.requiredRole === "Purchasing" || qpr.requiredRole === "Closed" || isQprApproved);
     const divStart = deptApprovedAt || deptStart;
     const divHours = divApprovedAt
-      ? Math.max(1, Math.round(Math.max(0, divApprovedAt.getTime() - divStart.getTime()) / (1000 * 60 * 60)))
-      : (qpr.requiredRole === "Div Head" ? Math.max(1, Math.round(Math.max(0, now.getTime() - divStart.getTime()) / (1000 * 60 * 60))) : 0);
+      ? Math.max(0, (divApprovedAt.getTime() - divStart.getTime()) / (1000 * 60 * 60))
+      : (qpr.requiredRole === "Div Head" ? Math.max(0, (now.getTime() - divStart.getTime()) / (1000 * 60 * 60)) : 0);
 
     const isPurchasingApproved = !!purchasingApprovedAt || !!qpr.approvalProgress?.checksumPurchasing || (qpr.requiredRole === "Closed" || isQprApproved);
     const purchStart = divApprovedAt || divStart;
     const purchasingHours = purchasingApprovedAt
-      ? Math.max(1, Math.round(Math.max(0, purchasingApprovedAt.getTime() - purchStart.getTime()) / (1000 * 60 * 60)))
-      : (qpr.requiredRole === "Purchasing" ? Math.max(1, Math.round(Math.max(0, now.getTime() - purchStart.getTime()) / (1000 * 60 * 60))) : 0);
+      ? Math.max(0, (purchasingApprovedAt.getTime() - purchStart.getTime()) / (1000 * 60 * 60))
+      : (qpr.requiredRole === "Purchasing" ? Math.max(0, (now.getTime() - purchStart.getTime()) / (1000 * 60 * 60)) : 0);
 
     // Total internal approval duration equals the sequential sum of all 4 sub-stages
-    const approvalsDays = Math.max(1, secHours + deptHours + divHours + purchasingHours);
+    const approvalsDays = secHours + deptHours + divHours + purchasingHours;
 
     return {
       id: `active-${qpr.id}`,

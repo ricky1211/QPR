@@ -149,16 +149,26 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
     if (qpr.pdfFiles && Array.isArray(qpr.pdfFiles) && qpr.pdfFiles.length > 0) {
       return qpr.pdfFiles;
     }
+    if (qpr.attachments && Array.isArray(qpr.attachments) && qpr.attachments.length > 0) {
+      return qpr.attachments;
+    }
     if (qpr.pdfFileBase64) {
       try {
-        if (qpr.pdfFileBase64.startsWith('[')) {
-          return JSON.parse(qpr.pdfFileBase64);
+        if (typeof qpr.pdfFileBase64 === "string" && qpr.pdfFileBase64.startsWith("[")) {
+          const parsed = JSON.parse(qpr.pdfFileBase64);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
         }
       } catch (e) {}
-      return [{ name: qpr.pdfFileName || "attachment.pdf", base64: qpr.pdfFileBase64 }];
+      if (typeof qpr.pdfFileBase64 === "string" && qpr.pdfFileBase64.length > 0) {
+        return [{ name: qpr.pdfFileName || "Lampiran_Foto.jpg", base64: qpr.pdfFileBase64 }];
+      }
+    }
+    if (qpr.photoBase64 || qpr.imageBase64 || qpr.attachmentBase64) {
+      const b64 = qpr.photoBase64 || qpr.imageBase64 || qpr.attachmentBase64;
+      return [{ name: qpr.photoName || "Lampiran_Foto.jpg", base64: b64 }];
     }
     return [];
-  }, [fetchedAttachments, qpr.pdfFiles, qpr.pdfFileBase64, qpr.pdfFileName]);
+  }, [fetchedAttachments, qpr.pdfFiles, qpr.attachments, qpr.pdfFileBase64, qpr.pdfFileName, qpr.photoBase64, qpr.imageBase64, qpr.attachmentBase64]);
 
   const [activeAttachmentIdx, setActiveAttachmentIdx] = React.useState(0);
 
@@ -745,96 +755,132 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
     );
   const isImageAttachment = (file: { name?: string; base64?: string } | null) => {
     if (!file) return false;
-    if (file.base64 && (file.base64.startsWith("data:image/") || file.base64.startsWith("blob:"))) return true;
-    if (file.name && /\.(png|jpe?g|webp|gif|bmp)$/i.test(file.name)) return true;
+    if (file.base64 && (
+      file.base64.startsWith("data:image/") ||
+      file.base64.startsWith("blob:") ||
+      file.base64.startsWith("http://") ||
+      file.base64.startsWith("https://") ||
+      file.base64.startsWith("/")
+    )) return true;
+    if (file.name && /\.(png|jpe?g|webp|gif|bmp|svg|jfif)$/i.test(file.name)) return true;
     return false;
   };
+
+  // Group images together if all are photos or render per page
+  const imageAttachments = parsedAttachments.filter((f: any) => isImageAttachment(f));
+  const nonImageAttachments = parsedAttachments.filter((f: any) => !isImageAttachment(f));
 
   const attachmentPrintPages = (
     <div id="qpr-attachments-print-area" className="w-full flex flex-col gap-4">
       {parsedAttachments.length > 0 ? (
-        parsedAttachments.map((file: any, idx: number) => {
-          const isImg = isImageAttachment(file);
-          return (
-            <div
-              key={idx}
-              className="qpr-attachment-print-page bg-white mx-auto shadow-md border border-slate-300 p-6 text-left font-sans text-slate-800 flex flex-col justify-between"
-              style={{
-                width: inline ? "100%" : "210mm",
-                minHeight: inline ? "auto" : "297mm",
-                boxSizing: "border-box"
-              }}
-            >
-              {/* Header */}
-              <div>
-                <div className="border-b-2 border-black pb-3 flex justify-between items-start">
-                  <div>
-                    <h3 className="text-sm font-black text-black uppercase tracking-wider">
-                      LAMPIRAN BUKTI KETIDAKSESUAIAN PART NG {isImg ? "(FOTO TEMUAN)" : "(DOKUMEN LAMPIRAN)"}
-                    </h3>
-                    <p className="text-[9.5px] text-slate-600 font-bold mt-0.5">
-                      Lampiran Dokumen #{idx + 1}: <span className="font-mono text-black">{file.name || `Lampiran_${idx + 1}`}</span> | Ref QPR: <span className="font-mono text-blue-700">{qpr.qprNumber}</span>
-                    </p>
-                  </div>
-                  <span className="text-[10px] font-black text-red-700 bg-red-50 border border-red-200 px-2.5 py-1 rounded">
-                    EVIDENCE ATTACHED
-                  </span>
+        imageAttachments.length > 0 && nonImageAttachments.length === 0 ? (
+          /* When attachments are photos (1 or multiple images uploaded in form) */
+          <div
+            className="qpr-attachment-print-page bg-white mx-auto shadow-md border border-slate-300 p-5 text-left font-sans text-slate-800 flex flex-col justify-between"
+            style={{
+              width: inline ? "100%" : "210mm",
+              minHeight: inline ? "auto" : "297mm",
+              boxSizing: "border-box"
+            }}
+          >
+            {/* Header */}
+            <div>
+              <div className="border-b-2 border-black pb-2 flex justify-between items-start">
+                <div>
+                  <h3 className="text-sm font-black text-black uppercase tracking-wider">
+                    LAMPIRAN BUKTI KETIDAKSESUAIAN PART NG (FOTO TEMUAN &amp; BUKTI VISUAL)
+                  </h3>
+                  <p className="text-[9px] text-slate-600 font-bold mt-0.5">
+                    Ref. Dokumen QPR: <span className="font-mono text-blue-700 font-extrabold">{qpr.qprNumber}</span> | Ref. No. NCR: <span className="font-mono text-black font-bold">{qpr.refNcrNumber || "-"}</span> | Tanggal: <span className="text-black font-bold">{formatDateIndo(qpr.date)}</span>
+                  </p>
                 </div>
+                <span className="text-[10px] font-black text-red-700 bg-red-50 border border-red-200 px-2.5 py-1 rounded tracking-wide">
+                  EVIDENCE ATTACHED
+                </span>
+              </div>
 
-                {/* Metadata Summary */}
-                <div className="grid grid-cols-3 gap-3 my-3 p-3 bg-slate-50 border border-slate-200 rounded-lg text-[9.5px] font-semibold">
-                  <div>
-                    <span className="text-slate-500 uppercase text-[8px] font-bold block">Vendor / Supplier</span>
-                    <span className="text-black font-extrabold">{qpr.supplierName || "-"}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 uppercase text-[8px] font-bold block">Ref. No. NCR</span>
-                    <span className="text-black font-mono font-bold">{qpr.refNcrNumber || "-"}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 uppercase text-[8px] font-bold block">Part Name / Number</span>
-                    <span className="text-black font-bold">{headerPartName} ({headerPartNumber})</span>
-                  </div>
+              {/* Metadata Summary */}
+              <div className="grid grid-cols-4 gap-2.5 my-2.5 p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-[9px] font-semibold">
+                <div>
+                  <span className="text-slate-500 uppercase text-[7.5px] font-bold block">Vendor / Supplier</span>
+                  <span className="text-black font-extrabold truncate block">{qpr.supplierName || "-"}</span>
                 </div>
-
-                {/* Defect Description */}
-                <div className="mb-3">
-                  <span className="text-slate-500 uppercase text-[8.5px] font-bold block mb-1">
-                    Deskripsi Masalah / Problem Analisis
-                  </span>
-                  <div className="p-2.5 bg-slate-50 border border-slate-200 rounded text-[10px] text-slate-800 italic leading-relaxed">
-                    "{qpr.problem || "Ditemukan komponen NG saat proses verifikasi mutu."}"
-                  </div>
+                <div>
+                  <span className="text-slate-500 uppercase text-[7.5px] font-bold block">Ref. No. NCR</span>
+                  <span className="text-black font-mono font-bold block">{qpr.refNcrNumber || "-"}</span>
                 </div>
-
-                {/* Attachment Content Body */}
-                <div className="my-2">
-                  {isImg ? (
-                    <div className="border border-slate-300 rounded-lg p-3 bg-slate-50/50 flex flex-col items-center justify-center min-h-[140mm]">
-                      <img
-                        src={file.base64}
-                        alt={file.name || "Foto Part NG"}
-                        className="max-h-[135mm] max-w-full object-contain rounded border border-slate-200 shadow-sm"
-                      />
-                      <span className="text-[9px] text-slate-500 font-bold mt-2">
-                        Foto Bukti Visual Ketidaksesuaian Part NG: {file.name}
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="border border-slate-300 rounded-lg p-4 bg-slate-50/50 space-y-3">
-                      <div className="flex items-center gap-2 text-blue-700 font-bold text-xs">
-                        <FileText size={16} />
-                        <span>Dokumen Terlampir: {file.name}</span>
-                      </div>
-                      <div className="text-[10px] text-slate-600 leading-relaxed font-mono p-3 bg-white border border-slate-200 rounded">
-                        Dokumen PDF / File bukti ketidaksesuaian telah diintegrasikan pada berkas Quality Problem Report {qpr.qprNumber}.
-                      </div>
-                    </div>
-                  )}
+                <div>
+                  <span className="text-slate-500 uppercase text-[7.5px] font-bold block">Part Name / Number</span>
+                  <span className="text-black font-bold truncate block">{headerPartName} ({headerPartNumber})</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 uppercase text-[7.5px] font-bold block">Total NG / Claim</span>
+                  <span className="text-red-700 font-black font-mono block">{qpr.rejectItems || tableParts.reduce((acc: number, p: any) => acc + (p.qtyNG || p.qtyNg || 0), 0)} pcs</span>
                 </div>
               </div>
 
-              {/* Table of NG Parts */}
+              {/* Defect Description */}
+              <div className="mb-2.5">
+                <span className="text-slate-500 uppercase text-[8px] font-bold block mb-0.5">
+                  Deskripsi Masalah / Problem Analysis
+                </span>
+                <div className="p-2 bg-slate-50 border border-slate-200 rounded text-[9.5px] text-slate-800 italic leading-relaxed">
+                  "{qpr.problem || "Ditemukan komponen NG saat proses verifikasi mutu."}"
+                </div>
+              </div>
+
+              {/* Photos Grid Container */}
+              <div className="my-1.5">
+                <span className="text-slate-500 uppercase text-[8px] font-bold block mb-1">
+                  Foto Bukti Visual Komponen NG ({imageAttachments.length} Foto Terlampir)
+                </span>
+                {imageAttachments.length === 1 ? (
+                  <div className="border border-slate-300 rounded-lg p-2.5 bg-slate-50/50 flex flex-col items-center justify-center min-h-[125mm] max-h-[135mm]">
+                    <img
+                      src={imageAttachments[0].base64}
+                      alt={imageAttachments[0].name || "Foto Part NG"}
+                      className="max-h-[118mm] max-w-full object-contain rounded border border-slate-200 shadow-sm"
+                    />
+                    <span className="text-[8.5px] text-slate-600 font-bold mt-1.5 font-mono">
+                      Foto Temuan 1: {imageAttachments[0].name || "Foto Part NG"}
+                    </span>
+                  </div>
+                ) : imageAttachments.length === 2 ? (
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {imageAttachments.map((img: any, i: number) => (
+                      <div key={i} className="border border-slate-300 rounded-lg p-2 bg-slate-50/50 flex flex-col items-center justify-center min-h-[110mm] max-h-[120mm]">
+                        <img
+                          src={img.base64}
+                          alt={img.name || `Foto Part NG ${i + 1}`}
+                          className="max-h-[98mm] max-w-full object-contain rounded border border-slate-200 shadow-sm"
+                        />
+                        <span className="text-[8px] text-slate-600 font-bold mt-1 font-mono truncate max-w-[90%]">
+                          Foto Temuan #{i + 1}: {img.name}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2">
+                    {imageAttachments.slice(0, 4).map((img: any, i: number) => (
+                      <div key={i} className="border border-slate-300 rounded-lg p-1.5 bg-slate-50/50 flex flex-col items-center justify-center min-h-[58mm] max-h-[62mm]">
+                        <img
+                          src={img.base64}
+                          alt={img.name || `Foto Part NG ${i + 1}`}
+                          className="max-h-[48mm] max-w-full object-contain rounded border border-slate-200 shadow-sm"
+                        />
+                        <span className="text-[7.5px] text-slate-600 font-bold mt-0.5 font-mono truncate max-w-[90%]">
+                          Foto #{i + 1}: {img.name}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Table of NG Parts & Footer */}
+            <div>
               <div className="pt-2 border-t border-slate-200">
                 <span className="text-slate-500 uppercase text-[8px] font-bold block mb-1">
                   Rincian Part NG Terpengaruh
@@ -860,13 +906,141 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
                   </tbody>
                 </table>
               </div>
+
+              <div className="pt-2 mt-2 border-t border-slate-200 text-[8px] text-slate-500 font-semibold italic flex justify-between items-center">
+                <span>Dokumen ini dicetak otomatis sebagai lampiran resmi Quality Problem Report ({qpr.qprNumber}).</span>
+                <span>PT Menara Terus Makmur - Quality Division</span>
+              </div>
             </div>
-          );
-        })
+          </div>
+        ) : (
+          /* Multi-attachment mix or Document attachments */
+          parsedAttachments.map((file: any, idx: number) => {
+            const isImg = isImageAttachment(file);
+            return (
+              <div
+                key={idx}
+                className="qpr-attachment-print-page bg-white mx-auto shadow-md border border-slate-300 p-5 text-left font-sans text-slate-800 flex flex-col justify-between"
+                style={{
+                  width: inline ? "100%" : "210mm",
+                  minHeight: inline ? "auto" : "297mm",
+                  boxSizing: "border-box"
+                }}
+              >
+                {/* Header */}
+                <div>
+                  <div className="border-b-2 border-black pb-2 flex justify-between items-start">
+                    <div>
+                      <h3 className="text-sm font-black text-black uppercase tracking-wider">
+                        LAMPIRAN BUKTI KETIDAKSESUAIAN PART NG {isImg ? "(FOTO TEMUAN)" : "(DOKUMEN LAMPIRAN)"}
+                      </h3>
+                      <p className="text-[9px] text-slate-600 font-bold mt-0.5">
+                        Lampiran #{idx + 1}: <span className="font-mono text-black font-bold">{file.name || `Lampiran_${idx + 1}`}</span> | Ref. QPR: <span className="font-mono text-blue-700 font-bold">{qpr.qprNumber}</span>
+                      </p>
+                    </div>
+                    <span className="text-[10px] font-black text-red-700 bg-red-50 border border-red-200 px-2.5 py-1 rounded">
+                      EVIDENCE ATTACHED
+                    </span>
+                  </div>
+
+                  {/* Metadata Summary */}
+                  <div className="grid grid-cols-4 gap-2.5 my-2.5 p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-[9px] font-semibold">
+                    <div>
+                      <span className="text-slate-500 uppercase text-[7.5px] font-bold block">Vendor / Supplier</span>
+                      <span className="text-black font-extrabold truncate block">{qpr.supplierName || "-"}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 uppercase text-[7.5px] font-bold block">Ref. No. NCR</span>
+                      <span className="text-black font-mono font-bold block">{qpr.refNcrNumber || "-"}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 uppercase text-[7.5px] font-bold block">Part Name / Number</span>
+                      <span className="text-black font-bold truncate block">{headerPartName} ({headerPartNumber})</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 uppercase text-[7.5px] font-bold block">Total NG / Claim</span>
+                      <span className="text-red-700 font-black font-mono block">{qpr.rejectItems || 0} pcs</span>
+                    </div>
+                  </div>
+
+                  {/* Defect Description */}
+                  <div className="mb-2.5">
+                    <span className="text-slate-500 uppercase text-[8px] font-bold block mb-0.5">
+                      Deskripsi Masalah / Problem Analysis
+                    </span>
+                    <div className="p-2 bg-slate-50 border border-slate-200 rounded text-[9.5px] text-slate-800 italic leading-relaxed">
+                      "{qpr.problem || "Ditemukan komponen NG saat proses verifikasi mutu."}"
+                    </div>
+                  </div>
+
+                  {/* Attachment Content Body */}
+                  <div className="my-2">
+                    {isImg ? (
+                      <div className="border border-slate-300 rounded-lg p-2.5 bg-slate-50/50 flex flex-col items-center justify-center min-h-[125mm] max-h-[135mm]">
+                        <img
+                          src={file.base64}
+                          alt={file.name || "Foto Part NG"}
+                          className="max-h-[118mm] max-w-full object-contain rounded border border-slate-200 shadow-sm"
+                        />
+                        <span className="text-[8.5px] text-slate-600 font-bold mt-1.5 font-mono">
+                          Foto Bukti Visual: {file.name}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="border border-slate-300 rounded-lg p-4 bg-slate-50/50 space-y-3">
+                        <div className="flex items-center gap-2 text-blue-700 font-bold text-xs">
+                          <FileText size={16} />
+                          <span>Dokumen Terlampir: {file.name}</span>
+                        </div>
+                        <div className="text-[10px] text-slate-600 leading-relaxed font-mono p-3 bg-white border border-slate-200 rounded">
+                          Dokumen PDF / File bukti ketidaksesuaian telah diintegrasikan pada berkas Quality Problem Report {qpr.qprNumber}.
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Table of NG Parts & Footer */}
+                <div>
+                  <div className="pt-2 border-t border-slate-200">
+                    <span className="text-slate-500 uppercase text-[8px] font-bold block mb-1">
+                      Rincian Part NG Terpengaruh
+                    </span>
+                    <table className="w-full border-collapse border border-slate-200 text-[8.5px]">
+                      <thead>
+                        <tr className="bg-slate-100 text-slate-700 font-black">
+                          <th className="border border-slate-200 p-1 text-left">Nama Part</th>
+                          <th className="border border-slate-200 p-1 text-center">Qty Total</th>
+                          <th className="border border-slate-200 p-1 text-center">Qty NG</th>
+                          <th className="border border-slate-200 p-1 text-center">Claim Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {tableParts.map((p: any, pIdx: number) => (
+                          <tr key={pIdx} className="font-semibold text-slate-700">
+                            <td className="border border-slate-200 p-1">{p.partName || headerPartName}</td>
+                            <td className="border border-slate-200 p-1 text-center font-mono">{p.totalQty || qpr.totalItems || 0} pcs</td>
+                            <td className="border border-slate-200 p-1 text-center font-bold text-red-650 font-mono">{p.qtyNG !== undefined ? p.qtyNG : (p.qtyNg || p.qtyClaim || qpr.rejectItems || 0)} pcs</td>
+                            <td className="border border-slate-200 p-1 text-center font-bold text-emerald-700">REJECT / CLAIM</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="pt-2 mt-2 border-t border-slate-200 text-[8px] text-slate-500 font-semibold italic flex justify-between items-center">
+                    <span>Dokumen ini dicetak otomatis sebagai lampiran resmi Quality Problem Report ({qpr.qprNumber}).</span>
+                    <span>PT Menara Terus Makmur - Quality Division</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )
       ) : (
         /* Default Simulated Proof Sheet when no custom upload file exists */
         <div
-          className="qpr-attachment-print-page bg-white mx-auto shadow-md border border-slate-300 p-6 text-left font-sans text-slate-800 flex flex-col justify-between"
+          className="qpr-attachment-print-page bg-white mx-auto shadow-md border border-slate-300 p-5 text-left font-sans text-slate-800 flex flex-col justify-between"
           style={{
             width: inline ? "100%" : "210mm",
             minHeight: inline ? "auto" : "297mm",
@@ -874,13 +1048,13 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
           }}
         >
           <div>
-            <div className="border-b-2 border-black pb-3 flex justify-between items-start">
+            <div className="border-b-2 border-black pb-2 flex justify-between items-start">
               <div>
                 <h3 className="text-sm font-black text-black uppercase tracking-wider">
                   LAMPIRAN BUKTI KETIDAKSESUAIAN (NCR ATTACHMENT)
                 </h3>
-                <p className="text-[9.5px] text-slate-600 font-bold mt-0.5">
-                  Reference NCR No: <span className="font-mono text-black">{qpr.refNcrNumber || "NCR/2026/06/020"}</span> | Ref QPR: <span className="font-mono text-blue-700">{qpr.qprNumber}</span>
+                <p className="text-[9px] text-slate-600 font-bold mt-0.5">
+                  Ref. No. NCR: <span className="font-mono text-black font-bold">{qpr.refNcrNumber || "NCR/2026/06/020"}</span> | Ref. QPR: <span className="font-mono text-blue-700 font-bold">{qpr.qprNumber}</span>
                 </p>
               </div>
               <span className="text-[10px] font-black text-red-700 bg-red-50 border border-red-200 px-2.5 py-1 rounded">
@@ -888,40 +1062,40 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 my-4 text-[9.5px] font-semibold">
+            <div className="grid grid-cols-2 gap-3 my-3 text-[9px] font-semibold">
               <div className="space-y-1">
-                <span className="text-slate-400 text-[8px] uppercase tracking-wider block">Vendor Name</span>
+                <span className="text-slate-400 text-[7.5px] uppercase tracking-wider block font-bold">Vendor Name</span>
                 <span className="text-slate-800 font-bold">{qpr.supplierName}</span>
               </div>
               <div className="space-y-1">
-                <span className="text-slate-400 text-[8px] uppercase tracking-wider block">QPR Ref No</span>
+                <span className="text-slate-400 text-[7.5px] uppercase tracking-wider block font-bold">QPR Ref No</span>
                 <span className="text-slate-800 font-bold font-mono">{qpr.qprNumber}</span>
               </div>
             </div>
 
-            <div className="space-y-2 mb-4">
-              <span className="text-slate-500 text-[8.5px] uppercase tracking-wider block font-bold">Defect / Problem Analysis Description</span>
-              <div className="bg-slate-50 p-3 rounded border border-slate-200 text-[10.5px] leading-relaxed text-slate-800 italic">
+            <div className="space-y-1.5 mb-3">
+              <span className="text-slate-500 text-[8px] uppercase tracking-wider block font-bold">Defect / Problem Analysis Description</span>
+              <div className="bg-slate-50 p-2.5 rounded border border-slate-200 text-[10px] leading-relaxed text-slate-800 italic">
                 "{qpr.problem || "Defect visual/dimensi pada komponen luar setelah proses assembly"}"
               </div>
             </div>
 
-            <div className="space-y-2">
-              <span className="text-slate-500 text-[8.5px] uppercase tracking-wider block font-bold">Daftar Part Terpengaruh</span>
-              <table className="w-full border-collapse border border-slate-200 text-[9px]">
+            <div className="space-y-1.5">
+              <span className="text-slate-500 text-[8px] uppercase tracking-wider block font-bold">Daftar Part Terpengaruh</span>
+              <table className="w-full border-collapse border border-slate-200 text-[8.5px]">
                 <thead>
                   <tr className="bg-slate-50 text-slate-600 font-black">
-                    <th className="border border-slate-200 p-1.5 text-left">Part Name</th>
-                    <th className="border border-slate-200 p-1.5 text-center">Qty Total</th>
-                    <th className="border border-slate-200 p-1.5 text-center">Qty NG</th>
+                    <th className="border border-slate-200 p-1 text-left">Part Name</th>
+                    <th className="border border-slate-200 p-1 text-center">Qty Total</th>
+                    <th className="border border-slate-200 p-1 text-center">Qty NG</th>
                   </tr>
                 </thead>
                 <tbody>
                   {tableParts.map((p: any, idx: number) => (
                     <tr key={idx} className="font-semibold text-slate-700">
-                      <td className="border border-slate-200 p-1.5">{p.partName || headerPartName}</td>
-                      <td className="border border-slate-200 p-1.5 text-center font-mono">{p.totalQty || qpr.totalItems || 0} pcs</td>
-                      <td className="border border-slate-200 p-1.5 text-center font-bold text-red-650 font-mono">{(p.qtyNG !== undefined ? p.qtyNG : (p.qtyNg || p.qtyClaim || qpr.rejectItems || 0))} pcs</td>
+                      <td className="border border-slate-200 p-1">{p.partName || headerPartName}</td>
+                      <td className="border border-slate-200 p-1 text-center font-mono">{p.totalQty || qpr.totalItems || 0} pcs</td>
+                      <td className="border border-slate-200 p-1 text-center font-bold text-red-650 font-mono">{(p.qtyNG !== undefined ? p.qtyNG : (p.qtyNg || p.qtyClaim || qpr.rejectItems || 0))} pcs</td>
                     </tr>
                   ))}
                 </tbody>
@@ -929,8 +1103,8 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
             </div>
           </div>
 
-          <div className="pt-4 border-t border-slate-200 text-[9px] text-slate-500 font-semibold italic flex justify-between items-center">
-            <span>Dokumen ini dicetak otomatis sebagai lampiran resmi Quality Problem Report.</span>
+          <div className="pt-2 border-t border-slate-200 text-[8px] text-slate-500 font-semibold italic flex justify-between items-center">
+            <span>Dokumen ini dicetak otomatis sebagai lampiran resmi Quality Problem Report ({qpr.qprNumber}).</span>
             <span>PT Menara Terus Makmur - Quality Division</span>
           </div>
         </div>
@@ -1013,31 +1187,46 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
         @media print {
           @page {
             size: A4 portrait;
-            margin: 6mm 8mm !important;
+            margin: 5mm 8mm !important;
           }
           html, body {
             height: auto !important;
+            min-height: 100% !important;
             margin: 0 !important;
             padding: 0 !important;
-            background: #fff !important;
+            background: #ffffff !important;
+            overflow: visible !important;
           }
           body * {
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
-          body.print-qpr-active * { visibility: hidden !important; }
+          body.print-qpr-active * { 
+            visibility: hidden !important; 
+          }
           body.print-qpr-active #qpr-print-root,
           body.print-qpr-active #qpr-print-root * { 
             visibility: visible !important; 
           }
-          body.print-qpr-active #qpr-print-root {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 100% !important;
+          body.print-qpr-active .fixed,
+          body.print-qpr-active .backdrop-blur-sm,
+          body.print-qpr-active div[class*="fixed"] {
+            position: static !important;
+            overflow: visible !important;
+            height: auto !important;
+            max-height: none !important;
+            background: transparent !important;
+            padding: 0 !important;
             margin: 0 !important;
+          }
+          body.print-qpr-active #qpr-print-root {
+            position: static !important;
+            width: 100% !important;
+            max-width: 194mm !important;
+            margin: 0 auto !important;
             padding: 0 !important;
             display: block !important;
+            overflow: visible !important;
           }
           body.print-qpr-active #qpr-print-area {
             position: relative !important;
@@ -1045,12 +1234,12 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
             top: 0 !important;
             width: 100% !important;
             max-width: 194mm !important;
-            height: 283mm !important;
-            max-height: 283mm !important;
-            min-height: 283mm !important;
+            height: 278mm !important;
+            max-height: 278mm !important;
+            min-height: 278mm !important;
             margin: 0 auto !important;
             padding: 4mm 6mm !important;
-            border: 1px solid #000 !important;
+            border: 1px solid #000000 !important;
             box-shadow: none !important;
             box-sizing: border-box !important;
             page-break-inside: avoid !important;
@@ -1061,6 +1250,16 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
             flex-direction: column !important;
             justify-content: space-between !important;
             overflow: hidden !important;
+            background: #ffffff !important;
+          }
+          body.print-qpr-active #qpr-attachments-print-area {
+            display: block !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            page-break-before: always !important;
+            break-before: page !important;
+            overflow: visible !important;
           }
           body.print-qpr-active .qpr-attachment-print-page {
             position: relative !important;
@@ -1068,10 +1267,12 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
             top: 0 !important;
             width: 100% !important;
             max-width: 194mm !important;
-            min-height: 283mm !important;
+            height: 278mm !important;
+            max-height: 278mm !important;
+            min-height: 278mm !important;
             margin: 0 auto !important;
-            padding: 6mm 8mm !important;
-            border: 1px solid #000 !important;
+            padding: 5mm 6mm !important;
+            border: 1px solid #000000 !important;
             box-shadow: none !important;
             box-sizing: border-box !important;
             page-break-inside: avoid !important;
@@ -1082,6 +1283,7 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
             flex-direction: column !important;
             justify-content: space-between !important;
             background: #ffffff !important;
+            overflow: hidden !important;
           }
           body.print-qpr-active .qpr-attachment-print-page:last-child {
             page-break-after: auto !important;

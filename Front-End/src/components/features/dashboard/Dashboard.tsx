@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   ArrowRight,
   ChevronLeft,
@@ -35,175 +35,311 @@ import { formatLeadTime } from "../../../services/qprService";
 interface PipelineStage {
   name: string;
   status: "APPROVED" | "PENDING" | "UPCOMING";
+  hours: number;
 }
+
+const parseDocDate = (docOrDate?: any): Date => {
+  const now = new Date();
+  if (!docOrDate) return now;
+  if (docOrDate instanceof Date) {
+    return isNaN(docOrDate.getTime()) ? now : docOrDate;
+  }
+
+  let raw: any = docOrDate;
+  if (typeof docOrDate === "object") {
+    raw = docOrDate.createdAt || docOrDate.refObject?.createdAt || docOrDate.date || docOrDate.refObject?.date || docOrDate.dateSent;
+  }
+  if (!raw) return now;
+  if (raw instanceof Date) return isNaN(raw.getTime()) ? now : raw;
+
+  const str = String(raw).trim();
+  const isDateOnly = !str.includes("T") || str.includes("T00:00:00");
+  const parsed = new Date(str);
+  if (isNaN(parsed.getTime())) return now;
+
+  if (isDateOnly) {
+    const isToday = 
+      parsed.getUTCFullYear() === now.getUTCFullYear() &&
+      parsed.getUTCMonth() === now.getUTCMonth() &&
+      parsed.getUTCDate() === now.getUTCDate();
+    if (isToday) {
+      return now;
+    }
+  }
+
+  return parsed;
+};
 
 const getDocPipelineStages = (
   type: string,
   requiredRole?: string,
   status?: string,
   clApprovalProgress?: { sectAccounting: boolean; deptAccounting: boolean },
-  linkedCl?: any
+  linkedCl?: any,
+  refObject?: any,
+  docDateVal?: string | Date
 ): PipelineStage[] => {
+  const now = new Date();
+  const createdAt = parseDocDate(refObject?.createdAt ? refObject : (docDateVal || refObject));
   const isApproved = status === "APPROVED" || status === "CLOSED" || status === "CLOSED_PAID" || status === "FULLY_APPROVED" || requiredRole === "Closed";
 
   if (type === "NCR") {
     const chain = ["Foreman", "Sec. Head", "Dept. Head"];
-    if (isApproved) return chain.map(name => ({ name, status: "APPROVED" }));
+    const progress = refObject?.ncrApprovalProgress;
+    const secApprovedAt = progress?.approvedAtSectionHead ? new Date(progress.approvedAtSectionHead) : null;
+    const deptApprovedAt = progress?.approvedAtDeptHead ? new Date(progress.approvedAtDeptHead) : null;
+
     let currentIndex = 0;
     if (requiredRole === "Section Head") currentIndex = 1;
     if (requiredRole === "Dept Head") currentIndex = 2;
-    if (requiredRole === "Closed") currentIndex = 3;
+    if (requiredRole === "Closed" || isApproved) currentIndex = 3;
 
     return chain.map((name, idx) => {
-      if (idx < currentIndex) return { name, status: "APPROVED" };
-      if (idx === currentIndex) return { name, status: "PENDING" };
-      return { name, status: "UPCOMING" };
+      let stageStatus: "APPROVED" | "PENDING" | "UPCOMING" = "UPCOMING";
+      let hours = 0;
+
+      if (idx < currentIndex) {
+        stageStatus = "APPROVED";
+      } else if (idx === currentIndex && !isApproved) {
+        stageStatus = "PENDING";
+      } else if (isApproved) {
+        stageStatus = "APPROVED";
+      }
+
+      if (idx === 0) {
+        // Foreman (Creation)
+        hours = 0;
+      } else if (idx === 1) {
+        // Section Head
+        if (stageStatus === "APPROVED") {
+          hours = secApprovedAt ? Math.max(0, (secApprovedAt.getTime() - createdAt.getTime()) / (1000 * 60 * 60)) : 0;
+        } else if (stageStatus === "PENDING") {
+          hours = Math.max(0, (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60));
+        }
+      } else if (idx === 2) {
+        // Dept Head
+        const start = secApprovedAt || createdAt;
+        if (stageStatus === "APPROVED") {
+          hours = deptApprovedAt ? Math.max(0, (deptApprovedAt.getTime() - start.getTime()) / (1000 * 60 * 60)) : 0;
+        } else if (stageStatus === "PENDING") {
+          hours = Math.max(0, (now.getTime() - start.getTime()) / (1000 * 60 * 60));
+        }
+      }
+
+      return { name, status: stageStatus, hours };
     });
   } else {
-    // QPR or merged QPR/CL pipeline: 11-step streamlined flow including Purchasing
-    const stages: { name: string; status: "APPROVED" | "PENDING" | "UPCOMING" }[] = [
-      { name: "CREATE QPR", status: "UPCOMING" },
-      { name: "SECTION HEAD QA", status: "UPCOMING" },
-      { name: "DEPT. HEAD QA", status: "UPCOMING" },
-      { name: "DIV. HEAD", status: "UPCOMING" },
-      { name: "APPROVAL PURCHASING", status: "UPCOMING" },
-      { name: "CREATE CL", status: "UPCOMING" },
-      { name: "APPROVAL CL DEPT ACCOUNTING", status: "UPCOMING" },
-      { name: "KIRIM VENDOR", status: "UPCOMING" },
-      { name: "VENDOR APPROVAL", status: "UPCOMING" },
-      { name: "CREATE SSC BILLING", status: "UPCOMING" },
-      { name: "PAID", status: "UPCOMING" }
+    // QPR or merged QPR/CL pipeline (11 stages)
+    const stages: { name: string; status: "APPROVED" | "PENDING" | "UPCOMING"; hours: number }[] = [
+      { name: "CREATE QPR", status: "UPCOMING", hours: 0 },
+      { name: "SECTION HEAD QA", status: "UPCOMING", hours: 0 },
+      { name: "DEPT. HEAD QA", status: "UPCOMING", hours: 0 },
+      { name: "DIV. HEAD", status: "UPCOMING", hours: 0 },
+      { name: "APPROVAL PURCHASING", status: "UPCOMING", hours: 0 },
+      { name: "CREATE CL", status: "UPCOMING", hours: 0 },
+      { name: "APPROVAL CL DEPT ACCOUNTING", status: "UPCOMING", hours: 0 },
+      { name: "KIRIM VENDOR", status: "UPCOMING", hours: 0 },
+      { name: "VENDOR APPROVAL", status: "UPCOMING", hours: 0 },
+      { name: "CREATE SSC BILLING", status: "UPCOMING", hours: 0 },
+      { name: "PAID", status: "UPCOMING", hours: 0 }
     ];
+
+    const qprProgress = refObject?.approvalProgress;
+    const secApprovedAt = qprProgress?.approvedAtSectionHead ? new Date(qprProgress.approvedAtSectionHead) : null;
+    const deptApprovedAt = qprProgress?.approvedAtDeptHead ? new Date(qprProgress.approvedAtDeptHead) : null;
+    const divApprovedAt = qprProgress?.approvedAtDivHead ? new Date(qprProgress.approvedAtDivHead) : null;
+    const purchasingApprovedAt = qprProgress?.approvedAtPurchasing ? new Date(qprProgress.approvedAtPurchasing) : null;
+
+    const clObj = linkedCl || (type === "CL" ? refObject : null);
+    const clCreatedAt = clObj?.createdAt ? new Date(clObj.createdAt) : null;
+    const clProg = clObj?.clApprovalProgress || clApprovalProgress || { sectAccounting: false, deptAccounting: false };
+    const deptAccountingApprovedAt = clProg?.deptAccountingApprovedAt ? new Date(clProg.deptAccountingApprovedAt) : (clObj?.approvedAtDept ? new Date(clObj.approvedAtDept) : null);
+    const purchasingSentDate = clObj?.purchasingSentDate ? new Date(clObj.purchasingSentDate) : null;
+    const vendorApprovedDate = clObj?.vendorApprovedDate ? new Date(clObj.vendorApprovedDate) : null;
+    const sscBillingDate = clObj?.sscBillingDate ? new Date(clObj.sscBillingDate) : null;
+    const closedPaidDate = clObj?.closedPaidDate ? new Date(clObj.closedPaidDate) : (clObj?.closedPaid && clObj?.updatedAt ? new Date(clObj.updatedAt) : null);
 
     if (type === "CL" && !linkedCl) {
       // Pure CL document (no separate QPR predecessor)
-      stages[0].status = "APPROVED";
-      stages[1].status = "APPROVED";
-      stages[2].status = "APPROVED";
-      stages[3].status = "APPROVED";
-      stages[4].status = "APPROVED";
-      stages[5].status = "APPROVED";
+      for (let i = 0; i <= 5; i++) {
+        stages[i].status = "APPROVED";
+        stages[i].hours = 0;
+      }
 
-      const isDeptApproved = !!(clApprovalProgress?.deptAccounting || status === "FULLY_APPROVED" || status === "CLOSED_PAID");
+      const isDeptApproved = !!(clProg?.deptAccounting || status === "FULLY_APPROVED" || status === "CLOSED_PAID");
       if (!isDeptApproved) {
         stages[6].status = "PENDING";
+        stages[6].hours = Math.max(0, (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60));
         return stages;
       }
       stages[6].status = "APPROVED";
+      stages[6].hours = deptAccountingApprovedAt ? Math.max(0, (deptAccountingApprovedAt.getTime() - createdAt.getTime()) / (1000 * 60 * 60)) : 0;
 
-      const isSent = status === "APPROVED_BY_VENDOR" || status === "FULLY_APPROVED" || status === "CLOSED_PAID";
+      const isSent = !!(clObj?.purchasingSentCl || clObj?.sentToVendor || status === "APPROVED_BY_VENDOR" || status === "FULLY_APPROVED" || status === "CLOSED_PAID");
+      const startSent = deptAccountingApprovedAt || createdAt;
       if (!isSent) {
         stages[7].status = "PENDING";
+        stages[7].hours = Math.max(0, (now.getTime() - startSent.getTime()) / (1000 * 60 * 60));
         return stages;
       }
       stages[7].status = "APPROVED";
+      stages[7].hours = purchasingSentDate ? Math.max(0, (purchasingSentDate.getTime() - startSent.getTime()) / (1000 * 60 * 60)) : 0;
 
-      const isVendorAppr = status === "APPROVED_BY_VENDOR" || status === "FULLY_APPROVED" || status === "CLOSED_PAID";
+      const isVendorAppr = !!(clObj?.vendorApproved || status === "APPROVED_BY_VENDOR" || status === "FULLY_APPROVED" || status === "CLOSED_PAID");
+      const startVendor = purchasingSentDate || startSent;
       if (!isVendorAppr) {
         stages[8].status = "PENDING";
+        stages[8].hours = Math.max(0, (now.getTime() - startVendor.getTime()) / (1000 * 60 * 60));
         return stages;
       }
       stages[8].status = "APPROVED";
+      stages[8].hours = vendorApprovedDate ? Math.max(0, (vendorApprovedDate.getTime() - startVendor.getTime()) / (1000 * 60 * 60)) : 0;
 
-      const isPaid = status === "CLOSED_PAID";
-      if (!isPaid) {
+      const isSsc = !!(clObj?.sscBilling || sscBillingDate || status === "CLOSED_PAID" || clObj?.closedPaid);
+      const startSsc = vendorApprovedDate || startVendor;
+      if (!isSsc) {
         stages[9].status = "PENDING";
+        stages[9].hours = Math.max(0, (now.getTime() - startSsc.getTime()) / (1000 * 60 * 60));
         return stages;
       }
       stages[9].status = "APPROVED";
+      stages[9].hours = sscBillingDate ? Math.max(0, (sscBillingDate.getTime() - startSsc.getTime()) / (1000 * 60 * 60)) : 0;
+
+      const isPaid = status === "CLOSED_PAID" || clObj?.closedPaid;
+      const startPaid = sscBillingDate || startSsc;
+      if (!isPaid) {
+        stages[10].status = "PENDING";
+        stages[10].hours = Math.max(0, (now.getTime() - startPaid.getTime()) / (1000 * 60 * 60));
+        return stages;
+      }
       stages[10].status = "APPROVED";
+      stages[10].hours = closedPaidDate ? Math.max(0, (closedPaidDate.getTime() - startPaid.getTime()) / (1000 * 60 * 60)) : 0;
       return stages;
     }
 
-    // 1. CREATE QPR
+    // 0. CREATE QPR
     stages[0].status = status === "DRAFT" ? "PENDING" : "APPROVED";
+    stages[0].hours = status === "DRAFT" ? Math.max(0, (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60)) : 0;
     if (status === "DRAFT") return stages;
 
-    // 2. SECTION HEAD QA
-    if (requiredRole === "Section Head" && status !== "APPROVED") {
+    // 1. SECTION HEAD QA
+    const isSecAppr = !!secApprovedAt || !!qprProgress?.checksumSectionHead || (requiredRole !== "Section Head" && requiredRole !== "Foreman") || isApproved;
+    if (!isSecAppr && requiredRole === "Section Head") {
       stages[1].status = "PENDING";
+      stages[1].hours = Math.max(0, (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60));
       return stages;
     } else {
       stages[1].status = "APPROVED";
+      stages[1].hours = secApprovedAt ? Math.max(0, (secApprovedAt.getTime() - createdAt.getTime()) / (1000 * 60 * 60)) : 0;
     }
 
-    // 3. DEPT. HEAD QA
-    if (requiredRole === "Dept Head" && status !== "APPROVED") {
+    // 2. DEPT. HEAD QA
+    const isDeptAppr = !!deptApprovedAt || !!qprProgress?.checksumDeptHead || (requiredRole !== "Dept Head" && requiredRole !== "Section Head" && requiredRole !== "Foreman") || isApproved;
+    const startDept = secApprovedAt || createdAt;
+    if (!isDeptAppr && requiredRole === "Dept Head") {
       stages[2].status = "PENDING";
+      stages[2].hours = Math.max(0, (now.getTime() - startDept.getTime()) / (1000 * 60 * 60));
       return stages;
     } else {
       stages[2].status = "APPROVED";
+      stages[2].hours = deptApprovedAt ? Math.max(0, (deptApprovedAt.getTime() - startDept.getTime()) / (1000 * 60 * 60)) : 0;
     }
 
-    // 4. DIV. HEAD
-    if (requiredRole === "Div Head" && status !== "APPROVED") {
+    // 3. DIV. HEAD
+    const isDivAppr = !!divApprovedAt || !!qprProgress?.checksumDivHead || (requiredRole !== "Div Head" && requiredRole !== "Dept Head" && requiredRole !== "Section Head" && requiredRole !== "Foreman") || isApproved;
+    const startDiv = deptApprovedAt || startDept;
+    if (!isDivAppr && requiredRole === "Div Head") {
       stages[3].status = "PENDING";
+      stages[3].hours = Math.max(0, (now.getTime() - startDiv.getTime()) / (1000 * 60 * 60));
       return stages;
     } else {
       stages[3].status = "APPROVED";
+      stages[3].hours = divApprovedAt ? Math.max(0, (divApprovedAt.getTime() - startDiv.getTime()) / (1000 * 60 * 60)) : 0;
     }
 
-    // 5. APPROVAL PURCHASING
-    if (requiredRole === "Purchasing" && status !== "APPROVED") {
+    // 4. APPROVAL PURCHASING
+    const isPurchAppr = !!purchasingApprovedAt || !!qprProgress?.checksumPurchasing || requiredRole === "Closed" || isApproved || !!linkedCl;
+    const startPurch = divApprovedAt || startDiv;
+    if (!isPurchAppr && requiredRole === "Purchasing") {
       stages[4].status = "PENDING";
+      stages[4].hours = Math.max(0, (now.getTime() - startPurch.getTime()) / (1000 * 60 * 60));
       return stages;
     } else {
       stages[4].status = "APPROVED";
+      stages[4].hours = purchasingApprovedAt ? Math.max(0, (purchasingApprovedAt.getTime() - startPurch.getTime()) / (1000 * 60 * 60)) : 0;
     }
 
-    // 6. CREATE CL (Immediate after Purchasing approval)
+    // 5. CREATE CL
+    const startClCreate = purchasingApprovedAt || startPurch;
     if (!linkedCl) {
       stages[5].status = "PENDING";
+      stages[5].hours = Math.max(0, (now.getTime() - startClCreate.getTime()) / (1000 * 60 * 60));
       return stages;
     } else {
       stages[5].status = "APPROVED";
+      stages[5].hours = clCreatedAt ? Math.max(0, (clCreatedAt.getTime() - startClCreate.getTime()) / (1000 * 60 * 60)) : 0;
     }
 
-    // 7. APPROVAL CL DEPT ACCOUNTING
-    const clProg = linkedCl.clApprovalProgress || clApprovalProgress || { sectAccounting: false, deptAccounting: false };
-    const isDeptApproved = !!(clProg.deptAccounting || linkedCl.status === "APPROVED_DEPT" || linkedCl.status === "FULLY_APPROVED" || linkedCl.status === "CLOSED_PAID" || linkedCl.closedPaid);
-    if (!isDeptApproved) {
+    // 6. APPROVAL CL DEPT ACCOUNTING
+    const isDeptAccAppr = !!(clProg.deptAccounting || linkedCl.status === "APPROVED_DEPT" || linkedCl.status === "FULLY_APPROVED" || linkedCl.status === "CLOSED_PAID" || linkedCl.closedPaid);
+    const startClDept = clCreatedAt || startClCreate;
+    if (!isDeptAccAppr) {
       stages[6].status = "PENDING";
+      stages[6].hours = Math.max(0, (now.getTime() - startClDept.getTime()) / (1000 * 60 * 60));
       return stages;
     } else {
       stages[6].status = "APPROVED";
+      stages[6].hours = deptAccountingApprovedAt ? Math.max(0, (deptAccountingApprovedAt.getTime() - startClDept.getTime()) / (1000 * 60 * 60)) : 0;
     }
 
-    // 8. KIRIM VENDOR (Purchasing Kirim ke Vendor)
-    const isPurchasingSent = !!(linkedCl.purchasingSentCl || linkedCl.sentToVendor || linkedCl.status === "APPROVED_BY_VENDOR" || linkedCl.status === "FULLY_APPROVED" || linkedCl.status === "CLOSED_PAID" || linkedCl.closedPaid);
-    if (!isPurchasingSent) {
+    // 7. KIRIM VENDOR
+    const isSentVendor = !!(linkedCl.purchasingSentCl || linkedCl.sentToVendor || linkedCl.status === "APPROVED_BY_VENDOR" || linkedCl.status === "FULLY_APPROVED" || linkedCl.status === "CLOSED_PAID" || linkedCl.closedPaid);
+    const startKirim = deptAccountingApprovedAt || startClDept;
+    if (!isSentVendor) {
       stages[7].status = "PENDING";
+      stages[7].hours = Math.max(0, (now.getTime() - startKirim.getTime()) / (1000 * 60 * 60));
       return stages;
     } else {
       stages[7].status = "APPROVED";
+      stages[7].hours = purchasingSentDate ? Math.max(0, (purchasingSentDate.getTime() - startKirim.getTime()) / (1000 * 60 * 60)) : 0;
     }
 
-    // 9. VENDOR APPROVAL
-    const isVendorApproved = !!(linkedCl.vendorApproved || linkedCl.status === "APPROVED_BY_VENDOR" || linkedCl.status === "FULLY_APPROVED" || linkedCl.status === "CLOSED_PAID" || linkedCl.closedPaid);
-    if (!isVendorApproved) {
+    // 8. VENDOR APPROVAL
+    const isVendorAppr = !!(linkedCl.vendorApproved || linkedCl.status === "APPROVED_BY_VENDOR" || linkedCl.status === "FULLY_APPROVED" || linkedCl.status === "CLOSED_PAID" || linkedCl.closedPaid);
+    const startVendor = purchasingSentDate || startKirim;
+    if (!isVendorAppr) {
       stages[8].status = "PENDING";
+      stages[8].hours = Math.max(0, (now.getTime() - startVendor.getTime()) / (1000 * 60 * 60));
       return stages;
     } else {
       stages[8].status = "APPROVED";
+      stages[8].hours = vendorApprovedDate ? Math.max(0, (vendorApprovedDate.getTime() - startVendor.getTime()) / (1000 * 60 * 60)) : 0;
     }
 
-    // 10. CREATE SSC BILLING
-    const isClosedPaid = !!(linkedCl.status === "CLOSED_PAID" || linkedCl.closedPaid);
-    if (!isClosedPaid) {
+    // 9. CREATE SSC BILLING
+    const isSsc = !!(linkedCl.sscBilling || linkedCl.sscBillingDate || linkedCl.status === "CLOSED_PAID" || linkedCl.closedPaid);
+    const startSsc = vendorApprovedDate || startVendor;
+    if (!isSsc) {
       stages[9].status = "PENDING";
+      stages[9].hours = Math.max(0, (now.getTime() - startSsc.getTime()) / (1000 * 60 * 60));
       return stages;
     } else {
       stages[9].status = "APPROVED";
+      stages[9].hours = sscBillingDate ? Math.max(0, (sscBillingDate.getTime() - startSsc.getTime()) / (1000 * 60 * 60)) : 0;
     }
 
-    // 11. PAID
-    if (isClosedPaid) {
-      stages[10].status = "APPROVED";
-    } else {
+    // 10. PAID
+    const isPaid = linkedCl.status === "CLOSED_PAID" || linkedCl.closedPaid;
+    const startPaid = sscBillingDate || startSsc;
+    if (!isPaid) {
       stages[10].status = "PENDING";
+      stages[10].hours = Math.max(0, (now.getTime() - startPaid.getTime()) / (1000 * 60 * 60));
+      return stages;
+    } else {
+      stages[10].status = "APPROVED";
+      stages[10].hours = closedPaidDate ? Math.max(0, (closedPaidDate.getTime() - startPaid.getTime()) / (1000 * 60 * 60)) : 0;
+      return stages;
     }
-
-    return stages;
   }
 };
 
@@ -242,6 +378,15 @@ export default function Dashboard({
   const [roleDetailFilter, setRoleDetailFilter] = useState<"all" | "stuck" | "running" | "completed">("all");
   const [potongTagihFilter, setPotongTagihFilter] = useState<"all" | "unpaid" | "paid">("all");
   const [potongTagihSearch, setPotongTagihSearch] = useState("");
+
+  // Live real-time interval ticker (updates every second so seconds increment dynamically)
+  const [, setLiveTick] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setLiveTick(t => (t + 1) % 100000);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const months = React.useMemo(() => [
     "Januari", "Februari", "Maret", "April", "Mei", "Juni",
@@ -546,7 +691,7 @@ export default function Dashboard({
 
   // Helper to calculate elapsed hours dynamically
   const getDocLeadTimes = (doc: any) => {
-    const docDate = new Date(doc.createdAt || doc.date || doc.dateSent || new Date());
+    const docDate = parseDocDate(doc);
     const now = new Date();
     
     // Determine if document is closed/completed
@@ -562,7 +707,7 @@ export default function Dashboard({
     
     // Calculate difference in hours (with a minimum of 0 to prevent negative values)
     const diffTime = Math.max(0, endDate.getTime() - docDate.getTime());
-    const diffHours = Math.max(1, Math.round(diffTime / (1000 * 60 * 60)));
+    const diffHours = Math.max(0, diffTime / (1000 * 60 * 60));
 
     if (doc.clNumber || doc.type === "CL" || doc.type === "Confirmation Letter") {
       const isClApproved = doc.closedPaid || doc.status === "CLOSED_PAID" || doc.status === "FULLY_APPROVED" || doc.vendorApproved;
@@ -596,11 +741,11 @@ export default function Dashboard({
       const isSecApproved = !!secApprovedAt || !!progress?.checksumSectionHead || (currentRole !== "Section Head" && currentRole !== "Foreman") || isDocClosed;
       let secHours = 0;
       if (secApprovedAt) {
-        secHours = Math.max(1, Math.round(Math.max(0, secApprovedAt.getTime() - docDate.getTime()) / (1000 * 60 * 60)));
+        secHours = Math.max(0, (secApprovedAt.getTime() - docDate.getTime()) / (1000 * 60 * 60));
       } else if (currentRole === "Section Head" && !isDocClosed) {
-        secHours = Math.max(1, Math.round(Math.max(0, now.getTime() - docDate.getTime()) / (1000 * 60 * 60)));
+        secHours = Math.max(0, (now.getTime() - docDate.getTime()) / (1000 * 60 * 60));
       } else if (isSecApproved) {
-        secHours = Math.min(24, Math.max(1, Math.round(diffHours * 0.25)));
+        secHours = Math.max(0, diffHours * 0.25);
       }
       leadTimes["Section Head"] = {
         hours: isSecApproved ? secHours : (currentRole === "Section Head" ? secHours : 0),
@@ -613,11 +758,11 @@ export default function Dashboard({
       const deptStart = secApprovedAt || docDate;
       let deptHours = 0;
       if (deptApprovedAt) {
-        deptHours = Math.max(1, Math.round(Math.max(0, deptApprovedAt.getTime() - deptStart.getTime()) / (1000 * 60 * 60)));
+        deptHours = Math.max(0, (deptApprovedAt.getTime() - deptStart.getTime()) / (1000 * 60 * 60));
       } else if (currentRole === "Dept Head" && !isDocClosed) {
-        deptHours = Math.max(1, Math.round(Math.max(0, now.getTime() - deptStart.getTime()) / (1000 * 60 * 60)));
+        deptHours = Math.max(0, (now.getTime() - deptStart.getTime()) / (1000 * 60 * 60));
       } else if (isDeptApproved) {
-        deptHours = Math.min(24, Math.max(1, Math.round(diffHours * 0.25)));
+        deptHours = Math.max(0, diffHours * 0.25);
       }
       leadTimes["Dept Head"] = {
         hours: isDeptApproved ? deptHours : (currentRole === "Dept Head" ? deptHours : 0),
@@ -630,11 +775,11 @@ export default function Dashboard({
       const divStart = deptApprovedAt || deptStart;
       let divHours = 0;
       if (divApprovedAt) {
-        divHours = Math.max(1, Math.round(Math.max(0, divApprovedAt.getTime() - divStart.getTime()) / (1000 * 60 * 60)));
+        divHours = Math.max(0, (divApprovedAt.getTime() - divStart.getTime()) / (1000 * 60 * 60));
       } else if (currentRole === "Div Head" && !isDocClosed) {
-        divHours = Math.max(1, Math.round(Math.max(0, now.getTime() - divStart.getTime()) / (1000 * 60 * 60)));
+        divHours = Math.max(0, (now.getTime() - divStart.getTime()) / (1000 * 60 * 60));
       } else if (isDivApproved) {
-        divHours = Math.min(24, Math.max(1, Math.round(diffHours * 0.25)));
+        divHours = Math.max(0, diffHours * 0.25);
       }
       leadTimes["Div Head"] = {
         hours: isDivApproved ? divHours : (currentRole === "Div Head" ? divHours : 0),
@@ -647,11 +792,11 @@ export default function Dashboard({
       const purchStart = divApprovedAt || divStart;
       let purchHours = 0;
       if (purchasingApprovedAt) {
-        purchHours = Math.max(1, Math.round(Math.max(0, purchasingApprovedAt.getTime() - purchStart.getTime()) / (1000 * 60 * 60)));
+        purchHours = Math.max(0, (purchasingApprovedAt.getTime() - purchStart.getTime()) / (1000 * 60 * 60));
       } else if (currentRole === "Purchasing" && !isDocClosed) {
-        purchHours = Math.max(1, Math.round(Math.max(0, now.getTime() - purchStart.getTime()) / (1000 * 60 * 60)));
+        purchHours = Math.max(0, (now.getTime() - purchStart.getTime()) / (1000 * 60 * 60));
       } else if (isPurchasingApproved) {
-        purchHours = Math.min(24, Math.max(1, Math.round(diffHours * 0.25)));
+        purchHours = Math.max(0, diffHours * 0.25);
       }
       leadTimes["Purchasing"] = {
         hours: isPurchasingApproved ? purchHours : (currentRole === "Purchasing" ? purchHours : 0),
@@ -673,12 +818,12 @@ export default function Dashboard({
 
       const leadTimes: Record<string, { hours: number; days: number; status: "APPROVED" | "PENDING" | "UPCOMING" }> = {};
       
-      leadTimes["Foreman"] = { hours: 1, days: 1, status: "APPROVED" };
+      leadTimes["Foreman"] = { hours: 0, days: 0, status: "APPROVED" };
 
       const isSecApproved = !!secApprovedAt || !!progress?.checksumApprovalSectionHead || currentRole === "Dept Head" || isDocClosed;
       let secHours = secApprovedAt 
-        ? Math.max(1, Math.round(Math.max(0, secApprovedAt.getTime() - docDate.getTime()) / (1000 * 60 * 60)))
-        : (currentRole === "Section Head" ? Math.max(1, Math.round(Math.max(0, now.getTime() - docDate.getTime()) / (1000 * 60 * 60))) : 4);
+        ? Math.max(0, (secApprovedAt.getTime() - docDate.getTime()) / (1000 * 60 * 60))
+        : (currentRole === "Section Head" ? Math.max(0, (now.getTime() - docDate.getTime()) / (1000 * 60 * 60)) : 0);
       leadTimes["Section Head"] = {
         hours: isSecApproved ? secHours : (currentRole === "Section Head" ? secHours : 0),
         days: isSecApproved ? secHours : (currentRole === "Section Head" ? secHours : 0),
@@ -688,8 +833,8 @@ export default function Dashboard({
       const isDeptApproved = !!deptApprovedAt || !!progress?.checksumApprovalDeptHead || isDocClosed;
       const deptStart = secApprovedAt || docDate;
       let deptHours = deptApprovedAt
-        ? Math.max(1, Math.round(Math.max(0, deptApprovedAt.getTime() - deptStart.getTime()) / (1000 * 60 * 60)))
-        : (currentRole === "Dept Head" ? Math.max(1, Math.round(Math.max(0, now.getTime() - deptStart.getTime()) / (1000 * 60 * 60))) : 4);
+        ? Math.max(0, (deptApprovedAt.getTime() - deptStart.getTime()) / (1000 * 60 * 60))
+        : (currentRole === "Dept Head" ? Math.max(0, (now.getTime() - deptStart.getTime()) / (1000 * 60 * 60)) : 0);
       leadTimes["Dept Head"] = {
         hours: isDeptApproved ? deptHours : (currentRole === "Dept Head" ? deptHours : 0),
         days: isDeptApproved ? deptHours : (currentRole === "Dept Head" ? deptHours : 0),
@@ -1053,6 +1198,8 @@ export default function Dashboard({
         type: "NCR",
         vendor: n.supplierName,
         date: n.date,
+        createdAt: n.createdAt || n.date,
+        updatedAt: n.updatedAt,
         requiredRole: n.requiredRole,
         status: n.status,
         leadTime: lt.totalLeadTime,
@@ -1073,12 +1220,14 @@ export default function Dashboard({
         type: "QPR",
         vendor: q.supplierName,
         date: q.date,
+        createdAt: q.createdAt || q.date,
+        updatedAt: q.updatedAt,
         requiredRole: q.requiredRole,
         status: q.status,
         leadTime: lt.totalLeadTime,
         isClosed: q.status === "APPROVED" || q.status === "CLOSED" || q.status === "CLOSED_PAID" || (linkedCl && (linkedCl.status === "CLOSED_PAID" || linkedCl.closedPaid)),
         closedPaid: linkedCl?.closedPaid || q.status === "CLOSED_PAID",
-        refObject: linkedCl || q,
+        refObject: q,
         linkedCl: linkedCl,
         debitNoteCount: linkedCl?.debitNoteCount || 0,
         clApprovalProgress: linkedCl?.clApprovalProgress || { sectAccounting: false, deptAccounting: false }
@@ -1092,6 +1241,8 @@ export default function Dashboard({
         type: "CL",
         vendor: cl.supplierName,
         date: cl.dateSent || cl.date,
+        createdAt: cl.createdAt || cl.dateSent || cl.date,
+        updatedAt: cl.updatedAt,
         requiredRole: cl.requiredRole || (cl.closedPaid ? "Closed" : "Dept Accounting"),
         status: cl.status,
         leadTime: lt.totalLeadTime,
@@ -1785,8 +1936,11 @@ export default function Dashboard({
 
                           {/* Approval Stages Chain */}
                           <div className="flex items-center gap-1.5 py-1">
-                            {getDocPipelineStages(doc.type, doc.requiredRole, doc.status, doc.clApprovalProgress, doc.linkedCl).map((stage, idx, arr) => {
-                              const stepHours = stage.status === "APPROVED" ? formatLeadTime(2) : (stage.status === "PENDING" ? formatLeadTime(Math.max(1, Math.ceil((doc.leadTime || 12) / Math.max(1, idx + 1)))) : "-");
+                            {getDocPipelineStages(doc.type, doc.requiredRole, doc.status, doc.clApprovalProgress, doc.linkedCl, doc.refObject, doc.date).map((stage, idx, arr) => {
+                              const nextStage = arr[idx + 1];
+                              const stepHours = nextStage 
+                                ? (nextStage.status === "APPROVED" || nextStage.status === "PENDING" ? formatLeadTime(nextStage.hours) : "-")
+                                : "-";
                               return (
                                 <React.Fragment key={idx}>
                                   <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-bold border transition-all ${
@@ -1979,7 +2133,7 @@ export default function Dashboard({
                 <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wider font-mono">Alur Persetujuan Dokumen</span>
                 
                 <div className="flex flex-col md:flex-row md:items-center gap-2 p-4 bg-white border border-slate-150 rounded-xl overflow-x-auto">
-                  {getDocPipelineStages(selectedPipelineDoc.type, selectedPipelineDoc.requiredRole, selectedPipelineDoc.status, selectedPipelineDoc.clApprovalProgress, selectedPipelineDoc.linkedCl).map((stage, i, arr) => (
+                  {getDocPipelineStages(selectedPipelineDoc.type, selectedPipelineDoc.requiredRole, selectedPipelineDoc.status, selectedPipelineDoc.clApprovalProgress, selectedPipelineDoc.linkedCl, selectedPipelineDoc.refObject, selectedPipelineDoc.date).map((stage, i, arr) => (
                     <React.Fragment key={i}>
                       <div
                         className={`flex flex-col p-3 rounded-lg border flex-1 min-w-[120px] transition-all ${
@@ -1996,9 +2150,16 @@ export default function Dashboard({
                           {stage.status === "PENDING" && <Clock size={12} className="text-amber-500" />}
                         </div>
                         <strong className="text-xs font-bold mt-1.5 leading-tight truncate">{stage.name}</strong>
-                        <span className="text-[9px] text-slate-400 font-semibold mt-1 uppercase">
-                          {stage.status === "APPROVED" ? "Selesai" : stage.status === "PENDING" ? "Sedang Diproses" : "Belum Mulai"}
-                        </span>
+                        <div className="flex items-center justify-between mt-1 text-[9px]">
+                          <span className="text-slate-400 font-semibold uppercase">
+                            {stage.status === "APPROVED" ? "Selesai" : stage.status === "PENDING" ? "Sedang Diproses" : "Belum Mulai"}
+                          </span>
+                          {(stage.status === "APPROVED" || stage.status === "PENDING") && (
+                            <span className="font-mono font-bold text-slate-600 bg-slate-100 px-1 py-0.2 rounded">
+                              {formatLeadTime(stage.hours)}
+                            </span>
+                          )}
+                        </div>
                       </div>
                       {i < arr.length - 1 && (
                         <div className="hidden md:flex text-slate-300 font-black text-lg select-none shrink-0 mx-1">→</div>

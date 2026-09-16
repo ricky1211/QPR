@@ -375,44 +375,44 @@ export class QprsService {
           let stepBadge = '';
 
           if (checksumPurchasing) {
-            // Step 5: Purchasing Approved (QPR Full Approved) -> Notify Purchasing to create CL
+            // Step 5: Purchasing Approved (QPR Full Approved) -> Notify Purchasing (Cicik Andria) to create CL & Trigger SSC
             stageTitle = 'QPR Telah Full Approved (Persetujuan Penuh)';
             emailSubject = `[QPR Full Approved] QPR No. ${qpr.qprNumber} Full Approved - Segera Buatkan Confirmation Letter (CL)`;
             statusText = 'APPROVED';
-            nextStep = 'Dokumen QPR telah Full Approved. Purchasing mohon segera membuatkan Confirmation Letter (CL) untuk diproses ke Accounting';
+            nextStep = 'Dokumen QPR telah Full Approved. Purchasing (Cicik Andria) mohon segera membuatkan Confirmation Letter (CL) untuk diproses ke Accounting';
             notes = remarksPurchasing;
-            targetRoleName = 'Purchasing Department';
-            targetRoleKeywords = ['Purchasing', 'purchasing'];
+            targetRoleName = 'Purchasing (Create CL & Send Email to Vendor)';
+            targetRoleKeywords = ['purchasing_cl', 'cicik.andria', 'purchasing'];
             stepBadge = 'Langkah 5/5: QPR Full Approved - Pembuatan Confirmation Letter (CL)';
           } else if (checksumDivHead) {
-            // Step 4: Div Head Approved -> Notify Purchasing to approve
+            // Step 4: Div Head Approved -> Notify Purchasing (Irvan HN) to approve QPR
             stageTitle = 'QPR Disetujui Division Head - Menunggu Approval Purchasing';
             emailSubject = `[QPR Approval] QPR No. ${qpr.qprNumber} Disetujui Division Head - Menunggu Approval Purchasing (${supName})`;
             statusText = 'WAITING_APPROVAL';
-            nextStep = 'Purchasing Department mohon melakukan approval komersial klaim QPR';
+            nextStep = 'Purchasing (Irvan HN) mohon segera melakukan approval komersial klaim QPR';
             notes = remarksDivHead;
-            targetRoleName = 'Purchasing Department';
-            targetRoleKeywords = ['Purchasing', 'purchasing'];
+            targetRoleName = 'Purchasing (Approval QPR)';
+            targetRoleKeywords = ['purchasing_approve', 'irvan.hn', 'purchasing'];
             stepBadge = 'Langkah 4/5: Review & Persetujuan Purchasing';
           } else if (checksumDeptHead) {
-            // Step 3: Dept Head QA Approved -> Notify Div Head to approve
+            // Step 3: Dept Head QA Approved -> Notify Div Head (Putu Saputra) to approve
             stageTitle = 'QPR Disetujui Dept Head QA - Menunggu Approval Division Head';
             emailSubject = `[QPR Approval] QPR No. ${qpr.qprNumber} Disetujui Dept Head - Menunggu Approval Division Head (${supName})`;
             statusText = 'WAITING_APPROVAL';
-            nextStep = 'Division Head mohon segera melakukan review dan persetujuan dokumen QPR';
+            nextStep = 'Division Head (Putu Saputra) mohon segera melakukan review dan persetujuan dokumen QPR';
             notes = remarksDeptHead;
             targetRoleName = 'Division Head QA';
-            targetRoleKeywords = ['Division Head', 'div_head', 'QA Division Head'];
+            targetRoleKeywords = ['div_head', 'putu.saputra', 'Division Head'];
             stepBadge = 'Langkah 3/5: Review & Persetujuan Division Head';
           } else if (checksumSectionHead) {
-            // Step 2: Section Head QA Approved -> Notify Dept Head QA to approve
+            // Step 2: Section Head QA Approved -> Notify Dept Head QA (Septian Nugraha) to approve
             stageTitle = 'QPR Disetujui Section Head QA - Menunggu Approval Dept Head QA';
             emailSubject = `[QPR Approval] QPR No. ${qpr.qprNumber} Disetujui Section Head - Menunggu Approval Dept Head QA (${supName})`;
             statusText = 'WAITING_APPROVAL';
-            nextStep = 'Dept Head QA mohon segera melakukan review dan persetujuan dokumen QPR';
+            nextStep = 'Dept Head QA (Septian Nugraha) mohon segera melakukan review dan persetujuan dokumen QPR';
             notes = remarksSectionHead;
             targetRoleName = 'Dept Head QA';
-            targetRoleKeywords = ['Dept Head', 'qa_dept_head', 'QA Dept Head'];
+            targetRoleKeywords = ['dept_head', 'septian.nugraha', 'Dept Head'];
             stepBadge = 'Langkah 2/5: Review & Persetujuan Dept Head QA';
           }
 
@@ -620,11 +620,11 @@ export class QprsService {
           docNumber: clNumber,
           docType: 'Confirmation Letter',
           supplierName: supName,
-          targetRoleName: 'Dept Accounting',
-          targetRoleKeywords: ['Accounting', 'accounting', 'Finance Accounting', 'Dept Accounting'],
+          targetRoleName: 'Dept Accounting (Approval CL)',
+          targetRoleKeywords: ['dept_accounting', 'anindita.irnila', 'Accounting', 'accounting'],
           stepBadge: 'Langkah 6: Review & Persetujuan Dept Accounting',
           statusText: 'PENDING',
-          nextStepText: 'Dept Accounting mohon segera melakukan verifikasi data klaim dan approval Confirmation Letter',
+          nextStepText: 'Dept Accounting (Anindita Irnila) mohon segera melakukan verifikasi data klaim dan approval Confirmation Letter',
           details: [
             { label: 'Ref. No. QPR', value: data.qprNumber || qprExists.qprNumber || '-' },
             { label: 'Tanggal Dokumen', value: dateSent ? String(dateSent).split('T')[0] : new Date().toISOString().split('T')[0] },
@@ -675,7 +675,7 @@ export class QprsService {
         if (fullCl) {
           const supName = fullCl.vendor?.vendorName || `Vendor ${fullCl.vendorId || ''}`;
 
-          // Step 7: Dept Accounting approve CL -> Notify Purchasing to send CL to vendor
+          // Step 7: Dept Accounting approve CL -> Notify Purchasing (Cicik Andria) to send CL to vendor
           if (status === 'APPROVED' || status === 'FULLY_APPROVED') {
             if (!vendorApproved && !closedPaid) {
               await this.sendSystemNotificationEmail({
@@ -684,11 +684,11 @@ export class QprsService {
                 docNumber: fullCl.clNumber,
                 docType: 'Confirmation Letter',
                 supplierName: supName,
-                targetRoleName: 'Purchasing Department',
-                targetRoleKeywords: ['Purchasing', 'purchasing'],
+                targetRoleName: 'Purchasing (Send Email to Vendor & Trigger SSC)',
+                targetRoleKeywords: ['purchasing_cl', 'cicik.andria', 'Purchasing', 'purchasing'],
                 stepBadge: 'Langkah 7: Persetujuan Accounting Selesai - Segera Kirim ke Vendor',
                 statusText: 'FULLY_APPROVED',
-                nextStepText: 'Confirmation Letter telah disetujui Dept Accounting. Purchasing mohon segera mengirimkan Surat Confirmation Letter ke pihak Vendor',
+                nextStepText: 'Confirmation Letter telah disetujui Dept Accounting. Purchasing (Cicik Andria) mohon segera mengirimkan Surat Confirmation Letter ke pihak Vendor',
                 details: [
                   { label: 'Ref. QPR', value: fullCl.qpr?.qprNumber || '-' },
                   { label: 'Tanggal Terbit', value: fullCl.dateSent ? String(fullCl.dateSent).split('T')[0] : '-' },
@@ -706,7 +706,7 @@ export class QprsService {
               docType: 'Confirmation Letter',
               supplierName: supName,
               targetRoleName: 'Vendor & Stakeholders',
-              targetRoleKeywords: ['Purchasing', 'purchasing', 'QA'],
+              targetRoleKeywords: ['purchasing_cl', 'creator_qpr', 'QA'],
               stepBadge: 'Langkah 8: Confirmation Letter Telah Dikirim ke Vendor',
               statusText: 'WAITING_VENDOR_APPROVAL',
               nextStepText: 'Dokumen resmi telah dikirimkan ke pihak Vendor. Menunggu konfirmasi penerimaan / persetujuan Vendor',
@@ -718,17 +718,18 @@ export class QprsService {
           }
 
           if (vendorApproved) {
+            // Step 9: Vendor Approved -> Notify Finance (Bagas Pratama) to create SSC Billing & Payment
             await this.sendSystemNotificationEmail({
-              subject: `[CL Vendor Approved] Confirmation Letter No. ${fullCl.clNumber} Disetujui oleh Vendor (${supName})`,
-              title: `Confirmation Letter Telah Disetujui Vendor`,
+              subject: `[CL Vendor Approved] Confirmation Letter No. ${fullCl.clNumber} Disetujui oleh Vendor (${supName}) - Proses SSC Billing & Payment`,
+              title: `Confirmation Letter Telah Disetujui Vendor - Proses SSC Billing & Payment`,
               docNumber: fullCl.clNumber,
               docType: 'Confirmation Letter',
               supplierName: supName,
-              targetRoleName: 'Purchasing & Finance Accounting',
-              targetRoleKeywords: ['Purchasing', 'purchasing', 'Accounting', 'accounting'],
-              stepBadge: 'Persetujuan Vendor Lengkap',
+              targetRoleName: 'Finance (Creator SSC Billing & SSC Payments)',
+              targetRoleKeywords: ['finance_ssc', 'bagas.pratama', 'Finance Accounting', 'finance'],
+              stepBadge: 'Persetujuan Vendor Lengkap - Proses SSC',
               statusText: 'APPROVED_BY_VENDOR',
-              nextStepText: 'Dokumen siap diproses ke modul SSC Billing & Payment',
+              nextStepText: 'Dokumen siap diproses oleh Finance (Bagas Pratama) ke modul SSC Billing & Payments',
               details: [
                 { label: 'Ref. QPR', value: fullCl.qpr?.qprNumber || '-' },
                 { label: 'Tanggal Persetujuan Vendor', value: fullCl.vendorApprovedDate || new Date().toISOString().split('T')[0] },
@@ -1287,7 +1288,23 @@ export class QprsService {
     notes?: string;
   }) {
     try {
-      // 1. Resolve DB users matching target role keywords
+      // 1. Resolve direct official corporate role emails from designated mapping
+      let directRoleEmails: string[] = [];
+      if (payload.targetRoleKeywords && payload.targetRoleKeywords.length > 0) {
+        for (const kw of payload.targetRoleKeywords) {
+          const lk = kw.toLowerCase();
+          if (lk.includes('creator') || lk.includes('foreman') || lk.includes('hendrik')) directRoleEmails.push('hendrik.firdaus@mtm.astra.co.id');
+          if (lk.includes('section') || lk.includes('sect.head') || lk.includes('septian')) directRoleEmails.push('septian.nugraha@mtm.astra.co.id');
+          if (lk.includes('dept') || lk.includes('department head')) directRoleEmails.push('septian.nugraha@mtm.astra.co.id');
+          if (lk.includes('div') || lk.includes('putu')) directRoleEmails.push('putu.saputra@mtm.astra.co.id');
+          if (lk.includes('purchasing_approve') || lk.includes('irvan')) directRoleEmails.push('irvan.hn@mtm.astra.co.id');
+          if (lk.includes('purchasing_cl') || lk.includes('cicik') || (lk.includes('purchasing') && !lk.includes('approve'))) directRoleEmails.push('cicik.andria@mtm.astra.co.id');
+          if (lk.includes('accounting') || lk.includes('anindita')) directRoleEmails.push('anindita.irnila@mtm.astra.co.id');
+          if (lk.includes('finance') || lk.includes('ssc') || lk.includes('bagas')) directRoleEmails.push('bagas.pratama@mtm.astra.co.id');
+        }
+      }
+
+      // 2. Resolve DB users matching target role keywords
       let dbRoleEmails: string[] = [];
       if (payload.targetRoleKeywords && payload.targetRoleKeywords.length > 0) {
         try {
@@ -1306,17 +1323,17 @@ export class QprsService {
         }
       }
 
-      // 2. Merge with configured environment emails
+      // 3. Merge with configured environment emails
       const envEmails = (
         process.env.NOTIFICATION_EMAIL_TO ||
         process.env.SMTP_USER ||
-        'rickyalfian751@gmail.com'
+        ''
       )
         .split(',')
         .map((e) => e.trim())
         .filter(Boolean);
 
-      const recipientEmails = Array.from(new Set([...dbRoleEmails, ...envEmails]));
+      const recipientEmails = Array.from(new Set([...directRoleEmails, ...dbRoleEmails, ...envEmails]));
 
       const detailRows = (payload.details || [])
         .map(

@@ -29,11 +29,12 @@ async function main() {
   }
   console.log(`Seeded ${rolesData.length} master roles.`);
 
-  // 2. Seed Users (Inspectors / Admins / Employees) with multiple roles support
+  // 2. Seed Users (Inspectors / Admins / Employees) with multiple roles and official emails
   const usersData = [
     {
       name: 'Administrator',
       npk: 999,
+      email: 'admin.qpr@mtm.astra.co.id',
       role: 'System Administrator',
       roles: ['System Administrator'],
       status: 'Aktif',
@@ -41,6 +42,7 @@ async function main() {
     {
       name: 'Septian Nugraha',
       npk: 2301,
+      email: 'septian.nugraha@mtm.astra.co.id',
       role: 'QA Section Head, QA Dept Head',
       roles: ['QA Section Head', 'QA Dept Head'],
       status: 'Aktif',
@@ -48,13 +50,15 @@ async function main() {
     {
       name: 'Deny Maulana',
       npk: 3079,
+      email: 'deny.maulana@mtm.astra.co.id',
       role: 'QA/QC Operator (Foreman)',
       roles: ['QA/QC Operator (Foreman)'],
       status: 'Aktif',
     },
     {
-      name: 'Hendrik F.',
+      name: 'Hendrik Firdaus',
       npk: 890,
+      email: 'hendrik.firdaus@mtm.astra.co.id',
       role: 'QA/QC Operator (Foreman)',
       roles: ['QA/QC Operator (Foreman)'],
       status: 'Aktif',
@@ -62,6 +66,7 @@ async function main() {
     {
       name: 'Putu Ratna Saputra',
       npk: 1335,
+      email: 'putu.saputra@mtm.astra.co.id',
       role: 'QA Division Head',
       roles: ['QA Division Head'],
       status: 'Aktif',
@@ -69,6 +74,7 @@ async function main() {
     {
       name: 'Cicik Andria',
       npk: 3790,
+      email: 'cicik.andria@mtm.astra.co.id',
       role: 'Purchasing Departemen',
       roles: ['Purchasing Departemen'],
       status: 'Aktif',
@@ -76,6 +82,7 @@ async function main() {
     {
       name: 'Irvan H. N.',
       npk: 1175,
+      email: 'irvan.hn@mtm.astra.co.id',
       role: 'Purchasing Departemen',
       roles: ['Purchasing Departemen'],
       status: 'Aktif',
@@ -83,6 +90,7 @@ async function main() {
     {
       name: 'Anindita Irnilaningtyas',
       npk: 3123,
+      email: 'anindita.irnila@mtm.astra.co.id',
       role: 'Dept Accounting',
       roles: ['Dept Accounting'],
       status: 'Aktif',
@@ -90,6 +98,7 @@ async function main() {
     {
       name: 'Bagas Nur Pratama',
       npk: 3616,
+      email: 'bagas.pratama@mtm.astra.co.id',
       role: 'Finance Accounting',
       roles: ['Finance Accounting'],
       status: 'Aktif',
@@ -100,8 +109,8 @@ async function main() {
   for (const u of usersData) {
     const user = await prisma.user.upsert({
       where: { npk: u.npk },
-      update: { name: u.name, role: u.role, status: u.status },
-      create: { name: u.name, npk: u.npk, role: u.role, status: u.status },
+      update: { name: u.name, email: u.email, role: u.role, status: u.status },
+      create: { name: u.name, npk: u.npk, email: u.email, role: u.role, status: u.status },
     });
 
     // Sync UserRole table
