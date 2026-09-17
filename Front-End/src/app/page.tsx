@@ -1273,6 +1273,7 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
                 confirmationLetters={confirmationLetters}
                 setConfirmationLetters={setConfirmationLetters}
                 parts={parts}
+                pendingQprs={pendingQprs}
                 createdSscBillings={createdSscBillings}
                 setCreatedSscBillings={setCreatedSscBillings}
                 setActiveTab={handleTabChange}

@@ -30,6 +30,7 @@ interface IMemoViewProps {
   confirmationLetters: any[];
   setConfirmationLetters: React.Dispatch<React.SetStateAction<any[]>>;
   parts?: any[];
+  pendingQprs?: any[];
   createdSscBillings?: any[];
   setCreatedSscBillings?: React.Dispatch<React.SetStateAction<any[]>>;
   setActiveTab?: (tab: string) => void;
@@ -41,6 +42,7 @@ export default function IMemoView({
   confirmationLetters,
   setConfirmationLetters,
   parts = [],
+  pendingQprs = [],
   createdSscBillings = [],
   setCreatedSscBillings = () => {},
   setActiveTab,
@@ -162,7 +164,7 @@ export default function IMemoView({
     }
   }, [allAvailableVendors, selectedVendorName]);
 
-  // When vendor changes, update email input
+  // When vendor changes, update email input & active CL selection
   const handleVendorChange = (vendorName: string) => {
     setSelectedVendorName(vendorName);
     const found = allAvailableVendors.find(v => v.name.toLowerCase() === vendorName.toLowerCase());
@@ -172,6 +174,13 @@ export default function IMemoView({
       const short = vendorName.replace(/^PT\.?\s+/i, "").replace(/^CV\.?\s+/i, "").replace(/\s+(INDONESIA|TBA|TBK|ENGINEERING|MANUFACTURING|JAYA|MITRA).*$/i, "").trim().toLowerCase();
       setVendorEmailInput(`marketing@${short || "vendor"}.co.id`);
     }
+
+    const firstVendorCl = confirmationLetters.find((cl: any) => {
+      const sup = (cl.supplierName || "").toLowerCase();
+      const sel = vendorName.toLowerCase();
+      return sup && sel && (sup.includes(sel) || sel.includes(sup));
+    });
+    setSelectedClForEmailId(firstVendorCl ? firstVendorCl.id : "");
   };
 
   // Filter CLs belonging to selected vendor
@@ -288,50 +297,79 @@ export default function IMemoView({
   };
 
   const activeClForEmail = React.useMemo(() => {
-    const baseCl = (
+    const matchedVendorCl = (
       vendorCls.find((c: any) => c.id === selectedClForEmailId) ||
       vendorCls[0] ||
-      confirmationLetters.find((c: any) => (c.supplierName || "").toLowerCase().includes((selectedVendorName || "").toLowerCase())) ||
-      confirmationLetters[0] || {
-        id: "cl_default",
-        clNumber: `CL/2026/09/${(selectedVendorName || "VENDOR").replace(/[^a-zA-Z0-9]/g, "_").toUpperCase()}_570`,
-        qprNumber: "01/QI/QPR/SUB/09/26",
-        supplierName: selectedVendorName || "PT. ARAI RUBBER SEAL IND",
-        partName: "INNER TUBE,650 A",
-        claimAmount: 2358750,
-        totalClaimAmount: 2358750,
-        amount: 2358750,
-        status: "APPROVED"
-      }
+      confirmationLetters.find((c: any) => {
+        const sup = (c.supplierName || "").toLowerCase();
+        const sel = (selectedVendorName || "").toLowerCase();
+        return sup && sel && (sup.includes(sel) || sel.includes(sup));
+      })
     );
+
+    if (matchedVendorCl) {
+      return {
+        ...matchedVendorCl,
+        dateSent: sendDateIso
+      };
+    }
+
+    // If no CL exists for this vendor, check if there is a matching QPR
+    const matchedQpr = pendingQprs.find((q: any) => {
+      const sup = (q.supplierName || "").toLowerCase();
+      const sel = (selectedVendorName || "").toLowerCase();
+      return sup && sel && (sup.includes(sel) || sel.includes(sup));
+    });
+
+    const vendorClean = (selectedVendorName || "VENDOR").replace(/[^a-zA-Z0-9]/g, "_").toUpperCase();
+    const fallbackClNumber = `CL/${new Date().getFullYear()}/${String(new Date().getMonth() + 1).padStart(2, "0")}/${vendorClean}`;
+
     return {
-      ...baseCl,
-      dateSent: sendDateIso
+      id: "cl_default",
+      clNumber: fallbackClNumber,
+      qprNumber: matchedQpr?.qprNumber || `01/QI/QPR/SUB/${String(new Date().getMonth() + 1).padStart(2, "0")}/${String(new Date().getFullYear()).slice(-2)}`,
+      supplierName: selectedVendorName || "PT. Vendor Indonesia",
+      partName: matchedQpr?.partName || (matchedQpr?.qprParts?.[0]?.part?.partDesc) || "Part Material NG",
+      claimAmount: matchedQpr?.claimAmount || 0,
+      totalClaimAmount: matchedQpr?.claimAmount || 0,
+      amount: matchedQpr?.claimAmount || 0,
+      status: "APPROVED",
+      dateSent: sendDateIso,
+      qpr: matchedQpr || undefined
     };
-  }, [vendorCls, selectedClForEmailId, confirmationLetters, selectedVendorName, sendDateIso]);
+  }, [vendorCls, selectedClForEmailId, confirmationLetters, selectedVendorName, sendDateIso, pendingQprs]);
 
   const activeQprForEmail = React.useMemo(() => {
-    return (
-      activeClForEmail?.qpr || {
-        id: "qpr_preview",
-        qprNumber: activeClForEmail?.qprNumber || "01/QI/QPR/SUB/09/26",
-        supplierName: activeClForEmail?.supplierName || selectedVendorName || "PT. ARAI RUBBER SEAL IND",
-        partName: resolvePartDesc(activeClForEmail),
-        status: "APPROVED",
-        refNcrNumber: activeClForEmail?.refNcrNumber || "NCR/2026/09/001",
-        problem: activeClForEmail?.problem || "Claim Part NG / Out of Tolerance",
-        rejectItems: activeClForEmail?.qty || activeClForEmail?.qtyNG || 25,
-        claimAmount: activeClForEmail?.amount || activeClForEmail?.claimAmount || "2358750",
-        approvedBy: ["Creator", "Section Head", "Dept Head", "Div Head", "Purchasing"],
-        approvalProgress: {
-          approvedAtSectionHead: true,
-          approvedAtDeptHead: true,
-          approvedAtDivHead: true,
-          approvedAtPurchasing: true
-        }
+    if (activeClForEmail?.qpr) return activeClForEmail.qpr;
+
+    const matchedQpr = pendingQprs.find((q: any) => {
+      if (activeClForEmail?.qprNumber && q.qprNumber === activeClForEmail.qprNumber) return true;
+      const sup = (q.supplierName || "").toLowerCase();
+      const sel = (selectedVendorName || "").toLowerCase();
+      return sup && sel && (sup.includes(sel) || sel.includes(sup));
+    });
+
+    if (matchedQpr) return matchedQpr;
+
+    return {
+      id: "qpr_preview",
+      qprNumber: activeClForEmail?.qprNumber || `01/QI/QPR/SUB/${String(new Date().getMonth() + 1).padStart(2, "0")}/${String(new Date().getFullYear()).slice(-2)}`,
+      supplierName: selectedVendorName || activeClForEmail?.supplierName || "PT. Vendor Indonesia",
+      partName: resolvePartDesc(activeClForEmail),
+      status: "APPROVED",
+      refNcrNumber: activeClForEmail?.refNcrNumber || `NCR/${new Date().getFullYear()}/${String(new Date().getMonth() + 1).padStart(2, "0")}/001`,
+      problem: activeClForEmail?.problem || "Claim Part NG / Out of Tolerance",
+      rejectItems: activeClForEmail?.qty || activeClForEmail?.qtyNG || 25,
+      claimAmount: activeClForEmail?.amount || activeClForEmail?.claimAmount || 0,
+      approvedBy: ["Creator", "Section Head", "Dept Head", "Div Head", "Purchasing"],
+      approvalProgress: {
+        approvedAtSectionHead: true,
+        approvedAtDeptHead: true,
+        approvedAtDivHead: true,
+        approvedAtPurchasing: true
       }
-    );
-  }, [activeClForEmail, selectedVendorName]);
+    };
+  }, [activeClForEmail, selectedVendorName, pendingQprs]);
 
   const generatedEmailBody = React.useMemo(() => {
     return `Dear Team ${vendorShortName},
