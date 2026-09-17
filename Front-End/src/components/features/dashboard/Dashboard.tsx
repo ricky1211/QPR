@@ -582,6 +582,22 @@ export default function Dashboard({
   const claimRejectedCount = currentConfig.claimRejectedCount + currentActiveQprs.filter((q: any) => q.status === "REJECTED").length;
   const totalClaimsCount = claimClosedPaidCount + claimPendingCount + claimRejectedCount;
 
+  // Helper to format due date string
+  const formatDisplayDueDate = (dueDateVal?: string | Date, fallbackStartDate?: string | Date): string => {
+    if (dueDateVal) {
+      if (typeof dueDateVal === "string") {
+        if (/[a-zA-Z]/.test(dueDateVal)) return dueDateVal;
+        const d = new Date(dueDateVal);
+        if (!isNaN(d.getTime())) {
+          return d.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
+        }
+      } else if (dueDateVal instanceof Date && !isNaN(dueDateVal.getTime())) {
+        return dueDateVal.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
+      }
+    }
+    return getTarget10WorkingDaysDate(fallbackStartDate);
+  };
+
   // Consolidated Potong Tagih data triggered by SSC Billing
   const potongTagihItems = React.useMemo(() => {
     const isAll = activePeriod === "Semua Periode";
@@ -596,26 +612,42 @@ export default function Dashboard({
 
     // 1. Process from createdSscBillings (SSC Billing direct records)
     createdSscBillings.forEach((b: any) => {
-      const d = b.dateSent || b.billingDate || (b.memoRequestDate ? b.memoRequestDate.split('/').reverse().join('-') : null) || b.createdAt;
+      const matchingCl = currentActiveConfirmationLetters.find((c: any) => 
+        (b.clId && c.id === b.clId) || 
+        (b.clNumber && c.clNumber === b.clNumber) || 
+        (b.cl?.clNumber && c.clNumber === b.cl.clNumber) ||
+        (b.supplierName && c.supplierName === b.supplierName)
+      ) || b.cl;
+
+      const clSentDate = matchingCl?.purchasingSentDate || matchingCl?.dateSent;
+      const d = clSentDate || b.dateSent || b.billingDate || (b.memoRequestDate ? b.memoRequestDate.split('/').reverse().join('-') : null) || b.createdAt;
       const p = b.period || getPeriodFromDate(d);
       if (!isAll && p && p !== activePeriod) return;
 
       const amtNum = parseAmountValue(b.totalAmount || b.amount || b.memoAmount);
-      const workingDays = getWorkingDaysElapsed(d);
+      const workingDays = getWorkingDaysElapsed(clSentDate || d);
       const isDue10Days = workingDays >= 10;
       const isPaid = b.status === "CLOSED_PAID" || b.status === "PAID" || b.closedPaid === true || isDue10Days;
       const isTriggered10Days = workingDays >= 10;
       const key = b.clNumber || b.billingNo || b.id;
+
+      const targetDueDate = matchingCl?.dueDate 
+        ? formatDisplayDueDate(matchingCl.dueDate, clSentDate || d)
+        : getTarget10WorkingDaysDate(clSentDate || d);
+
+      const displayDate = clSentDate 
+        ? (typeof clSentDate === "string" ? clSentDate.split("T")[0] : new Date(clSentDate).toISOString().split("T")[0])
+        : (d ? (typeof d === "string" ? d.split("T")[0] : new Date(d).toISOString().split("T")[0]) : new Date().toISOString().split("T")[0]);
 
       itemsMap.set(key, {
         id: b.id,
         clId: b.clId || b.id,
         docNumber: b.billingNo || b.clNumber || "SSC-BILLING",
         clNumber: b.clNumber || "",
-        vendor: b.supplierName || b.memoCustomerName || b.cl?.vendor?.vendorName || "Vendor",
-        date: d ? (typeof d === "string" ? d.split("T")[0] : new Date(d).toISOString().split("T")[0]) : new Date().toISOString().split("T")[0],
+        vendor: b.supplierName || b.memoCustomerName || b.cl?.vendor?.vendorName || matchingCl?.supplierName || "Vendor",
+        date: displayDate,
         workingDays,
-        target10DaysDate: getTarget10WorkingDaysDate(d),
+        target10DaysDate: targetDueDate,
         amount: amtNum,
         formattedAmount: `Rp ${amtNum.toLocaleString("id-ID")}`,
         isPaid,
@@ -631,12 +663,21 @@ export default function Dashboard({
     currentActiveConfirmationLetters.forEach((cl: any) => {
       const key = cl.clNumber || cl.id;
       if (!itemsMap.has(key)) {
-        const d = cl.purchasingSentDate || cl.dateSent || cl.date || cl.createdAt;
+        const clSentDate = cl.purchasingSentDate || cl.dateSent;
+        const d = clSentDate || cl.date || cl.createdAt;
         const amtNum = parseAmountValue(cl.amount);
-        const workingDays = getWorkingDaysElapsed(d);
+        const workingDays = getWorkingDaysElapsed(clSentDate || d);
         const isDue10Days = workingDays >= 10;
         const isPaid = cl.status === "CLOSED_PAID" || cl.closedPaid === true || isDue10Days;
         const isTriggered10Days = workingDays >= 10;
+
+        const targetDueDate = cl.dueDate 
+          ? formatDisplayDueDate(cl.dueDate, clSentDate || d)
+          : getTarget10WorkingDaysDate(clSentDate || d);
+
+        const displayDate = clSentDate 
+          ? (typeof clSentDate === "string" ? clSentDate.split("T")[0] : new Date(clSentDate).toISOString().split("T")[0])
+          : (d ? (typeof d === "string" ? d.split("T")[0] : new Date(d).toISOString().split("T")[0]) : new Date().toISOString().split("T")[0]);
 
         itemsMap.set(key, {
           id: cl.id,
@@ -644,9 +685,9 @@ export default function Dashboard({
           docNumber: cl.clNumber,
           clNumber: cl.clNumber,
           vendor: cl.supplierName || cl.vendor?.vendorName || "Vendor",
-          date: d ? (typeof d === "string" ? d.split("T")[0] : new Date(d).toISOString().split("T")[0]) : new Date().toISOString().split("T")[0],
+          date: displayDate,
           workingDays,
-          target10DaysDate: getTarget10WorkingDaysDate(d),
+          target10DaysDate: targetDueDate,
           amount: amtNum,
           formattedAmount: `Rp ${amtNum.toLocaleString("id-ID")}`,
           isPaid,

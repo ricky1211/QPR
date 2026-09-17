@@ -1086,10 +1086,11 @@ export class QprsService {
     subject: string;
     body: string;
     vendorName?: string;
+    sendDate?: string;
     dueDate?: string;
     attachments?: Array<{ filename: string; content?: string | Buffer; path?: string; contentType?: string }>;
   }): Promise<any> {
-    const { clId, clIds, to, subject, body, vendorName, dueDate, attachments: clientAttachments } = data;
+    const { clId, clIds, to, subject, body, vendorName, sendDate, dueDate, attachments: clientAttachments } = data;
 
     const idsToUpdate = clIds && clIds.length > 0 ? clIds : (clId ? [clId] : []);
     const finalAttachments: Array<{ filename: string; content?: string | Buffer; path?: string; contentType?: string }> = [];
@@ -1155,63 +1156,62 @@ export class QprsService {
           orderBy: { createdAt: 'desc' }
         });
 
-        const synthCl = {
-          id: idsToUpdate[0] || 'CL-GEN',
-          clNumber: `CL/2026/09/${(vendorName || fallbackVendor?.vendorName || 'VENDOR').replace(/[^a-zA-Z0-9]/g, '_').toUpperCase()}_570`,
-          dateSent: new Date().toISOString(),
-          amount: fallbackQpr?.claimAmount || 2358750,
+        cls = [{
+          id: idsToUpdate[0] || 'cl-synth-1',
+          clNumber: idsToUpdate[0] || 'CL/2026/09/VENDOR_CL_PREVIEW',
+          dateSent: new Date(),
+          qprId: fallbackQpr?.id || 'qpr-fallback',
+          vendorId: fallbackVendor?.id || 'vendor-fallback',
+          amount: 801975,
+          status: 'PENDING',
+          purchasingSentCl: false,
+          vendorApproved: false,
+          closedPaid: false,
+          purchasingSentDate: null,
+          vendorApprovedDate: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
           vendor: fallbackVendor || { vendorName: vendorName || 'PT. ARAI RUBBER SEAL IND' },
           qpr: fallbackQpr || {
-            qprNumber: '01/QI/QPR/SUB/09/26',
-            problem: 'Claim Part NG / Out of Tolerance',
-            claimType: 'MATERIAL, PROSES M/C',
-            totalQty: 1000,
-            totalQtyNg: 25,
-            totalStdAllowance: 5,
-            billableQty: 20,
-            claimAmount: 2358750,
-            date: new Date().toISOString(),
-            refNcrNumber: 'NCR/2026/09/001',
+            qprNumber: 'QPR/2026/09/VENDOR_QPR_PREVIEW',
+            qprParts: []
           }
-        };
-        cls = [synthCl as any];
+        }] as any;
       }
 
+      // Generate PDF buffer for each Confirmation Letter
       for (const cl of cls) {
-        const cleanClNum = (cl.clNumber || 'CL').replace(/[^a-zA-Z0-9_-]/g, '_');
-
-        // A. Generate official Surat Confirmation Letter PDF document
         try {
-          const clPdfBuffer = await this.pdfGeneratorService.generateConfirmationLetterPdf(cl, vendorName, dueDate);
+          const pdfBuffer = await this.pdfGeneratorService.generateConfirmationLetterPdf({
+            clNumber: cl.clNumber || 'CL-PREVIEW',
+            dateSent: cl.dateSent ? cl.dateSent.toISOString() : new Date().toISOString(),
+            vendorName: cl.vendor?.vendorName || vendorName || 'Vendor',
+            qprNumber: cl.qpr?.qprNumber || 'QPR-REF',
+            amount: cl.amount || 0,
+            dueDate: dueDate,
+            items: (cl.qpr?.qprParts || []).map((qp: any) => ({
+              partNumber: qp.part?.partNumber || 'PART-01',
+              partName: qp.part?.partDesc || qp.part?.partNumber || 'Part Material NG',
+              totalQty: qp.totalQty || 0,
+              qtyNg: qp.qtyNg || 0,
+              stdAllowance: qp.stdAllowance || 0,
+              qtyClaim: qp.qtyClaim !== undefined ? qp.qtyClaim : Math.max(0, (qp.qtyNg || 0) - (qp.stdAllowance || 0)),
+              unitPrice: qp.unitPrice || 85000,
+              amount: (qp.qtyClaim !== undefined ? qp.qtyClaim : Math.max(0, (qp.qtyNg || 0) - (qp.stdAllowance || 0))) * (qp.unitPrice || 85000),
+            })),
+          });
+
+          const cleanDocNumber = (cl.clNumber || 'Confirmation_Letter').replace(/[^a-zA-Z0-9_-]/g, '_');
           finalAttachments.push({
-            filename: `Surat_Confirmation_Letter_${cleanClNum}.pdf`,
-            content: clPdfBuffer,
+            filename: `Surat_CL_${cleanDocNumber}.pdf`,
+            content: pdfBuffer,
             contentType: 'application/pdf',
           });
         } catch (pdfErr) {
-          console.warn('[QprsService] Error generating Confirmation Letter PDF:', pdfErr);
+          console.warn(`[QprsService] Failed to generate PDF for CL ${cl.clNumber}:`, pdfErr);
         }
 
-        // B. Generate official Dokumen QPR PDF document if QPR data exists
-        if (cl.qpr) {
-          const cleanQprNum = (cl.qpr.qprNumber || 'QPR').replace(/[^a-zA-Z0-9_-]/g, '_');
-          try {
-            const qprPdfBuffer = await this.pdfGeneratorService.generateQprPdf({
-              ...cl.qpr,
-              vendor: cl.vendor || (cl.qpr as any)?.vendor,
-              supplierName: cl.vendor?.vendorName || vendorName,
-            });
-            finalAttachments.push({
-              filename: `Dokumen_QPR_${cleanQprNum}.pdf`,
-              content: qprPdfBuffer,
-              contentType: 'application/pdf',
-            });
-          } catch (qprPdfErr) {
-            console.warn('[QprsService] Error generating QPR PDF:', qprPdfErr);
-          }
-        }
-
-        // C. Attach any QPR raw uploaded evidence/photos/PDFs stored in database
+        // Attach QPR evidence if exists
         if (cl.qpr?.pdfFileBase64) {
           try {
             if (cl.qpr.pdfFileBase64.startsWith('[')) {
@@ -1261,7 +1261,7 @@ export class QprsService {
       attachments: deduplicatedAttachments,
     });
 
-    const todayStr = new Date().toISOString().split('T')[0];
+    const effectiveSentDate = sendDate || new Date().toISOString().split('T')[0];
 
     // 4. Mark CL(s) as sent in DB
     for (const id of idsToUpdate) {
@@ -1270,7 +1270,8 @@ export class QprsService {
           where: { id },
           data: {
             purchasingSentCl: true,
-            purchasingSentDate: todayStr,
+            purchasingSentDate: effectiveSentDate,
+            dateSent: new Date(effectiveSentDate),
           },
         });
       } catch (err) {
@@ -1286,7 +1287,7 @@ export class QprsService {
       updatedClIds: idsToUpdate,
       attachmentsCount: deduplicatedAttachments.length,
       attachments: deduplicatedAttachments.map(a => a.filename),
-      sentDate: todayStr,
+      sentDate: effectiveSentDate,
     };
   }
 

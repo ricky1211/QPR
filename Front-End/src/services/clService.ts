@@ -34,6 +34,7 @@ export const clService = {
     subject: string;
     body: string;
     vendorName?: string;
+    sendDate?: string;
     dueDate?: string;
     attachments?: Array<{ filename: string; content?: string; path?: string; contentType?: string }>;
   }) => apiRequest('/qprs/confirmation-letters/send-email', {
@@ -48,6 +49,27 @@ export const mapClFromDb = (dbCl: any) => {
   const firstPart = qprParts[0]?.part?.partDesc || qprParts[0]?.part?.partNumber || "ALL TYPE PART FINISH";
   const numAmount = typeof dbCl.amount === 'number' ? dbCl.amount : parseFloat(String(dbCl.amount || '0').replace(/[^0-9]/g, '')) || 0;
   
+  const isSent = !!dbCl.purchasingSentCl || !!dbCl.purchasingSentDate || !!dbCl.dateSent;
+  const sentDate = dbCl.purchasingSentDate || dbCl.dateSent;
+  let isDue10Days = false;
+  if (isSent && sentDate) {
+    const start = new Date(sentDate);
+    const now = new Date();
+    if (!isNaN(start.getTime())) {
+      let count = 0;
+      const cur = new Date(start);
+      cur.setHours(0, 0, 0, 0);
+      const finish = new Date(now);
+      finish.setHours(0, 0, 0, 0);
+      while (cur < finish) {
+        cur.setDate(cur.getDate() + 1);
+        const day = cur.getDay();
+        if (day !== 0 && day !== 6) count++;
+      }
+      if (count >= 10) isDue10Days = true;
+    }
+  }
+
   return {
     id: dbCl.id,
     clNumber: dbCl.clNumber,
@@ -69,7 +91,8 @@ export const mapClFromDb = (dbCl: any) => {
     vendorApproved: !!dbCl.vendorApproved,
     vendorApprovedDate: dbCl.vendorApprovedDate || null,
     vendorApprovedDocName: dbCl.signedClFileName || null,
-    readyForSSC: !!dbCl.vendorApproved,
+    readyForSSC: !!dbCl.vendorApproved || isDue10Days,
+    isDue10Days,
     clApprovalProgress: { 
       sectAccounting: isApproved, 
       deptAccounting: isApproved 

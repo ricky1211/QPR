@@ -17,7 +17,10 @@ import {
   Eye,
   Upload,
   Paperclip,
-  Loader2
+  Loader2,
+  Search,
+  ChevronDown,
+  X
 } from "lucide-react";
 import ConfirmationLetterPrintPreview from "./ConfirmationLetterPrintPreview";
 import QprPrintPreview from "./QprPrintPreview";
@@ -102,6 +105,9 @@ export default function IMemoView({
   // Vendor email sender states & working days logic
   const [vendorsList, setVendorsList] = useState<any[]>([]);
   const [selectedVendorName, setSelectedVendorName] = useState<string>("");
+  const [vendorSearchQuery, setVendorSearchQuery] = useState<string>("");
+  const [isVendorDropdownOpen, setIsVendorDropdownOpen] = useState<boolean>(false);
+  const vendorDropdownRef = useRef<HTMLDivElement>(null);
   const [vendorEmailInput, setVendorEmailInput] = useState<string>("");
   const [emailSubject, setEmailSubject] = useState<string>("Confirmation Letter – Part NG");
   const [emailCopied, setEmailCopied] = useState<boolean>(false);
@@ -119,7 +125,7 @@ export default function IMemoView({
       .catch((err) => console.warn("Notice: Failed to load vendors for email view:", err));
   }, []);
 
-  // Compute all available vendors from confirmationLetters, parts, and DB vendors
+  // Compute all available vendors from confirmationLetters, parts, pendingQprs, and DB vendors
   const allAvailableVendors = React.useMemo(() => {
     const map = new Map<string, { name: string; email: string }>();
     
@@ -129,7 +135,7 @@ export default function IMemoView({
       if (name) {
         map.set(name.toLowerCase(), {
           name: name,
-          email: v.email || `marketing@${name.replace(/^PT\.?\s+/i, "").replace(/^CV\.?\s+/i, "").replace(/\s+(INDONESIA|TBA|TBK|ENGINEERING|MANUFACTURING|JAYA|MITRA).*$/i, "").trim().toLowerCase()}.co.id`
+          email: v.email || ""
         });
       }
     });
@@ -137,10 +143,29 @@ export default function IMemoView({
     // Add from confirmation letters
     confirmationLetters.forEach((cl: any) => {
       if (cl.supplierName && !map.has(cl.supplierName.toLowerCase())) {
-        const short = cl.supplierName.replace(/^PT\.?\s+/i, "").replace(/^CV\.?\s+/i, "").replace(/\s+(INDONESIA|TBA|TBK|ENGINEERING|MANUFACTURING|JAYA|MITRA).*$/i, "").trim().toLowerCase();
         map.set(cl.supplierName.toLowerCase(), {
           name: cl.supplierName,
-          email: `marketing@${short || "vendor"}.co.id`
+          email: cl.supplierEmail || ""
+        });
+      }
+    });
+
+    // Add from pending QPRs
+    pendingQprs.forEach((q: any) => {
+      if (q.supplierName && !map.has(q.supplierName.toLowerCase())) {
+        map.set(q.supplierName.toLowerCase(), {
+          name: q.supplierName,
+          email: q.supplierEmail || ""
+        });
+      }
+    });
+
+    // Add from parts
+    parts.forEach((p: any) => {
+      if (p.supplierName && !map.has(p.supplierName.toLowerCase())) {
+        map.set(p.supplierName.toLowerCase(), {
+          name: p.supplierName,
+          email: ""
         });
       }
     });
@@ -149,38 +174,98 @@ export default function IMemoView({
     if (!map.has("pt adiku mitra jaya") && !map.has("adiku")) {
       map.set("pt adiku mitra jaya", {
         name: "PT ADIKU MITRA JAYA",
-        email: "marketing@adiku.co.id"
+        email: ""
       });
     }
 
     return Array.from(map.values());
-  }, [vendorsList, confirmationLetters]);
+  }, [vendorsList, confirmationLetters, pendingQprs, parts]);
 
   // Set initial selected vendor
   useEffect(() => {
     if (allAvailableVendors.length > 0 && !selectedVendorName) {
       setSelectedVendorName(allAvailableVendors[0].name);
-      setVendorEmailInput(allAvailableVendors[0].email);
+      setVendorSearchQuery(allAvailableVendors[0].name);
+      setVendorEmailInput(allAvailableVendors[0].email || "");
     }
   }, [allAvailableVendors, selectedVendorName]);
+
+  // Sync search input when selectedVendorName changes externally
+  useEffect(() => {
+    if (selectedVendorName) {
+      setVendorSearchQuery(selectedVendorName);
+    }
+  }, [selectedVendorName]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (vendorDropdownRef.current && !vendorDropdownRef.current.contains(event.target as Node)) {
+        setIsVendorDropdownOpen(false);
+        if (selectedVendorName) {
+          setVendorSearchQuery(selectedVendorName);
+        }
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [selectedVendorName]);
+
+  // Filter vendors based on user typing query
+  const filteredVendors = React.useMemo(() => {
+    if (!vendorSearchQuery.trim()) return allAvailableVendors;
+    const q = vendorSearchQuery.toLowerCase().trim();
+    return allAvailableVendors.filter(v => 
+      v.name.toLowerCase().includes(q) || 
+      (v.email && v.email.toLowerCase().includes(q))
+    );
+  }, [allAvailableVendors, vendorSearchQuery]);
+
+  // Count CLs and QPRs for a vendor badge preview
+  const getVendorDocCounts = (vendorName: string) => {
+    const vLower = vendorName.toLowerCase().trim();
+    const matchedCls = confirmationLetters.filter((c: any) => {
+      const s = (c.supplierName || "").toLowerCase().trim();
+      return s === vLower || s.includes(vLower) || vLower.includes(s);
+    });
+    const pendingClCount = matchedCls.filter((c: any) => !c.purchasingSentCl && !c.sentToVendor).length;
+    const sentClCount = matchedCls.filter((c: any) => c.purchasingSentCl || c.sentToVendor).length;
+
+    const qprCount = pendingQprs.filter((q: any) => {
+      const s = (q.supplierName || "").toLowerCase().trim();
+      return s === vLower || s.includes(vLower) || vLower.includes(s);
+    }).length;
+
+    return { clCount: matchedCls.length, pendingClCount, sentClCount, qprCount };
+  };
 
   // When vendor changes, update email input & active CL selection
   const handleVendorChange = (vendorName: string) => {
     setSelectedVendorName(vendorName);
+    setVendorSearchQuery(vendorName);
     const found = allAvailableVendors.find(v => v.name.toLowerCase() === vendorName.toLowerCase());
-    if (found) {
+    if (found && found.email) {
       setVendorEmailInput(found.email);
     } else {
-      const short = vendorName.replace(/^PT\.?\s+/i, "").replace(/^CV\.?\s+/i, "").replace(/\s+(INDONESIA|TBA|TBK|ENGINEERING|MANUFACTURING|JAYA|MITRA).*$/i, "").trim().toLowerCase();
-      setVendorEmailInput(`marketing@${short || "vendor"}.co.id`);
+      setVendorEmailInput("");
     }
 
-    const firstVendorCl = confirmationLetters.find((cl: any) => {
+    const matchedVendorCls = confirmationLetters.filter((cl: any) => {
       const sup = (cl.supplierName || "").toLowerCase().trim();
       const sel = vendorName.toLowerCase().trim();
       return sup && sel && (sup === sel || sup.includes(sel) || sel.includes(sup));
     });
-    setSelectedClForEmailId(firstVendorCl ? firstVendorCl.id : "");
+
+    const pendingCls = matchedVendorCls.filter(c => !c.purchasingSentCl && !c.sentToVendor);
+    const sentCls = matchedVendorCls.filter(c => c.purchasingSentCl || c.sentToVendor);
+
+    if (pendingCls.length > 0) {
+      setSelectedClForEmailId(pendingCls[0].id);
+    } else {
+      setSelectedClForEmailId("");
+    }
 
     const firstVendorQpr = pendingQprs.find((q: any) => {
       const sup = (q.supplierName || "").toLowerCase().trim();
@@ -188,8 +273,11 @@ export default function IMemoView({
       return sup && sel && (sup === sel || sup.includes(sel) || sel.includes(sup));
     });
 
-    // If both CL and QPR are missing for this vendor, alert the user immediately
-    if (!firstVendorCl && !firstVendorQpr) {
+    // Alert: If vendor has CLs but ALL of them are already sent to vendor (waiting approval)
+    if (matchedVendorCls.length > 0 && pendingCls.length === 0) {
+      alert(`Pemberitahuan:\n\nConfirmation Letter (CL) untuk vendor "${vendorName}" sudah dikirim ke email vendor.\n\nDokumen ini telah masuk ke draft/riwayat dan saat ini sedang menunggu upload dokumen persetujuan (approval) dari vendor.`);
+    } else if (matchedVendorCls.length === 0 && !firstVendorQpr) {
+      // Alert: If both CL and QPR are missing for this vendor
       alert(`Pemberitahuan:\n\nDokumen Confirmation Letter (CL) dan QPR belum dibuat untuk vendor "${vendorName}".`);
     }
   };
@@ -203,6 +291,18 @@ export default function IMemoView({
       return sup && sel && (sup === sel || sup.includes(sel) || sel.includes(sup));
     });
   }, [confirmationLetters, selectedVendorName]);
+
+  // CLs that are pending to be sent
+  const pendingSendVendorCls = React.useMemo(() => {
+    return vendorCls.filter((cl: any) => !cl.purchasingSentCl && !cl.sentToVendor);
+  }, [vendorCls]);
+
+  // CLs that have already been sent to vendor
+  const sentVendorCls = React.useMemo(() => {
+    return vendorCls.filter((cl: any) => cl.purchasingSentCl || cl.sentToVendor);
+  }, [vendorCls]);
+
+  const isAllClSentForVendor = vendorCls.length > 0 && pendingSendVendorCls.length === 0;
 
   // Filter QPRs belonging to selected vendor
   const vendorQprs = React.useMemo(() => {
@@ -319,8 +419,8 @@ export default function IMemoView({
 
   const activeClForEmail = React.useMemo(() => {
     const matchedVendorCl = (
-      vendorCls.find((c: any) => c.id === selectedClForEmailId) ||
-      vendorCls[0]
+      pendingSendVendorCls.find((c: any) => c.id === selectedClForEmailId) ||
+      pendingSendVendorCls[0]
     );
 
     if (matchedVendorCl) {
@@ -331,7 +431,7 @@ export default function IMemoView({
     }
 
     return null;
-  }, [vendorCls, selectedClForEmailId, sendDateIso]);
+  }, [pendingSendVendorCls, selectedClForEmailId, sendDateIso]);
 
   const activeQprForEmail = React.useMemo(() => {
     if (activeClForEmail?.qpr) return activeClForEmail.qpr;
@@ -398,6 +498,7 @@ Cikarang Bekasi 17530 Indonesia`;
     }
 
     setIsSendingEmail(true);
+    const sendDate = sendDateIso || todayStr;
     try {
       // Send directly via Backend SMTP
       const result = await clService.sendEmail({
@@ -407,6 +508,7 @@ Cikarang Bekasi 17530 Indonesia`;
         subject: emailSubject || "Confirmation Letter – Part NG",
         body: generatedEmailBody,
         vendorName: selectedVendorName,
+        sendDate: sendDate,
         dueDate: calculatedDueDate,
         attachments: clientAttachments,
       });
@@ -419,7 +521,9 @@ Cikarang Bekasi 17530 Indonesia`;
             return {
               ...cl,
               purchasingSentCl: true,
-              purchasingSentDate: todayStr,
+              purchasingSentDate: sendDate,
+              dateSent: sendDate,
+              dueDate: calculatedDueDate,
               sentToVendor: true
             };
           }
@@ -736,39 +840,57 @@ Cikarang Bekasi 17530 Indonesia`;
       const existingIds = new Set(prev.map((r: any) => r.id));
       const newFromCl: any[] = confirmationLetters
         .filter((cl: any) => !existingIds.has(cl.id))
-        .map((cl: any) => ({
-          id: cl.id,
-          clNumber: cl.clNumber,
-          qprNumber: cl.qprNumber,
-          supplierName: cl.supplierName,
-          dateSent: cl.dateSent,
-          amount: cl.amount,
-          status: cl.status,
-          vendorApproved: cl.vendorApproved || false,
-          vendorApprovedDate: cl.vendorApprovedDate || "",
-          readyForSSC: cl.vendorApproved || false,
-          memoStatus: cl.memoStatus || "SENT_AOP",
-          reminderSentCount: cl.reminderSentCount || 0,
-          sentToVendor: cl.sentToVendor || false,
-          items: cl.items || [],
-          customerCode: "OTC08002",
-          documentNo: cl.clNumber?.replace(/[^0-9]/g, "").slice(-11) || "",
-          customText: `POTONG TAGIH CLAIM PART NG`,
-          paymentDate: "",
-        }));
+        .map((cl: any) => {
+          const isSent = !!(cl.purchasingSentCl || cl.purchasingSentDate || cl.dateSent || cl.sentToVendor);
+          const sentDate = cl.purchasingSentDate || cl.dateSent;
+          const workingDays = isSent && sentDate ? countWorkingDaysBetween(new Date(sentDate), new Date()) : 0;
+          const isDue10Days = isSent && workingDays >= 10;
+          const isReadyForSsc = cl.vendorApproved || isDue10Days;
+
+          return {
+            id: cl.id,
+            clNumber: cl.clNumber,
+            qprNumber: cl.qprNumber,
+            supplierName: cl.supplierName,
+            dateSent: cl.dateSent,
+            amount: cl.amount,
+            status: cl.status,
+            vendorApproved: cl.vendorApproved || isDue10Days,
+            vendorApprovedDate: cl.vendorApprovedDate || (isDue10Days ? (cl.dueDate || cl.purchasingSentDate || "") : ""),
+            readyForSSC: isReadyForSsc,
+            isDue10Days,
+            memoStatus: cl.memoStatus || "SENT_AOP",
+            reminderSentCount: cl.reminderSentCount || 0,
+            sentToVendor: cl.sentToVendor || isSent,
+            items: cl.items || [],
+            customerCode: "OTC08002",
+            documentNo: cl.clNumber?.replace(/[^0-9]/g, "").slice(-11) || "",
+            customText: `POTONG TAGIH CLAIM PART NG`,
+            paymentDate: "",
+          };
+        });
       // Also update status of existing rows that match a CL that changed
       const updated = prev.map((row: any) => {
         const match = confirmationLetters.find((cl: any) => cl.id === row.id);
-        if (match) return { 
-          ...row, 
-          status: match.status, 
-          amount: match.amount, 
-          supplierName: match.supplierName,
-          vendorApproved: match.vendorApproved,
-          vendorApprovedDate: match.vendorApprovedDate,
-          readyForSSC: match.vendorApproved,
-          sentToVendor: match.sentToVendor
-        };
+        if (match) {
+          const isSent = !!(match.purchasingSentCl || match.purchasingSentDate || match.dateSent || match.sentToVendor);
+          const sentDate = match.purchasingSentDate || match.dateSent;
+          const workingDays = isSent && sentDate ? countWorkingDaysBetween(new Date(sentDate), new Date()) : 0;
+          const isDue10Days = isSent && workingDays >= 10;
+          const isReadyForSsc = match.vendorApproved || isDue10Days;
+
+          return { 
+            ...row, 
+            status: match.status, 
+            amount: match.amount, 
+            supplierName: match.supplierName,
+            vendorApproved: match.vendorApproved || isDue10Days,
+            vendorApprovedDate: match.vendorApprovedDate || (isDue10Days ? (match.dueDate || match.purchasingSentDate || "") : ""),
+            readyForSSC: isReadyForSsc,
+            isDue10Days,
+            sentToVendor: match.sentToVendor || isSent
+          };
+        }
         return row;
       });
       return [...updated.filter(r => confirmationLetters.some(cl => cl.id === r.id)), ...newFromCl];
@@ -868,12 +990,17 @@ Cikarang Bekasi 17530 Indonesia`;
     setPaySigCheckedRole("AR Function Lead");
   }, [selectedPaymentClId, createdSscBillings, confirmationLetters]);
 
-  // Filter CLs that are approved by vendor, not yet processed into SSC Billing, and not closed/paid
+  // Filter CLs that are approved by vendor OR have reached 10 working days without upload, not yet processed into SSC Billing, and not closed/paid
   const availableClsForBilling = sscBillingRows.filter((cl: any) => {
-    const isVendorApproved = cl.status === "FULLY_APPROVED" || cl.status === "APPROVED" || cl.status === "APPROVED_BY_VENDOR" || cl.vendorApproved;
+    const isSent = !!(cl.purchasingSentCl || cl.purchasingSentDate || cl.dateSent || cl.sentToVendor);
+    const sentDate = cl.purchasingSentDate || cl.dateSent;
+    const workingDays = isSent && sentDate ? countWorkingDaysBetween(new Date(sentDate), new Date()) : 0;
+    const isDue10Days = isSent && workingDays >= 10;
+
+    const isVendorApprovedOrAutoDue = cl.status === "FULLY_APPROVED" || cl.status === "APPROVED" || cl.status === "APPROVED_BY_VENDOR" || cl.vendorApproved || isDue10Days;
     const isAlreadyBilled = createdSscBillings.some((b: any) => b.clId === cl.id || b.clNumber === cl.clNumber);
     const isClosed = cl.status === "CLOSED_PAID" || cl.closedPaid;
-    return isVendorApproved && !isAlreadyBilled && !isClosed;
+    return isVendorApprovedOrAutoDue && !isAlreadyBilled && !isClosed;
   });
 
   // Filter SSC Billings that are created, not yet processed into SSC Payment, and not closed/paid
@@ -1784,13 +1911,23 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                             availableClsForBilling
                               .map((cl: any) => {
                                 const isSelected = selectedBillingClId === cl.id;
-                                const statusColor = cl.status === "FULLY_APPROVED" || cl.status === "APPROVED" || cl.status === "APPROVED_BY_VENDOR" || cl.vendorApproved
+                                const isSent = !!(cl.purchasingSentCl || cl.purchasingSentDate || cl.dateSent || cl.sentToVendor);
+                                const sentDate = cl.purchasingSentDate || cl.dateSent;
+                                const workingDays = isSent && sentDate ? countWorkingDaysBetween(new Date(sentDate), new Date()) : 0;
+                                const isDue10Days = isSent && workingDays >= 10;
+                                const isApproved = cl.vendorApproved || cl.status === "APPROVED_BY_VENDOR" || cl.status === "FULLY_APPROVED";
+
+                                const statusColor = isApproved
                                   ? "bg-emerald-100 text-emerald-700"
+                                  : isDue10Days
+                                  ? "bg-indigo-100 text-indigo-700 font-black"
                                   : cl.status === "CLOSED_PAID"
                                   ? "bg-slate-100 text-slate-500"
                                   : "bg-amber-100 text-amber-700";
-                                const statusLabel = cl.status === "FULLY_APPROVED" || cl.status === "APPROVED" || cl.status === "APPROVED_BY_VENDOR" || cl.vendorApproved
-                                  ? "Approved"
+                                const statusLabel = isApproved
+                                  ? "Approved by Vendor"
+                                  : isDue10Days
+                                  ? "Auto Forward (10 HK)"
                                   : cl.status === "CLOSED_PAID"
                                   ? "Closed"
                                   : cl.status === "WAITING_VENDOR"
@@ -2978,39 +3115,175 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                             </span>
                           </div>
 
-                          <div className="space-y-3">
-                            <div>
-                              <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                                Pilih Vendor / Supplier:
-                              </label>
-                              <select
-                                value={selectedVendorName}
-                                onChange={(e) => handleVendorChange(e.target.value)}
-                                className="w-full px-3 py-2.5 text-xs font-bold text-slate-800 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-all cursor-pointer"
-                              >
-                                {allAvailableVendors.map((v, i) => (
-                                  <option key={i} value={v.name}>
-                                    {v.name}
-                                  </option>
-                                ))}
-                              </select>
+                          <div className="space-y-3.5">
+                            {/* Searchable Vendor Combobox */}
+                            <div ref={vendorDropdownRef} className="relative">
+                              <div className="flex items-center justify-between mb-1">
+                                <label className="text-[11px] font-bold text-slate-700 whitespace-nowrap">
+                                  Pilih Vendor / Supplier:
+                                </label>
+                                <span className="text-[10px] font-semibold text-slate-400">
+                                  {filteredVendors.length} dari {allAvailableVendors.length} vendor
+                                </span>
+                              </div>
+
+                              <div className="relative">
+                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                                  <Search size={14} className={isVendorDropdownOpen ? "text-blue-600" : "text-slate-400"} />
+                                </div>
+                                <input
+                                  type="text"
+                                  value={vendorSearchQuery}
+                                  onChange={(e) => {
+                                    setVendorSearchQuery(e.target.value);
+                                    setIsVendorDropdownOpen(true);
+                                  }}
+                                  onFocus={() => setIsVendorDropdownOpen(true)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                      e.preventDefault();
+                                      if (filteredVendors.length > 0) {
+                                        handleVendorChange(filteredVendors[0].name);
+                                        setIsVendorDropdownOpen(false);
+                                      } else if (vendorSearchQuery.trim()) {
+                                        handleVendorChange(vendorSearchQuery.trim());
+                                        setIsVendorDropdownOpen(false);
+                                      }
+                                    } else if (e.key === "Escape") {
+                                      setIsVendorDropdownOpen(false);
+                                      setVendorSearchQuery(selectedVendorName);
+                                    }
+                                  }}
+                                  className="w-full h-9 pl-9 pr-16 text-xs font-bold text-slate-800 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-all shadow-sm"
+                                />
+                                <div className="absolute inset-y-0 right-0 pr-1.5 flex items-center gap-0.5">
+                                  {vendorSearchQuery && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setVendorSearchQuery("");
+                                        setIsVendorDropdownOpen(true);
+                                      }}
+                                      className="p-1 text-slate-400 hover:text-slate-600 rounded-md hover:bg-slate-200 transition-colors"
+                                      title="Hapus ketikan pencarian"
+                                    >
+                                      <X size={13} />
+                                    </button>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => setIsVendorDropdownOpen(!isVendorDropdownOpen)}
+                                    className="p-1.5 text-slate-400 hover:text-slate-600 rounded-md hover:bg-slate-200 transition-colors cursor-pointer"
+                                    title={isVendorDropdownOpen ? "Tutup daftar vendor" : "Buka daftar vendor"}
+                                  >
+                                    <ChevronDown size={14} className={`transition-transform duration-200 ${isVendorDropdownOpen ? "rotate-180 text-blue-600" : ""}`} />
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Searchable Dropdown Menu */}
+                              {isVendorDropdownOpen && (
+                                <div className="absolute z-50 mt-1.5 w-full max-h-64 overflow-y-auto bg-white rounded-xl shadow-2xl border border-slate-200 divide-y divide-slate-100 py-1 text-xs">
+                                  {filteredVendors.length === 0 ? (
+                                    <div className="p-4 text-center">
+                                      <p className="text-xs font-bold text-slate-500 mb-2">
+                                        Tidak ada vendor yang cocok dengan &quot;{vendorSearchQuery}&quot;
+                                      </p>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          handleVendorChange(vendorSearchQuery.trim());
+                                          setIsVendorDropdownOpen(false);
+                                        }}
+                                        className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-[11px] rounded-lg border border-blue-200 transition-colors cursor-pointer"
+                                      >
+                                        Pilih sebagai vendor manual: &quot;{vendorSearchQuery}&quot;
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    filteredVendors.map((vendor, idx) => {
+                                      const isSelected = selectedVendorName.toLowerCase() === vendor.name.toLowerCase();
+                                      const { clCount, pendingClCount, sentClCount, qprCount } = getVendorDocCounts(vendor.name);
+
+                                      return (
+                                        <button
+                                          key={idx}
+                                          type="button"
+                                          onClick={() => {
+                                            handleVendorChange(vendor.name);
+                                            setIsVendorDropdownOpen(false);
+                                          }}
+                                          className={`w-full px-3.5 py-2.5 text-left flex items-center justify-between gap-2 transition-colors cursor-pointer ${
+                                            isSelected
+                                              ? "bg-blue-50 text-blue-900 font-black"
+                                              : "hover:bg-slate-50 text-slate-700 font-medium"
+                                          }`}
+                                        >
+                                          <div className="flex items-center gap-2.5 min-w-0">
+                                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 text-[10px] font-black ${
+                                              isSelected ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-600"
+                                            }`}>
+                                              <Building size={13} />
+                                            </div>
+                                            <div className="truncate">
+                                              <div className="flex items-center gap-1.5 truncate">
+                                                <span className="font-bold text-xs truncate">{vendor.name}</span>
+                                                {isSelected && (
+                                                  <span className="px-1.5 py-0.2 bg-blue-200/70 text-blue-800 text-[9px] font-black rounded shrink-0">
+                                                    Terpilih
+                                                  </span>
+                                                )}
+                                              </div>
+                                              {vendor.email && (
+                                                <p className="text-[10.5px] text-slate-400 font-mono truncate">{vendor.email}</p>
+                                              )}
+                                            </div>
+                                          </div>
+
+                                          <div className="flex items-center gap-1.5 shrink-0">
+                                            {pendingClCount > 0 ? (
+                                              <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded text-[9px] font-extrabold" title={`${pendingClCount} Confirmation Letter siap dikirim`}>
+                                                {pendingClCount} Siap Kirim
+                                              </span>
+                                            ) : sentClCount > 0 ? (
+                                              <span className="px-1.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded text-[9px] font-bold" title={`${sentClCount} Confirmation Letter sudah dikirim ke vendor (menunggu approval)`}>
+                                                ✉ {sentClCount} Terkirim
+                                              </span>
+                                            ) : (
+                                              <span className="px-1.5 py-0.5 bg-slate-50 text-slate-400 border border-slate-200 rounded text-[9px] font-bold" title="Belum ada CL">
+                                                0 CL
+                                              </span>
+                                            )}
+                                            {qprCount > 0 && (
+                                              <span className="px-1.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded text-[9px] font-extrabold" title={`${qprCount} QPR aktif`}>
+                                                {qprCount} QPR
+                                              </span>
+                                            )}
+                                            {isSelected && <Check size={15} className="text-blue-600 ml-1 shrink-0" />}
+                                          </div>
+                                        </button>
+                                      );
+                                    })
+                                  )}
+                                </div>
+                              )}
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                              <div>
-                                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                            {/* Aligned 3-Column Compact Form Grid */}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+                              <div className="flex flex-col">
+                                <label className="text-[11px] font-bold text-slate-700 mb-1 whitespace-nowrap truncate" title="Alamat Email Vendor">
                                   Alamat Email Vendor:
                                 </label>
                                 <input
                                   type="email"
                                   value={vendorEmailInput}
                                   onChange={(e) => setVendorEmailInput(e.target.value)}
-                                  placeholder="marketing@adiku.co.id"
-                                  className="w-full px-3 py-2 text-xs font-semibold text-slate-800 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-all font-mono"
+                                  className="w-full h-9 px-3 text-xs font-semibold text-slate-800 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-all font-mono shadow-xs"
                                 />
                               </div>
-                              <div>
-                                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                              <div className="flex flex-col">
+                                <label className="text-[11px] font-bold text-slate-700 mb-1 whitespace-nowrap truncate" title="Subject Email">
                                   Subject Email:
                                 </label>
                                 <input
@@ -3018,18 +3291,18 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                                   value={emailSubject}
                                   onChange={(e) => setEmailSubject(e.target.value)}
                                   placeholder="Confirmation Letter – Part NG"
-                                  className="w-full px-3 py-2 text-xs font-semibold text-slate-800 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-all"
+                                  className="w-full h-9 px-3 text-xs font-semibold text-slate-800 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-all shadow-xs"
                                 />
                               </div>
-                              <div>
-                                <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                                  Tgl Dokumen Dikirim / Dibuat:
+                              <div className="flex flex-col">
+                                <label className="text-[11px] font-bold text-slate-700 mb-1 whitespace-nowrap truncate" title="Tgl Dokumen Dikirim">
+                                  Tgl Dokumen Dikirim:
                                 </label>
                                 <input
                                   type="date"
                                   value={sendDateIso}
                                   onChange={(e) => setSendDateIso(e.target.value)}
-                                  className="w-full px-3 py-2 text-xs font-bold text-slate-800 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-all cursor-pointer font-sans"
+                                  className="w-full h-9 px-3 text-xs font-bold text-slate-800 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-all cursor-pointer font-sans shadow-xs"
                                 />
                               </div>
                             </div>
@@ -3110,28 +3383,42 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                                         )}
                                       </div>
 
-                                      <div className="flex items-center justify-between gap-2 flex-wrap">
-                                        <div className="flex items-center gap-1.5">
-                                          <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Status Vendor:</span>
-                                          {cl.vendorApproved ? (
-                                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-emerald-100 text-emerald-850 border border-emerald-300 rounded-full text-[9.5px] font-black shadow-2xs">
-                                              <CheckCircle2 size={11} className="text-emerald-600 shrink-0" />
-                                              APPROVED BY VENDOR
-                                            </span>
-                                          ) : (
-                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-300 rounded-full text-[9.5px] font-bold">
-                                              <Clock size={11} className="text-amber-500 shrink-0" />
-                                              Belum Upload Approval Vendor
-                                            </span>
-                                          )}
-                                        </div>
+                                      {(() => {
+                                        const isSent = !!(cl.purchasingSentCl || cl.purchasingSentDate || cl.dateSent || cl.sentToVendor);
+                                        const sentDate = cl.purchasingSentDate || cl.dateSent;
+                                        const workingDays = isSent && sentDate ? countWorkingDaysBetween(new Date(sentDate), new Date()) : 0;
+                                        const isDue10Days = isSent && workingDays >= 10;
 
-                                        {cl.vendorApprovedDate && (
-                                          <span className="text-[9px] font-mono text-slate-500 font-bold">
-                                            Tgl: {cl.vendorApprovedDate}
-                                          </span>
-                                        )}
-                                      </div>
+                                        return (
+                                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                                            <div className="flex items-center gap-1.5">
+                                              <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Status Vendor:</span>
+                                              {cl.vendorApproved ? (
+                                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-emerald-100 text-emerald-850 border border-emerald-300 rounded-full text-[9.5px] font-black shadow-2xs">
+                                                  <CheckCircle2 size={11} className="text-emerald-600 shrink-0" />
+                                                  APPROVED BY VENDOR
+                                                </span>
+                                              ) : isDue10Days ? (
+                                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-indigo-100 text-indigo-900 border border-indigo-300 rounded-full text-[9.5px] font-black shadow-2xs" title="Otomatis diteruskan ke SSC Billing karena telah mencapai batas waktu 10 hari kerja">
+                                                  <CheckCircle2 size={11} className="text-indigo-600 shrink-0" />
+                                                  OTOMATIS KE SSC (10 HK)
+                                                </span>
+                                              ) : (
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-300 rounded-full text-[9.5px] font-bold">
+                                                  <Clock size={11} className="text-amber-500 shrink-0" />
+                                                  Menunggu Vendor ({workingDays}/10 HK)
+                                                </span>
+                                              )}
+                                            </div>
+
+                                            {(cl.vendorApprovedDate || (isDue10Days && cl.dueDate)) && (
+                                              <span className="text-[9px] font-mono text-slate-500 font-bold">
+                                                Tgl: {cl.vendorApprovedDate || cl.dueDate}
+                                              </span>
+                                            )}
+                                          </div>
+                                        );
+                                      })()}
 
                                       {/* File Dokumen Terupload */}
                                       {(cl.vendorApprovedDocName || cl.signedClFileName) && (
@@ -3207,9 +3494,6 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                                 Preview Email Konfirmasi Vendor
                               </span>
                             </div>
-                            <span className="text-[9px] font-bold bg-blue-500/30 text-blue-300 px-2 py-0.5 rounded border border-blue-400/30 font-mono">
-                              DUE DATE: 10 HARI KERJA
-                            </span>
                           </div>
 
                           {/* Email Header Meta */}
@@ -3253,13 +3537,42 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                               <div className="flex items-center justify-between mb-1.5">
                                 <span className="text-[10px] text-slate-500 font-black uppercase tracking-wider flex items-center gap-1">
                                   <Paperclip size={12} className="text-blue-600" />
-                                  Berkas Terlampir (Paket Siap Kirim):
+                                  Berkas Terlampir:
                                 </span>
                                 <span className="text-[9px] text-slate-400 font-semibold italic">
                                   Klik berkas untuk pratinjau
                                 </span>
                               </div>
-                              {!hasCl && !hasQpr ? (
+                              {isAllClSentForVendor ? (
+                                <div className="p-3.5 bg-blue-50/90 border border-blue-200 rounded-lg space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-1.5 text-blue-900 font-extrabold text-xs">
+                                      <CheckCircle2 size={15} className="text-blue-600 shrink-0" />
+                                      <span>CL SUDAH DIKIRIM KE VENDOR</span>
+                                    </div>
+                                    <span className="text-[9px] font-bold bg-blue-200/80 text-blue-800 px-2 py-0.5 rounded">
+                                      MENUNGGU APPROVAL
+                                    </span>
+                                  </div>
+                                  <p className="text-[11px] text-blue-800 leading-relaxed font-medium">
+                                    Dokumen Confirmation Letter untuk vendor <strong>{selectedVendorName}</strong> sudah berhasil dikirim pada tanggal <strong>{sentVendorCls[0]?.purchasingSentDate || sentVendorCls[0]?.dateSent || "sebelumnya"}</strong> dan saat ini <strong>sedang menunggu upload bukti approval dari vendor</strong>.
+                                  </p>
+                                  <div className="pt-1 flex items-center justify-between gap-2 border-t border-blue-150">
+                                    <span className="text-[10px] text-blue-600 font-bold italic">
+                                      Dokumen telah masuk ke draft/riwayat antrian.
+                                    </span>
+                                    {sentVendorCls[0] && (
+                                      <button
+                                        type="button"
+                                        onClick={() => setPreviewCl(sentVendorCls[0])}
+                                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-blue-100 text-blue-700 border border-blue-300 rounded text-[10px] font-bold cursor-pointer transition-colors shadow-2xs"
+                                      >
+                                        <Eye size={11} /> Lihat Surat CL Terkirim
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              ) : !hasCl && !hasQpr ? (
                                 <div
                                   onClick={() => alert(`Pemberitahuan:\n\nDokumen Confirmation Letter (CL) dan QPR belum dibuat untuk vendor "${selectedVendorName}".`)}
                                   className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center justify-between text-amber-800 text-[11px] font-bold cursor-pointer hover:bg-amber-100 transition-colors shadow-2xs"
@@ -3345,13 +3658,6 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                             {generatedEmailBody}
                           </div>
 
-                          {/* Notice Box */}
-                          <div className="px-5 py-3 bg-amber-50/80 border-t border-b border-amber-200/80 text-amber-800 text-[11px] font-semibold flex items-start gap-2">
-                            <AlertCircle size={14} className="text-amber-600 shrink-0 mt-0.5" />
-                            <div>
-                              Perhitungan batas waktu <strong>10 hari kerja</strong> dihitung sejak tanggal kirim dokumen (<strong>{formattedSendDate}</strong>). Batas waktu konfirmasi jatuh tempo pada: <strong>{calculatedDueDate}</strong>.
-                            </div>
-                          </div>
 
                           {/* Email Footer Actions */}
                           <div className="p-4 bg-slate-50 flex items-center justify-between gap-3">
@@ -3375,11 +3681,11 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
 
                             <button
                               type="button"
-                              disabled={isSendingEmail}
+                              disabled={isSendingEmail || isAllClSentForVendor || (!hasCl && !hasQpr)}
                               onClick={() => handleSendVendorEmail()}
                               className={`px-5 py-2 text-white text-xs font-extrabold rounded-lg shadow-md transition-all flex items-center gap-2 cursor-pointer ${
-                                isSendingEmail
-                                  ? "bg-blue-400 cursor-not-allowed opacity-80"
+                                isSendingEmail || isAllClSentForVendor || (!hasCl && !hasQpr)
+                                  ? "bg-slate-400 cursor-not-allowed opacity-80"
                                   : "bg-blue-600 hover:bg-blue-700 active:scale-95"
                               }`}
                             >
@@ -3387,6 +3693,11 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                                 <>
                                   <Loader2 size={13} className="animate-spin" />
                                   <span>Mengirim Email...</span>
+                                </>
+                              ) : isAllClSentForVendor ? (
+                                <>
+                                  <CheckCircle2 size={13} />
+                                  <span>CL Sudah Dikirim (Menunggu Approval)</span>
                                 </>
                               ) : (
                                 <>
