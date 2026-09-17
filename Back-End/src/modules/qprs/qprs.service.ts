@@ -242,7 +242,7 @@ export class QprsService {
         const partExists = await this.prisma.part.findUnique({ where: { id: validPartId } });
         if (!partExists) {
           const partByNum = await this.prisma.part.findFirst({
-            where: { OR: [{ partNumber: String(p.partId) }, { partName: String(p.partId) }] }
+            where: { OR: [{ partNumber: String(p.partId) }, { partDesc: String(p.partId) }] }
           });
           if (partByNum) {
             validPartId = partByNum.id;
