@@ -683,10 +683,9 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
                       alt="Septian N. Signature" 
                       style={{ height: "28px", width: "auto", objectFit: "contain" }} 
                       onError={(e) => {
+                        e.currentTarget.onerror = null;
                         if (!e.currentTarget.src.includes("/qpr/")) {
                           e.currentTarget.src = "/qpr/TTD-PakSeptian.jpeg";
-                        } else {
-                          e.currentTarget.src = "/TTD-PakSeptian.jpeg";
                         }
                       }}
                     />
@@ -699,14 +698,13 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
                   isSigned: isDivHeadSigned,
                   sigSvg: (
                     <img 
-                      src="/qpr/TTD-PakPutu.jpeg" 
+                      src="/TTD-PakPutu.jpeg" 
                       alt="Putu R. S. Signature" 
                       style={{ height: "28px", width: "auto", objectFit: "contain" }} 
                       onError={(e) => {
+                        e.currentTarget.onerror = null;
                         if (!e.currentTarget.src.includes("/qpr/")) {
                           e.currentTarget.src = "/qpr/TTD-PakPutu.jpeg";
-                        } else {
-                          e.currentTarget.src = "/TTD-PakPutu.jpeg";
                         }
                       }}
                     />
@@ -723,10 +721,9 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
                       alt="Irvan H. N. Signature" 
                       style={{ height: "28px", width: "auto", objectFit: "contain" }} 
                       onError={(e) => {
+                        e.currentTarget.onerror = null;
                         if (!e.currentTarget.src.includes("/qpr/")) {
                           e.currentTarget.src = "/qpr/TTD-PURCHASING.jpeg";
-                        } else {
-                          e.currentTarget.src = "/TTD-PURCHASING.jpeg";
                         }
                       }}
                     />

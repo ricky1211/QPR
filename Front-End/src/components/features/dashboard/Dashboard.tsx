@@ -513,26 +513,6 @@ export default function Dashboard({
   const dynamicClaimsValue = currentConfig.dynamicClaimsValue;
   const totalClaimsVal = aprilClaims + mayClaimsClosed + mayClaimsPending + dynamicClaimsValue;
 
-  // CL Progress and Closed Paid dynamic calculations
-  const clLunas = currentConfig.claimClosedPaidCount + currentActiveConfirmationLetters.filter((cl: any) => {
-    const isSent = !!(cl.purchasingSentCl || cl.purchasingSentDate || cl.dateSent);
-    const d = cl.purchasingSentDate || cl.dateSent;
-    const workingDays = isSent && d ? getWorkingDaysElapsed(d) : 0;
-    return cl.closedPaid || cl.status === "CLOSED_PAID" || (isSent && workingDays >= 10);
-  }).length;
-  const clProgress = currentActiveConfirmationLetters.filter((cl: any) => {
-    const isSent = !!(cl.purchasingSentCl || cl.purchasingSentDate || cl.dateSent);
-    const d = cl.purchasingSentDate || cl.dateSent;
-    const workingDays = isSent && d ? getWorkingDaysElapsed(d) : 0;
-    return !cl.closedPaid && cl.status !== "CLOSED_PAID" && (!isSent || workingDays < 10);
-  }).length;
-  const totalCl = clLunas + clProgress;
-
-  const claimClosedPaidCount = clLunas;
-  const claimPendingCount = clProgress + qprInProgress;
-  const claimRejectedCount = currentConfig.claimRejectedCount + currentActiveQprs.filter((q: any) => q.status === "REJECTED").length;
-  const totalClaimsCount = claimClosedPaidCount + claimPendingCount + claimRejectedCount;
-
   // Helper: Working days calculation excluding Saturdays (6) and Sundays (0)
   const getWorkingDaysElapsed = (startDateStr?: string | Date, endDateStr?: string | Date): number => {
     if (!startDateStr) return 0;
@@ -581,6 +561,26 @@ export default function Dashboard({
     const cleaned = String(amt).replace(/[^0-9]/g, "");
     return parseInt(cleaned, 10) || 0;
   };
+
+  // CL Progress and Closed Paid dynamic calculations
+  const clLunas = currentConfig.claimClosedPaidCount + currentActiveConfirmationLetters.filter((cl: any) => {
+    const isSent = !!(cl.purchasingSentCl || cl.purchasingSentDate || cl.dateSent);
+    const d = cl.purchasingSentDate || cl.dateSent;
+    const workingDays = isSent && d ? getWorkingDaysElapsed(d) : 0;
+    return cl.closedPaid || cl.status === "CLOSED_PAID" || (isSent && workingDays >= 10);
+  }).length;
+  const clProgress = currentActiveConfirmationLetters.filter((cl: any) => {
+    const isSent = !!(cl.purchasingSentCl || cl.purchasingSentDate || cl.dateSent);
+    const d = cl.purchasingSentDate || cl.dateSent;
+    const workingDays = isSent && d ? getWorkingDaysElapsed(d) : 0;
+    return !cl.closedPaid && cl.status !== "CLOSED_PAID" && (!isSent || workingDays < 10);
+  }).length;
+  const totalCl = clLunas + clProgress;
+
+  const claimClosedPaidCount = clLunas;
+  const claimPendingCount = clProgress + qprInProgress;
+  const claimRejectedCount = currentConfig.claimRejectedCount + currentActiveQprs.filter((q: any) => q.status === "REJECTED").length;
+  const totalClaimsCount = claimClosedPaidCount + claimPendingCount + claimRejectedCount;
 
   // Consolidated Potong Tagih data triggered by SSC Billing
   const potongTagihItems = React.useMemo(() => {

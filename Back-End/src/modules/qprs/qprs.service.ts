@@ -235,8 +235,25 @@ export class QprsService {
     // Update QprParts if provided in the update request
     if (qprParts && Array.isArray(qprParts)) {
       for (const p of qprParts) {
+        if (!p.partId) continue;
+        
+        // Find existing qprPart by qprId and partId
+        let validPartId = p.partId;
+        const partExists = await this.prisma.part.findUnique({ where: { id: validPartId } });
+        if (!partExists) {
+          const partByNum = await this.prisma.part.findFirst({
+            where: { OR: [{ partNumber: String(p.partId) }, { partName: String(p.partId) }] }
+          });
+          if (partByNum) {
+            validPartId = partByNum.id;
+          } else {
+            // If part doesn't exist in Part catalog, skip creating foreign key reference to prevent 500 error
+            continue;
+          }
+        }
+
         const existingPart = await this.prisma.qprPart.findFirst({
-          where: { qprId: id, partId: p.partId },
+          where: { qprId: id, partId: validPartId },
         });
         if (existingPart) {
           await this.prisma.qprPart.update({
@@ -254,7 +271,7 @@ export class QprsService {
           await this.prisma.qprPart.create({
             data: {
               qprId: id,
-              partId: p.partId,
+              partId: validPartId,
               totalQty: p.totalQty || 1000,
               qtyNg: p.qtyNg || 0,
               stdAllowance: p.stdAllowance || 0,

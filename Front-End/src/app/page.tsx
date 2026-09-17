@@ -378,17 +378,24 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
 
   // Notification bell state
   const [showNotifications, setShowNotifications] = useState(false);
-  const [notifications, setNotifications] = useState<any[]>(() => {
-    if (typeof window === "undefined") return [];
+  const [notifications, setNotifications] = useState<any[]>([]);
+
+  // Load saved notifications on mount to prevent SSR hydration mismatch
+  useEffect(() => {
     try {
       const saved = sessionStorage.getItem("mtm_qpr_notifications") || localStorage.getItem("mtm_qpr_notifications");
-      return saved ? JSON.parse(saved) : [];
-    } catch { return []; }
-  });
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setNotifications(parsed);
+        }
+      }
+    } catch {}
+  }, []);
 
   // Persist notifications to sessionStorage & localStorage
   useEffect(() => {
-    if (typeof window !== "undefined") {
+    if (typeof window !== "undefined" && notifications.length > 0) {
       try {
         sessionStorage.setItem("mtm_qpr_notifications", JSON.stringify(notifications));
         localStorage.setItem("mtm_qpr_notifications", JSON.stringify(notifications));
@@ -535,19 +542,22 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
 
     clService.create(payload)
       .then(() => {
-        const updatedParts = normalizedItems.map(item => ({
-          partId: item.partId || item.id,
-          totalQty: item.totalQty,
-          qtyNg: item.qtyNg,
-          stdAllowance: item.stdAllowance,
-          qtyClaim: item.billableQty,
-          unitPrice: item.unitPrice,
-          taxRate: 0.11
-        }));
+        const updatedParts = normalizedItems
+          .map(item => ({
+            partId: item.partId || (item.id && !String(item.id).startsWith("cl-") && !String(item.id).startsWith("optimistic-") ? item.id : undefined),
+            totalQty: item.totalQty,
+            qtyNg: item.qtyNg,
+            stdAllowance: item.stdAllowance || 0,
+            qtyClaim: item.billableQty,
+            unitPrice: item.unitPrice,
+            taxRate: 0.11
+          }))
+          .filter(p => !!p.partId);
+
         return qprService.update(qpr.id, { 
           status: "CLOSED", 
           requiredRole: "Closed",
-          qprParts: updatedParts
+          ...(updatedParts.length > 0 ? { qprParts: updatedParts } : {})
         });
       })
       .then(() => {
