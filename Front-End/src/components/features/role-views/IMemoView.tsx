@@ -176,22 +176,43 @@ export default function IMemoView({
     }
 
     const firstVendorCl = confirmationLetters.find((cl: any) => {
-      const sup = (cl.supplierName || "").toLowerCase();
-      const sel = vendorName.toLowerCase();
-      return sup && sel && (sup.includes(sel) || sel.includes(sup));
+      const sup = (cl.supplierName || "").toLowerCase().trim();
+      const sel = vendorName.toLowerCase().trim();
+      return sup && sel && (sup === sel || sup.includes(sel) || sel.includes(sup));
     });
     setSelectedClForEmailId(firstVendorCl ? firstVendorCl.id : "");
+
+    const firstVendorQpr = pendingQprs.find((q: any) => {
+      const sup = (q.supplierName || "").toLowerCase().trim();
+      const sel = vendorName.toLowerCase().trim();
+      return sup && sel && (sup === sel || sup.includes(sel) || sel.includes(sup));
+    });
+
+    // If both CL and QPR are missing for this vendor, alert the user immediately
+    if (!firstVendorCl && !firstVendorQpr) {
+      alert(`Pemberitahuan:\n\nDokumen Confirmation Letter (CL) dan QPR belum dibuat untuk vendor "${vendorName}".`);
+    }
   };
 
   // Filter CLs belonging to selected vendor
   const vendorCls = React.useMemo(() => {
     if (!selectedVendorName) return [];
     return confirmationLetters.filter((cl: any) => {
-      const sup = (cl.supplierName || "").toLowerCase();
-      const sel = selectedVendorName.toLowerCase();
-      return sup.includes(sel) || sel.includes(sup);
+      const sup = (cl.supplierName || "").toLowerCase().trim();
+      const sel = selectedVendorName.toLowerCase().trim();
+      return sup && sel && (sup === sel || sup.includes(sel) || sel.includes(sup));
     });
   }, [confirmationLetters, selectedVendorName]);
+
+  // Filter QPRs belonging to selected vendor
+  const vendorQprs = React.useMemo(() => {
+    if (!selectedVendorName) return [];
+    return pendingQprs.filter((q: any) => {
+      const sup = (q.supplierName || "").toLowerCase().trim();
+      const sel = selectedVendorName.toLowerCase().trim();
+      return sup && sel && (sup === sel || sup.includes(sel) || sel.includes(sup));
+    });
+  }, [pendingQprs, selectedVendorName]);
 
   // Date calculation helper: add N days directly to start date (e.g. 17 Sept + 10 days = 27 Sept)
   const addWorkingDays = (startDate: Date, days: number): Date => {
@@ -299,12 +320,7 @@ export default function IMemoView({
   const activeClForEmail = React.useMemo(() => {
     const matchedVendorCl = (
       vendorCls.find((c: any) => c.id === selectedClForEmailId) ||
-      vendorCls[0] ||
-      confirmationLetters.find((c: any) => {
-        const sup = (c.supplierName || "").toLowerCase();
-        const sel = (selectedVendorName || "").toLowerCase();
-        return sup && sel && (sup.includes(sel) || sel.includes(sup));
-      })
+      vendorCls[0]
     );
 
     if (matchedVendorCl) {
@@ -314,62 +330,20 @@ export default function IMemoView({
       };
     }
 
-    // If no CL exists for this vendor, check if there is a matching QPR
-    const matchedQpr = pendingQprs.find((q: any) => {
-      const sup = (q.supplierName || "").toLowerCase();
-      const sel = (selectedVendorName || "").toLowerCase();
-      return sup && sel && (sup.includes(sel) || sel.includes(sup));
-    });
-
-    const vendorClean = (selectedVendorName || "VENDOR").replace(/[^a-zA-Z0-9]/g, "_").toUpperCase();
-    const fallbackClNumber = `CL/${new Date().getFullYear()}/${String(new Date().getMonth() + 1).padStart(2, "0")}/${vendorClean}`;
-
-    return {
-      id: "cl_default",
-      clNumber: fallbackClNumber,
-      qprNumber: matchedQpr?.qprNumber || `01/QI/QPR/SUB/${String(new Date().getMonth() + 1).padStart(2, "0")}/${String(new Date().getFullYear()).slice(-2)}`,
-      supplierName: selectedVendorName || "PT. Vendor Indonesia",
-      partName: matchedQpr?.partName || (matchedQpr?.qprParts?.[0]?.part?.partDesc) || "Part Material NG",
-      claimAmount: matchedQpr?.claimAmount || 0,
-      totalClaimAmount: matchedQpr?.claimAmount || 0,
-      amount: matchedQpr?.claimAmount || 0,
-      status: "APPROVED",
-      dateSent: sendDateIso,
-      qpr: matchedQpr || undefined
-    };
-  }, [vendorCls, selectedClForEmailId, confirmationLetters, selectedVendorName, sendDateIso, pendingQprs]);
+    return null;
+  }, [vendorCls, selectedClForEmailId, sendDateIso]);
 
   const activeQprForEmail = React.useMemo(() => {
     if (activeClForEmail?.qpr) return activeClForEmail.qpr;
+    if (activeClForEmail?.qprNumber) {
+      const q = pendingQprs.find((item: any) => item.qprNumber === activeClForEmail.qprNumber);
+      if (q) return q;
+    }
+    return vendorQprs[0] || null;
+  }, [activeClForEmail, vendorQprs, pendingQprs]);
 
-    const matchedQpr = pendingQprs.find((q: any) => {
-      if (activeClForEmail?.qprNumber && q.qprNumber === activeClForEmail.qprNumber) return true;
-      const sup = (q.supplierName || "").toLowerCase();
-      const sel = (selectedVendorName || "").toLowerCase();
-      return sup && sel && (sup.includes(sel) || sel.includes(sup));
-    });
-
-    if (matchedQpr) return matchedQpr;
-
-    return {
-      id: "qpr_preview",
-      qprNumber: activeClForEmail?.qprNumber || `01/QI/QPR/SUB/${String(new Date().getMonth() + 1).padStart(2, "0")}/${String(new Date().getFullYear()).slice(-2)}`,
-      supplierName: selectedVendorName || activeClForEmail?.supplierName || "PT. Vendor Indonesia",
-      partName: resolvePartDesc(activeClForEmail),
-      status: "APPROVED",
-      refNcrNumber: activeClForEmail?.refNcrNumber || `NCR/${new Date().getFullYear()}/${String(new Date().getMonth() + 1).padStart(2, "0")}/001`,
-      problem: activeClForEmail?.problem || "Claim Part NG / Out of Tolerance",
-      rejectItems: activeClForEmail?.qty || activeClForEmail?.qtyNG || 25,
-      claimAmount: activeClForEmail?.amount || activeClForEmail?.claimAmount || 0,
-      approvedBy: ["Creator", "Section Head", "Dept Head", "Div Head", "Purchasing"],
-      approvalProgress: {
-        approvedAtSectionHead: true,
-        approvedAtDeptHead: true,
-        approvedAtDivHead: true,
-        approvedAtPurchasing: true
-      }
-    };
-  }, [activeClForEmail, selectedVendorName, pendingQprs]);
+  const hasCl = !!activeClForEmail;
+  const hasQpr = !!activeQprForEmail;
 
   const generatedEmailBody = React.useMemo(() => {
     return `Dear Team ${vendorShortName},
@@ -391,6 +365,11 @@ Cikarang Bekasi 17530 Indonesia`;
   const handleSendVendorEmail = async (specificCl?: any) => {
     if (!vendorEmailInput) {
       alert("Harap masukkan alamat email vendor!");
+      return;
+    }
+
+    if (!hasCl && !hasQpr) {
+      alert(`Pemberitahuan:\n\nTidak dapat mengirim email karena Dokumen Confirmation Letter (CL) dan QPR belum dibuat untuk vendor "${selectedVendorName}".\n\nHarap buat dokumen terlebih dahulu.`);
       return;
     }
 
@@ -3111,8 +3090,26 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                                         : "bg-white hover:bg-slate-50 border-slate-200"
                                     }`}
                                   >
-                                    {/* Upload Dokumen CL Approval Vendor */}
+                                    {/* CL Details Header & Status Badges */}
                                     <div className="space-y-2">
+                                      <div className="flex items-center justify-between border-b border-slate-100 pb-2 gap-2 flex-wrap">
+                                        <div>
+                                          <span className="font-mono font-black text-xs text-slate-800">{cl.clNumber}</span>
+                                          <p className="text-[10px] text-slate-500 font-semibold">{cl.partName || resolvePartDesc(cl)} · <strong className="text-slate-700">{cl.amount ? (typeof cl.amount === 'number' ? `Rp ${cl.amount.toLocaleString('id-ID')}` : cl.amount) : '-'}</strong></p>
+                                        </div>
+                                        {cl.purchasingSentCl || cl.sentToVendor ? (
+                                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-800 border border-blue-200 rounded-full text-[9.5px] font-bold">
+                                            <Send size={10} className="text-blue-600 shrink-0" />
+                                            Email Terkirim ({cl.purchasingSentDate || cl.dateSent || "Terkirim"})
+                                          </span>
+                                        ) : (
+                                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-full text-[9.5px] font-bold">
+                                            <Clock size={10} className="text-amber-500 shrink-0" />
+                                            Belum Dikirim ke Vendor
+                                          </span>
+                                        )}
+                                      </div>
+
                                       <div className="flex items-center justify-between gap-2 flex-wrap">
                                         <div className="flex items-center gap-1.5">
                                           <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Status Vendor:</span>
@@ -3262,37 +3259,84 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                                   Klik berkas untuk pratinjau
                                 </span>
                               </div>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[10.5px]">
-                                <button
-                                  type="button"
-                                  onClick={() => setPreviewCl(activeClForEmail)}
-                                  className="p-2.5 bg-white hover:bg-blue-50 hover:border-blue-400 rounded-lg border border-slate-250 font-bold text-slate-800 flex items-center justify-between transition-all cursor-pointer shadow-2xs group text-left active:scale-95"
-                                  title="Klik untuk membuka Pratinjau Surat CL"
+                              {!hasCl && !hasQpr ? (
+                                <div
+                                  onClick={() => alert(`Pemberitahuan:\n\nDokumen Confirmation Letter (CL) dan QPR belum dibuat untuk vendor "${selectedVendorName}".`)}
+                                  className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center justify-between text-amber-800 text-[11px] font-bold cursor-pointer hover:bg-amber-100 transition-colors shadow-2xs"
                                 >
-                                  <div className="flex items-center gap-1.5 truncate pr-1">
-                                    <FileText size={13} className="text-blue-600 shrink-0 group-hover:scale-110 transition-transform" />
-                                    <span className="truncate">1. Surat CL ({activeClForEmail.clNumber?.split("/").slice(-1)[0] || "Draft"})</span>
+                                  <div className="flex items-center gap-2">
+                                    <AlertCircle size={14} className="text-amber-600 shrink-0" />
+                                    <span>Belum ada dokumen Surat CL & QPR untuk vendor ini</span>
                                   </div>
-                                  <span className="text-[9px] bg-blue-100 text-blue-700 font-black px-1.5 py-0.5 rounded shrink-0 flex items-center gap-0.5">
-                                    <Eye size={10} /> LIHAT
+                                  <span className="text-[9px] bg-amber-200/80 text-amber-900 px-2 py-0.5 rounded font-black">
+                                    KOSONG
                                   </span>
-                                </button>
+                                </div>
+                              ) : (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[10.5px]">
+                                  {hasCl ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => setPreviewCl(activeClForEmail)}
+                                      className="p-2.5 bg-white hover:bg-blue-50 hover:border-blue-400 rounded-lg border border-slate-250 font-bold text-slate-800 flex items-center justify-between transition-all cursor-pointer shadow-2xs group text-left active:scale-95"
+                                      title="Klik untuk membuka Pratinjau Surat CL"
+                                    >
+                                      <div className="flex items-center gap-1.5 truncate pr-1">
+                                        <FileText size={13} className="text-blue-600 shrink-0 group-hover:scale-110 transition-transform" />
+                                        <span className="truncate">1. Surat CL ({activeClForEmail.clNumber?.split("/").slice(-1)[0] || activeClForEmail.clNumber})</span>
+                                      </div>
+                                      <span className="text-[9px] bg-blue-100 text-blue-700 font-black px-1.5 py-0.5 rounded shrink-0 flex items-center gap-0.5">
+                                        <Eye size={10} /> LIHAT
+                                      </span>
+                                    </button>
+                                  ) : (
+                                    <div
+                                      onClick={() => alert(`Pemberitahuan:\n\nSurat Confirmation Letter (CL) belum dibuat untuk vendor "${selectedVendorName}".`)}
+                                      className="p-2.5 bg-slate-50 border border-dashed border-slate-250 rounded-lg text-slate-400 font-semibold flex items-center justify-between cursor-pointer hover:bg-slate-100 transition-colors"
+                                      title="Surat CL belum dibuat"
+                                    >
+                                      <div className="flex items-center gap-1.5 truncate">
+                                        <FileText size={13} className="text-slate-350 shrink-0" />
+                                        <span className="text-[10px] italic">1. Surat CL (Belum Dibuat)</span>
+                                      </div>
+                                      <span className="text-[8.5px] bg-slate-200 text-slate-500 font-bold px-1.5 py-0.5 rounded shrink-0">
+                                        TIDAK ADA
+                                      </span>
+                                    </div>
+                                  )}
 
-                                <button
-                                  type="button"
-                                  onClick={() => setPreviewQpr(activeQprForEmail)}
-                                  className="p-2.5 bg-white hover:bg-green-50 hover:border-green-400 rounded-lg border border-green-250 font-bold text-green-850 flex items-center justify-between transition-all cursor-pointer shadow-2xs group text-left active:scale-95"
-                                  title="Klik untuk membuka Pratinjau Dokumen QPR Full Approval"
-                                >
-                                  <div className="flex items-center gap-1.5 truncate pr-1">
-                                    <FileCheck2 size={13} className="text-green-600 shrink-0 group-hover:scale-110 transition-transform" />
-                                    <span className="truncate">2. Dokumen QPR ({activeQprForEmail.qprNumber || "Full Approval"})</span>
-                                  </div>
-                                  <span className="text-[9px] bg-green-100 text-green-800 font-black px-1.5 py-0.5 rounded shrink-0 flex items-center gap-0.5">
-                                    <Eye size={10} /> LIHAT
-                                  </span>
-                                </button>
-                              </div>
+                                  {hasQpr ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => setPreviewQpr(activeQprForEmail)}
+                                      className="p-2.5 bg-white hover:bg-green-50 hover:border-green-400 rounded-lg border border-green-250 font-bold text-green-850 flex items-center justify-between transition-all cursor-pointer shadow-2xs group text-left active:scale-95"
+                                      title="Klik untuk membuka Pratinjau Dokumen QPR"
+                                    >
+                                      <div className="flex items-center gap-1.5 truncate pr-1">
+                                        <FileCheck2 size={13} className="text-green-600 shrink-0 group-hover:scale-110 transition-transform" />
+                                        <span className="truncate">2. Dokumen QPR ({activeQprForEmail.qprNumber})</span>
+                                      </div>
+                                      <span className="text-[9px] bg-green-100 text-green-800 font-black px-1.5 py-0.5 rounded shrink-0 flex items-center gap-0.5">
+                                        <Eye size={10} /> LIHAT
+                                      </span>
+                                    </button>
+                                  ) : (
+                                    <div
+                                      onClick={() => alert(`Pemberitahuan:\n\nDokumen QPR belum ada untuk vendor "${selectedVendorName}".`)}
+                                      className="p-2.5 bg-slate-50 border border-dashed border-slate-250 rounded-lg text-slate-400 font-semibold flex items-center justify-between cursor-pointer hover:bg-slate-100 transition-colors"
+                                      title="Dokumen QPR belum ada"
+                                    >
+                                      <div className="flex items-center gap-1.5 truncate">
+                                        <FileCheck2 size={13} className="text-slate-350 shrink-0" />
+                                        <span className="text-[10px] italic">2. Dokumen QPR (Belum Ada)</span>
+                                      </div>
+                                      <span className="text-[8.5px] bg-slate-200 text-slate-500 font-bold px-1.5 py-0.5 rounded shrink-0">
+                                        TIDAK ADA
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           </div>
 
