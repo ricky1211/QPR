@@ -1,10 +1,14 @@
 import { Controller, Get, Post, Put, Body, Param } from '@nestjs/common';
 import { QprsService } from './qprs.service';
+import { DailyReminderService } from './daily-reminder.service';
 import { Qpr, QprApprovalProgress } from '@prisma/client';
 
 @Controller('qprs')
 export class QprsController {
-  constructor(private readonly qprsService: QprsService) {}
+  constructor(
+    private readonly qprsService: QprsService,
+    private readonly dailyReminderService: DailyReminderService,
+  ) {}
 
   @Get()
   async getAllQprs(): Promise<any[]> {
@@ -29,6 +33,13 @@ export class QprsController {
   @Put('confirmation-letters/:id')
   async updateConfirmationLetter(@Param('id') id: string, @Body() data: any): Promise<any> {
     return this.qprsService.updateConfirmationLetter(id, data);
+  }
+
+  @Post('daily-reminder/trigger')
+  async triggerDailyReminder(
+    @Body() body?: { targetEmail?: string },
+  ): Promise<any> {
+    return this.dailyReminderService.sendDailyReminderDigest(body?.targetEmail);
   }
 
   @Get(':id')
@@ -106,4 +117,21 @@ export class QprsController {
   ): Promise<QprApprovalProgress> {
     return this.qprsService.updateApprovalProgress(qprId, data);
   }
+
+  @Post(':id/send-reminder')
+  async sendQprReminder(
+    @Param('id') qprId: string,
+    @Body() body?: { notes?: string },
+  ): Promise<any> {
+    return this.qprsService.sendQprReminder(qprId, body?.notes);
+  }
+
+  @Post('confirmation-letters/:id/send-reminder')
+  async sendClReminder(
+    @Param('id') clId: string,
+    @Body() body?: { notes?: string },
+  ): Promise<any> {
+    return this.qprsService.sendClReminder(clId, body?.notes);
+  }
 }
+

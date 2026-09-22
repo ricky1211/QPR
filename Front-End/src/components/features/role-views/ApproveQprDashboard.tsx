@@ -16,9 +16,11 @@ import {
   TrendingDown,
   ArrowRight,
   Shield,
-  Bell
+  Bell,
+  Loader2
 } from "lucide-react";
 import QprPrintPreview from "./QprPrintPreview";
+import { qprService } from "../../../services/qprService";
 
 export default function ApproveQprDashboard({ pendingQprs, handleApproveQprAction, username = "admin", setNotifications = null }) {
   const getInitialTab = () => {
@@ -48,6 +50,7 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
   const [selectedQpr, setSelectedQpr] = useState<any>(null);
   const [previewQpr, setPreviewQpr] = useState<any>(null);
   const [approvalComment, setApprovalComment] = useState("");
+  const [isSendingReminder, setIsSendingReminder] = useState(false);
 
   // Calculate claim count for each vendor dynamically based on QPRs
   const vendorClaimCounts = React.useMemo(() => {
@@ -638,24 +641,47 @@ export default function ApproveQprDashboard({ pendingQprs, handleApproveQprActio
                 </button>
                 {/* Reminder Button */}
                 <button
-                  onClick={() => {
+                  disabled={isSendingReminder}
+                  onClick={async () => {
+                    if (!selectedQpr?.id) return;
                     const nextRole = selectedQpr.requiredRole || "Section Head";
-                    const msg = `🔔 REMINDER: Dokumen QPR ${selectedQpr.qprNumber} (${selectedQpr.supplierName}) menunggu persetujuan Anda sebagai ${nextRole}. Harap segera lakukan review.`;
-                    if (setNotifications) {
-                      setNotifications((prev: any[]) => [{
-                        id: Date.now(),
-                        message: msg,
-                        time: "Baru saja",
-                        type: "info",
-                        unread: true
-                      }, ...prev]);
+                    try {
+                      setIsSendingReminder(true);
+                      const res = await qprService.sendReminder(selectedQpr.id);
+                      const msg = `🔔 REMINDER TERKIRIM: Dokumen QPR ${selectedQpr.qprNumber} (${selectedQpr.supplierName || selectedQpr.vendor?.vendorName || "Vendor"}) menunggu persetujuan Anda sebagai ${nextRole}.`;
+                      if (setNotifications) {
+                        setNotifications((prev: any[]) => [{
+                          id: Date.now(),
+                          message: msg,
+                          time: "Baru saja",
+                          type: "info",
+                          unread: true
+                        }, ...prev]);
+                      }
+                      alert(`✅ Sukses: Email reminder untuk QPR ${selectedQpr.qprNumber} berhasil dikirim ke ${nextRole}!`);
+                    } catch (err: any) {
+                      alert(`❌ Gagal mengirim reminder email: ${err.message || err}`);
+                    } finally {
+                      setIsSendingReminder(false);
                     }
-                    alert(`Reminder berhasil dikirim ke ${nextRole}!\n\n"${msg}"`);
                   }}
-                  className="flex items-center justify-center gap-1.5 px-4 py-2 border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-md text-xs font-bold transition-colors cursor-pointer"
+                  className={`flex items-center justify-center gap-1.5 px-4 py-2 border rounded-md text-xs font-bold transition-all ${
+                    isSendingReminder
+                      ? "border-amber-200 bg-amber-100 text-amber-500 cursor-not-allowed"
+                      : "border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-700 cursor-pointer active:scale-95"
+                  }`}
                 >
-                  <Bell size={13} />
-                  Kirim Reminder
+                  {isSendingReminder ? (
+                    <>
+                      <Loader2 size={13} className="animate-spin" />
+                      Mengirim Reminder...
+                    </>
+                  ) : (
+                    <>
+                      <Bell size={13} />
+                      Kirim Reminder
+                    </>
+                  )}
                 </button>
               </div>
               <div className="flex flex-wrap gap-2 justify-end items-center">

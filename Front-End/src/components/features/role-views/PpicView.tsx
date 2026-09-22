@@ -44,8 +44,8 @@ export default function PpicView({ pendingQprs, handleApproveQprAction }) {
                     <span className="font-mono text-[10px] font-bold text-slate-900 bg-white border border-slate-200 px-2 py-0.5 rounded shadow-sm">
                       {qpr.qprNumber}
                     </span>
-                    <h5 className="text-xs font-bold text-slate-800 pt-1">Denda Klaim Bulanan - {qpr.supplierName}</h5>
-                    <p className="text-[10px] text-slate-400">Periode: {qpr.period} • Claim Amount: <strong className="text-red-600">{qpr.claimAmount}</strong></p>
+                    <h5 className="text-xs font-bold text-slate-800 pt-1">Klaim QPR Bulanan - {qpr.supplierName}</h5>
+                    <p className="text-[10px] text-slate-400">Periode: {qpr.period} • Total Defect: <strong className="text-slate-700">{qpr.rejectItems} pcs</strong></p>
                   </div>
                   <div className="flex gap-2 w-full sm:w-auto">
                     <button
@@ -103,11 +103,6 @@ export default function PpicView({ pendingQprs, handleApproveQprAction }) {
                   <span className="text-slate-400 block">Total Reject:</span>
                   <strong className="text-red-600 font-bold">{selectedQpr.rejectItems} pcs</strong>
                 </div>
-              </div>
-
-              <div className="p-4 bg-red-50 border border-red-150 rounded-lg text-center">
-                <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest block">Total Nilai Denda</span>
-                <span className="text-2xl font-black text-red-600 block mt-1">{selectedQpr.claimAmount}</span>
               </div>
             </div>
 

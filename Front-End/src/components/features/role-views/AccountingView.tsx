@@ -18,6 +18,7 @@ import {
 import ConfirmationLetterPrintPreview from "./ConfirmationLetterPrintPreview";
 import { vendorService } from "@/services/vendorService";
 import { getPeriodFromDate } from "@/services/qprService";
+import { clService } from "@/services/clService";
 
 interface AccountingViewProps {
   confirmationLetters: any[];
@@ -264,14 +265,19 @@ export default function AccountingView({
     }));
   };
 
-  const handleSendReminder = (id: string) => {
-    setConfirmationLetters(prev => prev.map(cl => {
-      if (cl.id === id) {
-        alert(`Reminder untuk ${cl.clNumber} berhasil dikirim ulang ke vendor!`);
-        return { ...cl, reminderSentCount: cl.reminderSentCount + 1 };
-      }
-      return cl;
-    }));
+  const handleSendReminder = async (id: string) => {
+    try {
+      await clService.sendReminder(id);
+      setConfirmationLetters(prev => prev.map(cl => {
+        if (cl.id === id) {
+          alert(`✅ Sukses: Email reminder untuk ${cl.clNumber} berhasil dikirim ke PIC terkait!`);
+          return { ...cl, reminderSentCount: (cl.reminderSentCount || 0) + 1 };
+        }
+        return cl;
+      }));
+    } catch (err: any) {
+      alert(`❌ Gagal mengirim reminder email: ${err.message || err}`);
+    }
   };
 
   const calc = handleCalculateTotal();

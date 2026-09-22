@@ -393,7 +393,11 @@ export default function Dashboard({
     "Juli", "Agustus", "September", "Oktober", "November", "Desember"
   ], []);
 
-  const currentYear = new Date().getFullYear();
+  // Hydration-safe currentYear: initialized after client mount to avoid SSR mismatch
+  const [currentYear, setCurrentYear] = useState(0);
+  useEffect(() => {
+    setCurrentYear(new Date().getFullYear());
+  }, []);
   
   // Dynamic list of periods derived from actual data + standard months
   const periods = React.useMemo(() => {
@@ -412,7 +416,9 @@ export default function Dashboard({
       }
     });
 
-    months.forEach(m => list.add(`${m} ${currentYear}`));
+    if (currentYear > 0) {
+      months.forEach(m => list.add(`${m} ${currentYear}`));
+    }
     return Array.from(list);
   }, [pendingQprs, confirmationLetters, pendingNcrs, createdSscBillings, months, currentYear]);
   
@@ -1776,6 +1782,10 @@ export default function Dashboard({
         {selectedRoleCard && (() => {
           const activeRole = authRoles.find(r => r.key === selectedRoleCard)!;
           const roleData = getRoleDocsData(activeRole);
+          const isFinanceOrPurchasingCard = 
+            selectedRoleCard === "Purchasing" || 
+            selectedRoleCard === "Dept Accounting" || 
+            selectedRoleCard === "Finance Accounting";
           
           let displayDocs = roleData.runningDocs;
           if (roleDetailFilter === "stuck") {
@@ -1847,14 +1857,16 @@ export default function Dashboard({
                       <th className="px-4 py-2.5">Supplier / Vendor</th>
                       <th className="px-4 py-2.5">Tgl Pembuatan</th>
                       <th className="px-4 py-2.5 text-center">Status Lead Time</th>
-                      <th className="px-4 py-2.5">Nilai Klaim</th>
+                      {isFinanceOrPurchasingCard && (
+                        <th className="px-4 py-2.5">Nilai Klaim</th>
+                      )}
                       <th className="px-4 py-2.5 text-right">Aksi</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {displayDocs.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="px-4 py-8 text-center text-slate-400 italic">
+                        <td colSpan={isFinanceOrPurchasingCard ? 7 : 6} className="px-4 py-8 text-center text-slate-400 italic">
                           Tidak ada dokumen pada kategori filter ini.
                         </td>
                       </tr>
@@ -1888,7 +1900,9 @@ export default function Dashboard({
                               </span>
                             )}
                           </td>
-                          <td className="px-4 py-3 font-bold text-slate-700">{doc.amount}</td>
+                          {isFinanceOrPurchasingCard && (
+                            <td className="px-4 py-3 font-bold text-slate-700">{doc.amount}</td>
+                          )}
                           <td className="px-4 py-3 text-right">
                             <button
                               onClick={() => {

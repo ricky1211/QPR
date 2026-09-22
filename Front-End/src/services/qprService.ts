@@ -54,6 +54,10 @@ export const qprService = {
     method: 'POST',
     body: JSON.stringify(data),
   }),
+  sendReminder: (id: string, notes?: string) => apiRequest(`/qprs/${id}/send-reminder`, {
+    method: 'POST',
+    body: JSON.stringify({ notes }),
+  }),
 };
 
 export const generateNextQprNumber = (qprs: any[] = [], dateStr?: string): string => {

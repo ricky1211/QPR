@@ -116,7 +116,6 @@ export default function DraftQprView({ pendingQprs, setPendingQprs, setActiveTab
                 <th className="px-4 py-3">Supplier</th>
                 <th className="px-4 py-3">Periode</th>
                 <th className="px-4 py-3">Tanggal Buat</th>
-                <th className="px-4 py-3 text-right">Nilai Klaim</th>
                 <th className="px-4 py-3 text-center">Status</th>
                 <th className="px-4 py-3 text-right">Aksi</th>
               </tr>
@@ -124,7 +123,7 @@ export default function DraftQprView({ pendingQprs, setPendingQprs, setActiveTab
             <tbody className="divide-y divide-slate-150 font-semibold text-slate-700">
               {filteredQprs.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-slate-400 italic">
+                  <td colSpan={6} className="px-4 py-12 text-center text-slate-400 italic">
                     <AlertCircle size={28} className="mx-auto text-slate-300 mb-2" />
                     Tidak ada draf atau laporan QPR yang sesuai filter.
                   </td>
@@ -156,7 +155,6 @@ export default function DraftQprView({ pendingQprs, setPendingQprs, setActiveTab
                     </td>
                     <td className="px-4 py-3 text-slate-650">{qpr.period || getPeriodFromDate(qpr.date)}</td>
                     <td className="px-4 py-3 text-slate-500 font-semibold">{qpr.date}</td>
-                    <td className="px-4 py-3 text-right font-mono font-bold text-slate-850">{qpr.claimAmount}</td>
                     <td className="px-4 py-3 text-center">
                       {qpr.status === "DRAFT" ? (
                         <span className="inline-flex items-center px-2 py-0.5 bg-slate-100 text-slate-600 border border-slate-200 rounded text-[9px] font-black uppercase">Draf</span>

@@ -406,7 +406,7 @@ export default function DeptHeadView({
                       <div className="text-sm font-bold text-slate-800">
                         Klaim Bulanan - {qpr.supplierName}
                       </div>
-                      <div className="grid grid-cols-3 gap-4 text-xs bg-white p-3.5 rounded-lg border border-slate-200/60 shadow-sm/5">
+                      <div className="grid grid-cols-2 gap-4 text-xs bg-white p-3.5 rounded-lg border border-slate-200/60 shadow-sm/5">
                         <div>
                           <span className="text-slate-400 block font-bold text-[9px] uppercase tracking-wider">Transaksi:</span>
                           <strong className="text-slate-700 font-bold text-[11px] block mt-0.5">{qpr.period}</strong>
@@ -414,10 +414,6 @@ export default function DeptHeadView({
                         <div>
                           <span className="text-slate-400 block font-bold text-[9px] uppercase tracking-wider">Total Defect:</span>
                           <strong className="text-slate-700 font-bold text-[11px] block mt-0.5">{qpr.rejectItems} pcs</strong>
-                        </div>
-                        <div>
-                          <span className="text-red-500/80 block font-bold text-[9px] uppercase tracking-wider">Nilai Claim:</span>
-                          <strong className="text-red-600 font-black text-[11px] block mt-0.5">{qpr.claimAmount}</strong>
                         </div>
                       </div>
                       <div className="flex justify-end gap-2 pt-2">
@@ -644,11 +640,6 @@ export default function DeptHeadView({
                   <span className="text-slate-400 block">Allowance Toleransi:</span>
                   <strong className="text-slate-800 font-bold">{selectedQpr.allowanceRatio}</strong>
                 </div>
-              </div>
-
-              <div className="p-4 bg-red-50 border border-red-150 rounded-lg text-center">
-                <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest block">Total Klaim Denda</span>
-                <span className="text-2xl font-black text-red-600 block mt-1">{selectedQpr.claimAmount}</span>
               </div>
             </div>
 

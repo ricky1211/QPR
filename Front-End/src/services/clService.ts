@@ -41,6 +41,10 @@ export const clService = {
     method: 'POST',
     body: JSON.stringify(data),
   }),
+  sendReminder: (id: string, notes?: string) => apiRequest(`/qprs/confirmation-letters/${id}/send-reminder`, {
+    method: 'POST',
+    body: JSON.stringify({ notes }),
+  }),
 };
 
 export const mapClFromDb = (dbCl: any) => {

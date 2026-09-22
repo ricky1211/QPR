@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { MailService } from '../../infrastructure/mail/mail.service';
 import { PdfGeneratorService } from '../../infrastructure/pdf/pdf-generator.service';
@@ -1291,6 +1291,125 @@ export class QprsService {
     };
   }
 
+  async sendQprReminder(qprId: string, customNotes?: string): Promise<any> {
+    const qpr = await this.prisma.qpr.findFirst({
+      where: {
+        OR: [
+          { id: qprId },
+          { qprNumber: qprId }
+        ]
+      },
+      include: {
+        vendor: true,
+        approvalProgress: true,
+        qprParts: {
+          include: { part: true }
+        }
+      }
+    });
+
+    if (!qpr) {
+      throw new NotFoundException(`QPR dengan ID / Nomor ${qprId} tidak ditemukan.`);
+    }
+
+    const supName = qpr.vendor?.vendorName || 'Vendor / Subcont';
+    const reqRole = qpr.requiredRole || 'Section Head';
+    let targetRoleName = reqRole;
+    let targetRoleKeywords: string[] = [reqRole];
+
+    if (reqRole.includes('Section')) {
+      targetRoleName = 'Section Head QA';
+      targetRoleKeywords = ['section', 'sect.head', 'septian'];
+    } else if (reqRole.includes('Dept')) {
+      targetRoleName = 'Dept Head QA';
+      targetRoleKeywords = ['dept', 'department head', 'septian'];
+    } else if (reqRole.includes('Div')) {
+      targetRoleName = 'Division Head QA';
+      targetRoleKeywords = ['div', 'putu'];
+    } else if (reqRole.includes('Purchasing')) {
+      targetRoleName = 'Purchasing (Approval & Pembuatan CL)';
+      targetRoleKeywords = ['purchasing', 'irvan', 'cicik'];
+    } else if (reqRole.includes('Accounting') || reqRole.includes('Finance')) {
+      targetRoleName = 'Dept Head Accounting & Finance';
+      targetRoleKeywords = ['accounting', 'anindita', 'finance', 'bagas'];
+    }
+
+    const emailSubject = `[REMINDER] Menunggu Review & Approval QPR No. ${qpr.qprNumber} (${supName})`;
+
+    await this.sendSystemNotificationEmail({
+      subject: emailSubject,
+      title: 'Reminder Review & Approval Dokumen QPR',
+      docNumber: qpr.qprNumber,
+      docType: 'QPR',
+      supplierName: supName,
+      targetRoleName,
+      targetRoleKeywords,
+      stepBadge: `REMINDER: Menunggu Approval ${targetRoleName}`,
+      statusText: `PENDING APPROVAL (${targetRoleName})`,
+      nextStepText: `Mohon segera login ke Portal QPR MTM untuk melakukan verifikasi dan approval dokumen ini agar proses klaim dapat berlanjut ke tahap berikutnya.`,
+      details: [
+        { label: 'No. Dokumen QPR', value: qpr.qprNumber },
+        { label: 'Vendor / Subcontractor', value: supName },
+        { label: 'Problem Defect', value: qpr.problem || '-' },
+        { label: 'Menunggu Tindakan Dari', value: targetRoleName },
+        { label: 'Status Saat Ini', value: qpr.status },
+      ],
+      notes: customNotes || `Pesan pengingat ini dikirim secara manual melalui sistem Portal QPR untuk mempercepat proses review dan persetujuan klaim kualitas.`,
+    });
+
+    return {
+      success: true,
+      message: `Email Reminder QPR ${qpr.qprNumber} berhasil dikirim ke ${targetRoleName}.`,
+    };
+  }
+
+  async sendClReminder(clId: string, customNotes?: string): Promise<any> {
+    const cl = await this.prisma.confirmationLetter.findFirst({
+      where: {
+        OR: [
+          { id: clId },
+          { clNumber: clId }
+        ]
+      },
+      include: {
+        vendor: true,
+        qpr: true,
+      }
+    });
+
+    if (!cl) {
+      throw new NotFoundException(`Confirmation Letter dengan ID / Nomor ${clId} tidak ditemukan.`);
+    }
+
+    const supName = cl.vendor?.vendorName || 'Vendor';
+    const emailSubject = `[REMINDER] Konfirmasi & Approval Surat Confirmation Letter No. ${cl.clNumber} (${supName})`;
+
+    await this.sendSystemNotificationEmail({
+      subject: emailSubject,
+      title: 'Reminder Konfirmasi Confirmation Letter (CL)',
+      docNumber: cl.clNumber,
+      docType: 'Confirmation Letter',
+      supplierName: supName,
+      targetRoleName: 'Vendor / Purchasing / Accounting',
+      targetRoleKeywords: ['purchasing', 'accounting', 'vendor'],
+      stepBadge: 'REMINDER: Confirmation Letter (CL)',
+      statusText: cl.vendorApproved ? 'APPROVED BY VENDOR' : (cl.purchasingSentCl ? 'MENUNGGU APPROVAL VENDOR' : 'DRAFT / MENUNGGU APPROVAL ACCOUNTING'),
+      nextStepText: `Mohon segera tindak lanjuti dokumen Confirmation Letter ini. Jika sudah disetujui, harap segera upload bukti approval di Portal QPR.`,
+      details: [
+        { label: 'No. Confirmation Letter', value: cl.clNumber },
+        { label: 'No. QPR Referensi', value: cl.qpr?.qprNumber || '-' },
+        { label: 'Nama Vendor', value: supName },
+        { label: 'Status CL', value: cl.status },
+      ],
+      notes: customNotes || `Pesan pengingat ini dikirim untuk mempercepat konfirmasi dan penyelesaian tagihan klaim biaya mutu.`,
+    });
+
+    return {
+      success: true,
+      message: `Email Reminder CL ${cl.clNumber} berhasil dikirim ke seluruh daftar notifikasi.`,
+    };
+  }
+
   private async sendSystemNotificationEmail(payload: {
     subject: string;
     title: string;
@@ -1299,6 +1418,7 @@ export class QprsService {
     supplierName: string;
     targetRoleName?: string;
     targetRoleKeywords?: string[];
+    targetEmails?: string[];
     stepBadge?: string;
     statusText: string;
     nextStepText: string;
@@ -1308,6 +1428,10 @@ export class QprsService {
     try {
       // 1. Resolve direct official corporate role emails from designated mapping
       let directRoleEmails: string[] = [];
+      if (payload.targetEmails && payload.targetEmails.length > 0) {
+        directRoleEmails.push(...payload.targetEmails);
+      }
+
       if (payload.targetRoleKeywords && payload.targetRoleKeywords.length > 0) {
         for (const kw of payload.targetRoleKeywords) {
           const lk = kw.toLowerCase();
@@ -1341,17 +1465,16 @@ export class QprsService {
         }
       }
 
-      // 3. Merge with configured environment emails
-      const envEmails = (
-        process.env.NOTIFICATION_EMAIL_TO ||
-        process.env.SMTP_USER ||
-        ''
-      )
-        .split(',')
-        .map((e) => e.trim())
-        .filter(Boolean);
+      // Filter and deduplicate: Send strictly to the target section's designated recipient(s)
+      let recipientEmails = Array.from(new Set([...directRoleEmails, ...dbRoleEmails])).filter(Boolean);
 
-      const recipientEmails = Array.from(new Set([...directRoleEmails, ...dbRoleEmails, ...envEmails]));
+      // Fallback only if no specific section email was resolved
+      if (recipientEmails.length === 0) {
+        recipientEmails = (process.env.NOTIFICATION_EMAIL_TO || process.env.SMTP_USER || '')
+          .split(',')
+          .map((e) => e.trim())
+          .filter(Boolean);
+      }
 
       const detailRows = (payload.details || [])
         .map(

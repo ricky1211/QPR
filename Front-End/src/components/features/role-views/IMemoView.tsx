@@ -66,6 +66,14 @@ export default function IMemoView({
   const canAccessSscPayment = isFinance || isAdmin;
   const canAccessParts = isPurchasing || isFinance || isAdmin;
 
+  // Hydration-safe: set to null on server, populated on client after mount
+  const [clientNow, setClientNow] = useState<string | null>(null);
+  useEffect(() => {
+    setClientNow(
+      new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+    );
+  }, []);
+
   const [sscBillingRows, setSscBillingRows] = useState<any[]>([]);
   const [selectedClId, setSelectedClId] = useState<string>("");
   const [selectedBillingClId, setSelectedBillingClId] = useState<string>("");
@@ -1381,16 +1389,21 @@ Cikarang Bekasi 17530 Indonesia`;
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleSendReminder = (id: string) => {
-    setConfirmationLetters(prev =>
-      prev.map(cl => {
-        if (cl.id === id) {
-          alert(`Sukses: Email Reminder untuk ${cl.clNumber} berhasil dikirim ulang ke vendor!`);
-          return { ...cl, reminderSentCount: (cl.reminderSentCount || 0) + 1 };
-        }
-        return cl;
-      })
-    );
+  const handleSendReminder = async (id: string) => {
+    try {
+      await clService.sendReminder(id);
+      setConfirmationLetters(prev =>
+        prev.map(cl => {
+          if (cl.id === id) {
+            alert(`✅ Sukses: Email Reminder untuk ${cl.clNumber} berhasil dikirim ke PIC terkait!`);
+            return { ...cl, reminderSentCount: (cl.reminderSentCount || 0) + 1 };
+          }
+          return cl;
+        })
+      );
+    } catch (err: any) {
+      alert(`❌ Gagal mengirim reminder email: ${err.message || err}`);
+    }
   };
 
   const handleSendToVendor = (id: string, clNumber?: string) => {
@@ -2603,7 +2616,7 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                             <div>*) Only filled if billing type is recurring</div>
                             <div>1) Every signing person must write down his / her full name in the grey box and his/her function in the blue box</div>
                             <div className="flex justify-between pt-2 border-t border-slate-200 mt-2 text-[7.5px] font-mono text-slate-450 font-sans">
-                              <span>Approved By System {new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} 17:02</span>
+                              <span>Approved By System {clientNow ?? ""} 17:02</span>
                               <span>Internal Memo - {memoBillingType === "One Time" ? "Onetime" : "Recurring"} Billing {acctCustomerCode || "TEIN1"} of 1</span>
                             </div>
                           </div>
