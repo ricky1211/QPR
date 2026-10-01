@@ -218,6 +218,8 @@ export class QprsService {
 
   async update(id: string, data: any): Promise<Qpr> {
     const {
+      qprNumber,
+      refNcrNumber,
       status,
       requiredRole,
       problem,
@@ -287,6 +289,8 @@ export class QprsService {
     const updated = await this.prisma.qpr.update({
       where: { id },
       data: {
+        qprNumber,
+        refNcrNumber,
         status,
         requiredRole,
         problem,

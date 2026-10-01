@@ -73,11 +73,14 @@ export class NcrsController {
     @Param('id') id: string,
     @Body()
     data: {
+      code?: string;
+      date?: string;
       location?: any;
       problemType?: any;
       description?: string;
       disposition?: any;
       isRequiredCustomerApproval?: boolean;
+      images?: any;
       details?: any;
     },
   ): Promise<Ncr> {

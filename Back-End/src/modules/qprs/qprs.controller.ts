@@ -84,6 +84,10 @@ export class QprsController {
     @Param('id') id: string,
     @Body()
     data: {
+      qprNumber?: string;
+      refNcrNumber?: string;
+      pdfFileName?: string;
+      pdfFileBase64?: string;
       status?: any;
       requiredRole?: string;
       problem?: string;
@@ -93,6 +97,7 @@ export class QprsController {
       totalStdAllowance?: number;
       billableQty?: number;
       claimAmount?: number;
+      qprParts?: any[];
     },
   ): Promise<Qpr> {
     return this.qprsService.update(id, data);

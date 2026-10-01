@@ -19,14 +19,23 @@ import {
   AlertCircle,
   ShieldAlert,
   Printer,
-  Edit
+  Edit,
+  Upload,
+  Paperclip,
+  Trash2,
+  Save,
+  FileUp,
+  Check,
+  ExternalLink
 } from "lucide-react";
 
 import ClPrintPreview from "./ClPrintPreview";
 import QprPrintPreview from "./QprPrintPreview";
+import NcrPrintPreview from "./NcrPrintPreview";
 import { clService } from "@/services/clService";
 import { sscService } from "@/services/sscService";
-import { getPeriodFromDate } from "@/services/qprService";
+import { qprService, getPeriodFromDate } from "@/services/qprService";
+import { ncrService } from "@/services/ncrService";
 
 
 // Helper to map requiredRole -> human-readable stage label
@@ -153,6 +162,8 @@ interface ListQprDashboardProps {
   parentSetActiveTab?: (tab: string) => void;
   setConfirmationLetters?: React.Dispatch<React.SetStateAction<any[]>>;
   setPendingQprs?: React.Dispatch<React.SetStateAction<any[]>>;
+  setPendingNcrs?: React.Dispatch<React.SetStateAction<any[]>>;
+  username?: string;
 }
 
 export default function ListQprDashboard({
@@ -164,7 +175,9 @@ export default function ListQprDashboard({
   setSelectedQprForEdit = () => {},
   parentSetActiveTab = () => {},
   setConfirmationLetters,
-  setPendingQprs
+  setPendingQprs,
+  setPendingNcrs,
+  username = "admin"
 }: ListQprDashboardProps) {
   // Calculate claim count for each vendor dynamically based on QPRs and Confirmation Letters
   const vendorClaimCounts = React.useMemo(() => {
@@ -333,13 +346,205 @@ export default function ListQprDashboard({
   }, [pendingNcrs, pendingQprs, confirmationLetters, createdSscBillings]);
   // Filter states
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState("qpr"); // 'cl' or 'qpr'
+  const [activeTab, setActiveTab] = useState("qpr"); // 'cl', 'qpr', 'ncr', 'ssc billing', 'ssc payment'
   const [filterVendor, setFilterVendor] = useState("");
   const [filterDate, setFilterDate] = useState("");
   const [filterStatus, setFilterStatus] = useState(""); // '' | 'APPROVED' | 'WAITING_APPROVAL'
 
   // Details modal state
   const [selectedDoc, setSelectedDoc] = useState<any | null>(null);
+
+  // Edit modal state (Khusus Edit No. QPR / No. NCR & Upload Lampiran)
+  const [editModalDoc, setEditModalDoc] = useState<any | null>(null);
+  const [editForm, setEditForm] = useState<{
+    docNumber: string;
+    refDocNumber: string;
+    file: File | null;
+    fileName: string;
+    fileBase64: string;
+    existingAttachment: string | null;
+    isSaving: boolean;
+    errorMsg: string;
+  }>({
+    docNumber: "",
+    refDocNumber: "",
+    file: null,
+    fileName: "",
+    fileBase64: "",
+    existingAttachment: null,
+    isSaving: false,
+    errorMsg: ""
+  });
+
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(null), 4500);
+  };
+
+  const handleOpenEditModal = (doc: any) => {
+    setEditModalDoc(doc);
+    if (doc.type === "QPR") {
+      const qpr = doc.refObject || {};
+      setEditForm({
+        docNumber: doc.docNumber || qpr.qprNumber || "",
+        refDocNumber: qpr.refNcrNumber || "",
+        file: null,
+        fileName: qpr.pdfFileName || "",
+        fileBase64: qpr.pdfFileBase64 || "",
+        existingAttachment: qpr.pdfFileName || (qpr.pdfFileBase64 ? "Dokumen_Lampiran_QPR.pdf" : null),
+        isSaving: false,
+        errorMsg: ""
+      });
+    } else if (doc.type === "NCR") {
+      const ncr = doc.refObject || {};
+      const details = ncr.details || {};
+      const firstImg = Array.isArray(ncr.images) && ncr.images.length > 0 ? ncr.images[0] : null;
+      setEditForm({
+        docNumber: doc.docNumber || ncr.ncrNumber || ncr.code || "",
+        refDocNumber: details.refQprNumber || ncr.refQprNumber || "",
+        file: null,
+        fileName: firstImg ? (typeof firstImg === "string" ? firstImg.split("/").pop() || "Lampiran_NCR" : "Lampiran_NCR") : "",
+        fileBase64: typeof firstImg === "string" && firstImg.startsWith("data:") ? firstImg : "",
+        existingAttachment: firstImg ? (typeof firstImg === "string" ? firstImg.split("/").pop() || "Lampiran_NCR" : "Lampiran_NCR") : null,
+        isSaving: false,
+        errorMsg: ""
+      });
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 15 * 1024 * 1024) {
+      setEditForm(prev => ({ ...prev, errorMsg: "Ukuran file melebihi 15MB." }));
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64Str = reader.result as string;
+      setEditForm(prev => ({
+        ...prev,
+        file,
+        fileName: file.name,
+        fileBase64: base64Str,
+        errorMsg: ""
+      }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveEditDoc = async () => {
+    if (!editModalDoc) return;
+    const trimmedDocNumber = editForm.docNumber.trim();
+    if (!trimmedDocNumber) {
+      setEditForm(prev => ({ ...prev, errorMsg: "Nomor dokumen tidak boleh kosong." }));
+      return;
+    }
+
+    setEditForm(prev => ({ ...prev, isSaving: true, errorMsg: "" }));
+
+    try {
+      if (editModalDoc.type === "QPR") {
+        const qpr = editModalDoc.refObject || {};
+        const qprId = qpr.id || editModalDoc.id.replace("qpr-", "");
+        
+        const payload: any = {
+          qprNumber: trimmedDocNumber,
+          refNcrNumber: editForm.refDocNumber.trim() || undefined,
+        };
+
+        if (editForm.fileBase64) {
+          payload.pdfFileName = editForm.fileName;
+          payload.pdfFileBase64 = editForm.fileBase64;
+        } else if (!editForm.existingAttachment && !editForm.fileName) {
+          payload.pdfFileName = null;
+          payload.pdfFileBase64 = null;
+        }
+
+        await qprService.update(qprId, payload);
+
+        if (setPendingQprs) {
+          setPendingQprs(prev => prev.map(item => {
+            if (item.id === qprId || item.qprNumber === editModalDoc.docNumber) {
+              return {
+                ...item,
+                qprNumber: trimmedDocNumber,
+                refNcrNumber: editForm.refDocNumber.trim(),
+                pdfFileName: payload.pdfFileName !== undefined ? payload.pdfFileName : item.pdfFileName,
+                pdfFileBase64: payload.pdfFileBase64 !== undefined ? payload.pdfFileBase64 : item.pdfFileBase64,
+              };
+            }
+            return item;
+          }));
+        }
+
+        if (setConfirmationLetters) {
+          setConfirmationLetters(prev => prev.map(cl => {
+            if (cl.qprNumber === editModalDoc.docNumber) {
+              return { ...cl, qprNumber: trimmedDocNumber };
+            }
+            return cl;
+          }));
+        }
+
+        showToast(`Dokumen QPR ${trimmedDocNumber} dan lampiran berhasil diperbarui!`);
+      } else if (editModalDoc.type === "NCR") {
+        const ncr = editModalDoc.refObject || {};
+        const ncrId = ncr.id || editModalDoc.id.replace("ncr-", "");
+
+        let updatedImages = Array.isArray(ncr.images) ? [...ncr.images] : [];
+        if (editForm.fileBase64) {
+          updatedImages = [editForm.fileBase64];
+        } else if (!editForm.existingAttachment && !editForm.fileName) {
+          updatedImages = [];
+        }
+
+        const updatedDetails = {
+          ...(ncr.details || {}),
+          refQprNumber: editForm.refDocNumber.trim() || undefined,
+        };
+
+        const payload: any = {
+          code: trimmedDocNumber,
+          images: updatedImages,
+          details: updatedDetails,
+        };
+
+        await ncrService.update(ncrId, payload);
+
+        if (setPendingNcrs) {
+          setPendingNcrs(prev => prev.map(item => {
+            if (item.id === ncrId || item.ncrNumber === editModalDoc.docNumber || item.code === editModalDoc.docNumber) {
+              return {
+                ...item,
+                ncrNumber: trimmedDocNumber,
+                code: trimmedDocNumber,
+                images: updatedImages,
+                details: updatedDetails,
+                refQprNumber: editForm.refDocNumber.trim(),
+              };
+            }
+            return item;
+          }));
+        }
+
+        showToast(`Dokumen NCR ${trimmedDocNumber} dan lampiran berhasil diperbarui!`);
+      }
+
+      setEditModalDoc(null);
+    } catch (err: any) {
+      console.error("Failed to update document:", err);
+      setEditForm(prev => ({
+        ...prev,
+        isSaving: false,
+        errorMsg: err.message || "Gagal menyimpan perubahan. Silakan coba lagi."
+      }));
+    }
+  };
 
   React.useEffect(() => {
     if (selectedDoc && (selectedDoc.type === "SSC Billing" || selectedDoc.type === "SSC Payment")) {
@@ -577,8 +782,22 @@ export default function ListQprDashboard({
         </div>
       </div>
 
+      {/* Toast Notification */}
+      {toastMsg && (
+        <div className="fixed bottom-6 right-6 z-50 bg-emerald-700 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 border border-emerald-500 animate-in slide-in-from-bottom-5 duration-300">
+          <CheckCircle2 size={18} className="text-emerald-200 shrink-0" />
+          <span className="text-xs font-bold">{toastMsg}</span>
+          <button 
+            onClick={() => setToastMsg(null)}
+            className="p-1 hover:bg-emerald-800 rounded text-emerald-200 hover:text-white transition-colors cursor-pointer"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
       {/* Tab Selector */}
-      <div className="flex border-b border-slate-200">
+      <div className="flex border-b border-slate-200 flex-wrap">
         <button
           onClick={() => {
             setActiveTab("qpr");
@@ -595,6 +814,20 @@ export default function ListQprDashboard({
         </button>
         <button
           onClick={() => {
+            setActiveTab("ncr");
+            setSelectedDoc(null);
+          }}
+          className={`flex-1 sm:flex-initial px-6 py-3 font-bold text-xs border-b-2 transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            activeTab === "ncr"
+              ? "border-blue-600 text-blue-650 bg-white"
+              : "border-transparent text-slate-500 hover:text-slate-900 bg-slate-50/50"
+          }`}
+        >
+          <AlertCircle size={14} className="text-amber-500" />
+          ARSIP NCR
+        </button>
+        <button
+          onClick={() => {
             setActiveTab("cl");
             setSelectedDoc(null);
           }}
@@ -604,7 +837,7 @@ export default function ListQprDashboard({
               : "border-transparent text-slate-500 hover:text-slate-900 bg-slate-50/50"
           }`}
         >
-          <AlertCircle size={14} className="text-emerald-500" />
+          <FileCheck size={14} className="text-emerald-500" />
           ARSIP CONFIRMATION LETTER
         </button>
         <button
@@ -641,7 +874,15 @@ export default function ListQprDashboard({
       <div className="bg-white border border-slate-350 rounded-xl shadow-sm overflow-hidden">
         <div className="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
           <h4 className="text-xs font-bold text-slate-800 text-left uppercase tracking-wide">
-            {activeTab === "qpr" ? "Daftar Semua Klaim QPR" : activeTab === "cl" ? "Daftar Semua Confirmation Letter" : activeTab === "ssc billing" ? "Daftar I-Memo SSC Billing" : "Daftar I-Memo SSC Payment"}
+            {activeTab === "qpr" 
+              ? "Daftar Semua Klaim QPR" 
+              : activeTab === "ncr"
+              ? "Daftar Semua Laporan NCR (Non Conformity Report)"
+              : activeTab === "cl" 
+              ? "Daftar Semua Confirmation Letter" 
+              : activeTab === "ssc billing" 
+              ? "Daftar I-Memo SSC Billing" 
+              : "Daftar I-Memo SSC Payment"}
           </h4>
           <span className="px-2.5 py-1 bg-indigo-50 text-indigo-700 text-[10px] font-bold rounded shadow-sm">
             Ditemukan: {filteredData.length} Dokumen
@@ -876,7 +1117,7 @@ export default function ListQprDashboard({
                         </div>
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <div className="flex items-center justify-center gap-1.5">
+                        <div className="flex items-center justify-center gap-1.5 flex-wrap">
                           {/* Always show Detail button */}
                           <button
                             onClick={() => handleViewDetail(doc)}
@@ -886,6 +1127,18 @@ export default function ListQprDashboard({
                             <Eye size={12} />
                             Detail
                           </button>
+
+                          {/* Edit Khusus Button for QPR & NCR (Ubah No Dokumen & Upload Lampiran) */}
+                          {(doc.type === "QPR" || doc.type === "NCR") && (
+                            <button
+                              onClick={() => handleOpenEditModal(doc)}
+                              className="px-2.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-md transition-all cursor-pointer flex items-center gap-1 text-[10px] font-bold shadow-sm active:scale-95"
+                              title={doc.type === "QPR" ? "Edit No. QPR & Upload Lampiran" : "Edit No. NCR & Upload Lampiran"}
+                            >
+                              <Edit size={12} />
+                              Edit
+                            </button>
+                          )}
 
                           {/* Show REVISI action button when QPR is under revision */}
                           {doc.type === "QPR" && (doc.status === "UNDER_REVISION" || doc.status === "REVISE") && (
@@ -1424,6 +1677,232 @@ export default function ListQprDashboard({
         </div>
       )}
 
+      {/* NCR Print Preview Overlay */}
+      {selectedDoc && selectedDoc.type === "NCR" && (
+        <NcrPrintPreview
+          ncr={{
+            ...(selectedDoc.refObject || {}),
+            docNumber: selectedDoc.docNumber,
+            ncrNumber: selectedDoc.docNumber,
+            date: selectedDoc.date,
+            supplierName: selectedDoc.vendorName,
+            partNumber: selectedDoc.partNumber,
+            partName: selectedDoc.partName,
+            qty: selectedDoc.qty,
+            reject: selectedDoc.reject,
+            defectType: selectedDoc.defectType,
+            disposition: selectedDoc.disposition,
+            status: selectedDoc.status,
+            requiredRole: selectedDoc.requiredRole,
+            images: selectedDoc.refObject?.images || [],
+            details: selectedDoc.refObject?.details || {}
+          }}
+          onClose={() => setSelectedDoc(null)}
+        />
+      )}
+
+      {/* Edit Khusus Modal: Ubah No QPR/NCR & Upload Lampiran */}
+      {editModalDoc && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden border border-slate-200 text-left animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="p-5 bg-gradient-to-r from-slate-900 to-slate-800 text-white flex justify-between items-center border-b border-slate-700">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center shrink-0">
+                  <Edit size={18} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black uppercase tracking-wide">
+                    Edit Dokumen {editModalDoc.type}
+                  </h3>
+                  <p className="text-[11px] text-slate-300 font-semibold mt-0.5">
+                    Ubah nomor dokumen dan kelola file lampiran pendukung
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditModalDoc(null)}
+                className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-5 max-h-[75vh] overflow-y-auto">
+              {/* Document Summary Info */}
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-3 text-xs">
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Vendor / Subcont</span>
+                  <span className="font-extrabold text-slate-800">{editModalDoc.vendorName}</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Status Dokumen</span>
+                  <span className="inline-flex items-center gap-1 font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 text-[10.5px]">
+                    {editModalDoc.status || "WAITING_APPROVAL"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Form Input: Nomor Dokumen */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700">
+                  Nomor {editModalDoc.type} Resmi <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 pointer-events-none">
+                    <FileText size={15} />
+                  </span>
+                  <input
+                    type="text"
+                    value={editForm.docNumber}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, docNumber: e.target.value, errorMsg: "" }))}
+                    placeholder={editModalDoc.type === "QPR" ? "Contoh: 001/QPR/MTM/IX/2026" : "Contoh: 001/010926/31012100"}
+                    className="w-full pl-9 pr-3 py-2.5 text-xs font-mono font-bold text-slate-900 border border-slate-300 rounded-xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                  />
+                </div>
+                <p className="text-[10.5px] text-slate-400 font-semibold">
+                  Nomor ini akan digunakan sebagai rujukan resmi pada laporan dan tanda tangan dokumen.
+                </p>
+              </div>
+
+              {/* Form Input: Ref No NCR / QPR */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700">
+                  {editModalDoc.type === "QPR" ? "Ref. Nomor NCR Terkait" : "Ref. Nomor QPR Terkait"} (Opsional)
+                </label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 pointer-events-none">
+                    <AlertCircle size={15} />
+                  </span>
+                  <input
+                    type="text"
+                    value={editForm.refDocNumber}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, refDocNumber: e.target.value }))}
+                    placeholder={editModalDoc.type === "QPR" ? "Contoh: 001/010926/31012100" : "Contoh: 001/QPR/MTM/IX/2026"}
+                    className="w-full pl-9 pr-3 py-2.5 text-xs font-mono font-bold text-slate-800 border border-slate-300 rounded-xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                  />
+                </div>
+              </div>
+
+              {/* Lampiran / Dokumen Pendukung Section */}
+              <div className="space-y-2 pt-1 border-t border-slate-100">
+                <label className="block text-xs font-bold text-slate-700">
+                  Lampiran / Dokumen Pendukung (PDF / Foto Defect)
+                </label>
+
+                {/* Existing attachment indicator */}
+                {(editForm.existingAttachment || editForm.fileName) && (
+                  <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl flex items-center justify-between gap-2 text-xs">
+                    <div className="flex items-center gap-2 truncate pr-2">
+                      <Paperclip size={16} className="text-emerald-600 shrink-0" />
+                      <div className="truncate">
+                        <span className="font-mono font-bold text-emerald-900 block truncate">
+                          {editForm.fileName || editForm.existingAttachment}
+                        </span>
+                        <span className="text-[10px] text-emerald-600 font-semibold block">
+                          {editForm.file ? "File baru dipilih (belum disimpan)" : "Lampiran tersimpan"}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {editForm.fileBase64 && (
+                        <a
+                          href={editForm.fileBase64}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-2 py-1 bg-white hover:bg-emerald-100 text-emerald-700 border border-emerald-300 rounded-lg text-[10px] font-extrabold flex items-center gap-1 transition-colors cursor-pointer"
+                          title="Lihat / Buka Dokumen"
+                        >
+                          <ExternalLink size={11} />
+                          Lihat
+                        </a>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditForm(prev => ({
+                            ...prev,
+                            file: null,
+                            fileName: "",
+                            fileBase64: "",
+                            existingAttachment: null
+                          }));
+                        }}
+                        className="px-2 py-1 bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 rounded-lg text-[10px] font-extrabold flex items-center gap-1 transition-colors cursor-pointer"
+                        title="Hapus Lampiran"
+                      >
+                        <Trash2 size={11} />
+                        Hapus
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Upload file dropzone */}
+                <div className="border-2 border-dashed border-slate-300 hover:border-blue-500 bg-slate-50/60 hover:bg-blue-50/30 rounded-xl p-5 text-center transition-all relative cursor-pointer group">
+                  <input
+                    type="file"
+                    accept=".pdf,image/*,.png,.jpg,.jpeg,.doc,.docx,.xlsx"
+                    onChange={handleFileChange}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                  />
+                  <div className="flex flex-col items-center justify-center gap-1.5 pointer-events-none">
+                    <div className="w-10 h-10 rounded-full bg-blue-100/80 group-hover:bg-blue-200 text-blue-600 flex items-center justify-center transition-colors">
+                      <Upload size={18} />
+                    </div>
+                    <p className="text-xs font-bold text-slate-700">
+                      {editForm.fileName ? "Klik untuk mengganti file lampiran" : "Klik atau seret file lampiran ke sini"}
+                    </p>
+                    <p className="text-[10px] text-slate-400 font-semibold">
+                      Mendukung format PDF, Gambar (PNG/JPG), Dokumen (Maks. 15MB)
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Error Message if any */}
+              {editForm.errorMsg && (
+                <div className="p-3 bg-rose-50 border border-rose-250 rounded-xl text-xs font-bold text-rose-700 flex items-center gap-2 animate-shake">
+                  <AlertCircle size={15} className="shrink-0 text-rose-600" />
+                  <span>{editForm.errorMsg}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setEditModalDoc(null)}
+                disabled={editForm.isSaving}
+                className="px-4 py-2.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveEditDoc}
+                disabled={editForm.isSaving}
+                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 active:scale-95"
+              >
+                {editForm.isSaving ? (
+                  <>
+                    <RefreshCw size={14} className="animate-spin" />
+                    Menyimpan...
+                  </>
+                ) : (
+                  <>
+                    <Save size={14} />
+                    Simpan Perubahan
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

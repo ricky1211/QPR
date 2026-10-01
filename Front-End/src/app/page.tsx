@@ -1293,6 +1293,8 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
                 parentSetActiveTab={handleTabChange}
                 setConfirmationLetters={setConfirmationLetters}
                 setPendingQprs={setPendingQprs}
+                setPendingNcrs={setPendingNcrs}
+                username={username}
               />
             )}
 
