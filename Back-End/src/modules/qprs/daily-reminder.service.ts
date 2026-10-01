@@ -99,7 +99,7 @@ export class DailyReminderService implements OnApplicationBootstrap, OnModuleDes
     const envEmails = (
       process.env.NOTIFICATION_EMAIL_TO ||
       process.env.SMTP_USER ||
-      'hendrik.firdaus@mtm.astra.co.id, septian.nugraha@mtm.astra.co.id, putu.saputra@mtm.astra.co.id, irvan.hn@mtm.astra.co.id, cicik.andria@mtm.astra.co.id, anindita.irnila@mtm.astra.co.id, bagas.pratama@mtm.astra.co.id'
+      'hendrik.firdaus@mtm.astra.co.id, septian.nugraha@mtm.astra.co.id, putu.saputra@mtm.astra.co.id, irvan.hn@mtm.astra.co.id, cicik.andria@mtm.astra.co.id, muhammad.achwan@mtm.astra.co.id, anindita.irnila@mtm.astra.co.id, bagas.pratama@mtm.astra.co.id'
     )
       .split(',')
       .map((e) => e.trim())

@@ -21,6 +21,7 @@ const VALID_USERS: Record<string, { password: string; role: string; displayName:
   '1335': { password: '1335', role: 'div_head', displayName: 'Putu Ratna Saputra' },
   // Purchasing (Full Access: Buat CL, Approval CL, Approve QPR, etc.)
   '3790': { password: '3790', role: 'purchasing', displayName: 'Cicik Andria' },
+  '3295': { password: '3295', role: 'purchasing', displayName: 'Muhammad Achwan Chariri' },
   // Purchasing Approval QPR Only (Hanya Approval Purchasing di Approval QPR)
   '1175': { password: '1175', role: 'purchasing_qpr', displayName: 'Irvan H. N.' },
   // Dept Accounting
