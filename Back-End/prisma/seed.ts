@@ -82,7 +82,7 @@ async function main() {
     {
       name: 'Muhammad Achwan Chariri',
       npk: 3295,
-      email: 'muhammad.achwan@mtm.astra.co.id',
+      email: 'muhammad.chariri@mtm.astra.co.id',
       role: 'Purchasing Departemen',
       roles: ['Purchasing Departemen'],
       status: 'Aktif',

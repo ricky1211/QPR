@@ -1440,9 +1440,9 @@ export class QprsService {
           if (lk.includes('dept') || lk.includes('department head')) directRoleEmails.push('septian.nugraha@mtm.astra.co.id');
           if (lk.includes('div') || lk.includes('putu')) directRoleEmails.push('putu.saputra@mtm.astra.co.id');
           if (lk.includes('purchasing_approve') || lk.includes('irvan')) directRoleEmails.push('irvan.hn@mtm.astra.co.id');
-          if (lk.includes('purchasing_cl') || lk.includes('cicik') || lk.includes('achwan') || (lk.includes('purchasing') && !lk.includes('approve'))) {
+          if (lk.includes('purchasing_cl') || lk.includes('cicik') || lk.includes('chariri') || lk.includes('achwan') || (lk.includes('purchasing') && !lk.includes('approve'))) {
             directRoleEmails.push('cicik.andria@mtm.astra.co.id');
-            directRoleEmails.push('muhammad.achwan@mtm.astra.co.id');
+            directRoleEmails.push('muhammad.chariri@mtm.astra.co.id');
           }
           if (lk.includes('accounting') || lk.includes('anindita')) directRoleEmails.push('anindita.irnila@mtm.astra.co.id');
           if (lk.includes('finance') || lk.includes('ssc') || lk.includes('bagas')) directRoleEmails.push('bagas.pratama@mtm.astra.co.id');
