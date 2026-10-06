@@ -13,8 +13,9 @@ export class DailyReminderService implements OnApplicationBootstrap, OnModuleDes
   ) {}
 
   onApplicationBootstrap() {
-    this.scheduleNextDailyRun();
-    this.logger.log('[DailyReminderService] Scheduled daily automated reminder job for pending QPRs & CLs (08:00 WIB / 24h interval).');
+    // Pengingat harian otomatis dinonaktifkan sesuai permintaan:
+    // Email pengingat/notifikasi hanya dikirimkan secara langsung saat dokumen masuk/diterima oleh user/role terkait pada setiap tahapan workflow.
+    this.logger.log('[DailyReminderService] Automated daily recurring timer disabled. Email notifications are now sent on document receipt.');
   }
 
   onModuleDestroy() {
@@ -22,34 +23,6 @@ export class DailyReminderService implements OnApplicationBootstrap, OnModuleDes
       clearTimeout(this.timerHandle);
       this.timerHandle = null;
     }
-  }
-
-  /**
-   * Schedules the next run at 08:00 AM WIB (UTC+7) or 24h interval
-   */
-  private scheduleNextDailyRun() {
-    const now = new Date();
-    // Target 08:00 AM WIB (01:00 UTC)
-    const target = new Date(now);
-    target.setUTCHours(1, 0, 0, 0); // 01:00 UTC = 08:00 WIB
-
-    if (target.getTime() <= now.getTime()) {
-      // If today's 08:00 WIB has passed, schedule for tomorrow
-      target.setDate(target.getDate() + 1);
-    }
-
-    const delayMs = target.getTime() - now.getTime();
-    this.logger.log(`[DailyReminderService] Next automated daily reminder scheduled in ${Math.round(delayMs / 60000)} minutes (${target.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })} WIB).`);
-
-    this.timerHandle = setTimeout(async () => {
-      try {
-        await this.sendDailyReminderDigest();
-      } catch (err: any) {
-        this.logger.error('[DailyReminderService] Error executing daily reminder:', err.message);
-      } finally {
-        this.scheduleNextDailyRun();
-      }
-    }, delayMs);
   }
 
   /**

@@ -192,16 +192,16 @@ export class QprsService {
         const claimStr = `Rp ${(claimAmount || 0).toLocaleString('id-ID')}`;
 
         await this.sendSystemNotificationEmail({
-          subject: `[QPR Notifikasi] Draf QPR Baru No. ${finalQprNumber} - Menunggu Approval Section Head QA (${supName})`,
-          title: `Draf QPR Baru Dibuat - Menunggu Approval Section Head`,
+          subject: `[QPR Notifikasi] Dokumen QPR No. ${finalQprNumber} Diterima - Menunggu Approval Section Head QA (${supName})`,
+          title: `Dokumen QPR Diterima - Menunggu Review & Approval Section Head QA`,
           docNumber: finalQprNumber,
           docType: 'QPR',
           supplierName: supName,
           targetRoleName: 'Section Head QA',
           targetRoleKeywords: ['Section Head', 'qa_section_head', 'QA Section Head'],
-          stepBadge: 'Langkah 1/5: Review & Persetujuan Section Head QA',
+          stepBadge: 'Dokumen Masuk (Langkah 1/5): Review & Persetujuan Section Head QA',
           statusText: 'WAITING_APPROVAL',
-          nextStepText: 'Section Head QA mohon segera melakukan review dan persetujuan dokumen QPR',
+          nextStepText: 'Dokumen QPR telah dibuat dan diterima oleh Section Head QA. Mohon segera login ke Portal QPR untuk verifikasi dan persetujuan.',
           details: [
             { label: 'Ref. No. NCR', value: refNcrNumber || '-' },
             { label: 'Problem / Defect', value: problem || '-' },
@@ -396,45 +396,45 @@ export class QprsService {
           let stepBadge = '';
 
           if (checksumPurchasing) {
-            // Step 5: Purchasing Approved (QPR Full Approved) -> Notify Purchasing (Cicik Andria) to create CL & Trigger SSC
-            stageTitle = 'QPR Telah Full Approved (Persetujuan Penuh)';
-            emailSubject = `[QPR Full Approved] QPR No. ${qpr.qprNumber} Full Approved - Segera Buatkan Confirmation Letter (CL)`;
+            // Step 5: Purchasing Approved (QPR Full Approved) -> Notify Purchasing (Cicik Andria / M. Chariri) to create CL & Trigger SSC
+            stageTitle = 'Dokumen QPR Full Approved - Diterima Purchasing untuk Pembuatan CL';
+            emailSubject = `[QPR Notifikasi] QPR No. ${qpr.qprNumber} Full Approved - Dokumen Diterima Purchasing untuk Pembuatan CL`;
             statusText = 'APPROVED';
-            nextStep = 'Dokumen QPR telah Full Approved. Purchasing (Cicik Andria) mohon segera membuatkan Confirmation Letter (CL) untuk diproses ke Accounting';
+            nextStep = 'Dokumen QPR telah Full Approved dan diterima oleh Purchasing (Cicik Andria / M. Chariri). Mohon segera membuatkan Confirmation Letter (CL) untuk diproses ke Accounting.';
             notes = remarksPurchasing;
             targetRoleName = 'Purchasing (Create CL & Send Email to Vendor)';
             targetRoleKeywords = ['purchasing_cl', 'cicik.andria', 'purchasing'];
-            stepBadge = 'Langkah 5/5: QPR Full Approved - Pembuatan Confirmation Letter (CL)';
+            stepBadge = 'Dokumen Masuk (Langkah 5/5): Pembuatan Surat Confirmation Letter (CL)';
           } else if (checksumDivHead) {
             // Step 4: Div Head Approved -> Notify Purchasing (Irvan HN) to approve QPR
-            stageTitle = 'QPR Disetujui Division Head - Menunggu Approval Purchasing';
-            emailSubject = `[QPR Approval] QPR No. ${qpr.qprNumber} Disetujui Division Head - Menunggu Approval Purchasing (${supName})`;
+            stageTitle = 'Dokumen QPR Diterima - Menunggu Approval Purchasing';
+            emailSubject = `[QPR Notifikasi] Dokumen QPR No. ${qpr.qprNumber} Diterima - Menunggu Approval Purchasing (${supName})`;
             statusText = 'WAITING_APPROVAL';
-            nextStep = 'Purchasing (Irvan HN) mohon segera melakukan approval komersial klaim QPR';
+            nextStep = 'Dokumen QPR telah disetujui Division Head dan diterima oleh Purchasing (Irvan HN) untuk persetujuan komersial.';
             notes = remarksDivHead;
             targetRoleName = 'Purchasing (Approval QPR)';
             targetRoleKeywords = ['purchasing_approve', 'irvan.hn', 'purchasing'];
-            stepBadge = 'Langkah 4/5: Review & Persetujuan Purchasing';
+            stepBadge = 'Dokumen Masuk (Langkah 4/5): Review & Persetujuan Purchasing';
           } else if (checksumDeptHead) {
             // Step 3: Dept Head QA Approved -> Notify Div Head (Putu Saputra) to approve
-            stageTitle = 'QPR Disetujui Dept Head QA - Menunggu Approval Division Head';
-            emailSubject = `[QPR Approval] QPR No. ${qpr.qprNumber} Disetujui Dept Head - Menunggu Approval Division Head (${supName})`;
+            stageTitle = 'Dokumen QPR Diterima - Menunggu Approval Division Head QA';
+            emailSubject = `[QPR Notifikasi] Dokumen QPR No. ${qpr.qprNumber} Diterima - Menunggu Approval Division Head QA (${supName})`;
             statusText = 'WAITING_APPROVAL';
-            nextStep = 'Division Head (Putu Saputra) mohon segera melakukan review dan persetujuan dokumen QPR';
+            nextStep = 'Dokumen QPR telah disetujui Dept Head dan diterima oleh Division Head QA (Putu Saputra) untuk persetujuan eksekutif.';
             notes = remarksDeptHead;
             targetRoleName = 'Division Head QA';
             targetRoleKeywords = ['div_head', 'putu.saputra', 'Division Head'];
-            stepBadge = 'Langkah 3/5: Review & Persetujuan Division Head';
+            stepBadge = 'Dokumen Masuk (Langkah 3/5): Review & Persetujuan Division Head QA';
           } else if (checksumSectionHead) {
             // Step 2: Section Head QA Approved -> Notify Dept Head QA (Septian Nugraha) to approve
-            stageTitle = 'QPR Disetujui Section Head QA - Menunggu Approval Dept Head QA';
-            emailSubject = `[QPR Approval] QPR No. ${qpr.qprNumber} Disetujui Section Head - Menunggu Approval Dept Head QA (${supName})`;
+            stageTitle = 'Dokumen QPR Diterima - Menunggu Approval Dept Head QA';
+            emailSubject = `[QPR Notifikasi] Dokumen QPR No. ${qpr.qprNumber} Diterima - Menunggu Approval Dept Head QA (${supName})`;
             statusText = 'WAITING_APPROVAL';
-            nextStep = 'Dept Head QA (Septian Nugraha) mohon segera melakukan review dan persetujuan dokumen QPR';
+            nextStep = 'Dokumen QPR telah disetujui Section Head dan diterima oleh Dept Head QA (Septian Nugraha) untuk review dan persetujuan.';
             notes = remarksSectionHead;
             targetRoleName = 'Dept Head QA';
             targetRoleKeywords = ['dept_head', 'septian.nugraha', 'Dept Head'];
-            stepBadge = 'Langkah 2/5: Review & Persetujuan Dept Head QA';
+            stepBadge = 'Dokumen Masuk (Langkah 2/5): Review & Persetujuan Dept Head QA';
           }
 
           if (stageTitle) {
@@ -636,16 +636,16 @@ export class QprsService {
         const amountStr = `Rp ${(Number(parsedAmount) || 0).toLocaleString('id-ID')}`;
 
         await this.sendSystemNotificationEmail({
-          subject: `[CL Notifikasi] Confirmation Letter No. ${clNumber} Telah Dibuat - Menunggu Approval Dept Accounting (${supName})`,
-          title: `Confirmation Letter Baru Berhasil Dibuat - Menunggu Approval Accounting`,
+          subject: `[CL Notifikasi] Dokumen Confirmation Letter No. ${clNumber} Diterima - Menunggu Approval Dept Accounting (${supName})`,
+          title: `Dokumen Confirmation Letter Diterima - Menunggu Approval Accounting`,
           docNumber: clNumber,
           docType: 'Confirmation Letter',
           supplierName: supName,
           targetRoleName: 'Dept Accounting (Approval CL)',
           targetRoleKeywords: ['dept_accounting', 'anindita.irnila', 'Accounting', 'accounting'],
-          stepBadge: 'Langkah 6: Review & Persetujuan Dept Accounting',
+          stepBadge: 'Dokumen Masuk (Langkah 6): Review & Persetujuan Dept Accounting',
           statusText: 'PENDING',
-          nextStepText: 'Dept Accounting (Anindita Irnila) mohon segera melakukan verifikasi data klaim dan approval Confirmation Letter',
+          nextStepText: 'Dokumen Confirmation Letter telah dibuat dan diterima oleh Dept Accounting (Anindita Irnila) untuk verifikasi klaim dan persetujuan.',
           details: [
             { label: 'Ref. No. QPR', value: data.qprNumber || qprExists.qprNumber || '-' },
             { label: 'Tanggal Dokumen', value: dateSent ? String(dateSent).split('T')[0] : new Date().toISOString().split('T')[0] },
@@ -700,16 +700,16 @@ export class QprsService {
           if (status === 'APPROVED' || status === 'FULLY_APPROVED') {
             if (!vendorApproved && !closedPaid) {
               await this.sendSystemNotificationEmail({
-                subject: `[CL Approved] Confirmation Letter No. ${fullCl.clNumber} Disetujui Dept Accounting - Segera Kirim ke Vendor`,
+                subject: `[CL Notifikasi] Confirmation Letter No. ${fullCl.clNumber} Disetujui Accounting - Diterima Purchasing untuk Dikirim ke Vendor`,
                 title: `Confirmation Letter Disetujui Dept Accounting - Siap Dikirim ke Vendor`,
                 docNumber: fullCl.clNumber,
                 docType: 'Confirmation Letter',
                 supplierName: supName,
                 targetRoleName: 'Purchasing (Send Email to Vendor & Trigger SSC)',
                 targetRoleKeywords: ['purchasing_cl', 'cicik.andria', 'Purchasing', 'purchasing'],
-                stepBadge: 'Langkah 7: Persetujuan Accounting Selesai - Segera Kirim ke Vendor',
+                stepBadge: 'Dokumen Masuk (Langkah 7): Persetujuan Accounting Selesai - Segera Kirim ke Vendor',
                 statusText: 'FULLY_APPROVED',
-                nextStepText: 'Confirmation Letter telah disetujui Dept Accounting. Purchasing (Cicik Andria) mohon segera mengirimkan Surat Confirmation Letter ke pihak Vendor',
+                nextStepText: 'Confirmation Letter telah disetujui Dept Accounting dan diterima kembali oleh Purchasing (Cicik Andria) untuk segera dikirimkan ke pihak Vendor.',
                 details: [
                   { label: 'Ref. QPR', value: fullCl.qpr?.qprNumber || '-' },
                   { label: 'Tanggal Terbit', value: fullCl.dateSent ? String(fullCl.dateSent).split('T')[0] : '-' },
@@ -721,16 +721,16 @@ export class QprsService {
           // Step 8: Purchasing sent CL to Vendor -> Notify Vendor & Stakeholders
           if (purchasingSentCl) {
             await this.sendSystemNotificationEmail({
-              subject: `[CL Terkirim] Confirmation Letter No. ${fullCl.clNumber} Telah Dikirim ke Vendor (${supName})`,
-              title: `Confirmation Letter Telah Dikirim ke Vendor`,
+              subject: `[CL Notifikasi] Dokumen Confirmation Letter No. ${fullCl.clNumber} Diterima oleh Vendor (${supName})`,
+              title: `Dokumen Confirmation Letter Resmi Telah Diterima oleh Vendor`,
               docNumber: fullCl.clNumber,
               docType: 'Confirmation Letter',
               supplierName: supName,
               targetRoleName: 'Vendor & Stakeholders',
               targetRoleKeywords: ['purchasing_cl', 'creator_qpr', 'QA'],
-              stepBadge: 'Langkah 8: Confirmation Letter Telah Dikirim ke Vendor',
+              stepBadge: 'Dokumen Masuk (Langkah 8): Dokumen CL Telah Diterima oleh Vendor',
               statusText: 'WAITING_VENDOR_APPROVAL',
-              nextStepText: 'Dokumen resmi telah dikirimkan ke pihak Vendor. Menunggu konfirmasi penerimaan / persetujuan Vendor',
+              nextStepText: 'Dokumen resmi Confirmation Letter telah dikirimkan dan diterima oleh pihak Vendor. Menunggu konfirmasi penerimaan dan persetujuan dari Vendor.',
               details: [
                 { label: 'Ref. QPR', value: fullCl.qpr?.qprNumber || '-' },
                 { label: 'Tanggal Pengiriman', value: fullCl.purchasingSentDate || new Date().toISOString().split('T')[0] },
@@ -741,16 +741,16 @@ export class QprsService {
           if (vendorApproved) {
             // Step 9: Vendor Approved -> Notify Finance (Bagas Pratama) to create SSC Billing & Payment
             await this.sendSystemNotificationEmail({
-              subject: `[CL Vendor Approved] Confirmation Letter No. ${fullCl.clNumber} Disetujui oleh Vendor (${supName}) - Proses SSC Billing & Payment`,
-              title: `Confirmation Letter Telah Disetujui Vendor - Proses SSC Billing & Payment`,
+              subject: `[CL Notifikasi] Confirmation Letter No. ${fullCl.clNumber} Disetujui Vendor - Dokumen Diterima Finance untuk SSC Billing & Payment`,
+              title: `Confirmation Letter Disetujui Vendor - Dokumen Diterima Finance untuk Proses SSC`,
               docNumber: fullCl.clNumber,
               docType: 'Confirmation Letter',
               supplierName: supName,
               targetRoleName: 'Finance (Creator SSC Billing & SSC Payments)',
               targetRoleKeywords: ['finance_ssc', 'bagas.pratama', 'Finance Accounting', 'finance'],
-              stepBadge: 'Persetujuan Vendor Lengkap - Proses SSC',
+              stepBadge: 'Dokumen Masuk (Proses SSC): Persetujuan Vendor Lengkap',
               statusText: 'APPROVED_BY_VENDOR',
-              nextStepText: 'Dokumen siap diproses oleh Finance (Bagas Pratama) ke modul SSC Billing & Payments',
+              nextStepText: 'Dokumen telah disetujui Vendor dan diterima oleh Finance (Bagas Pratama) untuk pembuatan debit note / SSC Billing dan eksekusi pembayaran.',
               details: [
                 { label: 'Ref. QPR', value: fullCl.qpr?.qprNumber || '-' },
                 { label: 'Tanggal Persetujuan Vendor', value: fullCl.vendorApprovedDate || new Date().toISOString().split('T')[0] },
@@ -760,7 +760,7 @@ export class QprsService {
 
           if (closedPaid) {
             await this.sendSystemNotificationEmail({
-              subject: `[CL Lunas] Confirmation Letter No. ${fullCl.clNumber} Telah Lunas (Closed Paid)`,
+              subject: `[CL Selesai] Confirmation Letter No. ${fullCl.clNumber} Telah Lunas & Selesai (Closed Paid)`,
               title: `Confirmation Letter Lunas (Closed Paid)`,
               docNumber: fullCl.clNumber,
               docType: 'Confirmation Letter',
@@ -768,7 +768,7 @@ export class QprsService {
               targetRoleName: 'Semua Departemen (Closed)',
               stepBadge: 'Siklus Klaim Selesai & Lunas',
               statusText: 'CLOSED_PAID',
-              nextStepText: 'Siklus dokumen klaim telah selesai sepenuhnya',
+              nextStepText: 'Seluruh tahapan klaim mutu dan penyelesaian tagihan Confirmation Letter telah selesai dan tercatat lunas.',
               details: [
                 { label: 'Ref. QPR', value: fullCl.qpr?.qprNumber || '-' },
                 { label: 'Status Akhir', value: 'Lunas & Selesai' },
