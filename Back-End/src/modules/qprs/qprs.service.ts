@@ -184,7 +184,7 @@ export class QprsService {
       },
     });
 
-    // Send email notification asynchronously
+    // Send task notification email to Section Head QA (Step 1)
     (async () => {
       try {
         const vendor = vendorId ? await this.prisma.vendor.findUnique({ where: { id: vendorId } }) : null;
@@ -192,20 +192,21 @@ export class QprsService {
         const claimStr = `Rp ${(claimAmount || 0).toLocaleString('id-ID')}`;
 
         await this.sendSystemNotificationEmail({
-          subject: `[QPR Notifikasi] Dokumen QPR No. ${finalQprNumber} Diterima - Menunggu Approval Section Head QA (${supName})`,
-          title: `Dokumen QPR Diterima - Menunggu Review & Approval Section Head QA`,
+          subject: `[TUGAS APPROVAL QPR] No. ${finalQprNumber} - Menunggu Review & Approval Section Head QA (${supName})`,
+          title: `Tugas Approval Dokumen QPR - Menunggu Review & Approval Section Head QA`,
           docNumber: finalQprNumber,
           docType: 'QPR',
           supplierName: supName,
           targetRoleName: 'Section Head QA',
-          targetRoleKeywords: ['Section Head', 'qa_section_head', 'QA Section Head'],
-          stepBadge: 'Dokumen Masuk (Langkah 1/5): Review & Persetujuan Section Head QA',
+          targetRoleKeywords: ['section_head', 'septian.nugraha', 'Section Head'],
+          stepBadge: 'Tugas Dokumen (Langkah 1/5): Approval Section Head QA',
           statusText: 'WAITING_APPROVAL',
-          nextStepText: 'Dokumen QPR telah dibuat dan diterima oleh Section Head QA. Mohon segera login ke Portal QPR untuk verifikasi dan persetujuan.',
+          nextStepText: 'Dokumen QPR telah dibuat / diajukan dan membutuhkan verifikasi & persetujuan Anda sebagai Section Head QA. Mohon segera login ke Portal QPR untuk memproses.',
           details: [
             { label: 'Ref. No. NCR', value: refNcrNumber || '-' },
             { label: 'Problem / Defect', value: problem || '-' },
             { label: 'Total NG', value: `${totalQtyNg || 0} pcs` },
+            { label: 'Estimasi Nilai Klaim', value: claimStr },
           ],
         });
       } catch (err: any) {
@@ -234,12 +235,17 @@ export class QprsService {
       qprParts,
     } = data;
 
+    // Fetch current state before update to detect status transitions
+    const prevQpr = await this.prisma.qpr.findUnique({
+      where: { id },
+      include: { vendor: true },
+    });
+
     // Update QprParts if provided in the update request
     if (qprParts && Array.isArray(qprParts)) {
       for (const p of qprParts) {
         if (!p.partId) continue;
         
-        // Find existing qprPart by qprId and partId
         let validPartId = p.partId;
         const partExists = await this.prisma.part.findUnique({ where: { id: validPartId } });
         if (!partExists) {
@@ -249,7 +255,6 @@ export class QprsService {
           if (partByNum) {
             validPartId = partByNum.id;
           } else {
-            // If part doesn't exist in Part catalog, skip creating foreign key reference to prevent 500 error
             continue;
           }
         }
@@ -305,36 +310,71 @@ export class QprsService {
       },
     });
 
-    // Notify if status changes to UNDER_REVISION or REJECTED
-    if (status === 'UNDER_REVISION' || status === 'REJECTED') {
-      (async () => {
-        try {
-          const qpr = await this.prisma.qpr.findUnique({ where: { id }, include: { vendor: true } });
-          const supName = qpr?.vendor?.vendorName || 'Vendor';
-          if (status === 'UNDER_REVISION') {
-            await this.sendSystemNotificationEmail({
-              subject: `[QPR Revisi] QPR No. ${qpr?.qprNumber} Dikembalikan untuk Revisi`,
-              title: `QPR Dikembalikan untuk Revisi`,
-              docNumber: qpr?.qprNumber || id,
-              docType: 'QPR',
-              supplierName: supName,
-              statusText: 'UNDER_REVISION',
-              nextStepText: 'Operator / Foreman melakukan perbaikan data draf QPR',
-            });
-          } else if (status === 'REJECTED') {
-            await this.sendSystemNotificationEmail({
-              subject: `[QPR Ditolak] QPR No. ${qpr?.qprNumber} Telah Ditolak`,
-              title: `QPR Ditolak (Rejected)`,
-              docNumber: qpr?.qprNumber || id,
-              docType: 'QPR',
-              supplierName: supName,
-              statusText: 'REJECTED',
-              nextStepText: 'Dokumen ditutup (Closed Rejected)',
-            });
-          }
-        } catch (e) {}
-      })();
-    }
+    // Notify upon task transition
+    (async () => {
+      try {
+        const supName = prevQpr?.vendor?.vendorName || updated.vendorId || 'Vendor';
+        const docNum = updated.qprNumber || id;
+
+        // 1. If QPR is re-submitted for approval (from UNDER_REVISION / DRAFT -> WAITING_APPROVAL)
+        if (
+          status === 'WAITING_APPROVAL' &&
+          (requiredRole === 'Section Head' || !requiredRole) &&
+          prevQpr?.status === 'UNDER_REVISION'
+        ) {
+          await this.sendSystemNotificationEmail({
+            subject: `[TUGAS APPROVAL QPR] Revisi No. ${docNum} Diajukan Kembali - Menunggu Section Head QA (${supName})`,
+            title: `Tugas Approval QPR - Revisi Dokumen Telah Diajukan Kembali`,
+            docNumber: docNum,
+            docType: 'QPR',
+            supplierName: supName,
+            targetRoleName: 'Section Head QA',
+            targetRoleKeywords: ['section_head', 'septian.nugraha', 'Section Head'],
+            stepBadge: 'Tugas Dokumen: Review & Approval Revisi Section Head QA',
+            statusText: 'WAITING_APPROVAL',
+            nextStepText: 'Revisi draf QPR telah diperbaiki dan diajukan kembali oleh Operator/Foreman. Section Head QA bertugas untuk melakukan review dan persetujuan.',
+            details: [
+              { label: 'Problem / Defect', value: updated.problem || '-' },
+              { label: 'Total NG', value: `${updated.totalQtyNg || 0} pcs` },
+            ],
+          });
+        }
+
+        // 2. If QPR is returned for revision (UNDER_REVISION)
+        if (status === 'UNDER_REVISION' && prevQpr?.status !== 'UNDER_REVISION') {
+          await this.sendSystemNotificationEmail({
+            subject: `[TUGAS REVISI QPR] No. ${docNum} Dikembalikan untuk Perbaikan Data (${supName})`,
+            title: `Tugas Revisi Dokumen QPR - Dikembalikan oleh Reviewer`,
+            docNumber: docNum,
+            docType: 'QPR',
+            supplierName: supName,
+            targetRoleName: 'Operator / Foreman QA (Pembuat QPR)',
+            targetRoleKeywords: ['creator', 'operator', 'foreman', 'hendrik.firdaus'],
+            stepBadge: 'Tugas Dokumen: Perbaikan & Pengajuan Ulang QPR',
+            statusText: 'UNDER_REVISION',
+            nextStepText: 'Dokumen QPR dikembalikan oleh reviewer untuk perbaikan data. Mohon buka Portal QPR untuk merevisi dan mengajukan kembali.',
+          });
+        }
+
+        // 3. If QPR is rejected
+        if ((status === 'REJECTED' || status === 'CLOSED') && String(prevQpr?.status) !== 'REJECTED' && String(prevQpr?.status) !== 'CLOSED') {
+          await this.sendSystemNotificationEmail({
+            subject: `[QPR Ditolak] QPR No. ${docNum} Telah Ditolak (${supName})`,
+            title: `Dokumen QPR Ditolak (Rejected)`,
+            docNumber: docNum,
+            docType: 'QPR',
+            supplierName: supName,
+            targetRoleName: 'Operator QA & Tim Terkait',
+            targetRoleKeywords: ['creator', 'operator', 'hendrik.firdaus', 'section_head', 'septian.nugraha'],
+            stepBadge: 'Status Dokumen: Ditolak (Closed Rejected)',
+            statusText: 'REJECTED',
+            nextStepText: 'Dokumen klaim QPR telah ditolak dan ditutup.',
+          });
+        }
+      } catch (e: any) {
+        console.warn('[QprsService] Error in update notification:', e.message);
+      }
+    })();
 
     return updated;
   }
@@ -355,6 +395,7 @@ export class QprsService {
 
     const convertBuffer = (str?: string) => (str ? Buffer.from(str, 'utf-8') : undefined);
 
+    // 1. Update approval progress record
     const result = await this.prisma.qprApprovalProgress.update({
       where: { qprId },
       data: {
@@ -376,7 +417,7 @@ export class QprsService {
       },
     });
 
-    // Send email notification on approval stage progression
+    // 2. Synchronize QPR status & requiredRole in QPR table and dispatch task email
     (async () => {
       try {
         const qpr = await this.prisma.qpr.findUnique({
@@ -394,49 +435,71 @@ export class QprsService {
           let targetRoleName = '';
           let targetRoleKeywords: string[] = [];
           let stepBadge = '';
+          let nextRequiredRole = qpr.requiredRole;
+          let nextQprStatus = qpr.status;
 
           if (checksumPurchasing) {
-            // Step 5: Purchasing Approved (QPR Full Approved) -> Notify Purchasing (Cicik Andria / M. Chariri) to create CL & Trigger SSC
-            stageTitle = 'Dokumen QPR Full Approved - Diterima Purchasing untuk Pembuatan CL';
-            emailSubject = `[QPR Notifikasi] QPR No. ${qpr.qprNumber} Full Approved - Dokumen Diterima Purchasing untuk Pembuatan CL`;
+            // Step 5: Purchasing Approved (QPR Full Approved) -> Task for Purchasing (Cicik Andria / M. Chariri) to create CL
+            nextRequiredRole = 'Purchasing';
+            nextQprStatus = 'APPROVED';
+            stageTitle = 'Tugas Pembuatan Confirmation Letter (CL) - QPR Full Approved';
+            emailSubject = `[TUGAS BUAT CL] QPR No. ${qpr.qprNumber} Full Approved - Segera Buat Confirmation Letter (${supName})`;
             statusText = 'APPROVED';
-            nextStep = 'Dokumen QPR telah Full Approved dan diterima oleh Purchasing (Cicik Andria / M. Chariri). Mohon segera membuatkan Confirmation Letter (CL) untuk diproses ke Accounting.';
+            nextStep = 'Dokumen QPR telah Full Approved oleh QA & Purchasing. Anda memiliki tugas untuk segera membuat Confirmation Letter (CL) resmi di sistem untuk diproses ke Accounting.';
             notes = remarksPurchasing;
-            targetRoleName = 'Purchasing (Create CL & Send Email to Vendor)';
-            targetRoleKeywords = ['purchasing_cl', 'cicik.andria', 'purchasing'];
-            stepBadge = 'Dokumen Masuk (Langkah 5/5): Pembuatan Surat Confirmation Letter (CL)';
+            targetRoleName = 'Purchasing (Pembuat CL & Kirim ke Vendor)';
+            targetRoleKeywords = ['purchasing_cl', 'cicik.andria', 'muhammad.chariri', 'cicik', 'chariri'];
+            stepBadge = 'Tugas Dokumen: Pembuatan Surat Confirmation Letter (CL)';
           } else if (checksumDivHead) {
-            // Step 4: Div Head Approved -> Notify Purchasing (Irvan HN) to approve QPR
-            stageTitle = 'Dokumen QPR Diterima - Menunggu Approval Purchasing';
-            emailSubject = `[QPR Notifikasi] Dokumen QPR No. ${qpr.qprNumber} Diterima - Menunggu Approval Purchasing (${supName})`;
+            // Step 4: Div Head Approved -> Task for Purchasing Approver (Irvan HN) to approve QPR
+            nextRequiredRole = 'Purchasing';
+            nextQprStatus = 'WAITING_APPROVAL';
+            stageTitle = 'Tugas Approval QPR - Menunggu Persetujuan Purchasing';
+            emailSubject = `[TUGAS APPROVAL QPR] No. ${qpr.qprNumber} - Menunggu Review & Approval Purchasing (${supName})`;
             statusText = 'WAITING_APPROVAL';
-            nextStep = 'Dokumen QPR telah disetujui Division Head dan diterima oleh Purchasing (Irvan HN) untuk persetujuan komersial.';
+            nextStep = 'Dokumen QPR telah disetujui Division Head QA dan diteruskan kepada Anda sebagai Purchasing Approver (Irvan HN) untuk persetujuan komersial klaim.';
             notes = remarksDivHead;
-            targetRoleName = 'Purchasing (Approval QPR)';
-            targetRoleKeywords = ['purchasing_approve', 'irvan.hn', 'purchasing'];
-            stepBadge = 'Dokumen Masuk (Langkah 4/5): Review & Persetujuan Purchasing';
+            targetRoleName = 'Purchasing (Approver QPR)';
+            targetRoleKeywords = ['purchasing_approve', 'irvan.hn', 'irvan'];
+            stepBadge = 'Tugas Dokumen (Langkah 4/5): Review & Persetujuan Purchasing';
           } else if (checksumDeptHead) {
-            // Step 3: Dept Head QA Approved -> Notify Div Head (Putu Saputra) to approve
-            stageTitle = 'Dokumen QPR Diterima - Menunggu Approval Division Head QA';
-            emailSubject = `[QPR Notifikasi] Dokumen QPR No. ${qpr.qprNumber} Diterima - Menunggu Approval Division Head QA (${supName})`;
+            // Step 3: Dept Head QA Approved -> Task for Division Head QA (Putu Saputra) to approve QPR
+            nextRequiredRole = 'Div Head';
+            nextQprStatus = 'WAITING_APPROVAL';
+            stageTitle = 'Tugas Approval QPR - Menunggu Persetujuan Division Head QA';
+            emailSubject = `[TUGAS APPROVAL QPR] No. ${qpr.qprNumber} - Menunggu Review & Approval Division Head QA (${supName})`;
             statusText = 'WAITING_APPROVAL';
-            nextStep = 'Dokumen QPR telah disetujui Dept Head dan diterima oleh Division Head QA (Putu Saputra) untuk persetujuan eksekutif.';
+            nextStep = 'Dokumen QPR telah disetujui Dept Head QA dan diteruskan kepada Anda sebagai Division Head QA (Putu Saputra) untuk persetujuan eksekutif.';
             notes = remarksDeptHead;
             targetRoleName = 'Division Head QA';
-            targetRoleKeywords = ['div_head', 'putu.saputra', 'Division Head'];
-            stepBadge = 'Dokumen Masuk (Langkah 3/5): Review & Persetujuan Division Head QA';
+            targetRoleKeywords = ['div_head', 'putu.saputra', 'putu'];
+            stepBadge = 'Tugas Dokumen (Langkah 3/5): Review & Persetujuan Division Head QA';
           } else if (checksumSectionHead) {
-            // Step 2: Section Head QA Approved -> Notify Dept Head QA (Septian Nugraha) to approve
-            stageTitle = 'Dokumen QPR Diterima - Menunggu Approval Dept Head QA';
-            emailSubject = `[QPR Notifikasi] Dokumen QPR No. ${qpr.qprNumber} Diterima - Menunggu Approval Dept Head QA (${supName})`;
+            // Step 2: Section Head QA Approved -> Task for Dept Head QA (Septian Nugraha) to approve QPR
+            nextRequiredRole = 'Dept Head';
+            nextQprStatus = 'WAITING_APPROVAL';
+            stageTitle = 'Tugas Approval QPR - Menunggu Persetujuan Dept Head QA';
+            emailSubject = `[TUGAS APPROVAL QPR] No. ${qpr.qprNumber} - Menunggu Review & Approval Dept Head QA (${supName})`;
             statusText = 'WAITING_APPROVAL';
-            nextStep = 'Dokumen QPR telah disetujui Section Head dan diterima oleh Dept Head QA (Septian Nugraha) untuk review dan persetujuan.';
+            nextStep = 'Dokumen QPR telah disetujui Section Head QA dan diteruskan kepada Anda sebagai Dept Head QA (Septian Nugraha) untuk review dan persetujuan.';
             notes = remarksSectionHead;
             targetRoleName = 'Dept Head QA';
-            targetRoleKeywords = ['dept_head', 'septian.nugraha', 'Dept Head'];
-            stepBadge = 'Dokumen Masuk (Langkah 2/5): Review & Persetujuan Dept Head QA';
+            targetRoleKeywords = ['dept_head', 'septian.nugraha', 'septian'];
+            stepBadge = 'Tugas Dokumen (Langkah 2/5): Review & Persetujuan Dept Head QA';
           }
 
+          // Ensure QPR record is synced
+          if (nextRequiredRole !== qpr.requiredRole || nextQprStatus !== qpr.status) {
+            await this.prisma.qpr.update({
+              where: { id: qprId },
+              data: {
+                requiredRole: nextRequiredRole,
+                status: nextQprStatus,
+              },
+            });
+          }
+
+          // Send task email
           if (stageTitle) {
             await this.sendSystemNotificationEmail({
               subject: emailSubject,
@@ -459,7 +522,7 @@ export class QprsService {
           }
         }
       } catch (err: any) {
-        console.warn(`[QprsService] Notice: Error sending QPR approval email:`, err.message);
+        console.warn(`[QprsService] Notice: Error in updateApprovalProgress task email:`, err.message);
       }
     })();
 
@@ -628,7 +691,7 @@ export class QprsService {
       },
     });
 
-    // Send email notification for CL creation (Step 6: Purchasing create CL -> Dept Accounting)
+    // Send task email notification for CL creation (Step 6: Purchasing create CL -> Dept Accounting)
     (async () => {
       try {
         const clVendor = vendorId ? await this.prisma.vendor.findUnique({ where: { id: vendorId } }) : null;
@@ -636,18 +699,19 @@ export class QprsService {
         const amountStr = `Rp ${(Number(parsedAmount) || 0).toLocaleString('id-ID')}`;
 
         await this.sendSystemNotificationEmail({
-          subject: `[CL Notifikasi] Dokumen Confirmation Letter No. ${clNumber} Diterima - Menunggu Approval Dept Accounting (${supName})`,
-          title: `Dokumen Confirmation Letter Diterima - Menunggu Approval Accounting`,
+          subject: `[TUGAS APPROVAL CL] Surat Confirmation Letter No. ${clNumber} - Menunggu Approval Dept Accounting (${supName})`,
+          title: `Tugas Approval Confirmation Letter - Menunggu Review & Approval Dept Accounting`,
           docNumber: clNumber,
           docType: 'Confirmation Letter',
           supplierName: supName,
-          targetRoleName: 'Dept Accounting (Approval CL)',
-          targetRoleKeywords: ['dept_accounting', 'anindita.irnila', 'Accounting', 'accounting'],
-          stepBadge: 'Dokumen Masuk (Langkah 6): Review & Persetujuan Dept Accounting',
+          targetRoleName: 'Dept Head Accounting (Approval CL)',
+          targetRoleKeywords: ['accounting', 'dept_accounting', 'anindita.irnila', 'anindita'],
+          stepBadge: 'Tugas Dokumen (Langkah 6): Review & Approval Dept Accounting',
           statusText: 'PENDING',
-          nextStepText: 'Dokumen Confirmation Letter telah dibuat dan diterima oleh Dept Accounting (Anindita Irnila) untuk verifikasi klaim dan persetujuan.',
+          nextStepText: 'Dokumen Confirmation Letter telah dibuat oleh Purchasing dan diterima oleh Dept Head Accounting (Anindita Irnila) untuk verifikasi nilai klaim dan persetujuan.',
           details: [
             { label: 'Ref. No. QPR', value: data.qprNumber || qprExists.qprNumber || '-' },
+            { label: 'Nilai Klaim', value: amountStr },
             { label: 'Tanggal Dokumen', value: dateSent ? String(dateSent).split('T')[0] : new Date().toISOString().split('T')[0] },
           ],
         });
@@ -696,20 +760,20 @@ export class QprsService {
         if (fullCl) {
           const supName = fullCl.vendor?.vendorName || `Vendor ${fullCl.vendorId || ''}`;
 
-          // Step 7: Dept Accounting approve CL -> Notify Purchasing (Cicik Andria) to send CL to vendor
+          // Step 7: Dept Accounting approve CL -> Task for Purchasing (Cicik Andria / M. Chariri) to send CL to vendor
           if (status === 'APPROVED' || status === 'FULLY_APPROVED') {
             if (!vendorApproved && !closedPaid) {
               await this.sendSystemNotificationEmail({
-                subject: `[CL Notifikasi] Confirmation Letter No. ${fullCl.clNumber} Disetujui Accounting - Diterima Purchasing untuk Dikirim ke Vendor`,
-                title: `Confirmation Letter Disetujui Dept Accounting - Siap Dikirim ke Vendor`,
+                subject: `[TUGAS KIRIM CL] Confirmation Letter No. ${fullCl.clNumber} Disetujui Accounting - Segera Kirim ke Vendor (${supName})`,
+                title: `Tugas Pengiriman Confirmation Letter ke Vendor - Disetujui Dept Accounting`,
                 docNumber: fullCl.clNumber,
                 docType: 'Confirmation Letter',
                 supplierName: supName,
-                targetRoleName: 'Purchasing (Send Email to Vendor & Trigger SSC)',
-                targetRoleKeywords: ['purchasing_cl', 'cicik.andria', 'Purchasing', 'purchasing'],
-                stepBadge: 'Dokumen Masuk (Langkah 7): Persetujuan Accounting Selesai - Segera Kirim ke Vendor',
+                targetRoleName: 'Purchasing (Kirim Surat CL ke Vendor)',
+                targetRoleKeywords: ['purchasing_cl', 'cicik.andria', 'muhammad.chariri', 'cicik', 'chariri'],
+                stepBadge: 'Tugas Dokumen (Langkah 7): Kirim Surat CL ke Vendor',
                 statusText: 'FULLY_APPROVED',
-                nextStepText: 'Confirmation Letter telah disetujui Dept Accounting dan diterima kembali oleh Purchasing (Cicik Andria) untuk segera dikirimkan ke pihak Vendor.',
+                nextStepText: 'Confirmation Letter telah disetujui Dept Head Accounting. Purchasing bertugas segera mengirimkan surat CL resmi beserta lampiran ke pihak Vendor melalui sistem.',
                 details: [
                   { label: 'Ref. QPR', value: fullCl.qpr?.qprNumber || '-' },
                   { label: 'Tanggal Terbit', value: fullCl.dateSent ? String(fullCl.dateSent).split('T')[0] : '-' },
@@ -721,16 +785,16 @@ export class QprsService {
           // Step 8: Purchasing sent CL to Vendor -> Notify Vendor & Stakeholders
           if (purchasingSentCl) {
             await this.sendSystemNotificationEmail({
-              subject: `[CL Notifikasi] Dokumen Confirmation Letter No. ${fullCl.clNumber} Diterima oleh Vendor (${supName})`,
+              subject: `[CL Notifikasi] Dokumen Confirmation Letter No. ${fullCl.clNumber} Resmi Diterima oleh Vendor (${supName})`,
               title: `Dokumen Confirmation Letter Resmi Telah Diterima oleh Vendor`,
               docNumber: fullCl.clNumber,
               docType: 'Confirmation Letter',
               supplierName: supName,
               targetRoleName: 'Vendor & Stakeholders',
-              targetRoleKeywords: ['purchasing_cl', 'creator_qpr', 'QA'],
-              stepBadge: 'Dokumen Masuk (Langkah 8): Dokumen CL Telah Diterima oleh Vendor',
+              targetRoleKeywords: ['purchasing_cl', 'creator_qpr'],
+              stepBadge: 'Dokumen Masuk (Langkah 8): Menunggu Konfirmasi Vendor',
               statusText: 'WAITING_VENDOR_APPROVAL',
-              nextStepText: 'Dokumen resmi Confirmation Letter telah dikirimkan dan diterima oleh pihak Vendor. Menunggu konfirmasi penerimaan dan persetujuan dari Vendor.',
+              nextStepText: 'Dokumen resmi Confirmation Letter telah dikirimkan ke pihak Vendor. Menunggu konfirmasi penerimaan dan persetujuan dari Vendor.',
               details: [
                 { label: 'Ref. QPR', value: fullCl.qpr?.qprNumber || '-' },
                 { label: 'Tanggal Pengiriman', value: fullCl.purchasingSentDate || new Date().toISOString().split('T')[0] },
@@ -739,18 +803,18 @@ export class QprsService {
           }
 
           if (vendorApproved) {
-            // Step 9: Vendor Approved -> Notify Finance (Bagas Pratama) to create SSC Billing & Payment
+            // Step 9: Vendor Approved -> Task for Finance (Bagas Pratama) to create SSC Billing & Payment
             await this.sendSystemNotificationEmail({
-              subject: `[CL Notifikasi] Confirmation Letter No. ${fullCl.clNumber} Disetujui Vendor - Dokumen Diterima Finance untuk SSC Billing & Payment`,
-              title: `Confirmation Letter Disetujui Vendor - Dokumen Diterima Finance untuk Proses SSC`,
+              subject: `[TUGAS PROSES SSC] Confirmation Letter No. ${fullCl.clNumber} Disetujui Vendor - Tugas Pembuatan SSC Billing & Payment (${supName})`,
+              title: `Tugas Pembuatan SSC Billing & Eksekusi Pembayaran - CL Disetujui Vendor`,
               docNumber: fullCl.clNumber,
               docType: 'Confirmation Letter',
               supplierName: supName,
               targetRoleName: 'Finance (Creator SSC Billing & SSC Payments)',
-              targetRoleKeywords: ['finance_ssc', 'bagas.pratama', 'Finance Accounting', 'finance'],
-              stepBadge: 'Dokumen Masuk (Proses SSC): Persetujuan Vendor Lengkap',
+              targetRoleKeywords: ['finance_ssc', 'bagas.pratama', 'finance', 'bagas'],
+              stepBadge: 'Tugas Dokumen: Pembuatan SSC Billing & Payment',
               statusText: 'APPROVED_BY_VENDOR',
-              nextStepText: 'Dokumen telah disetujui Vendor dan diterima oleh Finance (Bagas Pratama) untuk pembuatan debit note / SSC Billing dan eksekusi pembayaran.',
+              nextStepText: 'Dokumen Confirmation Letter telah disetujui oleh pihak Vendor. Finance (Bagas Pratama) bertugas membuat debit note / SSC Billing dan mengeksekusi pencatatan pembayaran klaim.',
               details: [
                 { label: 'Ref. QPR', value: fullCl.qpr?.qprNumber || '-' },
                 { label: 'Tanggal Persetujuan Vendor', value: fullCl.vendorApprovedDate || new Date().toISOString().split('T')[0] },
@@ -1320,50 +1384,72 @@ export class QprsService {
     const reqRole = qpr.requiredRole || 'Section Head';
     let targetRoleName = reqRole;
     let targetRoleKeywords: string[] = [reqRole];
+    let nextStepText = 'Mohon segera login ke Portal QPR MTM untuk melakukan review dan persetujuan dokumen ini.';
+    let stepBadge = `REMINDER: Menunggu Tindakan ${reqRole}`;
+    let taskActionName = 'Review & Approval';
 
-    if (reqRole.includes('Section')) {
+    if (reqRole === 'Section Head' || reqRole.includes('Section')) {
       targetRoleName = 'Section Head QA';
-      targetRoleKeywords = ['section', 'sect.head', 'septian'];
-    } else if (reqRole.includes('Dept')) {
+      targetRoleKeywords = ['section_head', 'septian.nugraha', 'Section Head'];
+      stepBadge = 'REMINDER TUGAS (Langkah 1/5): Approval Section Head QA';
+      nextStepText = 'Dokumen QPR ini menunggu tindakan review dan persetujuan Anda sebagai Section Head QA. Mohon segera diproses di Portal QPR.';
+    } else if (reqRole === 'Dept Head' || reqRole.includes('Dept')) {
       targetRoleName = 'Dept Head QA';
-      targetRoleKeywords = ['dept', 'department head', 'septian'];
-    } else if (reqRole.includes('Div')) {
+      targetRoleKeywords = ['dept_head', 'septian.nugraha', 'Dept Head'];
+      stepBadge = 'REMINDER TUGAS (Langkah 2/5): Approval Dept Head QA';
+      nextStepText = 'Dokumen QPR ini menunggu tindakan review dan persetujuan Anda sebagai Dept Head QA. Mohon segera diproses di Portal QPR.';
+    } else if (reqRole === 'Div Head' || reqRole.includes('Div')) {
       targetRoleName = 'Division Head QA';
-      targetRoleKeywords = ['div', 'putu'];
-    } else if (reqRole.includes('Purchasing')) {
-      targetRoleName = 'Purchasing (Approval & Pembuatan CL)';
-      targetRoleKeywords = ['purchasing', 'irvan', 'cicik'];
-    } else if (reqRole.includes('Accounting') || reqRole.includes('Finance')) {
-      targetRoleName = 'Dept Head Accounting & Finance';
-      targetRoleKeywords = ['accounting', 'anindita', 'finance', 'bagas'];
+      targetRoleKeywords = ['div_head', 'putu.saputra', 'Division Head'];
+      stepBadge = 'REMINDER TUGAS (Langkah 3/5): Approval Division Head QA';
+      nextStepText = 'Dokumen QPR ini menunggu tindakan persetujuan eksekutif Anda sebagai Division Head QA. Mohon segera diproses di Portal QPR.';
+    } else if (reqRole === 'Purchasing') {
+      if (qpr.status === 'APPROVED') {
+        targetRoleName = 'Purchasing (Pembuat CL)';
+        targetRoleKeywords = ['purchasing_cl', 'cicik.andria', 'muhammad.chariri', 'cicik', 'chariri'];
+        stepBadge = 'REMINDER TUGAS: Pembuatan Surat Confirmation Letter (CL)';
+        taskActionName = 'Pembuatan Confirmation Letter (CL)';
+        nextStepText = 'Dokumen QPR telah Full Approved dan menunggu Anda dari tim Purchasing (Cicik Andria / M. Chariri) untuk segera membuatkan Confirmation Letter (CL).';
+      } else {
+        targetRoleName = 'Purchasing (Approver QPR)';
+        targetRoleKeywords = ['purchasing_approve', 'irvan.hn', 'irvan'];
+        stepBadge = 'REMINDER TUGAS (Langkah 4/5): Review & Approval Purchasing';
+        nextStepText = 'Dokumen QPR ini menunggu persetujuan komersial dari Anda sebagai Purchasing Approver (Irvan HN). Mohon segera diproses di Portal QPR.';
+      }
+    } else if (qpr.status === 'UNDER_REVISION' || reqRole === 'Operator') {
+      targetRoleName = 'Operator / Foreman QA (Pembuat QPR)';
+      targetRoleKeywords = ['creator', 'operator', 'foreman', 'hendrik.firdaus'];
+      stepBadge = 'REMINDER TUGAS: Revisi Draf Dokumen QPR';
+      taskActionName = 'Revisi Data QPR';
+      nextStepText = 'Dokumen QPR ini telah dikembalikan oleh reviewer untuk revisi data. Mohon segera buka Portal QPR untuk merevisi dan mengajukan kembali.';
     }
 
-    const emailSubject = `[REMINDER] Menunggu Review & Approval QPR No. ${qpr.qprNumber} (${supName})`;
+    const emailSubject = `[REMINDER TUGAS] ${taskActionName} Dokumen QPR No. ${qpr.qprNumber} (${supName})`;
 
     await this.sendSystemNotificationEmail({
       subject: emailSubject,
-      title: 'Reminder Review & Approval Dokumen QPR',
+      title: `Pengingat Tugas: ${taskActionName} Dokumen QPR`,
       docNumber: qpr.qprNumber,
       docType: 'QPR',
       supplierName: supName,
       targetRoleName,
       targetRoleKeywords,
-      stepBadge: `REMINDER: Menunggu Approval ${targetRoleName}`,
-      statusText: `PENDING APPROVAL (${targetRoleName})`,
-      nextStepText: `Mohon segera login ke Portal QPR MTM untuk melakukan verifikasi dan approval dokumen ini agar proses klaim dapat berlanjut ke tahap berikutnya.`,
+      stepBadge,
+      statusText: qpr.status,
+      nextStepText,
       details: [
         { label: 'No. Dokumen QPR', value: qpr.qprNumber },
         { label: 'Vendor / Subcontractor', value: supName },
         { label: 'Problem Defect', value: qpr.problem || '-' },
-        { label: 'Menunggu Tindakan Dari', value: targetRoleName },
+        { label: 'Menunggu Tugas Dari', value: targetRoleName },
         { label: 'Status Saat Ini', value: qpr.status },
       ],
-      notes: customNotes || `Pesan pengingat ini dikirim secara manual melalui sistem Portal QPR untuk mempercepat proses review dan persetujuan klaim kualitas.`,
+      notes: customNotes || `Pesan pengingat tugas ini dikirim melalui sistem Portal QPR agar antrean dokumen dapat segera terselesaikan tepat waktu.`,
     });
 
     return {
       success: true,
-      message: `Email Reminder QPR ${qpr.qprNumber} berhasil dikirim ke ${targetRoleName}.`,
+      message: `Email Reminder Tugas QPR ${qpr.qprNumber} berhasil dikirim ke ${targetRoleName}.`,
     };
   }
 
@@ -1386,31 +1472,59 @@ export class QprsService {
     }
 
     const supName = cl.vendor?.vendorName || 'Vendor';
-    const emailSubject = `[REMINDER] Konfirmasi & Approval Surat Confirmation Letter No. ${cl.clNumber} (${supName})`;
+    let targetRoleName = 'Dept Head Accounting';
+    let targetRoleKeywords: string[] = ['accounting', 'dept_accounting', 'anindita.irnila', 'anindita'];
+    let taskActionName = 'Approval Confirmation Letter';
+    let stepBadge = 'REMINDER TUGAS (Langkah 6): Approval Dept Head Accounting';
+    let nextStepText = 'Dokumen Confirmation Letter ini menunggu verifikasi klaim dan persetujuan dari Dept Head Accounting (Anindita Irnila).';
+
+    if (cl.status === 'APPROVED' || String(cl.status) === 'FULLY_APPROVED') {
+      if (!cl.purchasingSentCl) {
+        targetRoleName = 'Purchasing (Pengirim CL)';
+        targetRoleKeywords = ['purchasing_cl', 'cicik.andria', 'muhammad.chariri', 'cicik', 'chariri'];
+        taskActionName = 'Pengiriman Dokumen CL ke Vendor';
+        stepBadge = 'REMINDER TUGAS (Langkah 7): Kirim Surat CL ke Vendor';
+        nextStepText = 'Dokumen Confirmation Letter telah disetujui Accounting. Purchasing bertugas segera mengirimkan surat CL resmi beserta lampiran ke Vendor melalui sistem.';
+      } else if (!cl.vendorApproved) {
+        targetRoleName = 'Vendor & Purchasing PIC';
+        targetRoleKeywords = ['purchasing_cl', 'cicik.andria'];
+        taskActionName = 'Konfirmasi & Approval Vendor';
+        stepBadge = 'REMINDER TUGAS (Langkah 8): Menunggu Konfirmasi Vendor';
+        nextStepText = 'Dokumen Confirmation Letter telah dikirimkan ke pihak Vendor. Mohon segera follow-up dan pastikan konfirmasi persetujuan dari Vendor diunggah.';
+      } else if (!cl.closedPaid) {
+        targetRoleName = 'Finance (SSC Billing & Payments)';
+        targetRoleKeywords = ['finance_ssc', 'bagas.pratama', 'finance', 'bagas'];
+        taskActionName = 'Pembuatan SSC Billing & Payment';
+        stepBadge = 'REMINDER TUGAS: Pembuatan SSC Billing & Eksekusi Pembayaran';
+        nextStepText = 'Dokumen Confirmation Letter telah disetujui Vendor. Finance (Bagas Pratama) bertugas membuat SSC Billing (Debit Note) dan mengeksekusi penyelesaian pembayaran.';
+      }
+    }
+
+    const emailSubject = `[REMINDER TUGAS] ${taskActionName} Surat CL No. ${cl.clNumber} (${supName})`;
 
     await this.sendSystemNotificationEmail({
       subject: emailSubject,
-      title: 'Reminder Konfirmasi Confirmation Letter (CL)',
+      title: `Pengingat Tugas: ${taskActionName}`,
       docNumber: cl.clNumber,
       docType: 'Confirmation Letter',
       supplierName: supName,
-      targetRoleName: 'Vendor / Purchasing / Accounting',
-      targetRoleKeywords: ['purchasing', 'accounting', 'vendor'],
-      stepBadge: 'REMINDER: Confirmation Letter (CL)',
-      statusText: cl.vendorApproved ? 'APPROVED BY VENDOR' : (cl.purchasingSentCl ? 'MENUNGGU APPROVAL VENDOR' : 'DRAFT / MENUNGGU APPROVAL ACCOUNTING'),
-      nextStepText: `Mohon segera tindak lanjuti dokumen Confirmation Letter ini. Jika sudah disetujui, harap segera upload bukti approval di Portal QPR.`,
+      targetRoleName,
+      targetRoleKeywords,
+      stepBadge,
+      statusText: cl.vendorApproved ? 'APPROVED BY VENDOR' : (cl.purchasingSentCl ? 'MENUNGGU APPROVAL VENDOR' : (cl.status === 'APPROVED' ? 'APPROVED BY ACCOUNTING' : 'PENDING APPROVAL ACCOUNTING')),
+      nextStepText,
       details: [
         { label: 'No. Confirmation Letter', value: cl.clNumber },
         { label: 'No. QPR Referensi', value: cl.qpr?.qprNumber || '-' },
         { label: 'Nama Vendor', value: supName },
-        { label: 'Status CL', value: cl.status },
+        { label: 'Menunggu Tugas Dari', value: targetRoleName },
       ],
-      notes: customNotes || `Pesan pengingat ini dikirim untuk mempercepat konfirmasi dan penyelesaian tagihan klaim biaya mutu.`,
+      notes: customNotes || `Pesan pengingat tugas ini dikirim melalui sistem Portal QPR untuk mempercepat penyelesaian tagihan klaim biaya mutu.`,
     });
 
     return {
       success: true,
-      message: `Email Reminder CL ${cl.clNumber} berhasil dikirim ke seluruh daftar notifikasi.`,
+      message: `Email Reminder Tugas CL ${cl.clNumber} berhasil dikirim ke ${targetRoleName}.`,
     };
   }
 
@@ -1439,17 +1553,31 @@ export class QprsService {
       if (payload.targetRoleKeywords && payload.targetRoleKeywords.length > 0) {
         for (const kw of payload.targetRoleKeywords) {
           const lk = kw.toLowerCase();
-          if (lk.includes('creator') || lk.includes('foreman') || lk.includes('hendrik')) directRoleEmails.push('hendrik.firdaus@mtm.astra.co.id');
-          if (lk.includes('section') || lk.includes('sect.head') || lk.includes('septian')) directRoleEmails.push('septian.nugraha@mtm.astra.co.id');
-          if (lk.includes('dept') || lk.includes('department head')) directRoleEmails.push('septian.nugraha@mtm.astra.co.id');
-          if (lk.includes('div') || lk.includes('putu')) directRoleEmails.push('putu.saputra@mtm.astra.co.id');
-          if (lk.includes('purchasing_approve') || lk.includes('irvan')) directRoleEmails.push('irvan.hn@mtm.astra.co.id');
-          if (lk.includes('purchasing_cl') || lk.includes('cicik') || lk.includes('chariri') || lk.includes('achwan') || (lk.includes('purchasing') && !lk.includes('approve'))) {
+          if (lk.includes('creator') || lk.includes('foreman') || lk.includes('operator') || lk.includes('hendrik')) {
+            directRoleEmails.push('hendrik.firdaus@mtm.astra.co.id');
+          }
+          if (lk.includes('section') || lk.includes('sect.head') || lk.includes('septian')) {
+            directRoleEmails.push('septian.nugraha@mtm.astra.co.id');
+          }
+          if (lk.includes('dept_head') || lk.includes('department head')) {
+            directRoleEmails.push('septian.nugraha@mtm.astra.co.id');
+          }
+          if (lk.includes('div') || lk.includes('putu')) {
+            directRoleEmails.push('putu.saputra@mtm.astra.co.id');
+          }
+          if (lk.includes('purchasing_approve') || lk.includes('irvan')) {
+            directRoleEmails.push('irvan.hn@mtm.astra.co.id');
+          }
+          if (lk.includes('purchasing_cl') || lk.includes('cicik') || lk.includes('chariri') || (lk.includes('purchasing') && !lk.includes('approve') && !lk.includes('irvan'))) {
             directRoleEmails.push('cicik.andria@mtm.astra.co.id');
             directRoleEmails.push('muhammad.chariri@mtm.astra.co.id');
           }
-          if (lk.includes('accounting') || lk.includes('anindita')) directRoleEmails.push('anindita.irnila@mtm.astra.co.id');
-          if (lk.includes('finance') || lk.includes('ssc') || lk.includes('bagas')) directRoleEmails.push('bagas.pratama@mtm.astra.co.id');
+          if (lk.includes('accounting') || lk.includes('anindita')) {
+            directRoleEmails.push('anindita.irnila@mtm.astra.co.id');
+          }
+          if (lk.includes('finance') || lk.includes('ssc') || lk.includes('bagas')) {
+            directRoleEmails.push('bagas.pratama@mtm.astra.co.id');
+          }
         }
       }
 

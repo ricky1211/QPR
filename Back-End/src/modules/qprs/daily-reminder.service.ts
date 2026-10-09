@@ -13,9 +13,9 @@ export class DailyReminderService implements OnApplicationBootstrap, OnModuleDes
   ) {}
 
   onApplicationBootstrap() {
-    // Pengingat harian otomatis dinonaktifkan sesuai permintaan:
-    // Email pengingat/notifikasi hanya dikirimkan secara langsung saat dokumen masuk/diterima oleh user/role terkait pada setiap tahapan workflow.
-    this.logger.log('[DailyReminderService] Automated daily recurring timer disabled. Email notifications are now sent on document receipt.');
+    // Pengingat harian otomatis dinonaktifkan secara permanen:
+    // Email notifikasi HANYA dikirimkan secara langsung saat dokumen masuk/sampai ke user/role terkait pada setiap tahapan workflow.
+    this.logger.log('[DailyReminderService] Automated daily recurring timer disabled. Email notifications are strictly event-driven upon document receipt.');
   }
 
   onModuleDestroy() {
@@ -26,7 +26,8 @@ export class DailyReminderService implements OnApplicationBootstrap, OnModuleDes
   }
 
   /**
-   * Gathers all pending QPRs and Confirmation Letters and sends an executive reminder digest
+   * Daily Reminder Digest is deactivated.
+   * Notifications are strictly dispatched upon document arrival to designated roles.
    */
   async sendDailyReminderDigest(customTargetEmail?: string): Promise<{
     success: boolean;
@@ -35,9 +36,19 @@ export class DailyReminderService implements OnApplicationBootstrap, OnModuleDes
     recipients: string[];
     message: string;
   }> {
-    this.logger.log('[DailyReminderService] Running daily reminder scan for pending documents...');
+    this.logger.log('[DailyReminderService] Daily broadcast reminder is disabled. Notifications are only triggered when documents arrive at user stages.');
 
-    // 1. Fetch pending QPRs
+    if (!customTargetEmail) {
+      return {
+        success: true,
+        totalPendingQprs: 0,
+        totalPendingCls: 0,
+        recipients: [],
+        message: 'Pengingat harian broadcast dinonaktifkan. Email notifikasi hanya dikirimkan secara otomatis saat dokumen sampai ke user terkait di alur workflow.',
+      };
+    }
+
+    // 1. Fetch pending QPRs for explicit single target test
     const pendingQprs: any[] = await this.prisma.qpr.findMany({
       where: {
         status: { in: ['WAITING_APPROVAL', 'WAITING_VENDOR'] },
@@ -68,24 +79,7 @@ export class DailyReminderService implements OnApplicationBootstrap, OnModuleDes
       orderBy: { createdAt: 'desc' },
     });
 
-    // 3. Resolve target recipients (Official designated PICs)
-    const envEmails = (
-      process.env.NOTIFICATION_EMAIL_TO ||
-      process.env.SMTP_USER ||
-      'hendrik.firdaus@mtm.astra.co.id, septian.nugraha@mtm.astra.co.id, putu.saputra@mtm.astra.co.id, irvan.hn@mtm.astra.co.id, cicik.andria@mtm.astra.co.id, muhammad.chariri@mtm.astra.co.id, anindita.irnila@mtm.astra.co.id, bagas.pratama@mtm.astra.co.id'
-    )
-      .split(',')
-      .map((e) => e.trim())
-      .filter(Boolean);
-
-    const recipientList = Array.from(
-      new Set(
-        [
-          customTargetEmail,
-          ...envEmails,
-        ].filter(Boolean) as string[],
-      ),
-    );
+    const recipientList = [customTargetEmail];
 
     const todayDateFormatted = new Date().toLocaleDateString('id-ID', {
       weekday: 'long',
