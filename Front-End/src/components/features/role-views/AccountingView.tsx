@@ -52,7 +52,6 @@ export default function AccountingView({
 
   // Modals / Preview States
   const [previewMemoCl, setPreviewMemoCl] = useState<any | null>(null);
-  const [previewReminderCl, setPreviewReminderCl] = useState<any | null>(null);
   const [justGeneratedCl, setJustGeneratedCl] = useState<any | null>(null);
   const [previewClDoc, setPreviewClDoc] = useState<any | null>(null);
   const [qprSearchTerm, setQprSearchTerm] = useState("");
@@ -263,21 +262,6 @@ export default function AccountingView({
       }
       return cl;
     }));
-  };
-
-  const handleSendReminder = async (id: string) => {
-    try {
-      await clService.sendReminder(id);
-      setConfirmationLetters(prev => prev.map(cl => {
-        if (cl.id === id) {
-          alert(`✅ Sukses: Email reminder untuk ${cl.clNumber} berhasil dikirim ke PIC terkait!`);
-          return { ...cl, reminderSentCount: (cl.reminderSentCount || 0) + 1 };
-        }
-        return cl;
-      }));
-    } catch (err: any) {
-      alert(`❌ Gagal mengirim reminder email: ${err.message || err}`);
-    }
   };
 
   const calc = handleCalculateTotal();

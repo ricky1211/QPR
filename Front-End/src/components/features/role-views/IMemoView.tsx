@@ -1389,23 +1389,6 @@ Cikarang Bekasi 17530 Indonesia`;
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleSendReminder = async (id: string) => {
-    try {
-      await clService.sendReminder(id);
-      setConfirmationLetters(prev =>
-        prev.map(cl => {
-          if (cl.id === id) {
-            alert(`✅ Sukses: Email Reminder untuk ${cl.clNumber} berhasil dikirim ke PIC terkait!`);
-            return { ...cl, reminderSentCount: (cl.reminderSentCount || 0) + 1 };
-          }
-          return cl;
-        })
-      );
-    } catch (err: any) {
-      alert(`❌ Gagal mengirim reminder email: ${err.message || err}`);
-    }
-  };
-
   const handleSendToVendor = (id: string, clNumber?: string) => {
     const todayStr = new Date().toISOString().split("T")[0];
     clService.update(id, {

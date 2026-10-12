@@ -184,36 +184,6 @@ export class QprsService {
       },
     });
 
-    // Send task notification email to Section Head QA (Step 1)
-    (async () => {
-      try {
-        const vendor = vendorId ? await this.prisma.vendor.findUnique({ where: { id: vendorId } }) : null;
-        const supName = vendor?.vendorName || `Vendor ${vendorId || ''}`;
-        const claimStr = `Rp ${(claimAmount || 0).toLocaleString('id-ID')}`;
-
-        await this.sendSystemNotificationEmail({
-          subject: `[TUGAS APPROVAL QPR] No. ${finalQprNumber} - Menunggu Review & Approval Section Head QA (${supName})`,
-          title: `Tugas Approval Dokumen QPR - Menunggu Review & Approval Section Head QA`,
-          docNumber: finalQprNumber,
-          docType: 'QPR',
-          supplierName: supName,
-          targetRoleName: 'Section Head QA',
-          targetRoleKeywords: ['section_head', 'septian.nugraha', 'Section Head'],
-          stepBadge: 'Tugas Dokumen (Langkah 1/5): Approval Section Head QA',
-          statusText: 'WAITING_APPROVAL',
-          nextStepText: 'Dokumen QPR telah dibuat / diajukan dan membutuhkan verifikasi & persetujuan Anda sebagai Section Head QA. Mohon segera login ke Portal QPR untuk memproses.',
-          details: [
-            { label: 'Ref. No. NCR', value: refNcrNumber || '-' },
-            { label: 'Problem / Defect', value: problem || '-' },
-            { label: 'Total NG', value: `${totalQtyNg || 0} pcs` },
-            { label: 'Estimasi Nilai Klaim', value: claimStr },
-          ],
-        });
-      } catch (err: any) {
-        console.warn(`[QprsService] Notice: Error sending QPR create email:`, err.message);
-      }
-    })();
-
     return createdQpr;
   }
 
@@ -234,12 +204,6 @@ export class QprsService {
       pdfFileBase64,
       qprParts,
     } = data;
-
-    // Fetch current state before update to detect status transitions
-    const prevQpr = await this.prisma.qpr.findUnique({
-      where: { id },
-      include: { vendor: true },
-    });
 
     // Update QprParts if provided in the update request
     if (qprParts && Array.isArray(qprParts)) {
@@ -310,72 +274,6 @@ export class QprsService {
       },
     });
 
-    // Notify upon task transition
-    (async () => {
-      try {
-        const supName = prevQpr?.vendor?.vendorName || updated.vendorId || 'Vendor';
-        const docNum = updated.qprNumber || id;
-
-        // 1. If QPR is re-submitted for approval (from UNDER_REVISION / DRAFT -> WAITING_APPROVAL)
-        if (
-          status === 'WAITING_APPROVAL' &&
-          (requiredRole === 'Section Head' || !requiredRole) &&
-          prevQpr?.status === 'UNDER_REVISION'
-        ) {
-          await this.sendSystemNotificationEmail({
-            subject: `[TUGAS APPROVAL QPR] Revisi No. ${docNum} Diajukan Kembali - Menunggu Section Head QA (${supName})`,
-            title: `Tugas Approval QPR - Revisi Dokumen Telah Diajukan Kembali`,
-            docNumber: docNum,
-            docType: 'QPR',
-            supplierName: supName,
-            targetRoleName: 'Section Head QA',
-            targetRoleKeywords: ['section_head', 'septian.nugraha', 'Section Head'],
-            stepBadge: 'Tugas Dokumen: Review & Approval Revisi Section Head QA',
-            statusText: 'WAITING_APPROVAL',
-            nextStepText: 'Revisi draf QPR telah diperbaiki dan diajukan kembali oleh Operator/Foreman. Section Head QA bertugas untuk melakukan review dan persetujuan.',
-            details: [
-              { label: 'Problem / Defect', value: updated.problem || '-' },
-              { label: 'Total NG', value: `${updated.totalQtyNg || 0} pcs` },
-            ],
-          });
-        }
-
-        // 2. If QPR is returned for revision (UNDER_REVISION)
-        if (status === 'UNDER_REVISION' && prevQpr?.status !== 'UNDER_REVISION') {
-          await this.sendSystemNotificationEmail({
-            subject: `[TUGAS REVISI QPR] No. ${docNum} Dikembalikan untuk Perbaikan Data (${supName})`,
-            title: `Tugas Revisi Dokumen QPR - Dikembalikan oleh Reviewer`,
-            docNumber: docNum,
-            docType: 'QPR',
-            supplierName: supName,
-            targetRoleName: 'Operator / Foreman QA (Pembuat QPR)',
-            targetRoleKeywords: ['creator', 'operator', 'foreman', 'hendrik.firdaus'],
-            stepBadge: 'Tugas Dokumen: Perbaikan & Pengajuan Ulang QPR',
-            statusText: 'UNDER_REVISION',
-            nextStepText: 'Dokumen QPR dikembalikan oleh reviewer untuk perbaikan data. Mohon buka Portal QPR untuk merevisi dan mengajukan kembali.',
-          });
-        }
-
-        // 3. If QPR is rejected
-        if ((status === 'REJECTED' || status === 'CLOSED') && String(prevQpr?.status) !== 'REJECTED' && String(prevQpr?.status) !== 'CLOSED') {
-          await this.sendSystemNotificationEmail({
-            subject: `[QPR Ditolak] QPR No. ${docNum} Telah Ditolak (${supName})`,
-            title: `Dokumen QPR Ditolak (Rejected)`,
-            docNumber: docNum,
-            docType: 'QPR',
-            supplierName: supName,
-            targetRoleName: 'Operator QA & Tim Terkait',
-            targetRoleKeywords: ['creator', 'operator', 'hendrik.firdaus', 'section_head', 'septian.nugraha'],
-            stepBadge: 'Status Dokumen: Ditolak (Closed Rejected)',
-            statusText: 'REJECTED',
-            nextStepText: 'Dokumen klaim QPR telah ditolak dan ditutup.',
-          });
-        }
-      } catch (e: any) {
-        console.warn('[QprsService] Error in update notification:', e.message);
-      }
-    })();
-
     return updated;
   }
 
@@ -417,75 +315,31 @@ export class QprsService {
       },
     });
 
-    // 2. Synchronize QPR status & requiredRole in QPR table and dispatch task email
+    // 2. Synchronize QPR status & requiredRole in QPR table
     (async () => {
       try {
-        const qpr = await this.prisma.qpr.findUnique({
-          where: { id: qprId },
-          include: { vendor: true },
-        });
+        const qpr = await this.prisma.qpr.findUnique({ where: { id: qprId } });
 
         if (qpr) {
-          const supName = qpr.vendor?.vendorName || `Vendor ${qpr.vendorId || ''}`;
-          let stageTitle = '';
-          let emailSubject = '';
-          let statusText = qpr.status;
-          let nextStep = '';
-          let notes = '';
-          let targetRoleName = '';
-          let targetRoleKeywords: string[] = [];
-          let stepBadge = '';
           let nextRequiredRole = qpr.requiredRole;
           let nextQprStatus = qpr.status;
 
           if (checksumPurchasing) {
-            // Step 5: Purchasing Approved (QPR Full Approved) -> Task for Purchasing (Cicik Andria / M. Chariri) to create CL
+            // Step 5: Purchasing Approved (QPR Full Approved) -> Purchasing creates CL
             nextRequiredRole = 'Purchasing';
             nextQprStatus = 'APPROVED';
-            stageTitle = 'Tugas Pembuatan Confirmation Letter (CL) - QPR Full Approved';
-            emailSubject = `[TUGAS BUAT CL] QPR No. ${qpr.qprNumber} Full Approved - Segera Buat Confirmation Letter (${supName})`;
-            statusText = 'APPROVED';
-            nextStep = 'Dokumen QPR telah Full Approved oleh QA & Purchasing. Anda memiliki tugas untuk segera membuat Confirmation Letter (CL) resmi di sistem untuk diproses ke Accounting.';
-            notes = remarksPurchasing;
-            targetRoleName = 'Purchasing (Pembuat CL & Kirim ke Vendor)';
-            targetRoleKeywords = ['purchasing_cl', 'cicik.andria', 'muhammad.chariri', 'cicik', 'chariri'];
-            stepBadge = 'Tugas Dokumen: Pembuatan Surat Confirmation Letter (CL)';
           } else if (checksumDivHead) {
-            // Step 4: Div Head Approved -> Task for Purchasing Approver (Irvan HN) to approve QPR
+            // Step 4: Div Head Approved -> Purchasing Approver
             nextRequiredRole = 'Purchasing';
             nextQprStatus = 'WAITING_APPROVAL';
-            stageTitle = 'Tugas Approval QPR - Menunggu Persetujuan Purchasing';
-            emailSubject = `[TUGAS APPROVAL QPR] No. ${qpr.qprNumber} - Menunggu Review & Approval Purchasing (${supName})`;
-            statusText = 'WAITING_APPROVAL';
-            nextStep = 'Dokumen QPR telah disetujui Division Head QA dan diteruskan kepada Anda sebagai Purchasing Approver (Irvan HN) untuk persetujuan komersial klaim.';
-            notes = remarksDivHead;
-            targetRoleName = 'Purchasing (Approver QPR)';
-            targetRoleKeywords = ['purchasing_approve', 'irvan.hn', 'irvan'];
-            stepBadge = 'Tugas Dokumen (Langkah 4/5): Review & Persetujuan Purchasing';
           } else if (checksumDeptHead) {
-            // Step 3: Dept Head QA Approved -> Task for Division Head QA (Putu Saputra) to approve QPR
+            // Step 3: Dept Head QA Approved -> Division Head QA
             nextRequiredRole = 'Div Head';
             nextQprStatus = 'WAITING_APPROVAL';
-            stageTitle = 'Tugas Approval QPR - Menunggu Persetujuan Division Head QA';
-            emailSubject = `[TUGAS APPROVAL QPR] No. ${qpr.qprNumber} - Menunggu Review & Approval Division Head QA (${supName})`;
-            statusText = 'WAITING_APPROVAL';
-            nextStep = 'Dokumen QPR telah disetujui Dept Head QA dan diteruskan kepada Anda sebagai Division Head QA (Putu Saputra) untuk persetujuan eksekutif.';
-            notes = remarksDeptHead;
-            targetRoleName = 'Division Head QA';
-            targetRoleKeywords = ['div_head', 'putu.saputra', 'putu'];
-            stepBadge = 'Tugas Dokumen (Langkah 3/5): Review & Persetujuan Division Head QA';
           } else if (checksumSectionHead) {
-            // Step 2: Section Head QA Approved -> Task for Dept Head QA (Septian Nugraha) to approve QPR
+            // Step 2: Section Head QA Approved -> Dept Head QA
             nextRequiredRole = 'Dept Head';
             nextQprStatus = 'WAITING_APPROVAL';
-            stageTitle = 'Tugas Approval QPR - Menunggu Persetujuan Dept Head QA';
-            emailSubject = `[TUGAS APPROVAL QPR] No. ${qpr.qprNumber} - Menunggu Review & Approval Dept Head QA (${supName})`;
-            statusText = 'WAITING_APPROVAL';
-            nextStep = 'Dokumen QPR telah disetujui Section Head QA dan diteruskan kepada Anda sebagai Dept Head QA (Septian Nugraha) untuk review dan persetujuan.';
-            notes = remarksSectionHead;
-            targetRoleName = 'Dept Head QA';
-            targetRoleKeywords = ['dept_head', 'septian.nugraha', 'septian'];
-            stepBadge = 'Tugas Dokumen (Langkah 2/5): Review & Persetujuan Dept Head QA';
           }
 
           // Ensure QPR record is synced
@@ -498,31 +352,9 @@ export class QprsService {
               },
             });
           }
-
-          // Send task email
-          if (stageTitle) {
-            await this.sendSystemNotificationEmail({
-              subject: emailSubject,
-              title: stageTitle,
-              docNumber: qpr.qprNumber,
-              docType: 'QPR',
-              supplierName: supName,
-              targetRoleName,
-              targetRoleKeywords,
-              stepBadge,
-              statusText: statusText,
-              nextStepText: nextStep,
-              notes: notes,
-              details: [
-                { label: 'Problem / Defect', value: qpr.problem || '-' },
-                { label: 'Total NG', value: `${qpr.totalQtyNg || 0} pcs` },
-                { label: 'Jenis Klaim', value: qpr.claimType || 'Material / Defect' },
-              ],
-            });
-          }
         }
       } catch (err: any) {
-        console.warn(`[QprsService] Notice: Error in updateApprovalProgress task email:`, err.message);
+        console.warn(`[QprsService] Notice: Error in updateApprovalProgress status sync:`, err.message);
       }
     })();
 
@@ -691,35 +523,6 @@ export class QprsService {
       },
     });
 
-    // Send task email notification for CL creation (Step 6: Purchasing create CL -> Dept Accounting)
-    (async () => {
-      try {
-        const clVendor = vendorId ? await this.prisma.vendor.findUnique({ where: { id: vendorId } }) : null;
-        const supName = clVendor?.vendorName || `Vendor ${vendorId || ''}`;
-        const amountStr = `Rp ${(Number(parsedAmount) || 0).toLocaleString('id-ID')}`;
-
-        await this.sendSystemNotificationEmail({
-          subject: `[TUGAS APPROVAL CL] Surat Confirmation Letter No. ${clNumber} - Menunggu Approval Dept Accounting (${supName})`,
-          title: `Tugas Approval Confirmation Letter - Menunggu Review & Approval Dept Accounting`,
-          docNumber: clNumber,
-          docType: 'Confirmation Letter',
-          supplierName: supName,
-          targetRoleName: 'Dept Head Accounting (Approval CL)',
-          targetRoleKeywords: ['accounting', 'dept_accounting', 'anindita.irnila', 'anindita'],
-          stepBadge: 'Tugas Dokumen (Langkah 6): Review & Approval Dept Accounting',
-          statusText: 'PENDING',
-          nextStepText: 'Dokumen Confirmation Letter telah dibuat oleh Purchasing dan diterima oleh Dept Head Accounting (Anindita Irnila) untuk verifikasi nilai klaim dan persetujuan.',
-          details: [
-            { label: 'Ref. No. QPR', value: data.qprNumber || qprExists.qprNumber || '-' },
-            { label: 'Nilai Klaim', value: amountStr },
-            { label: 'Tanggal Dokumen', value: dateSent ? String(dateSent).split('T')[0] : new Date().toISOString().split('T')[0] },
-          ],
-        });
-      } catch (err: any) {
-        console.warn(`[QprsService] Notice: Error sending CL create email:`, err.message);
-      }
-    })();
-
     return createdCl;
   }
   async updateConfirmationLetter(id: string, data: any): Promise<any> {
@@ -748,102 +551,6 @@ export class QprsService {
         },
       });
     }
-
-    // Send email notification for CL updates
-    (async () => {
-      try {
-        const fullCl = await this.prisma.confirmationLetter.findUnique({
-          where: { id },
-          include: { vendor: true, qpr: true },
-        });
-
-        if (fullCl) {
-          const supName = fullCl.vendor?.vendorName || `Vendor ${fullCl.vendorId || ''}`;
-
-          // Step 7: Dept Accounting approve CL -> Task for Purchasing (Cicik Andria / M. Chariri) to send CL to vendor
-          if (status === 'APPROVED' || status === 'FULLY_APPROVED') {
-            if (!vendorApproved && !closedPaid) {
-              await this.sendSystemNotificationEmail({
-                subject: `[TUGAS KIRIM CL] Confirmation Letter No. ${fullCl.clNumber} Disetujui Accounting - Segera Kirim ke Vendor (${supName})`,
-                title: `Tugas Pengiriman Confirmation Letter ke Vendor - Disetujui Dept Accounting`,
-                docNumber: fullCl.clNumber,
-                docType: 'Confirmation Letter',
-                supplierName: supName,
-                targetRoleName: 'Purchasing (Kirim Surat CL ke Vendor)',
-                targetRoleKeywords: ['purchasing_cl', 'cicik.andria', 'muhammad.chariri', 'cicik', 'chariri'],
-                stepBadge: 'Tugas Dokumen (Langkah 7): Kirim Surat CL ke Vendor',
-                statusText: 'FULLY_APPROVED',
-                nextStepText: 'Confirmation Letter telah disetujui Dept Head Accounting. Purchasing bertugas segera mengirimkan surat CL resmi beserta lampiran ke pihak Vendor melalui sistem.',
-                details: [
-                  { label: 'Ref. QPR', value: fullCl.qpr?.qprNumber || '-' },
-                  { label: 'Tanggal Terbit', value: fullCl.dateSent ? String(fullCl.dateSent).split('T')[0] : '-' },
-                ],
-              });
-            }
-          }
-
-          // Step 8: Purchasing sent CL to Vendor -> Notify Vendor & Stakeholders
-          if (purchasingSentCl) {
-            await this.sendSystemNotificationEmail({
-              subject: `[CL Notifikasi] Dokumen Confirmation Letter No. ${fullCl.clNumber} Resmi Diterima oleh Vendor (${supName})`,
-              title: `Dokumen Confirmation Letter Resmi Telah Diterima oleh Vendor`,
-              docNumber: fullCl.clNumber,
-              docType: 'Confirmation Letter',
-              supplierName: supName,
-              targetRoleName: 'Vendor & Stakeholders',
-              targetRoleKeywords: ['purchasing_cl', 'creator_qpr'],
-              stepBadge: 'Dokumen Masuk (Langkah 8): Menunggu Konfirmasi Vendor',
-              statusText: 'WAITING_VENDOR_APPROVAL',
-              nextStepText: 'Dokumen resmi Confirmation Letter telah dikirimkan ke pihak Vendor. Menunggu konfirmasi penerimaan dan persetujuan dari Vendor.',
-              details: [
-                { label: 'Ref. QPR', value: fullCl.qpr?.qprNumber || '-' },
-                { label: 'Tanggal Pengiriman', value: fullCl.purchasingSentDate || new Date().toISOString().split('T')[0] },
-              ],
-            });
-          }
-
-          if (vendorApproved) {
-            // Step 9: Vendor Approved -> Task for Finance (Bagas Pratama) to create SSC Billing & Payment
-            await this.sendSystemNotificationEmail({
-              subject: `[TUGAS PROSES SSC] Confirmation Letter No. ${fullCl.clNumber} Disetujui Vendor - Tugas Pembuatan SSC Billing & Payment (${supName})`,
-              title: `Tugas Pembuatan SSC Billing & Eksekusi Pembayaran - CL Disetujui Vendor`,
-              docNumber: fullCl.clNumber,
-              docType: 'Confirmation Letter',
-              supplierName: supName,
-              targetRoleName: 'Finance (Creator SSC Billing & SSC Payments)',
-              targetRoleKeywords: ['finance_ssc', 'bagas.pratama', 'finance', 'bagas'],
-              stepBadge: 'Tugas Dokumen: Pembuatan SSC Billing & Payment',
-              statusText: 'APPROVED_BY_VENDOR',
-              nextStepText: 'Dokumen Confirmation Letter telah disetujui oleh pihak Vendor. Finance (Bagas Pratama) bertugas membuat debit note / SSC Billing dan mengeksekusi pencatatan pembayaran klaim.',
-              details: [
-                { label: 'Ref. QPR', value: fullCl.qpr?.qprNumber || '-' },
-                { label: 'Tanggal Persetujuan Vendor', value: fullCl.vendorApprovedDate || new Date().toISOString().split('T')[0] },
-              ],
-            });
-          }
-
-          if (closedPaid) {
-            await this.sendSystemNotificationEmail({
-              subject: `[CL Selesai] Confirmation Letter No. ${fullCl.clNumber} Telah Lunas & Selesai (Closed Paid)`,
-              title: `Confirmation Letter Lunas (Closed Paid)`,
-              docNumber: fullCl.clNumber,
-              docType: 'Confirmation Letter',
-              supplierName: supName,
-              targetRoleName: 'Semua Departemen (Closed)',
-              stepBadge: 'Siklus Klaim Selesai & Lunas',
-              statusText: 'CLOSED_PAID',
-              nextStepText: 'Seluruh tahapan klaim mutu dan penyelesaian tagihan Confirmation Letter telah selesai dan tercatat lunas.',
-              details: [
-                { label: 'Ref. QPR', value: fullCl.qpr?.qprNumber || '-' },
-                { label: 'Status Akhir', value: 'Lunas & Selesai' },
-              ],
-            });
-          }
-        }
-      } catch (err: any) {
-        console.warn(`[QprsService] Notice: Error sending CL update email:`, err.message);
-      }
-    })();
 
     return updatedCl;
   }
@@ -1357,370 +1064,5 @@ export class QprsService {
       attachments: deduplicatedAttachments.map(a => a.filename),
       sentDate: effectiveSentDate,
     };
-  }
-
-  async sendQprReminder(qprId: string, customNotes?: string): Promise<any> {
-    const qpr = await this.prisma.qpr.findFirst({
-      where: {
-        OR: [
-          { id: qprId },
-          { qprNumber: qprId }
-        ]
-      },
-      include: {
-        vendor: true,
-        approvalProgress: true,
-        qprParts: {
-          include: { part: true }
-        }
-      }
-    });
-
-    if (!qpr) {
-      throw new NotFoundException(`QPR dengan ID / Nomor ${qprId} tidak ditemukan.`);
-    }
-
-    const supName = qpr.vendor?.vendorName || 'Vendor / Subcont';
-    const reqRole = qpr.requiredRole || 'Section Head';
-    let targetRoleName = reqRole;
-    let targetRoleKeywords: string[] = [reqRole];
-    let nextStepText = 'Mohon segera login ke Portal QPR MTM untuk melakukan review dan persetujuan dokumen ini.';
-    let stepBadge = `REMINDER: Menunggu Tindakan ${reqRole}`;
-    let taskActionName = 'Review & Approval';
-
-    if (reqRole === 'Section Head' || reqRole.includes('Section')) {
-      targetRoleName = 'Section Head QA';
-      targetRoleKeywords = ['section_head', 'septian.nugraha', 'Section Head'];
-      stepBadge = 'REMINDER TUGAS (Langkah 1/5): Approval Section Head QA';
-      nextStepText = 'Dokumen QPR ini menunggu tindakan review dan persetujuan Anda sebagai Section Head QA. Mohon segera diproses di Portal QPR.';
-    } else if (reqRole === 'Dept Head' || reqRole.includes('Dept')) {
-      targetRoleName = 'Dept Head QA';
-      targetRoleKeywords = ['dept_head', 'septian.nugraha', 'Dept Head'];
-      stepBadge = 'REMINDER TUGAS (Langkah 2/5): Approval Dept Head QA';
-      nextStepText = 'Dokumen QPR ini menunggu tindakan review dan persetujuan Anda sebagai Dept Head QA. Mohon segera diproses di Portal QPR.';
-    } else if (reqRole === 'Div Head' || reqRole.includes('Div')) {
-      targetRoleName = 'Division Head QA';
-      targetRoleKeywords = ['div_head', 'putu.saputra', 'Division Head'];
-      stepBadge = 'REMINDER TUGAS (Langkah 3/5): Approval Division Head QA';
-      nextStepText = 'Dokumen QPR ini menunggu tindakan persetujuan eksekutif Anda sebagai Division Head QA. Mohon segera diproses di Portal QPR.';
-    } else if (reqRole === 'Purchasing') {
-      if (qpr.status === 'APPROVED') {
-        targetRoleName = 'Purchasing (Pembuat CL)';
-        targetRoleKeywords = ['purchasing_cl', 'cicik.andria', 'muhammad.chariri', 'cicik', 'chariri'];
-        stepBadge = 'REMINDER TUGAS: Pembuatan Surat Confirmation Letter (CL)';
-        taskActionName = 'Pembuatan Confirmation Letter (CL)';
-        nextStepText = 'Dokumen QPR telah Full Approved dan menunggu Anda dari tim Purchasing (Cicik Andria / M. Chariri) untuk segera membuatkan Confirmation Letter (CL).';
-      } else {
-        targetRoleName = 'Purchasing (Approver QPR)';
-        targetRoleKeywords = ['purchasing_approve', 'irvan.hn', 'irvan'];
-        stepBadge = 'REMINDER TUGAS (Langkah 4/5): Review & Approval Purchasing';
-        nextStepText = 'Dokumen QPR ini menunggu persetujuan komersial dari Anda sebagai Purchasing Approver (Irvan HN). Mohon segera diproses di Portal QPR.';
-      }
-    } else if (qpr.status === 'UNDER_REVISION' || reqRole === 'Operator') {
-      targetRoleName = 'Operator / Foreman QA (Pembuat QPR)';
-      targetRoleKeywords = ['creator', 'operator', 'foreman', 'hendrik.firdaus'];
-      stepBadge = 'REMINDER TUGAS: Revisi Draf Dokumen QPR';
-      taskActionName = 'Revisi Data QPR';
-      nextStepText = 'Dokumen QPR ini telah dikembalikan oleh reviewer untuk revisi data. Mohon segera buka Portal QPR untuk merevisi dan mengajukan kembali.';
-    }
-
-    const emailSubject = `[REMINDER TUGAS] ${taskActionName} Dokumen QPR No. ${qpr.qprNumber} (${supName})`;
-
-    await this.sendSystemNotificationEmail({
-      subject: emailSubject,
-      title: `Pengingat Tugas: ${taskActionName} Dokumen QPR`,
-      docNumber: qpr.qprNumber,
-      docType: 'QPR',
-      supplierName: supName,
-      targetRoleName,
-      targetRoleKeywords,
-      stepBadge,
-      statusText: qpr.status,
-      nextStepText,
-      details: [
-        { label: 'No. Dokumen QPR', value: qpr.qprNumber },
-        { label: 'Vendor / Subcontractor', value: supName },
-        { label: 'Problem Defect', value: qpr.problem || '-' },
-        { label: 'Menunggu Tugas Dari', value: targetRoleName },
-        { label: 'Status Saat Ini', value: qpr.status },
-      ],
-      notes: customNotes || `Pesan pengingat tugas ini dikirim melalui sistem Portal QPR agar antrean dokumen dapat segera terselesaikan tepat waktu.`,
-    });
-
-    return {
-      success: true,
-      message: `Email Reminder Tugas QPR ${qpr.qprNumber} berhasil dikirim ke ${targetRoleName}.`,
-    };
-  }
-
-  async sendClReminder(clId: string, customNotes?: string): Promise<any> {
-    const cl = await this.prisma.confirmationLetter.findFirst({
-      where: {
-        OR: [
-          { id: clId },
-          { clNumber: clId }
-        ]
-      },
-      include: {
-        vendor: true,
-        qpr: true,
-      }
-    });
-
-    if (!cl) {
-      throw new NotFoundException(`Confirmation Letter dengan ID / Nomor ${clId} tidak ditemukan.`);
-    }
-
-    const supName = cl.vendor?.vendorName || 'Vendor';
-    let targetRoleName = 'Dept Head Accounting';
-    let targetRoleKeywords: string[] = ['accounting', 'dept_accounting', 'anindita.irnila', 'anindita'];
-    let taskActionName = 'Approval Confirmation Letter';
-    let stepBadge = 'REMINDER TUGAS (Langkah 6): Approval Dept Head Accounting';
-    let nextStepText = 'Dokumen Confirmation Letter ini menunggu verifikasi klaim dan persetujuan dari Dept Head Accounting (Anindita Irnila).';
-
-    if (cl.status === 'APPROVED' || String(cl.status) === 'FULLY_APPROVED') {
-      if (!cl.purchasingSentCl) {
-        targetRoleName = 'Purchasing (Pengirim CL)';
-        targetRoleKeywords = ['purchasing_cl', 'cicik.andria', 'muhammad.chariri', 'cicik', 'chariri'];
-        taskActionName = 'Pengiriman Dokumen CL ke Vendor';
-        stepBadge = 'REMINDER TUGAS (Langkah 7): Kirim Surat CL ke Vendor';
-        nextStepText = 'Dokumen Confirmation Letter telah disetujui Accounting. Purchasing bertugas segera mengirimkan surat CL resmi beserta lampiran ke Vendor melalui sistem.';
-      } else if (!cl.vendorApproved) {
-        targetRoleName = 'Vendor & Purchasing PIC';
-        targetRoleKeywords = ['purchasing_cl', 'cicik.andria'];
-        taskActionName = 'Konfirmasi & Approval Vendor';
-        stepBadge = 'REMINDER TUGAS (Langkah 8): Menunggu Konfirmasi Vendor';
-        nextStepText = 'Dokumen Confirmation Letter telah dikirimkan ke pihak Vendor. Mohon segera follow-up dan pastikan konfirmasi persetujuan dari Vendor diunggah.';
-      } else if (!cl.closedPaid) {
-        targetRoleName = 'Finance (SSC Billing & Payments)';
-        targetRoleKeywords = ['finance_ssc', 'bagas.pratama', 'finance', 'bagas'];
-        taskActionName = 'Pembuatan SSC Billing & Payment';
-        stepBadge = 'REMINDER TUGAS: Pembuatan SSC Billing & Eksekusi Pembayaran';
-        nextStepText = 'Dokumen Confirmation Letter telah disetujui Vendor. Finance (Bagas Pratama) bertugas membuat SSC Billing (Debit Note) dan mengeksekusi penyelesaian pembayaran.';
-      }
-    }
-
-    const emailSubject = `[REMINDER TUGAS] ${taskActionName} Surat CL No. ${cl.clNumber} (${supName})`;
-
-    await this.sendSystemNotificationEmail({
-      subject: emailSubject,
-      title: `Pengingat Tugas: ${taskActionName}`,
-      docNumber: cl.clNumber,
-      docType: 'Confirmation Letter',
-      supplierName: supName,
-      targetRoleName,
-      targetRoleKeywords,
-      stepBadge,
-      statusText: cl.vendorApproved ? 'APPROVED BY VENDOR' : (cl.purchasingSentCl ? 'MENUNGGU APPROVAL VENDOR' : (cl.status === 'APPROVED' ? 'APPROVED BY ACCOUNTING' : 'PENDING APPROVAL ACCOUNTING')),
-      nextStepText,
-      details: [
-        { label: 'No. Confirmation Letter', value: cl.clNumber },
-        { label: 'No. QPR Referensi', value: cl.qpr?.qprNumber || '-' },
-        { label: 'Nama Vendor', value: supName },
-        { label: 'Menunggu Tugas Dari', value: targetRoleName },
-      ],
-      notes: customNotes || `Pesan pengingat tugas ini dikirim melalui sistem Portal QPR untuk mempercepat penyelesaian tagihan klaim biaya mutu.`,
-    });
-
-    return {
-      success: true,
-      message: `Email Reminder Tugas CL ${cl.clNumber} berhasil dikirim ke ${targetRoleName}.`,
-    };
-  }
-
-  private async sendSystemNotificationEmail(payload: {
-    subject: string;
-    title: string;
-    docNumber: string;
-    docType: 'QPR' | 'Confirmation Letter' | 'NCR';
-    supplierName: string;
-    targetRoleName?: string;
-    targetRoleKeywords?: string[];
-    targetEmails?: string[];
-    stepBadge?: string;
-    statusText: string;
-    nextStepText: string;
-    details?: Array<{ label: string; value: string | number }>;
-    notes?: string;
-  }) {
-    try {
-      // 1. Resolve direct official corporate role emails from designated mapping
-      let directRoleEmails: string[] = [];
-      if (payload.targetEmails && payload.targetEmails.length > 0) {
-        directRoleEmails.push(...payload.targetEmails);
-      }
-
-      if (payload.targetRoleKeywords && payload.targetRoleKeywords.length > 0) {
-        for (const kw of payload.targetRoleKeywords) {
-          const lk = kw.toLowerCase();
-          if (lk.includes('creator') || lk.includes('foreman') || lk.includes('operator') || lk.includes('hendrik')) {
-            directRoleEmails.push('hendrik.firdaus@mtm.astra.co.id');
-          }
-          if (lk.includes('section') || lk.includes('sect.head') || lk.includes('septian')) {
-            directRoleEmails.push('septian.nugraha@mtm.astra.co.id');
-          }
-          if (lk.includes('dept_head') || lk.includes('department head')) {
-            directRoleEmails.push('septian.nugraha@mtm.astra.co.id');
-          }
-          if (lk.includes('div') || lk.includes('putu')) {
-            directRoleEmails.push('putu.saputra@mtm.astra.co.id');
-          }
-          if (lk.includes('purchasing_approve') || lk.includes('irvan')) {
-            directRoleEmails.push('irvan.hn@mtm.astra.co.id');
-          }
-          if (lk.includes('purchasing_cl') || lk.includes('cicik') || lk.includes('chariri') || (lk.includes('purchasing') && !lk.includes('approve') && !lk.includes('irvan'))) {
-            directRoleEmails.push('cicik.andria@mtm.astra.co.id');
-            directRoleEmails.push('muhammad.chariri@mtm.astra.co.id');
-          }
-          if (lk.includes('accounting') || lk.includes('anindita')) {
-            directRoleEmails.push('anindita.irnila@mtm.astra.co.id');
-          }
-          if (lk.includes('finance') || lk.includes('ssc') || lk.includes('bagas')) {
-            directRoleEmails.push('bagas.pratama@mtm.astra.co.id');
-          }
-        }
-      }
-
-      // 2. Resolve DB users matching target role keywords
-      let dbRoleEmails: string[] = [];
-      if (payload.targetRoleKeywords && payload.targetRoleKeywords.length > 0) {
-        try {
-          const matchedUsers = await this.prisma.user.findMany({
-            where: {
-              status: 'Aktif',
-              OR: payload.targetRoleKeywords.map((kw) => ({
-                role: { contains: kw, mode: 'insensitive' },
-              })),
-            },
-            select: { email: true, name: true },
-          });
-          dbRoleEmails = matchedUsers.map((u) => u.email).filter(Boolean) as string[];
-        } catch (dbErr) {
-          console.warn('[QprsService] Error fetching role user emails for notification:', dbErr);
-        }
-      }
-
-      // Filter and deduplicate: Send strictly to the target section's designated recipient(s)
-      let recipientEmails = Array.from(new Set([...directRoleEmails, ...dbRoleEmails])).filter(Boolean);
-
-      // Fallback only if no specific section email was resolved
-      if (recipientEmails.length === 0) {
-        recipientEmails = (process.env.NOTIFICATION_EMAIL_TO || process.env.SMTP_USER || '')
-          .split(',')
-          .map((e) => e.trim())
-          .filter(Boolean);
-      }
-
-      const detailRows = (payload.details || [])
-        .map(
-          (d) => `<tr>
-            <td style="padding: 8px 12px; font-weight: bold; color: #475569; width: 35%; border-bottom: 1px solid #e2e8f0; font-size: 13px;">${d.label}</td>
-            <td style="padding: 8px 12px; color: #0f172a; font-weight: 600; border-bottom: 1px solid #e2e8f0; font-size: 13px;">${d.value}</td>
-          </tr>`
-        )
-        .join('');
-
-      const notesHtml = payload.notes
-        ? `<div style="margin-top: 14px; padding: 12px; background-color: #fef3c7; border: 1px solid #fde68a; border-radius: 6px; font-size: 13px; color: #92400e;">
-            <strong>Catatan / Reviewer Remarks:</strong><br/>${payload.notes}
-          </div>`
-        : '';
-
-      const targetRoleHtml = payload.targetRoleName
-        ? `<div style="margin-bottom: 14px; padding: 10px 14px; background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-left: 4px solid #2563eb; border-radius: 4px; font-size: 13px; color: #1e40af; font-weight: 700;">
-            👤 <span>Ditujukan Kepada Role:</span> <strong style="color: #1d4ed8; text-decoration: underline;">${payload.targetRoleName}</strong>
-          </div>`
-        : '';
-
-      const stepBadgeHtml = payload.stepBadge
-        ? `<div style="display: inline-block; padding: 4px 10px; background-color: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 4px; color: #334155; font-size: 11px; font-weight: 700; margin-left: 8px;">
-            ${payload.stepBadge}
-          </div>`
-        : '';
-
-      const htmlBody = `<!DOCTYPE html>
-<html lang="id">
-<head>
-  <meta charset="utf-8">
-  <title>${payload.subject}</title>
-</head>
-<body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8fafc; padding: 24px 0;">
-    <tr>
-      <td align="center" style="padding: 0 16px;">
-        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
-          <tr>
-            <td style="background-color: #1e3a8a; padding: 20px 24px; text-align: left;">
-              <h1 style="margin: 0; font-size: 18px; font-weight: 800; color: #ffffff; letter-spacing: 0.5px;">PT MENARA TERUS MAKMUR</h1>
-              <p style="margin: 4px 0 0 0; font-size: 12px; color: #bfdbfe;">Quality &amp; Purchasing Automated Notification System</p>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding: 24px; text-align: left;">
-              <div style="margin-bottom: 12px;">
-                <span style="display: inline-block; padding: 4px 10px; background-color: #eff6ff; border: 1px solid #bfdbfe; border-radius: 4px; color: #1d4ed8; font-size: 11px; font-weight: 700; text-transform: uppercase;">
-                  ${payload.docType} Notification
-                </span>
-                ${stepBadgeHtml}
-              </div>
-
-              <h2 style="margin: 0 0 12px 0; font-size: 16px; font-weight: 800; color: #0f172a;">
-                ${payload.title}
-              </h2>
-
-              ${targetRoleHtml}
-
-              <p style="margin: 0 0 16px 0; font-size: 13.5px; color: #334155; line-height: 1.5;">
-                Pemberitahuan pembaruan status data dokumen sistem:
-              </p>
-
-              <table style="width: 100%; border-collapse: collapse; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; margin-bottom: 16px;">
-                <tr>
-                  <td style="padding: 8px 12px; font-weight: bold; color: #475569; width: 35%; border-bottom: 1px solid #e2e8f0; font-size: 13px;">No. Dokumen</td>
-                  <td style="padding: 8px 12px; color: #1e40af; font-weight: 800; border-bottom: 1px solid #e2e8f0; font-size: 13px;">${payload.docNumber}</td>
-                </tr>
-                <tr>
-                  <td style="padding: 8px 12px; font-weight: bold; color: #475569; border-bottom: 1px solid #e2e8f0; font-size: 13px;">Supplier / Vendor</td>
-                  <td style="padding: 8px 12px; color: #0f172a; font-weight: 600; border-bottom: 1px solid #e2e8f0; font-size: 13px;">${payload.supplierName}</td>
-                </tr>
-                <tr>
-                  <td style="padding: 8px 12px; font-weight: bold; color: #475569; border-bottom: 1px solid #e2e8f0; font-size: 13px;">Status Dokumen</td>
-                  <td style="padding: 8px 12px; color: #059669; font-weight: 700; border-bottom: 1px solid #e2e8f0; font-size: 13px;">${payload.statusText}</td>
-                </tr>
-                <tr>
-                  <td style="padding: 8px 12px; font-weight: bold; color: #475569; border-bottom: 1px solid #e2e8f0; font-size: 13px;">Tindakan Lanjutan</td>
-                  <td style="padding: 8px 12px; color: #d97706; font-weight: 700; border-bottom: 1px solid #e2e8f0; font-size: 13px;">${payload.nextStepText}</td>
-                </tr>
-                ${detailRows}
-              </table>
-
-              ${notesHtml}
-
-              <div style="margin-top: 20px; padding: 14px; background-color: #f1f5f9; border-radius: 6px; font-size: 12.5px; color: #475569; line-height: 1.5;">
-                ℹ️ Silakan buka <strong>Portal QPR &amp; Purchasing MTM</strong> untuk melakukan verifikasi, approval digital, pembuatan CL, atau mengunduh dokumen PDF resmi.
-              </div>
-            </td>
-          </tr>
-          <tr>
-            <td style="background-color: #f8fafc; padding: 14px 24px; border-top: 1px solid #e2e8f0; text-align: left;">
-              <p style="margin: 0; font-size: 11px; color: #64748b; font-weight: 600;">PT Menara Terus Makmur - Astra Otoparts Group</p>
-              <p style="margin: 2px 0 0 0; font-size: 10px; color: #94a3b8;">Email otomatis dari Quality &amp; Purchasing Automated Notification System</p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`;
-
-      await this.mailService.sendMail({
-        to: recipientEmails,
-        subject: payload.subject,
-        html: htmlBody,
-      });
-    } catch (err: any) {
-      console.warn(`[QprsService] Notice: Could not send notification email:`, err.message);
-    }
   }
 }
