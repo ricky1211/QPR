@@ -508,17 +508,11 @@ Cikarang Bekasi 17530 Indonesia`;
     setIsSendingEmail(true);
     const sendDate = sendDateIso || todayStr;
     try {
-      // Send directly via Backend SMTP
-      const result = await clService.sendEmail({
+      // Tandai CL sebagai terkirim (tanpa pengiriman email dari server)
+      await clService.markSent({
         clIds: targetClIds,
         clId: targetClIds[0],
-        to: vendorEmailInput,
-        subject: emailSubject || "Confirmation Letter – Part NG",
-        body: generatedEmailBody,
-        vendorName: selectedVendorName,
         sendDate: sendDate,
-        dueDate: calculatedDueDate,
-        attachments: clientAttachments,
       });
 
       // Update local state
@@ -551,12 +545,8 @@ Cikarang Bekasi 17530 Indonesia`;
         }, ...prev]);
       }
 
-      const attInfo = result?.attachmentsCount 
-        ? `\n📁 Berkas Lampiran: ${result.attachmentsCount} file (Surat CL & Dokumen QPR)`
-        : '';
-      const serverNotice = result?.simulated
-        ? `\nℹ️ Status: Tercatat di sistem (Mode Simulasi Server)`
-        : `\n⚡ Status: Terkirim via SMTP Server`;
+      const attInfo = '';
+      const serverNotice = `\nℹ️ Status: Tercatat di sistem (email tidak dikirim otomatis)`;
 
       alert(
         `Email Confirmation Letter berhasil diproses!\n\n` +
@@ -1557,18 +1547,7 @@ Cikarang Bekasi 17530 Indonesia`;
   const handleEmailSSC = async () => {
     const subject = `[SSC BILLING] ${selectedCl?.clNumber || ""} - ${selectedCl?.supplierName || ""}`;
     const body = `Kepada Tim SSC Billing,\n\nMohon diproses SSC Billing untuk:\nNo CL: ${selectedCl?.clNumber || ""}\nVendor: ${selectedCl?.supplierName || ""}\nJumlah: ${selectedCl?.amount || ""}\n\nTerima kasih.\n\nPT Menara Terus Makmur`;
-    try {
-      await clService.sendEmail({
-        to: sscEmail,
-        subject,
-        body,
-        clId: selectedCl?.id,
-      });
-      alert(`✅ Email permohonan SSC Billing berhasil dikirim ke ${sscEmail}!`);
-    } catch (err: any) {
-      console.warn("Notice: Failed to auto-send SSC email:", err);
-      window.open(`mailto:${sscEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
-    }
+    window.open(`mailto:${sscEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
   };
 
   const handleUpdateClField = (id: string, field: string, value: any) => {

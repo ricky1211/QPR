@@ -1,6 +1,5 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+﻿import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
-import { MailService } from '../../infrastructure/mail/mail.service';
 import { PdfGeneratorService } from '../../infrastructure/pdf/pdf-generator.service';
 import { Qpr, QprApprovalProgress, QprStatus } from '@prisma/client';
 
@@ -8,7 +7,6 @@ import { Qpr, QprApprovalProgress, QprStatus } from '@prisma/client';
 export class QprsService {
   constructor(
     private prisma: PrismaService,
-    private mailService: MailService,
     private pdfGeneratorService: PdfGeneratorService,
   ) {}
 
@@ -854,191 +852,15 @@ export class QprsService {
 </html>`;
   }
 
-  async sendConfirmationLetterEmail(data: {
+  async markConfirmationLettersSent(data: {
     clId?: string;
     clIds?: string[];
-    to: string;
-    subject: string;
-    body: string;
-    vendorName?: string;
     sendDate?: string;
-    dueDate?: string;
-    attachments?: Array<{ filename: string; content?: string | Buffer; path?: string; contentType?: string }>;
   }): Promise<any> {
-    const { clId, clIds, to, subject, body, vendorName, sendDate, dueDate, attachments: clientAttachments } = data;
-
+    const { clId, clIds, sendDate } = data;
     const idsToUpdate = clIds && clIds.length > 0 ? clIds : (clId ? [clId] : []);
-    const finalAttachments: Array<{ filename: string; content?: string | Buffer; path?: string; contentType?: string }> = [];
-
-    // 1. Add any client provided attachments
-    if (clientAttachments && Array.isArray(clientAttachments)) {
-      clientAttachments.forEach(att => {
-        if (att && att.filename) {
-          if (typeof att.content === 'string' && att.content.startsWith('data:')) {
-            const base64Data = att.content.split(';base64,')[1] || att.content;
-            finalAttachments.push({
-              filename: att.filename,
-              content: Buffer.from(base64Data, 'base64'),
-              contentType: att.filename.endsWith('.pdf') ? 'application/pdf' : 'image/png',
-            });
-          } else if (att.content || att.path) {
-            finalAttachments.push(att);
-          }
-        }
-      });
-    }
-
-    // 2. Fetch Confirmation Letters and QPR attachments from DB
-    try {
-      let cls = await this.prisma.confirmationLetter.findMany({
-        where: {
-          OR: [
-            { id: { in: idsToUpdate } },
-            { clNumber: { in: idsToUpdate } },
-            { qpr: { qprNumber: { in: idsToUpdate } } },
-            ...(vendorName ? [{ vendor: { vendorName: { contains: vendorName, mode: 'insensitive' as const } } }] : [])
-          ]
-        },
-        include: {
-          vendor: true,
-          qpr: {
-            include: {
-              qprParts: {
-                include: {
-                  part: true,
-                }
-              }
-            }
-          }
-        }
-      });
-
-      // Fallback: If no DB match, synthesize an active document object
-      if (cls.length === 0) {
-        const fallbackVendor = await this.prisma.vendor.findFirst({
-          where: vendorName ? { vendorName: { contains: vendorName, mode: 'insensitive' as const } } : undefined,
-        });
-
-        const fallbackQpr = await this.prisma.qpr.findFirst({
-          where: fallbackVendor ? { vendorId: fallbackVendor.id } : undefined,
-          include: {
-            qprParts: {
-              include: {
-                part: true,
-              }
-            }
-          },
-          orderBy: { createdAt: 'desc' }
-        });
-
-        cls = [{
-          id: idsToUpdate[0] || 'cl-synth-1',
-          clNumber: idsToUpdate[0] || 'CL/2026/09/VENDOR_CL_PREVIEW',
-          dateSent: new Date(),
-          qprId: fallbackQpr?.id || 'qpr-fallback',
-          vendorId: fallbackVendor?.id || 'vendor-fallback',
-          amount: 801975,
-          status: 'PENDING',
-          purchasingSentCl: false,
-          vendorApproved: false,
-          closedPaid: false,
-          purchasingSentDate: null,
-          vendorApprovedDate: null,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          vendor: fallbackVendor || { vendorName: vendorName || 'PT. ARAI RUBBER SEAL IND' },
-          qpr: fallbackQpr || {
-            qprNumber: 'QPR/2026/09/VENDOR_QPR_PREVIEW',
-            qprParts: []
-          }
-        }] as any;
-      }
-
-      // Generate PDF buffer for each Confirmation Letter
-      for (const cl of cls) {
-        try {
-          const pdfBuffer = await this.pdfGeneratorService.generateConfirmationLetterPdf({
-            clNumber: cl.clNumber || 'CL-PREVIEW',
-            dateSent: cl.dateSent ? cl.dateSent.toISOString() : new Date().toISOString(),
-            vendorName: cl.vendor?.vendorName || vendorName || 'Vendor',
-            qprNumber: cl.qpr?.qprNumber || 'QPR-REF',
-            amount: cl.amount || 0,
-            dueDate: dueDate,
-            items: (cl.qpr?.qprParts || []).map((qp: any) => ({
-              partNumber: qp.part?.partNumber || 'PART-01',
-              partName: qp.part?.partDesc || qp.part?.partNumber || 'Part Material NG',
-              totalQty: qp.totalQty || 0,
-              qtyNg: qp.qtyNg || 0,
-              stdAllowance: qp.stdAllowance || 0,
-              qtyClaim: qp.qtyClaim !== undefined ? qp.qtyClaim : Math.max(0, (qp.qtyNg || 0) - (qp.stdAllowance || 0)),
-              unitPrice: qp.unitPrice || 85000,
-              amount: (qp.qtyClaim !== undefined ? qp.qtyClaim : Math.max(0, (qp.qtyNg || 0) - (qp.stdAllowance || 0))) * (qp.unitPrice || 85000),
-            })),
-          });
-
-          const cleanDocNumber = (cl.clNumber || 'Confirmation_Letter').replace(/[^a-zA-Z0-9_-]/g, '_');
-          finalAttachments.push({
-            filename: `Surat_CL_${cleanDocNumber}.pdf`,
-            content: pdfBuffer,
-            contentType: 'application/pdf',
-          });
-        } catch (pdfErr) {
-          console.warn(`[QprsService] Failed to generate PDF for CL ${cl.clNumber}:`, pdfErr);
-        }
-
-        // Attach QPR evidence if exists
-        if (cl.qpr?.pdfFileBase64) {
-          try {
-            if (cl.qpr.pdfFileBase64.startsWith('[')) {
-              const parsed = JSON.parse(cl.qpr.pdfFileBase64);
-              if (Array.isArray(parsed)) {
-                parsed.forEach((item: any, idx: number) => {
-                  if (item.base64) {
-                    const base64Data = item.base64.split(';base64,')[1] || item.base64;
-                    finalAttachments.push({
-                      filename: item.name || `Bukti_Lampiran_QPR_${idx + 1}.png`,
-                      content: Buffer.from(base64Data, 'base64'),
-                      contentType: (item.name || '').endsWith('.pdf') ? 'application/pdf' : 'image/png',
-                    });
-                  }
-                });
-              }
-            } else {
-              const base64Data = cl.qpr.pdfFileBase64.split(';base64,')[1] || cl.qpr.pdfFileBase64;
-              finalAttachments.push({
-                filename: cl.qpr.pdfFileName || `Bukti_Lampiran_QPR_${(cl.qpr.qprNumber || 'Ref').replace(/[^a-zA-Z0-9_-]/g, '_')}.png`,
-                content: Buffer.from(base64Data, 'base64'),
-                contentType: (cl.qpr.pdfFileName || '').endsWith('.pdf') ? 'application/pdf' : 'image/png',
-              });
-            }
-          } catch (err) {
-            console.warn('[QprsService] Failed to parse QPR attachments from base64:', err);
-          }
-        }
-      }
-    } catch (dbErr) {
-      console.warn('[QprsService] Error fetching CLs for email attachments:', dbErr);
-    }
-
-    // Remove duplicates by filename if any
-    const seenFilenames = new Set<string>();
-    const deduplicatedAttachments = finalAttachments.filter(att => {
-      if (seenFilenames.has(att.filename)) return false;
-      seenFilenames.add(att.filename);
-      return true;
-    });
-
-    // 3. Send mail via MailService
-    const mailResult = await this.mailService.sendMail({
-      to,
-      subject,
-      text: body,
-      attachments: deduplicatedAttachments,
-    });
-
     const effectiveSentDate = sendDate || new Date().toISOString().split('T')[0];
 
-    // 4. Mark CL(s) as sent in DB
     for (const id of idsToUpdate) {
       try {
         await this.prisma.confirmationLetter.update({
@@ -1055,13 +877,8 @@ export class QprsService {
     }
 
     return {
-      success: mailResult.success,
-      simulated: mailResult.simulated,
-      message: mailResult.message,
-      messageId: mailResult.messageId,
+      success: true,
       updatedClIds: idsToUpdate,
-      attachmentsCount: deduplicatedAttachments.length,
-      attachments: deduplicatedAttachments.map(a => a.filename),
       sentDate: effectiveSentDate,
     };
   }

@@ -27,17 +27,11 @@ export const clService = {
     method: 'PUT',
     body: JSON.stringify(data),
   }),
-  sendEmail: (data: {
+  markSent: (data: {
     clId?: string;
     clIds?: string[];
-    to: string;
-    subject: string;
-    body: string;
-    vendorName?: string;
     sendDate?: string;
-    dueDate?: string;
-    attachments?: Array<{ filename: string; content?: string; path?: string; contentType?: string }>;
-  }) => apiRequest('/qprs/confirmation-letters/send-email', {
+  }) => apiRequest('/qprs/confirmation-letters/mark-sent', {
     method: 'POST',
     body: JSON.stringify(data),
   }),

@@ -8,10 +8,9 @@ import { NcrsModule } from './modules/ncrs/ncrs.module';
 import { QprsModule } from './modules/qprs/qprs.module';
 import { WebhooksModule } from './modules/webhooks/webhooks.module';
 import { MinioModule } from './infrastructure/minio/minio.module';
-import { MailModule } from './infrastructure/mail/mail.module';
 
 @Module({
-  imports: [UsersModule, PartsModule, VendorsModule, NcrsModule, QprsModule, WebhooksModule, MinioModule, MailModule],
+  imports: [UsersModule, PartsModule, VendorsModule, NcrsModule, QprsModule, WebhooksModule, MinioModule],
   controllers: [AppController],
   providers: [AppService],
 })
