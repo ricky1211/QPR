@@ -878,8 +878,18 @@ export default function ApproveClDashboard({
                         subtotal += (amountVal || 0);
                       });
                     }
-                    const rawTotalStr = String(selectedCl.amount || "0").replace(/[^0-9]/g, "");
-                    const totalFromStr = parseInt(rawTotalStr, 10) || 0;
+                    let totalFromStr = 0;
+                    if (selectedCl.amount) {
+                      const str = String(selectedCl.amount).replace(/Rp\.?/gi, "").trim();
+                      if (str.includes(",")) {
+                        const parts = str.split(",");
+                        totalFromStr = Math.round(parseFloat(`${parts[0].replace(/[^0-9]/g, "")}.${parts[1].replace(/[^0-9]/g, "")}`) || 0);
+                      } else if (/^\d+\.\d{1,2}$/.test(str)) {
+                        totalFromStr = Math.round(parseFloat(str) || 0);
+                      } else {
+                        totalFromStr = parseInt(str.replace(/[^0-9]/g, ""), 10) || 0;
+                      }
+                    }
 
                     let dpp = subtotal;
                     let tax = 0;
@@ -1073,9 +1083,18 @@ export default function ApproveClDashboard({
                         "Col5": item.amount || item.subtotal || 0
                       })),
                       {}, // Empty row
-                      { "Col1": "Total Claim (Exc. VAT)", "Col5": Math.round((parseInt(showSuccessModal.amount.replace(/[^0-9]/g, "")) || 0) / 1.11) },
-                      { "Col1": "VAT (11%)", "Col5": (parseInt(showSuccessModal.amount.replace(/[^0-9]/g, "")) || 0) - Math.round((parseInt(showSuccessModal.amount.replace(/[^0-9]/g, "")) || 0) / 1.11) },
-                      { "Col1": "Grand Total Claim (IDR)", "Col5": parseInt(showSuccessModal.amount.replace(/[^0-9]/g, "")) || 0 }
+                      { "Col1": "Total Claim (Exc. VAT)", "Col5": (() => {
+                        const sub = items.reduce((sum: number, it: any) => sum + (it.amount || it.subtotal || ((it.qty || it.qtyClaim || 0) * (it.claimCost || it.unitPrice || 0))), 0);
+                        return sub > 0 ? sub : Math.round((parseInt(showSuccessModal.amount.replace(/Rp\.?/gi, "").split(",")[0].replace(/[^0-9]/g, ""), 10) || 0) / 1.11);
+                      })() },
+                      { "Col1": "VAT (11%)", "Col5": (() => {
+                        const sub = items.reduce((sum: number, it: any) => sum + (it.amount || it.subtotal || ((it.qty || it.qtyClaim || 0) * (it.claimCost || it.unitPrice || 0))), 0);
+                        return sub > 0 ? Math.round(sub * 0.11) : (parseInt(showSuccessModal.amount.replace(/Rp\.?/gi, "").split(",")[0].replace(/[^0-9]/g, ""), 10) || 0) - Math.round((parseInt(showSuccessModal.amount.replace(/Rp\.?/gi, "").split(",")[0].replace(/[^0-9]/g, ""), 10) || 0) / 1.11);
+                      })() },
+                      { "Col1": "Grand Total Claim (IDR)", "Col5": (() => {
+                        const sub = items.reduce((sum: number, it: any) => sum + (it.amount || it.subtotal || ((it.qty || it.qtyClaim || 0) * (it.claimCost || it.unitPrice || 0))), 0);
+                        return sub > 0 ? Math.round(sub + Math.round(sub * 0.11)) : parseInt(showSuccessModal.amount.replace(/Rp\.?/gi, "").split(",")[0].replace(/[^0-9]/g, ""), 10) || 0;
+                      })() }
                     ];
 
                     const worksheet = XLSX.utils.json_to_sheet(excelRows, { skipHeader: true });

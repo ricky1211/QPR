@@ -1,4 +1,4 @@
-﻿import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { PdfGeneratorService } from '../../infrastructure/pdf/pdf-generator.service';
 import { Qpr, QprApprovalProgress, QprStatus } from '@prisma/client';
@@ -492,7 +492,14 @@ export class QprsService {
       }
     }
 
-    const parsedAmount = typeof amount === 'number' ? amount : parseFloat(String(amount || '0').replace(/Rp/g, '').replace(/\s/g, '').replace(/\./g, '').replace(/,/g, '.')) || 0;
+    const parsedAmount = typeof amount === 'number' ? Math.round(amount) : (() => {
+      const cleanStr = String(amount || '0').replace(/Rp/gi, '').replace(/\s/g, '');
+      if (cleanStr.includes(',')) {
+        const parts = cleanStr.split(',');
+        return Math.round(parseFloat(`${parts[0].replace(/\./g, '')}.${parts[1]}`) || 0);
+      }
+      return Math.round(parseFloat(cleanStr.replace(/\./g, '')) || 0);
+    })();
 
     const createdCl = await this.prisma.confirmationLetter.create({
       data: {
@@ -525,7 +532,14 @@ export class QprsService {
   }
   async updateConfirmationLetter(id: string, data: any): Promise<any> {
     const { status, amount, purchasingSentCl, vendorApproved, closedPaid, purchasingSentDate, vendorApprovedDate } = data;
-    const parsedAmount = amount !== undefined ? (typeof amount === 'number' ? amount : parseFloat(String(amount || '0').replace(/Rp/g, '').replace(/\s/g, '').replace(/\./g, '').replace(/,/g, '.')) || 0) : undefined;
+    const parsedAmount = amount !== undefined ? (typeof amount === 'number' ? Math.round(amount) : (() => {
+      const cleanStr = String(amount || '0').replace(/Rp/gi, '').replace(/\s/g, '');
+      if (cleanStr.includes(',')) {
+        const parts = cleanStr.split(',');
+        return Math.round(parseFloat(`${parts[0].replace(/\./g, '')}.${parts[1]}`) || 0);
+      }
+      return Math.round(parseFloat(cleanStr.replace(/\./g, '')) || 0);
+    })()) : undefined;
     
     const updatedCl = await this.prisma.confirmationLetter.update({
       where: { id },

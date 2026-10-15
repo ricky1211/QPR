@@ -25,13 +25,17 @@ export const sscService = {
 };
 
 export const mapBillingFromDb = (dbBilling: any) => {
+  const roundedTotal = Math.round(Number(dbBilling.totalAmount) || 0);
   return {
     id: dbBilling.id,
     clId: dbBilling.clId,
     clNumber: dbBilling.cl?.clNumber || "",
     supplierName: dbBilling.cl?.vendor?.vendorName || "",
     dateSent: dbBilling.billingDate ? dbBilling.billingDate.split("T")[0] : new Date().toISOString().split("T")[0],
-    amount: `Rp ${dbBilling.totalAmount.toLocaleString("id-ID")}`,
+    amount: `Rp ${roundedTotal.toLocaleString("id-ID")}`,
+    totalAmount: roundedTotal,
+    rawAmount: roundedTotal,
+    items: dbBilling.cl?.qpr?.qprParts || dbBilling.cl?.items,
     status: dbBilling.status === 'PAID' ? "CLOSED_PAID" : "WAITING_PAYMENT",
     closedPaid: dbBilling.status === 'PAID',
     

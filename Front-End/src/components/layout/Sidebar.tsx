@@ -88,8 +88,8 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
   const canBuatQpr = isForeman || isAdmin;
   // Approve QPR: sect/dept head, div head, purchasing, purchasing_qpr, admin
   const canApproveQpr = isSectDeptHead || isDivHead || isPurchasing || isPurchasingQpr || isAdmin;
-  // Buat CL: purchasing & admin (purchasing_qpr cannot access)
-  const canBuatCL = isPurchasing || isAdmin;
+  // Buat CL: purchasing, accounting & admin (purchasing_qpr cannot access)
+  const canBuatCL = isPurchasing || isAccounting || isAdmin;
   // Approval CL: accounting, purchasing (view only), finance (view only), admin (purchasing_qpr cannot access)
   const canApproveCL = isAccounting || isPurchasing || isFinance || isAdmin;
   // SSC Billing & Payment (I-Memo) / Reminder & Kirim CL: finance, purchasing & admin

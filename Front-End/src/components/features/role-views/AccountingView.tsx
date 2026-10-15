@@ -213,7 +213,7 @@ export default function AccountingView({
       };
     });
 
-    const tax = grandSubtotal * (parseFloat(taxRate) / 100);
+    const tax = Math.round(grandSubtotal * (parseFloat(taxRate) / 100));
     const total = grandSubtotal + tax;
 
     return {

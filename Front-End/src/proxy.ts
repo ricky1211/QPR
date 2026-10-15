@@ -92,9 +92,9 @@ export function proxy(request: NextRequest) {
       }
     }
 
-    // 5. Buat Confirmation Letter (CL) & Draft CL: Purchasing only
+    // 5. Buat Confirmation Letter (CL) & Draft CL: Purchasing & Accounting
     if (isMatch(['/confirmation-letter', '/draft-cl'])) {
-      if (mtmUser !== 'purchasing') {
+      if (!['purchasing', 'accounting'].includes(mtmUser)) {
         return redirectToDashboard()
       }
     }

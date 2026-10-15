@@ -46,7 +46,7 @@ export class SscService {
         clId: data.clId,
         billingNo: data.billingNo,
         billingDate: data.billingDate ? new Date(data.billingDate) : new Date(),
-        totalAmount: parseFloat(data.totalAmount || '0'),
+        totalAmount: Math.round(parseFloat(data.totalAmount || '0')),
         status: data.status || BillingStatus.UNPAID,
         memoCompany: data.memoCompany,
         memoBusinessArea: data.memoBusinessArea,
@@ -90,7 +90,7 @@ export class SscService {
       data: {
         billingNo: data.billingNo,
         billingDate: data.billingDate ? new Date(data.billingDate) : undefined,
-        totalAmount: data.totalAmount ? parseFloat(data.totalAmount) : undefined,
+        totalAmount: data.totalAmount ? Math.round(parseFloat(data.totalAmount)) : undefined,
         status: data.status,
         memoCompany: data.memoCompany,
         memoBusinessArea: data.memoBusinessArea,

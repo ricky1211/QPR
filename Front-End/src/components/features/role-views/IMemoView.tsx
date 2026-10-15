@@ -922,16 +922,38 @@ Cikarang Bekasi 17530 Indonesia`;
     };
 
     setMemoRequestDate(formatToDisplay(cl.dateSent));
-    setMemoCustomerName(cl.supplierName);
-    setMemoAmount(cl.amount ? cl.amount.replace(/[^0-9]/g, "") : "");
+    let clNumAmt = 0;
+    if (cl.items && Array.isArray(cl.items) && cl.items.length > 0) {
+      let subtotal = 0;
+      cl.items.forEach((it: any) => {
+        const qty = it.qtyClaim ?? it.billableQty ?? it.qtyNG ?? it.qty ?? it.qtyNg ?? 0;
+        const price = typeof it.unitPrice === "string" ? parseFloat(it.unitPrice) : (it.unitPrice || 0);
+        subtotal += (it.amount ?? it.subtotal ?? (qty * price)) || 0;
+      });
+      if (subtotal > 0) {
+        clNumAmt = Math.round(subtotal + Math.round(subtotal * 0.11));
+      }
+    }
+    if (clNumAmt === 0 && cl.amount) {
+      const str = String(cl.amount).replace(/Rp\.?/gi, "").trim();
+      if (str.includes(",")) {
+        const parts = str.split(",");
+        clNumAmt = Math.round(parseFloat(`${parts[0].replace(/[^0-9]/g, "")}.${parts[1].replace(/[^0-9]/g, "")}`) || 0);
+      } else if (/^\d+\.\d{1,2}$/.test(str)) {
+        clNumAmt = Math.round(parseFloat(str) || 0);
+      } else {
+        clNumAmt = parseInt(str.replace(/[^0-9]/g, ""), 10) || 0;
+      }
+    }
+
+    setMemoAmount(clNumAmt > 0 ? String(clNumAmt) : "");
     setMemoPeriod(cl.dateSent ? `${String(new Date(cl.dateSent).getMonth() + 1).padStart(2, "0")}/${String(new Date(cl.dateSent).getFullYear()).slice(-2)}` : "02/26");
     setMemoTitle("Permintaan Pembuatan Invoice Claim NG Part");
     setMemoDescription(`Mohon dibuatkan invoice untuk Claim Part NG dari ${cl.supplierName} atas CL ${cl.clNumber}`);
     setAcctCustomerCode(cl.customerCode || "OTC08002");
     
     // Auto-generate some GL rows based on amount
-    const rawAmt = cl.amount ? cl.amount.replace(/[^0-9]/g, "") : "0";
-    const numAmt = parseInt(rawAmt, 10) || 0;
+    const numAmt = clNumAmt;
     if (numAmt > 0) {
       const dpp = Math.round(numAmt / 1.11);
       const vat = numAmt - dpp;

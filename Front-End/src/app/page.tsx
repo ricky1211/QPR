@@ -444,7 +444,48 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
         const saved = sessionStorage.getItem("mtm_qpr_confirmationLetters");
         if (saved) {
           const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed)) return parsed;
+          if (Array.isArray(parsed)) {
+            // Auto-synchronize and normalize amounts for all stored CLs with exact item sums + VAT
+            return parsed.map((cl: any) => {
+              let numAmount = 0;
+              if (cl.items && Array.isArray(cl.items) && cl.items.length > 0) {
+                let subtotal = 0;
+                cl.items.forEach((it: any) => {
+                  const qty = it.qtyClaim ?? it.billableQty ?? it.qtyNG ?? it.qty ?? it.qtyNg ?? 0;
+                  const price = typeof it.unitPrice === "string" ? parseFloat(it.unitPrice) : (it.unitPrice || 0);
+                  const amt = it.amount ?? it.subtotal ?? (qty * price);
+                  subtotal += (amt || 0);
+                });
+                if (subtotal > 0) {
+                  const tax = Math.round(subtotal * 0.11);
+                  numAmount = Math.round(subtotal + tax);
+                }
+              }
+              if (numAmount === 0) {
+                const str = String(cl.amount || "").replace(/Rp\.?/gi, "").trim();
+                if (str.includes(",")) {
+                  const parts = str.split(",");
+                  const intP = parts[0].replace(/[^0-9]/g, "");
+                  const decP = (parts[1] || "").replace(/[^0-9]/g, "");
+                  numAmount = Math.round(parseFloat(`${intP}.${decP}`) || 0);
+                } else if (/^\d+\.\d{1,2}$/.test(str)) {
+                  numAmount = Math.round(parseFloat(str) || 0);
+                } else {
+                  numAmount = parseInt(str.replace(/[^0-9]/g, ""), 10) || 0;
+                }
+              }
+              if (numAmount > 0) {
+                return {
+                  ...cl,
+                  amount: `Rp ${numAmount.toLocaleString("id-ID")}`,
+                  rawAmount: numAmount,
+                  claimAmount: numAmount,
+                  totalClaimAmount: numAmount
+                };
+              }
+              return cl;
+            });
+          }
         }
       } catch {}
     }
@@ -475,16 +516,42 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
 
   const handleGenerateCL = (qpr: any, amount: string | number, items?: any[]) => {
     let numericAmount = 0;
-    if (typeof amount === "number") {
-      numericAmount = amount;
-    } else {
-      const cleanStr = String(amount || "0")
-        .replace(/Rp/g, "")
-        .replace(/\s/g, "")
-        .replace(/\./g, "")
-        .replace(/,/g, ".");
-      numericAmount = parseFloat(cleanStr) || 0;
+
+    // Calculate exact total from items if available (matches CL Preview 100%)
+    if (items && items.length > 0) {
+      let subtotal = 0;
+      items.forEach((item: any) => {
+        const qty = item.qtyClaim ?? item.billableQty ?? item.qtyNG ?? item.qty ?? item.qtyNg ?? 0;
+        const price = typeof item.unitPrice === "string" ? parseFloat(item.unitPrice) : (item.unitPrice || 0);
+        const amt = item.amount ?? item.subtotal ?? (qty * price);
+        subtotal += (amt || 0);
+      });
+      if (subtotal > 0) {
+        const tax = Math.round(subtotal * 0.11);
+        numericAmount = Math.round(subtotal + tax);
+      }
     }
+
+    if (numericAmount === 0) {
+      if (typeof amount === "number") {
+        numericAmount = Math.round(amount);
+      } else {
+        const cleanStr = String(amount || "0")
+          .replace(/Rp/gi, "")
+          .replace(/\s/g, "");
+        if (cleanStr.includes(",")) {
+          const parts = cleanStr.split(",");
+          const intP = parts[0].replace(/\./g, "");
+          const decP = parts[1] || "";
+          numericAmount = Math.round(parseFloat(`${intP}.${decP}`) || 0);
+        } else if (/^\d+\.\d{1,2}$/.test(cleanStr)) {
+          numericAmount = Math.round(parseFloat(cleanStr) || 0);
+        } else {
+          numericAmount = Math.round(parseFloat(cleanStr.replace(/\./g, "")) || 0);
+        }
+      }
+    }
+
     const cleanAmount = `Rp ${numericAmount.toLocaleString("id-ID")}`;
     const today = new Date().toISOString().split("T")[0];
     const clNum = `CL/${today.slice(0,7).replace("-","/")}/${qpr.supplierName.replace("PT ", "").replace(/ /g, "_")}_${Math.floor(Math.random() * 900 + 100)}`;
@@ -523,6 +590,9 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
       supplierName: qpr.supplierName,
       dateSent: today,
       amount: cleanAmount,
+      rawAmount: numericAmount,
+      claimAmount: numericAmount,
+      totalClaimAmount: numericAmount,
       status: "PENDING",
       requiredRole: "Dept Accounting",
       memoStatus: "SENT_AOP",
@@ -1232,7 +1302,7 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
               />
             )}
 
-            {activeTab === "draft-cl" && (username === "purchasing" || username === "admin") && (
+            {activeTab === "draft-cl" && (username === "purchasing" || username === "accounting" || username === "admin") && (
               <DraftClView
                 confirmationLetters={confirmationLetters}
                 setConfirmationLetters={setConfirmationLetters}
@@ -1240,7 +1310,7 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
               />
             )}
 
-            {activeTab === "confirmation-letter" && (username === "purchasing" || username === "admin") && (
+            {activeTab === "confirmation-letter" && (username === "purchasing" || username === "accounting" || username === "admin") && (
               <AccountingView 
                 confirmationLetters={confirmationLetters}
                 setConfirmationLetters={setConfirmationLetters}

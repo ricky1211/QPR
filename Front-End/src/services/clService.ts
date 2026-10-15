@@ -41,7 +41,36 @@ export const mapClFromDb = (dbCl: any) => {
   const isApproved = dbCl.status === 'APPROVED';
   const qprParts = dbCl.qpr?.qprParts || [];
   const firstPart = qprParts[0]?.part?.partDesc || qprParts[0]?.part?.partNumber || "ALL TYPE PART FINISH";
-  const numAmount = typeof dbCl.amount === 'number' ? dbCl.amount : parseFloat(String(dbCl.amount || '0').replace(/[^0-9]/g, '')) || 0;
+  // Calculate exact total matching Confirmation Letter print preview from parts if present
+  let calculatedAmount = 0;
+  if (Array.isArray(qprParts) && qprParts.length > 0) {
+    let subtotal = 0;
+    qprParts.forEach((qp: any) => {
+      const qtyClaim = qp.qtyClaim !== undefined && qp.qtyClaim !== null ? qp.qtyClaim : (qp.qtyNg ? Math.max(0, qp.qtyNg - (qp.stdAllowance || 0)) : 0);
+      const unitPrice = qp.unitPrice || 0;
+      subtotal += qtyClaim * unitPrice;
+    });
+    if (subtotal > 0) {
+      calculatedAmount = Math.round(subtotal + Math.round(subtotal * 0.11));
+    }
+  }
+
+  let numAmount = calculatedAmount;
+  if (numAmount === 0) {
+    if (typeof dbCl.amount === 'number') {
+      numAmount = Math.round(dbCl.amount);
+    } else {
+      const str = String(dbCl.amount || '').replace(/Rp\.?/gi, '').trim();
+      if (str.includes(',')) {
+        const parts = str.split(',');
+        numAmount = Math.round(parseFloat(`${parts[0].replace(/[^0-9]/g, '')}.${parts[1].replace(/[^0-9]/g, '')}`) || 0);
+      } else if (/^\d+\.\d{1,2}$/.test(str)) {
+        numAmount = Math.round(parseFloat(str) || 0);
+      } else {
+        numAmount = parseInt(str.replace(/[^0-9]/g, ''), 10) || 0;
+      }
+    }
+  }
   
   const isSent = !!dbCl.purchasingSentCl || !!dbCl.purchasingSentDate || !!dbCl.dateSent;
   const sentDate = dbCl.purchasingSentDate || dbCl.dateSent;

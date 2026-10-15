@@ -25,7 +25,8 @@ import {
   FileText,
   DollarSign,
   Filter,
-  Check
+  Check,
+  PlusCircle
 } from "lucide-react";
 
 import ConfirmationLetterPrintPreview from "../role-views/ConfirmationLetterPrintPreview";
@@ -475,7 +476,7 @@ export default function Dashboard({
       activeQprs: activePeriodQprs,
       activeConfirmationLetters: activePeriodConfirmationLetters,
       claimPendingCount: pendingActiveQprs.length + activePeriodConfirmationLetters.filter(c => !c.closedPaid && c.status !== "CLOSED_PAID").length,
-      dynamicClaimsValue: pendingActiveQprs.reduce((acc, q) => acc + parseInt(String(q.claimAmount || "0").replace(/[^0-9]/g, "") || "0", 10), 0) + activePeriodConfirmationLetters.filter(c => !c.closedPaid && c.status !== "CLOSED_PAID").reduce((acc, cl) => acc + parseInt(String(cl.amount || "0").replace(/[^0-9]/g, "") || "0", 10), 0)
+      dynamicClaimsValue: pendingActiveQprs.reduce((acc, q) => acc + parseAmountValue(q.claimAmount || "0"), 0) + activePeriodConfirmationLetters.filter(c => !c.closedPaid && c.status !== "CLOSED_PAID").reduce((acc, cl) => acc + getDocumentAmount(cl), 0)
     };
   };
 
@@ -562,10 +563,77 @@ export default function Dashboard({
   };
 
   const parseAmountValue = (amt: any): number => {
-    if (typeof amt === "number") return amt;
+    if (typeof amt === "number") {
+      if (isNaN(amt)) return 0;
+      return Math.round(amt);
+    }
     if (!amt) return 0;
-    const cleaned = String(amt).replace(/[^0-9]/g, "");
+    let str = String(amt).trim().replace(/Rp\.?/gi, "").trim();
+
+    // If formatted Indonesian currency with comma as decimal separator: e.g. "74.578.174,95" or "74578174,95"
+    if (str.includes(",")) {
+      const parts = str.split(",");
+      const intPart = parts[0].replace(/[^0-9]/g, "");
+      const decPart = (parts[1] || "").replace(/[^0-9]/g, "");
+      const floatVal = parseFloat(`${intPart}.${decPart}`);
+      return Math.round(floatVal || 0);
+    }
+
+    // If standard float string with dot as decimal: e.g. "74578174.95" (has dot, but no other dots)
+    if (/^\d+\.\d{1,2}$/.test(str)) {
+      return Math.round(parseFloat(str) || 0);
+    }
+
+    // If formatted with dots as thousand separators: e.g. "74.578.175"
+    const cleaned = str.replace(/[^0-9]/g, "");
     return parseInt(cleaned, 10) || 0;
+  };
+
+  // Helper to compute exact total matching Confirmation Letter print preview (including VAT 11%)
+  const getDocumentAmount = (docOrBilling: any): number => {
+    if (!docOrBilling) return 0;
+    const items = docOrBilling.items || 
+                  docOrBilling.cl?.items || 
+                  docOrBilling.rawObject?.items || 
+                  docOrBilling.refObject?.items ||
+                  docOrBilling.qpr?.qprParts ||
+                  docOrBilling.rawObject?.qpr?.qprParts;
+    if (Array.isArray(items) && items.length > 0) {
+      let subtotal = 0;
+      items.forEach((item: any) => {
+        const qty = item.qtyClaim ?? item.billableQty ?? item.qtyNG ?? item.qty ?? item.qtyNg ?? 0;
+        const price = typeof item.unitPrice === "string" ? parseFloat(item.unitPrice) : (item.unitPrice || 0);
+        const itemAmt = item.amount ?? item.subtotal ?? (qty * price);
+        subtotal += (itemAmt || 0);
+      });
+      if (subtotal > 0) {
+        const tax = Math.round(subtotal * 0.11);
+        return Math.round(subtotal + tax);
+      }
+    }
+
+    // Safe fallback: lookup linked QPR from pendingQprs if items are not directly embedded on CL
+    const qprNum = docOrBilling.qprNumber || docOrBilling.cl?.qprNumber || docOrBilling.refObject?.qprNumber;
+    const qprId = docOrBilling.qprId || docOrBilling.cl?.qprId;
+    if (Array.isArray(pendingQprs)) {
+      const matchedQpr = pendingQprs.find((q: any) => (qprId && q.id === qprId) || (qprNum && q.qprNumber === qprNum));
+      const qprParts = matchedQpr?.qprParts || matchedQpr?.parts;
+      if (Array.isArray(qprParts) && qprParts.length > 0) {
+        let subtotal = 0;
+        qprParts.forEach((qp: any) => {
+          const qty = qp.qtyClaim ?? qp.billableQty ?? qp.qtyNG ?? qp.qty ?? qp.qtyNg ?? 0;
+          const price = typeof qp.unitPrice === "string" ? parseFloat(qp.unitPrice) : (qp.unitPrice || 0);
+          const itemAmt = qp.amount ?? qp.subtotal ?? (qty * price);
+          subtotal += (itemAmt || 0);
+        });
+        if (subtotal > 0) {
+          const tax = Math.round(subtotal * 0.11);
+          return Math.round(subtotal + tax);
+        }
+      }
+    }
+
+    return parseAmountValue(docOrBilling.totalAmount ?? docOrBilling.amount ?? docOrBilling.memoAmount ?? docOrBilling.rawAmount ?? 0);
   };
 
   // CL Progress and Closed Paid dynamic calculations
@@ -630,7 +698,7 @@ export default function Dashboard({
       const p = b.period || getPeriodFromDate(d);
       if (!isAll && p && p !== activePeriod) return;
 
-      const amtNum = parseAmountValue(b.totalAmount || b.amount || b.memoAmount);
+      const amtNum = getDocumentAmount(matchingCl || b);
       const workingDays = getWorkingDaysElapsed(clSentDate || d);
       const isDue10Days = workingDays >= 10;
       const isPaid = b.status === "CLOSED_PAID" || b.status === "PAID" || b.closedPaid === true || isDue10Days;
@@ -671,7 +739,7 @@ export default function Dashboard({
       if (!itemsMap.has(key)) {
         const clSentDate = cl.purchasingSentDate || cl.dateSent;
         const d = clSentDate || cl.date || cl.createdAt;
-        const amtNum = parseAmountValue(cl.amount);
+        const amtNum = getDocumentAmount(cl);
         const workingDays = getWorkingDaysElapsed(clSentDate || d);
         const isDue10Days = workingDays >= 10;
         const isPaid = cl.status === "CLOSED_PAID" || cl.closedPaid === true || isDue10Days;
@@ -865,6 +933,23 @@ export default function Dashboard({
         status: isPurchasingApproved ? "APPROVED" : (currentRole === "Purchasing" ? "PENDING" : "UPCOMING")
       };
 
+      // 5. Accounting (Create CL)
+      const hasCl = currentActiveConfirmationLetters.some(cl => cl.qprNumber === doc.qprNumber);
+      const accStart = purchasingApprovedAt || (doc.updatedAt ? new Date(doc.updatedAt) : (divApprovedAt || purchStart));
+      let accHours = 0;
+      if (hasCl) {
+        const assocCl = currentActiveConfirmationLetters.find(cl => cl.qprNumber === doc.qprNumber);
+        const clDate = assocCl?.createdAt ? new Date(assocCl.createdAt) : null;
+        accHours = clDate ? Math.max(0, (clDate.getTime() - accStart.getTime()) / (1000 * 60 * 60)) : 0;
+      } else if (isPurchasingApproved && !hasCl) {
+        accHours = Math.max(0, (now.getTime() - accStart.getTime()) / (1000 * 60 * 60));
+      }
+      leadTimes["Accounting"] = {
+        hours: accHours,
+        days: accHours,
+        status: hasCl ? "APPROVED" : (isPurchasingApproved ? "PENDING" : "UPCOMING")
+      };
+
       const totalLeadTime = Object.values(leadTimes).reduce((sum, item) => sum + item.hours, 0) || diffHours;
       return { roles, leadTimes, totalLeadTime };
     } else {
@@ -952,6 +1037,17 @@ export default function Dashboard({
       borderColor: "border-amber-200 hover:border-amber-400",
       activeBg: "bg-amber-50/60 border-amber-500 ring-2 ring-amber-500/20",
       type: "PURCHASING"
+    },
+    {
+      key: "Accounting (Create CL)",
+      title: "Accounting (Create CL)",
+      fullTitle: "Accounting (Create Confirmation Letter)",
+      roles: ["Accounting"],
+      titleColor: "text-sky-800",
+      labelColor: "text-sky-800",
+      borderColor: "border-sky-200 hover:border-sky-400",
+      activeBg: "bg-sky-50/60 border-sky-500 ring-2 ring-sky-500/20",
+      type: "ACCOUNTING_CL"
     },
     {
       key: "Dept Accounting",
@@ -1113,7 +1209,6 @@ export default function Dashboard({
     // 4. Purchasing
     if (role.key === "Purchasing") {
       currentActiveQprs.forEach(qpr => {
-        const hasCl = currentActiveConfirmationLetters.some(cl => cl.qprNumber === qpr.qprNumber);
         const lt = getDocLeadTimes(qpr);
         const days = lt.leadTimes["Purchasing"]?.days || lt.totalLeadTime;
         const item = {
@@ -1122,15 +1217,15 @@ export default function Dashboard({
           type: "QPR",
           vendor: qpr.supplierName,
           date: qpr.date,
-          requiredRole: qpr.requiredRole || "Purchasing",
+          requiredRole: "Purchasing Approval",
           daysStuck: days,
           isStuck: days >= 24,
           amount: qpr.claimAmount || "-",
-          activeTab: qpr.status === "WAITING_APPROVAL" ? "approve-qpr" : "confirmation-letter"
+          activeTab: "approve-qpr"
         };
-        if (!hasCl && (qpr.requiredRole === "Purchasing" || (qpr.status === "APPROVED" && qpr.requiredRole !== "Closed"))) {
+        if (qpr.status !== "APPROVED" && qpr.status !== "CLOSED" && qpr.requiredRole === "Purchasing") {
           runningDocs.push(item);
-        } else if (hasCl || qpr.status === "CLOSED" || qpr.status === "CLOSED_PAID") {
+        } else if (qpr.status === "APPROVED" || qpr.status === "CLOSED" || qpr.requiredRole === "Closed") {
           completedDocs.push(item);
         }
       });
@@ -1147,7 +1242,7 @@ export default function Dashboard({
           requiredRole: "Kirim ke Vendor",
           daysStuck: lt.totalLeadTime,
           isStuck: lt.totalLeadTime >= 24,
-          amount: cl.amount,
+          amount: getDocumentAmount(cl) > 0 ? `Rp ${getDocumentAmount(cl).toLocaleString("id-ID")}` : cl.amount,
           activeTab: "approve-cl"
         };
         if (isDeptApproved && !isSent && !cl.closedPaid && cl.status !== "CLOSED_PAID") {
@@ -1158,7 +1253,52 @@ export default function Dashboard({
       });
     }
 
-    // 5. Dept Accounting
+    // 5. Accounting (Create CL)
+    if (role.key === "Accounting (Create CL)") {
+      currentActiveQprs.forEach(qpr => {
+        const hasCl = currentActiveConfirmationLetters.some(cl => cl.qprNumber === qpr.qprNumber);
+        const lt = getDocLeadTimes(qpr);
+        const days = lt.leadTimes["Accounting"]?.days || lt.totalLeadTime;
+        const item = {
+          id: `qpr-${qpr.id}`,
+          docNumber: qpr.qprNumber,
+          type: "QPR",
+          vendor: qpr.supplierName,
+          date: qpr.date,
+          requiredRole: "Create CL",
+          daysStuck: days,
+          isStuck: days >= 24,
+          amount: qpr.claimAmount || "-",
+          activeTab: "confirmation-letter"
+        };
+        if (!hasCl && (qpr.status === "APPROVED" || qpr.approvalProgress?.approvedAtPurchasing || (qpr.requiredRole === "Purchasing" && qpr.status === "APPROVED"))) {
+          runningDocs.push(item);
+        } else if (hasCl || qpr.status === "CLOSED" || qpr.status === "CLOSED_PAID") {
+          completedDocs.push(item);
+        }
+      });
+      currentActiveConfirmationLetters.forEach(cl => {
+        const isDraft = cl.status === "DRAFT";
+        if (isDraft) {
+          const lt = getDocLeadTimes(cl);
+          const item = {
+            id: `cl-${cl.id}`,
+            docNumber: cl.clNumber,
+            type: "CL",
+            vendor: cl.supplierName,
+            date: cl.dateSent || cl.date,
+            requiredRole: "Draft CL",
+            daysStuck: lt.totalLeadTime,
+            isStuck: lt.totalLeadTime >= 24,
+            amount: getDocumentAmount(cl) > 0 ? `Rp ${getDocumentAmount(cl).toLocaleString("id-ID")}` : cl.amount,
+            activeTab: "draft-cl"
+          };
+          runningDocs.push(item);
+        }
+      });
+    }
+
+    // 6. Dept Accounting
     if (role.key === "Dept Accounting") {
       currentActiveConfirmationLetters.forEach(cl => {
         const isDeptApproved = !!(cl.clApprovalProgress?.deptAccounting || cl.status === "FULLY_APPROVED" || cl.status === "CLOSED_PAID");
@@ -1172,7 +1312,7 @@ export default function Dashboard({
           requiredRole: "Dept Accounting Approval",
           daysStuck: lt.totalLeadTime,
           isStuck: lt.totalLeadTime >= 24,
-          amount: cl.amount,
+          amount: getDocumentAmount(cl) > 0 ? `Rp ${getDocumentAmount(cl).toLocaleString("id-ID")}` : cl.amount,
           activeTab: "approve-cl"
         };
         if (!isDeptApproved && !cl.closedPaid && cl.status !== "CLOSED_PAID") {
@@ -1198,7 +1338,7 @@ export default function Dashboard({
           requiredRole: "Vendor Confirmation",
           daysStuck: lt.totalLeadTime,
           isStuck: lt.totalLeadTime >= 48,
-          amount: cl.amount,
+          amount: getDocumentAmount(cl) > 0 ? `Rp ${getDocumentAmount(cl).toLocaleString("id-ID")}` : cl.amount,
           activeTab: "approve-cl"
         };
         if (isSent && !isVendorApproved && cl.status !== "REJECTED" && !cl.closedPaid && cl.status !== "CLOSED_PAID") {
@@ -1224,7 +1364,7 @@ export default function Dashboard({
           requiredRole: "Finance SSC Billing / Payment",
           daysStuck: lt.totalLeadTime,
           isStuck: lt.totalLeadTime >= 48,
-          amount: cl.amount,
+          amount: getDocumentAmount(cl) > 0 ? `Rp ${getDocumentAmount(cl).toLocaleString("id-ID")}` : cl.amount,
           activeTab: "i-memo"
         };
         if (isVendorApproved && !isClosed) {
@@ -1676,7 +1816,8 @@ export default function Dashboard({
                               dateSent: doc.date,
                               amount: doc.formattedAmount,
                               status: doc.isPaid ? "CLOSED_PAID" : "PENDING",
-                              closedPaid: doc.isPaid
+                              closedPaid: doc.isPaid,
+                              items: doc.rawObject?.items || doc.rawObject?.cl?.items
                             });
                           }}
                           className="px-2.5 py-1 bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white border border-blue-200 hover:border-transparent rounded-lg text-[11px] font-bold shadow-2xs transition-all cursor-pointer active:scale-95 inline-flex items-center gap-1"
@@ -1713,7 +1854,7 @@ export default function Dashboard({
         </div>
       </div>
 
-      {/* Grid: 7 Authorization Role Cards (Status Lead Time & Dokumen Mengendap Berdasarkan Peran Otorisasi) */}
+      {/* Grid: 8 Authorization Role Cards (Status Lead Time & Dokumen Mengendap Berdasarkan Peran Otorisasi) */}
       <div className="space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
@@ -1723,7 +1864,7 @@ export default function Dashboard({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5 sm:gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5 sm:gap-3">
           {authRoles.map((role) => {
             const roleData = getRoleDocsData(role);
             const isSelected = selectedRoleCard === role.key;
@@ -1784,6 +1925,7 @@ export default function Dashboard({
           const roleData = getRoleDocsData(activeRole);
           const isFinanceOrPurchasingCard = 
             selectedRoleCard === "Purchasing" || 
+            selectedRoleCard === "Accounting (Create CL)" ||
             selectedRoleCard === "Dept Accounting" || 
             selectedRoleCard === "Finance Accounting";
           
@@ -1904,38 +2046,51 @@ export default function Dashboard({
                             <td className="px-4 py-3 font-bold text-slate-700">{doc.amount}</td>
                           )}
                           <td className="px-4 py-3 text-right">
-                            <button
-                              onClick={() => {
-                                if (doc.type === "CL" || doc.type === "Confirmation Letter") {
-                                  const targetCl = confirmationLetters.find(c => c.clNumber === doc.docNumber || c.id === doc.id.replace("cl-", ""));
-                                  setPreviewClDoc(targetCl || {
-                                    id: doc.id,
-                                    clNumber: doc.docNumber,
-                                    supplierName: doc.vendor,
-                                    dateSent: doc.date,
-                                    amount: doc.amount,
-                                    status: "PENDING"
-                                  });
-                                } else if (doc.type === "QPR") {
-                                  const targetQpr = pendingQprs.find(q => q.qprNumber === doc.docNumber || q.id === doc.id.replace("qpr-", ""));
-                                  setPreviewQprDoc(targetQpr || {
-                                    id: doc.id,
-                                    qprNumber: doc.docNumber,
-                                    supplierName: doc.vendor,
-                                    date: doc.date,
-                                    claimAmount: doc.amount,
-                                    status: "WAITING_APPROVAL"
-                                  });
-                                } else {
-                                  setActiveTab(doc.activeTab);
-                                }
-                              }}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white border border-blue-200 hover:border-transparent rounded-lg text-[11px] font-bold shadow-sm transition-all cursor-pointer active:scale-95"
-                              title="Lihat Pratinjau Dokumen"
-                            >
-                              <Eye size={12} />
-                              Preview
-                            </button>
+                            <div className="flex items-center justify-end gap-1.5">
+                              {doc.activeTab === "confirmation-letter" && (
+                                <button
+                                  type="button"
+                                  onClick={() => setActiveTab("confirmation-letter")}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-[11px] font-bold shadow-sm transition-all cursor-pointer active:scale-95"
+                                  title="Buat Confirmation Letter untuk QPR ini"
+                                >
+                                  <PlusCircle size={12} />
+                                  Buat CL
+                                </button>
+                              )}
+                              <button
+                                onClick={() => {
+                                  if (doc.type === "CL" || doc.type === "Confirmation Letter") {
+                                    const targetCl = confirmationLetters.find(c => c.clNumber === doc.docNumber || c.id === doc.id.replace("cl-", ""));
+                                    setPreviewClDoc(targetCl || {
+                                      id: doc.id,
+                                      clNumber: doc.docNumber,
+                                      supplierName: doc.vendor,
+                                      dateSent: doc.date,
+                                      amount: doc.amount,
+                                      status: "PENDING"
+                                    });
+                                  } else if (doc.type === "QPR") {
+                                    const targetQpr = pendingQprs.find(q => q.qprNumber === doc.docNumber || q.id === doc.id.replace("qpr-", ""));
+                                    setPreviewQprDoc(targetQpr || {
+                                      id: doc.id,
+                                      qprNumber: doc.docNumber,
+                                      supplierName: doc.vendor,
+                                      date: doc.date,
+                                      claimAmount: doc.amount,
+                                      status: "WAITING_APPROVAL"
+                                    });
+                                  } else {
+                                    setActiveTab(doc.activeTab);
+                                  }
+                                }}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white border border-blue-200 hover:border-transparent rounded-lg text-[11px] font-bold shadow-sm transition-all cursor-pointer active:scale-95"
+                                title="Lihat Pratinjau Dokumen"
+                              >
+                                <Eye size={12} />
+                                Preview
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))
