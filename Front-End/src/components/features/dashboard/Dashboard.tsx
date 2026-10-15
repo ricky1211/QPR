@@ -344,6 +344,80 @@ const getDocPipelineStages = (
   }
 };
 
+export const parseAmountValue = (amt: any): number => {
+  if (typeof amt === "number") {
+    if (isNaN(amt)) return 0;
+    return Math.round(amt);
+  }
+  if (!amt) return 0;
+  let str = String(amt).trim().replace(/Rp\.?/gi, "").trim();
+
+  // If formatted Indonesian currency with comma as decimal separator: e.g. "74.578.174,95" or "74578174,95"
+  if (str.includes(",")) {
+    const parts = str.split(",");
+    const intPart = parts[0].replace(/[^0-9]/g, "");
+    const decPart = (parts[1] || "").replace(/[^0-9]/g, "");
+    const floatVal = parseFloat(`${intPart}.${decPart}`);
+    return Math.round(floatVal || 0);
+  }
+
+  // If standard float string with dot as decimal: e.g. "74578174.95" (has dot, but no other dots)
+  if (/^\d+\.\d{1,2}$/.test(str)) {
+    return Math.round(parseFloat(str) || 0);
+  }
+
+  // If formatted with dots as thousand separators: e.g. "74.578.175"
+  const cleaned = str.replace(/[^0-9]/g, "");
+  return parseInt(cleaned, 10) || 0;
+};
+
+// Helper to compute exact total matching Confirmation Letter print preview (including VAT 11%)
+export const getDocumentAmount = (docOrBilling: any, fallbackQprs?: any[]): number => {
+  if (!docOrBilling) return 0;
+  const items = docOrBilling.items || 
+                docOrBilling.cl?.items || 
+                docOrBilling.rawObject?.items || 
+                docOrBilling.refObject?.items ||
+                docOrBilling.qpr?.qprParts ||
+                docOrBilling.rawObject?.qpr?.qprParts;
+  if (Array.isArray(items) && items.length > 0) {
+    let subtotal = 0;
+    items.forEach((item: any) => {
+      const qty = item.qtyClaim ?? item.billableQty ?? item.qtyNG ?? item.qty ?? item.qtyNg ?? 0;
+      const price = typeof item.unitPrice === "string" ? parseFloat(item.unitPrice) : (item.unitPrice || 0);
+      const itemAmt = item.amount ?? item.subtotal ?? (qty * price);
+      subtotal += (itemAmt || 0);
+    });
+    if (subtotal > 0) {
+      const tax = Math.round(subtotal * 0.11);
+      return Math.round(subtotal + tax);
+    }
+  }
+
+  // Safe fallback: lookup linked QPR from fallbackQprs if items are not directly embedded on CL
+  const qprNum = docOrBilling.qprNumber || docOrBilling.cl?.qprNumber || docOrBilling.refObject?.qprNumber;
+  const qprId = docOrBilling.qprId || docOrBilling.cl?.qprId;
+  if (Array.isArray(fallbackQprs)) {
+    const matchedQpr = fallbackQprs.find((q: any) => (qprId && q.id === qprId) || (qprNum && q.qprNumber === qprNum));
+    const qprParts = matchedQpr?.qprParts || matchedQpr?.parts;
+    if (Array.isArray(qprParts) && qprParts.length > 0) {
+      let subtotal = 0;
+      qprParts.forEach((qp: any) => {
+        const qty = qp.qtyClaim ?? qp.billableQty ?? qp.qtyNG ?? qp.qty ?? qp.qtyNg ?? 0;
+        const price = typeof qp.unitPrice === "string" ? parseFloat(qp.unitPrice) : (qp.unitPrice || 0);
+        const itemAmt = qp.amount ?? qp.subtotal ?? (qty * price);
+        subtotal += (itemAmt || 0);
+      });
+      if (subtotal > 0) {
+        const tax = Math.round(subtotal * 0.11);
+        return Math.round(subtotal + tax);
+      }
+    }
+  }
+
+  return parseAmountValue(docOrBilling.totalAmount ?? docOrBilling.amount ?? docOrBilling.memoAmount ?? docOrBilling.rawAmount ?? 0);
+};
+
 interface DashboardProps {
   pendingNcrs: any[];
   pendingQprs: any[];
@@ -369,6 +443,9 @@ export default function Dashboard({
   username = "admin",
   handleMarkClosedPaid
 }: DashboardProps) {
+  const getDocAmount = React.useCallback((docOrBilling: any) => {
+    return getDocumentAmount(docOrBilling, pendingQprs);
+  }, [pendingQprs]);
   const [previewClDoc, setPreviewClDoc] = useState<any | null>(null);
   const [previewQprDoc, setPreviewQprDoc] = useState<any | null>(null);
   const [selectedRoleCard, setSelectedRoleCard] = useState<string | null>(null);
@@ -476,7 +553,7 @@ export default function Dashboard({
       activeQprs: activePeriodQprs,
       activeConfirmationLetters: activePeriodConfirmationLetters,
       claimPendingCount: pendingActiveQprs.length + activePeriodConfirmationLetters.filter(c => !c.closedPaid && c.status !== "CLOSED_PAID").length,
-      dynamicClaimsValue: pendingActiveQprs.reduce((acc, q) => acc + parseAmountValue(q.claimAmount || "0"), 0) + activePeriodConfirmationLetters.filter(c => !c.closedPaid && c.status !== "CLOSED_PAID").reduce((acc, cl) => acc + getDocumentAmount(cl), 0)
+      dynamicClaimsValue: pendingActiveQprs.reduce((acc, q) => acc + parseAmountValue(q.claimAmount || "0"), 0) + activePeriodConfirmationLetters.filter(c => !c.closedPaid && c.status !== "CLOSED_PAID").reduce((acc, cl) => acc + getDocAmount(cl), 0)
     };
   };
 
@@ -562,80 +639,6 @@ export default function Dashboard({
     return cur.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
   };
 
-  const parseAmountValue = (amt: any): number => {
-    if (typeof amt === "number") {
-      if (isNaN(amt)) return 0;
-      return Math.round(amt);
-    }
-    if (!amt) return 0;
-    let str = String(amt).trim().replace(/Rp\.?/gi, "").trim();
-
-    // If formatted Indonesian currency with comma as decimal separator: e.g. "74.578.174,95" or "74578174,95"
-    if (str.includes(",")) {
-      const parts = str.split(",");
-      const intPart = parts[0].replace(/[^0-9]/g, "");
-      const decPart = (parts[1] || "").replace(/[^0-9]/g, "");
-      const floatVal = parseFloat(`${intPart}.${decPart}`);
-      return Math.round(floatVal || 0);
-    }
-
-    // If standard float string with dot as decimal: e.g. "74578174.95" (has dot, but no other dots)
-    if (/^\d+\.\d{1,2}$/.test(str)) {
-      return Math.round(parseFloat(str) || 0);
-    }
-
-    // If formatted with dots as thousand separators: e.g. "74.578.175"
-    const cleaned = str.replace(/[^0-9]/g, "");
-    return parseInt(cleaned, 10) || 0;
-  };
-
-  // Helper to compute exact total matching Confirmation Letter print preview (including VAT 11%)
-  const getDocumentAmount = (docOrBilling: any): number => {
-    if (!docOrBilling) return 0;
-    const items = docOrBilling.items || 
-                  docOrBilling.cl?.items || 
-                  docOrBilling.rawObject?.items || 
-                  docOrBilling.refObject?.items ||
-                  docOrBilling.qpr?.qprParts ||
-                  docOrBilling.rawObject?.qpr?.qprParts;
-    if (Array.isArray(items) && items.length > 0) {
-      let subtotal = 0;
-      items.forEach((item: any) => {
-        const qty = item.qtyClaim ?? item.billableQty ?? item.qtyNG ?? item.qty ?? item.qtyNg ?? 0;
-        const price = typeof item.unitPrice === "string" ? parseFloat(item.unitPrice) : (item.unitPrice || 0);
-        const itemAmt = item.amount ?? item.subtotal ?? (qty * price);
-        subtotal += (itemAmt || 0);
-      });
-      if (subtotal > 0) {
-        const tax = Math.round(subtotal * 0.11);
-        return Math.round(subtotal + tax);
-      }
-    }
-
-    // Safe fallback: lookup linked QPR from pendingQprs if items are not directly embedded on CL
-    const qprNum = docOrBilling.qprNumber || docOrBilling.cl?.qprNumber || docOrBilling.refObject?.qprNumber;
-    const qprId = docOrBilling.qprId || docOrBilling.cl?.qprId;
-    if (Array.isArray(pendingQprs)) {
-      const matchedQpr = pendingQprs.find((q: any) => (qprId && q.id === qprId) || (qprNum && q.qprNumber === qprNum));
-      const qprParts = matchedQpr?.qprParts || matchedQpr?.parts;
-      if (Array.isArray(qprParts) && qprParts.length > 0) {
-        let subtotal = 0;
-        qprParts.forEach((qp: any) => {
-          const qty = qp.qtyClaim ?? qp.billableQty ?? qp.qtyNG ?? qp.qty ?? qp.qtyNg ?? 0;
-          const price = typeof qp.unitPrice === "string" ? parseFloat(qp.unitPrice) : (qp.unitPrice || 0);
-          const itemAmt = qp.amount ?? qp.subtotal ?? (qty * price);
-          subtotal += (itemAmt || 0);
-        });
-        if (subtotal > 0) {
-          const tax = Math.round(subtotal * 0.11);
-          return Math.round(subtotal + tax);
-        }
-      }
-    }
-
-    return parseAmountValue(docOrBilling.totalAmount ?? docOrBilling.amount ?? docOrBilling.memoAmount ?? docOrBilling.rawAmount ?? 0);
-  };
-
   // CL Progress and Closed Paid dynamic calculations
   const clLunas = currentConfig.claimClosedPaidCount + currentActiveConfirmationLetters.filter((cl: any) => {
     const isSent = !!(cl.purchasingSentCl || cl.purchasingSentDate || cl.dateSent);
@@ -698,7 +701,7 @@ export default function Dashboard({
       const p = b.period || getPeriodFromDate(d);
       if (!isAll && p && p !== activePeriod) return;
 
-      const amtNum = getDocumentAmount(matchingCl || b);
+      const amtNum = getDocAmount(matchingCl || b);
       const workingDays = getWorkingDaysElapsed(clSentDate || d);
       const isDue10Days = workingDays >= 10;
       const isPaid = b.status === "CLOSED_PAID" || b.status === "PAID" || b.closedPaid === true || isDue10Days;
@@ -739,7 +742,7 @@ export default function Dashboard({
       if (!itemsMap.has(key)) {
         const clSentDate = cl.purchasingSentDate || cl.dateSent;
         const d = clSentDate || cl.date || cl.createdAt;
-        const amtNum = getDocumentAmount(cl);
+        const amtNum = getDocAmount(cl);
         const workingDays = getWorkingDaysElapsed(clSentDate || d);
         const isDue10Days = workingDays >= 10;
         const isPaid = cl.status === "CLOSED_PAID" || cl.closedPaid === true || isDue10Days;

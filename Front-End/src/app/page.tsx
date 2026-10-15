@@ -447,10 +447,12 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
           if (Array.isArray(parsed)) {
             // Auto-synchronize and normalize amounts for all stored CLs with exact item sums + VAT
             return parsed.map((cl: any) => {
+              if (!cl || typeof cl !== "object") return cl;
               let numAmount = 0;
               if (cl.items && Array.isArray(cl.items) && cl.items.length > 0) {
                 let subtotal = 0;
                 cl.items.forEach((it: any) => {
+                  if (!it) return;
                   const qty = it.qtyClaim ?? it.billableQty ?? it.qtyNG ?? it.qty ?? it.qtyNg ?? 0;
                   const price = typeof it.unitPrice === "string" ? parseFloat(it.unitPrice) : (it.unitPrice || 0);
                   const amt = it.amount ?? it.subtotal ?? (qty * price);
@@ -462,16 +464,22 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
                 }
               }
               if (numAmount === 0) {
-                const str = String(cl.amount || "").replace(/Rp\.?/gi, "").trim();
-                if (str.includes(",")) {
-                  const parts = str.split(",");
-                  const intP = parts[0].replace(/[^0-9]/g, "");
-                  const decP = (parts[1] || "").replace(/[^0-9]/g, "");
-                  numAmount = Math.round(parseFloat(`${intP}.${decP}`) || 0);
-                } else if (/^\d+\.\d{1,2}$/.test(str)) {
-                  numAmount = Math.round(parseFloat(str) || 0);
+                if (typeof cl.amount === "number") {
+                  numAmount = Math.round(cl.amount);
+                } else if (typeof cl.rawAmount === "number") {
+                  numAmount = Math.round(cl.rawAmount);
                 } else {
-                  numAmount = parseInt(str.replace(/[^0-9]/g, ""), 10) || 0;
+                  const str = String(cl.amount || "").replace(/Rp\.?/gi, "").trim();
+                  if (str.includes(",")) {
+                    const parts = str.split(",");
+                    const intP = parts[0].replace(/[^0-9]/g, "");
+                    const decP = (parts[1] || "").replace(/[^0-9]/g, "");
+                    numAmount = Math.round(parseFloat(`${intP}.${decP}`) || 0);
+                  } else if (/^\d+\.\d{1,2}$/.test(str)) {
+                    numAmount = Math.round(parseFloat(str) || 0);
+                  } else {
+                    numAmount = parseInt(str.replace(/[^0-9]/g, ""), 10) || 0;
+                  }
                 }
               }
               if (numAmount > 0) {
