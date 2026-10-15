@@ -20,6 +20,35 @@ const nextConfig = {
     qualities: [75, 90],
   },
 
+  async redirects() {
+    return [
+      {
+        source: '/',
+        destination: '/qpr/',
+        permanent: false,
+        basePath: false,
+      },
+      {
+        source: '/favicon.ico',
+        destination: '/qpr/favicon.ico',
+        permanent: false,
+        basePath: false,
+      },
+      {
+        source: '/apple-touch-icon.png',
+        destination: '/qpr/logo-mtm-icon.png',
+        permanent: false,
+        basePath: false,
+      },
+      {
+        source: '/apple-touch-icon-precomposed.png',
+        destination: '/qpr/logo-mtm-icon.png',
+        permanent: false,
+        basePath: false,
+      },
+    ];
+  },
+
   async rewrites() {
     return [
       {
