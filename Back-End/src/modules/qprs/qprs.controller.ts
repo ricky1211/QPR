@@ -26,6 +26,12 @@ export class QprsController {
     return this.qprsService.markConfirmationLettersSent(data);
   }
 
+  @Get('confirmation-letters/check-due-dates')
+  async checkDueDates(): Promise<any> {
+    const notified = await this.qprsService.checkDueDatesForFinance();
+    return { success: true, notifiedCount: notified };
+  }
+
   @Put('confirmation-letters/:id')
   async updateConfirmationLetter(@Param('id') id: string, @Body() data: any): Promise<any> {
     return this.qprsService.updateConfirmationLetter(id, data);

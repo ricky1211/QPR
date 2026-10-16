@@ -5,9 +5,10 @@ import { SscController } from './ssc.controller';
 import { SscService } from './ssc.service';
 import { PrismaModule } from '../../infrastructure/prisma/prisma.module';
 import { PdfModule } from '../../infrastructure/pdf/pdf.module';
+import { EmailModule } from '../../infrastructure/email/email.module';
 
 @Module({
-  imports: [PrismaModule, PdfModule],
+  imports: [PrismaModule, PdfModule, EmailModule],
   controllers: [QprsController, SscController],
   providers: [QprsService, SscService],
   exports: [QprsService, SscService],

@@ -1,14 +1,90 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, OnModuleInit, Logger } from '@nestjs/common';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { PdfGeneratorService } from '../../infrastructure/pdf/pdf-generator.service';
+import { EmailService } from '../../infrastructure/email/email.service';
 import { Qpr, QprApprovalProgress, QprStatus } from '@prisma/client';
 
+export const QPR_EMAIL_RECIPIENTS = {
+  sectionHead: ['septian.nugraha@mtm.astra.co.id'],
+  deptHead: ['septian.nugraha@mtm.astra.co.id'],
+  divHead: ['putu.saputra@mtm.astra.co.id'],
+  purchasing: ['irvan.hn@mtm.astra.co.id'],
+  accounting: ['muhammad.chariri@mtm.astra.co.id', 'cicik.andria@mtm.astra.co.id'],
+  deptAccounting: ['anindita.irnila@mtm.astra.co.id'],
+  finance: ['bagas.pratama@mtm.astra.co.id'],
+};
+
 @Injectable()
-export class QprsService {
+export class QprsService implements OnModuleInit {
+  private readonly logger = new Logger(QprsService.name);
+  private notifiedDueDateClIds = new Set<string>();
+
   constructor(
     private prisma: PrismaService,
     private pdfGeneratorService: PdfGeneratorService,
+    private emailService: EmailService,
   ) {}
+
+  onModuleInit() {
+    // Check for 10-day due dates on startup and every 1 hour
+    setTimeout(() => this.checkDueDatesForFinance(), 5000);
+    setInterval(() => this.checkDueDatesForFinance(), 60 * 60 * 1000);
+  }
+
+  async checkDueDatesForFinance(): Promise<number> {
+    try {
+      const cls = await this.prisma.confirmationLetter.findMany({
+        where: {
+          purchasingSentCl: true,
+          vendorApproved: false,
+          closedPaid: false,
+        },
+        include: {
+          vendor: true,
+          qpr: true,
+        },
+      });
+
+      let countNotified = 0;
+      const now = new Date();
+
+      for (const cl of cls) {
+        if (this.notifiedDueDateClIds.has(cl.id)) continue;
+
+        const sentDateStr = cl.purchasingSentDate || (cl.dateSent ? cl.dateSent.toISOString().split('T')[0] : null);
+        if (!sentDateStr) continue;
+
+        const sentDate = new Date(sentDateStr);
+        if (isNaN(sentDate.getTime())) continue;
+
+        let workingDays = 0;
+        const cur = new Date(sentDate);
+        cur.setHours(0, 0, 0, 0);
+        const end = new Date(now);
+        end.setHours(0, 0, 0, 0);
+
+        while (cur < end) {
+          cur.setDate(cur.getDate() + 1);
+          const day = cur.getDay();
+          if (day !== 0 && day !== 6) {
+            workingDays++;
+          }
+        }
+
+        if (workingDays >= 10) {
+          this.notifiedDueDateClIds.add(cl.id);
+          countNotified++;
+          this.logger.log(`CL ${cl.clNumber} reached 10 working days without vendor approval. Triggering Finance email...`);
+          await this.emailService.notifyFinanceForSsc(cl, 'due_date', QPR_EMAIL_RECIPIENTS.finance);
+        }
+      }
+
+      return countNotified;
+    } catch (err: any) {
+      this.logger.warn(`Error in checkDueDatesForFinance: ${err.message}`);
+      return 0;
+    }
+  }
 
   async findAll(): Promise<any[]> {
     try {
@@ -182,6 +258,17 @@ export class QprsService {
       },
     });
 
+    // Step 1 Flow Trigger: create qpr -> email terkirim ke section (septian.nugraha@mtm.astra.co.id)
+    try {
+      const fullQpr = await this.prisma.qpr.findUnique({
+        where: { id: createdQpr.id },
+        include: { vendor: true, qprParts: true },
+      });
+      await this.emailService.notifyQprCreated(fullQpr || createdQpr, QPR_EMAIL_RECIPIENTS.sectionHead);
+    } catch (err: any) {
+      this.logger.warn(`Failed to trigger section head email after QPR creation: ${err.message}`);
+    }
+
     return createdQpr;
   }
 
@@ -291,6 +378,11 @@ export class QprsService {
 
     const convertBuffer = (str?: string) => (str ? Buffer.from(str, 'utf-8') : undefined);
 
+    // Fetch previous progress to detect state transition
+    const previousProgress = await this.prisma.qprApprovalProgress.findUnique({
+      where: { qprId },
+    });
+
     // 1. Update approval progress record
     const result = await this.prisma.qprApprovalProgress.update({
       where: { qprId },
@@ -313,10 +405,13 @@ export class QprsService {
       },
     });
 
-    // 2. Synchronize QPR status & requiredRole in QPR table
+    // 2. Synchronize QPR status & requiredRole in QPR table and trigger notifications
     (async () => {
       try {
-        const qpr = await this.prisma.qpr.findUnique({ where: { id: qprId } });
+        const qpr = await this.prisma.qpr.findUnique({
+          where: { id: qprId },
+          include: { vendor: true, qprParts: true },
+        });
 
         if (qpr) {
           let nextRequiredRole = qpr.requiredRole;
@@ -350,9 +445,24 @@ export class QprsService {
               },
             });
           }
+
+          // Trigger appropriate email based on the newly submitted approval
+          if (checksumPurchasing && (!previousProgress || !previousProgress.checksumPurchasing)) {
+            // purcashing approval -> email terkirim ke accounting (muhammad.chariri & cicik.andria) untuk membuat cl
+            await this.emailService.notifyPurchasingApproved(qpr, QPR_EMAIL_RECIPIENTS.accounting);
+          } else if (checksumDivHead && (!previousProgress || !previousProgress.checksumDivHead)) {
+            // div head approval -> email terkirim ke purchasing (irvan hn)
+            await this.emailService.notifyDivApproved(qpr, QPR_EMAIL_RECIPIENTS.purchasing);
+          } else if (checksumDeptHead && (!previousProgress || !previousProgress.checksumDeptHead)) {
+            // dept head approval -> email terkirim ke div head (putu saputra)
+            await this.emailService.notifyDeptApproved(qpr, QPR_EMAIL_RECIPIENTS.divHead);
+          } else if (checksumSectionHead && (!previousProgress || !previousProgress.checksumSectionHead)) {
+            // section approval -> email terkirim ke dept head (septian nugraha)
+            await this.emailService.notifySectionApproved(qpr, QPR_EMAIL_RECIPIENTS.deptHead);
+          }
         }
       } catch (err: any) {
-        console.warn(`[QprsService] Notice: Error in updateApprovalProgress status sync:`, err.message);
+        console.warn(`[QprsService] Notice: Error in updateApprovalProgress status sync/email:`, err.message);
       }
     })();
 
@@ -528,6 +638,13 @@ export class QprsService {
       },
     });
 
+    // Flow Trigger: cl sudah dibuat email terkirim ke dept accounting anindita.irnila@mtm.astra.co.id untuk melakukan approval
+    try {
+      await this.emailService.notifyClCreated(createdCl, QPR_EMAIL_RECIPIENTS.deptAccounting);
+    } catch (err: any) {
+      this.logger.warn(`Failed to trigger dept accounting email for created CL: ${err.message}`);
+    }
+
     return createdCl;
   }
   async updateConfirmationLetter(id: string, data: any): Promise<any> {
@@ -540,6 +657,12 @@ export class QprsService {
       }
       return Math.round(parseFloat(cleanStr.replace(/\./g, '')) || 0);
     })()) : undefined;
+
+    // Fetch existing state to detect transitions
+    const existingCl = await this.prisma.confirmationLetter.findUnique({
+      where: { id },
+      include: { vendor: true, qpr: true },
+    });
     
     const updatedCl = await this.prisma.confirmationLetter.update({
       where: { id },
@@ -552,6 +675,18 @@ export class QprsService {
         purchasingSentDate: purchasingSentDate !== undefined ? purchasingSentDate : undefined,
         vendorApprovedDate: vendorApprovedDate !== undefined ? vendorApprovedDate : undefined,
       },
+      include: {
+        vendor: true,
+        qpr: {
+          include: {
+            qprParts: {
+              include: {
+                part: true,
+              },
+            },
+          },
+        },
+      },
     });
 
     if (closedPaid === true && updatedCl.qprId) {
@@ -562,6 +697,25 @@ export class QprsService {
           requiredRole: 'Closed',
         },
       });
+    }
+
+    // Flow Trigger: dept accounting approval -> email terkirim ke accounting (muhammad.chariri@mtm.astra.co.id dan cicik.andria@mtm.astra.co.id) untuk mengirim kan cl ke vendor
+    if (status === 'APPROVED' && (!existingCl || existingCl.status !== 'APPROVED') && !vendorApproved) {
+      try {
+        await this.emailService.notifyClDeptApproved(updatedCl, QPR_EMAIL_RECIPIENTS.accounting);
+      } catch (err: any) {
+        this.logger.warn(`Failed to trigger accounting email for Dept Accounting approved CL: ${err.message}`);
+      }
+    }
+
+    // Flow Trigger: cl terkirim dan dapat approval dari vendor -> email akan terkirim ke finance (bagas.pratama@mtm.astra.co.id) untuk segera dibuatkan ssc billing dan ssc payment
+    if (vendorApproved === true && (!existingCl || !existingCl.vendorApproved)) {
+      try {
+        this.notifiedDueDateClIds.add(updatedCl.id);
+        await this.emailService.notifyFinanceForSsc(updatedCl, 'vendor_approved', QPR_EMAIL_RECIPIENTS.finance);
+      } catch (err: any) {
+        this.logger.warn(`Failed to trigger finance email for vendor-approved CL: ${err.message}`);
+      }
     }
 
     return updatedCl;
