@@ -1630,22 +1630,10 @@ export default function Dashboard({
       <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-5 transition-all">
         {/* Section Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-gradient-to-br from-indigo-500 to-blue-600 text-white rounded-xl shadow-md shadow-blue-500/20 shrink-0">
-              <Banknote size={22} className="stroke-[2.2]" />
-            </div>
-            <div>
-              <h3 className="text-sm sm:text-base font-black text-slate-900 uppercase tracking-wide">
-                Monitoring Amount Potong Tagih
-              </h3>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-600 shadow-2xs">
-              <Calendar size={13} className="text-blue-600" />
-              <span>{activePeriod}</span>
-            </span>
+          <div>
+            <h3 className="text-sm sm:text-base font-black text-slate-900 uppercase tracking-wide">
+              Monitoring Amount Potong Tagih
+            </h3>
           </div>
         </div>
 
