@@ -1010,17 +1010,17 @@ Cikarang Bekasi 17530 Indonesia`;
     setPaySigCheckedRole("AR Function Lead");
   }, [selectedPaymentClId, createdSscBillings, confirmationLetters]);
 
-  // Filter CLs that are approved by vendor OR have reached 10 working days without upload, not yet processed into SSC Billing, and not closed/paid
+  // Filter CLs that are approved by vendor (either uploaded manual signed CL by user OR auto-advance after 10 working days), not yet processed into SSC Billing, and not closed/paid
   const availableClsForBilling = sscBillingRows.filter((cl: any) => {
     const isSent = !!(cl.purchasingSentCl || cl.purchasingSentDate || cl.dateSent || cl.sentToVendor);
     const sentDate = cl.purchasingSentDate || cl.dateSent;
     const workingDays = isSent && sentDate ? countWorkingDaysBetween(new Date(sentDate), new Date()) : 0;
-    const isDue10Days = isSent && workingDays >= 10;
-
-    const isVendorApprovedOrAutoDue = cl.status === "FULLY_APPROVED" || cl.status === "APPROVED" || cl.status === "APPROVED_BY_VENDOR" || cl.vendorApproved || isDue10Days;
+    const isDue10Days = (isSent && workingDays >= 10) || !!cl.isDue10Days;
+    const isVendorApprovedByUpload = !!(cl.vendorApproved || cl.status === "APPROVED_BY_VENDOR" || cl.vendorApprovedDocName || cl.signedClFileName);
+    const isReadyForSsc = isVendorApprovedByUpload || isDue10Days;
     const isAlreadyBilled = createdSscBillings.some((b: any) => b.clId === cl.id || b.clNumber === cl.clNumber);
     const isClosed = cl.status === "CLOSED_PAID" || cl.closedPaid;
-    return isVendorApprovedOrAutoDue && !isAlreadyBilled && !isClosed;
+    return isReadyForSsc && !isAlreadyBilled && !isClosed;
   });
 
   // Filter SSC Billings that are created, not yet processed into SSC Payment, and not closed/paid
@@ -3393,17 +3393,17 @@ PT Menara Terus Makmur (Finance & Accounting Div)`
                                               {cl.vendorApproved ? (
                                                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-emerald-100 text-emerald-850 border border-emerald-300 rounded-full text-[9.5px] font-black shadow-2xs">
                                                   <CheckCircle2 size={11} className="text-emerald-600 shrink-0" />
-                                                  APPROVED BY VENDOR
+                                                  APPROVED BY VENDOR (SIAP KE SSC)
                                                 </span>
                                               ) : isDue10Days ? (
-                                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-indigo-100 text-indigo-900 border border-indigo-300 rounded-full text-[9.5px] font-black shadow-2xs" title="Otomatis diteruskan ke SSC Billing karena telah mencapai batas waktu 10 hari kerja">
-                                                  <CheckCircle2 size={11} className="text-indigo-600 shrink-0" />
+                                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-indigo-100 text-indigo-900 border border-indigo-300 rounded-full text-[9.5px] font-black shadow-2xs" title="Batas 10 hari kerja tercapai. Dokumen otomatis diteruskan ke antrian SSC Finance (SOP Potong Tagih Otomatis MTM).">
+                                                  <Clock size={11} className="text-amber-600 shrink-0" />
                                                   OTOMATIS KE SSC (10 HK)
                                                 </span>
                                               ) : (
-                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-300 rounded-full text-[9.5px] font-bold">
-                                                  <Clock size={11} className="text-amber-500 shrink-0" />
-                                                  Menunggu Vendor ({workingDays}/10 HK)
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-100 text-slate-700 border border-slate-300 rounded-full text-[9.5px] font-bold">
+                                                  <Clock size={11} className="text-slate-500 shrink-0" />
+                                                  Menunggu Upload Vendor ({workingDays}/10 HK)
                                                 </span>
                                               )}
                                             </div>

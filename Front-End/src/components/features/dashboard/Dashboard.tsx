@@ -71,6 +71,17 @@ const parseDocDate = (docOrDate?: any): Date => {
   return parsed;
 };
 
+const formatStuckDate = (dateVal?: string | Date): string => {
+  if (!dateVal) return "-";
+  const d = new Date(dateVal);
+  if (isNaN(d.getTime())) return String(dateVal);
+  return d.toLocaleDateString("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric"
+  });
+};
+
 const getDocPipelineStages = (
   type: string,
   requiredRole?: string,
@@ -186,7 +197,7 @@ const getDocPipelineStages = (
       stages[7].status = "APPROVED";
       stages[7].hours = purchasingSentDate ? Math.max(0, (purchasingSentDate.getTime() - startSent.getTime()) / (1000 * 60 * 60)) : 0;
 
-      const isVendorAppr = !!(clObj?.vendorApproved || status === "APPROVED_BY_VENDOR" || status === "FULLY_APPROVED" || status === "CLOSED_PAID");
+      const isVendorAppr = !!(clObj?.vendorApproved || clObj?.signedClFileName || clObj?.vendorApprovedDocName || status === "APPROVED_BY_VENDOR");
       const startVendor = purchasingSentDate || startSent;
       if (!isVendorAppr) {
         stages[8].status = "PENDING";
@@ -306,7 +317,7 @@ const getDocPipelineStages = (
     }
 
     // 8. VENDOR APPROVAL
-    const isVendorAppr = !!(linkedCl.vendorApproved || linkedCl.status === "APPROVED_BY_VENDOR" || linkedCl.status === "FULLY_APPROVED" || linkedCl.status === "CLOSED_PAID" || linkedCl.closedPaid);
+    const isVendorAppr = !!(linkedCl.vendorApproved || linkedCl.signedClFileName || linkedCl.vendorApprovedDocName || linkedCl.status === "APPROVED_BY_VENDOR");
     const startVendor = purchasingSentDate || startKirim;
     if (!isVendorAppr) {
       stages[8].status = "PENDING";
@@ -1103,6 +1114,7 @@ export default function Dashboard({
           type: "NCR",
           vendor: ncr.supplierName,
           date: ncr.date,
+          stuckSinceDate: ncr.date || ncr.createdAt,
           requiredRole: ncr.requiredRole,
           daysStuck: days,
           isStuck: days >= 24,
@@ -1124,6 +1136,7 @@ export default function Dashboard({
           type: "QPR",
           vendor: qpr.supplierName,
           date: qpr.date,
+          stuckSinceDate: qpr.date || qpr.createdAt,
           requiredRole: qpr.requiredRole,
           daysStuck: days,
           isStuck: days >= 24,
@@ -1149,6 +1162,7 @@ export default function Dashboard({
           type: "NCR",
           vendor: ncr.supplierName,
           date: ncr.date,
+          stuckSinceDate: ncr.ncrApprovalProgress?.approvedAtSectionHead || ncr.refObject?.ncrApprovalProgress?.approvedAtSectionHead || ncr.date || ncr.createdAt,
           requiredRole: ncr.requiredRole,
           daysStuck: days,
           isStuck: days >= 24,
@@ -1170,6 +1184,7 @@ export default function Dashboard({
           type: "QPR",
           vendor: qpr.supplierName,
           date: qpr.date,
+          stuckSinceDate: qpr.approvalProgress?.approvedAtSectionHead || qpr.refObject?.approvalProgress?.approvedAtSectionHead || qpr.date || qpr.createdAt,
           requiredRole: qpr.requiredRole,
           daysStuck: days,
           isStuck: days >= 24,
@@ -1195,6 +1210,7 @@ export default function Dashboard({
           type: "QPR",
           vendor: qpr.supplierName,
           date: qpr.date,
+          stuckSinceDate: qpr.approvalProgress?.approvedAtDeptHead || qpr.refObject?.approvalProgress?.approvedAtDeptHead || qpr.date || qpr.createdAt,
           requiredRole: qpr.requiredRole,
           daysStuck: days,
           isStuck: days >= 24,
@@ -1220,6 +1236,7 @@ export default function Dashboard({
           type: "QPR",
           vendor: qpr.supplierName,
           date: qpr.date,
+          stuckSinceDate: qpr.approvalProgress?.approvedAtDivHead || qpr.refObject?.approvalProgress?.approvedAtDivHead || qpr.date || qpr.createdAt,
           requiredRole: "Purchasing Approval",
           daysStuck: days,
           isStuck: days >= 24,
@@ -1242,6 +1259,7 @@ export default function Dashboard({
           type: "CL",
           vendor: cl.supplierName,
           date: cl.dateSent || cl.date,
+          stuckSinceDate: cl.clApprovalProgress?.deptAccountingApprovedAt || cl.approvedAtDept || cl.dateSent || cl.date || cl.createdAt,
           requiredRole: "Kirim ke Vendor",
           daysStuck: lt.totalLeadTime,
           isStuck: lt.totalLeadTime >= 24,
@@ -1268,6 +1286,7 @@ export default function Dashboard({
           type: "QPR",
           vendor: qpr.supplierName,
           date: qpr.date,
+          stuckSinceDate: qpr.approvalProgress?.approvedAtPurchasing || qpr.refObject?.approvalProgress?.approvedAtPurchasing || qpr.updatedAt || qpr.date || qpr.createdAt,
           requiredRole: "Create CL",
           daysStuck: days,
           isStuck: days >= 24,
@@ -1290,6 +1309,7 @@ export default function Dashboard({
             type: "CL",
             vendor: cl.supplierName,
             date: cl.dateSent || cl.date,
+            stuckSinceDate: cl.createdAt || cl.date || cl.dateSent,
             requiredRole: "Draft CL",
             daysStuck: lt.totalLeadTime,
             isStuck: lt.totalLeadTime >= 24,
@@ -1312,6 +1332,7 @@ export default function Dashboard({
           type: "CL",
           vendor: cl.supplierName,
           date: cl.dateSent || cl.date,
+          stuckSinceDate: cl.dateSent || cl.date || cl.createdAt,
           requiredRole: "Dept Accounting Approval",
           daysStuck: lt.totalLeadTime,
           isStuck: lt.totalLeadTime >= 24,
@@ -1326,11 +1347,14 @@ export default function Dashboard({
       });
     }
 
-    // 6. Vendor
+    // 7. Vendor
     if (role.key === "Vendor") {
       currentActiveConfirmationLetters.forEach(cl => {
         const isSent = !!(cl.purchasingSentCl || cl.sentToVendor);
-        const isVendorApproved = !!(cl.vendorApproved || cl.status === "APPROVED_BY_VENDOR" || cl.status === "FULLY_APPROVED");
+        const clSentDate = cl.purchasingSentDate || cl.dateSent;
+        const workingDays = clSentDate ? getWorkingDaysElapsed(clSentDate) : 0;
+        const isDue10Days = isSent && workingDays >= 10;
+        const isVendorApproved = !!(cl.vendorApproved || cl.signedClFileName || cl.vendorApprovedDocName || cl.status === "APPROVED_BY_VENDOR" || isDue10Days);
         const lt = getDocLeadTimes(cl);
         const item = {
           id: `cl-${cl.id}`,
@@ -1338,6 +1362,7 @@ export default function Dashboard({
           type: "CL",
           vendor: cl.supplierName,
           date: cl.dateSent || cl.date,
+          stuckSinceDate: cl.purchasingSentDate || cl.dateSent || cl.date || cl.createdAt,
           requiredRole: "Vendor Confirmation",
           daysStuck: lt.totalLeadTime,
           isStuck: lt.totalLeadTime >= 48,
@@ -1352,10 +1377,14 @@ export default function Dashboard({
       });
     }
 
-    // 7. Finance Accounting
+    // 8. Finance Accounting
     if (role.key === "Finance Accounting") {
       currentActiveConfirmationLetters.forEach(cl => {
-        const isVendorApproved = !!(cl.vendorApproved || cl.status === "APPROVED_BY_VENDOR" || cl.status === "FULLY_APPROVED" || cl.status === "APPROVED");
+        const isSent = !!(cl.purchasingSentCl || cl.sentToVendor);
+        const clSentDate = cl.purchasingSentDate || cl.dateSent;
+        const workingDays = clSentDate ? getWorkingDaysElapsed(clSentDate) : 0;
+        const isDue10Days = isSent && workingDays >= 10;
+        const isVendorApproved = !!(cl.vendorApproved || cl.signedClFileName || cl.vendorApprovedDocName || cl.status === "APPROVED_BY_VENDOR" || isDue10Days);
         const lt = getDocLeadTimes(cl);
         const isClosed = cl.closedPaid || cl.status === "CLOSED_PAID";
         const item = {
@@ -1364,6 +1393,7 @@ export default function Dashboard({
           type: "CL",
           vendor: cl.supplierName,
           date: cl.dateSent || cl.date,
+          stuckSinceDate: cl.vendorApprovedDate || (isDue10Days ? (cl.dueDate || clSentDate) : null) || cl.purchasingSentDate || cl.dateSent || cl.date || cl.createdAt,
           requiredRole: "Finance SSC Billing / Payment",
           daysStuck: lt.totalLeadTime,
           isStuck: lt.totalLeadTime >= 48,
@@ -1862,6 +1892,12 @@ export default function Dashboard({
             const count = roleData.totalRunning || 0;
             const accumulatedDays = roleData.runningDocs.reduce((sum: number, d: any) => sum + (d.daysStuck || 0), 0);
 
+            // Find earliest stuck date among running docs
+            const earliestStuckDoc = roleData.runningDocs.length > 0
+              ? [...roleData.runningDocs].sort((a, b) => new Date(a.stuckSinceDate).getTime() - new Date(b.stuckSinceDate).getTime())[0]
+              : null;
+            const earliestStuckDateStr = earliestStuckDoc?.stuckSinceDate ? formatStuckDate(earliestStuckDoc.stuckSinceDate) : null;
+
             return (
               <button
                 key={role.key}
@@ -1896,9 +1932,12 @@ export default function Dashboard({
                   </div>
                 </div>
 
-                <div className="pt-2 mt-1 border-t border-slate-100/90">
+                <div className="pt-2 mt-1 border-t border-slate-100/90 space-y-0.5">
                   <p className="text-[10px] sm:text-[11px] font-semibold text-slate-500">
                     Akumulasi: <span className="font-bold text-slate-700">{formatLeadTime(accumulatedDays)}</span>
+                  </p>
+                  <p className="text-[9.5px] sm:text-[10px] font-semibold text-slate-500 truncate" title={earliestStuckDateStr ? `Mengendap sejak: ${earliestStuckDateStr}` : "Tidak ada dokumen mengendap"}>
+                    Sejak: <span className="font-bold text-slate-800">{earliestStuckDateStr || "—"}</span>
                   </p>
                 </div>
 
@@ -1989,6 +2028,7 @@ export default function Dashboard({
                       <th className="px-4 py-2.5">Tipe</th>
                       <th className="px-4 py-2.5">Supplier / Vendor</th>
                       <th className="px-4 py-2.5">Tgl Pembuatan</th>
+                      <th className="px-4 py-2.5 text-center">Mengendap Sejak</th>
                       <th className="px-4 py-2.5 text-center">Status Lead Time</th>
                       {isFinanceOrPurchasingCard && (
                         <th className="px-4 py-2.5">Nilai Klaim</th>
@@ -1999,7 +2039,7 @@ export default function Dashboard({
                   <tbody className="divide-y divide-slate-100">
                     {displayDocs.length === 0 ? (
                       <tr>
-                        <td colSpan={isFinanceOrPurchasingCard ? 7 : 6} className="px-4 py-8 text-center text-slate-400 italic">
+                        <td colSpan={isFinanceOrPurchasingCard ? 8 : 7} className="px-4 py-8 text-center text-slate-400 italic">
                           Tidak ada dokumen pada kategori filter ini.
                         </td>
                       </tr>
@@ -2020,6 +2060,11 @@ export default function Dashboard({
                           </td>
                           <td className="px-4 py-3 text-slate-800 font-bold">{doc.vendor}</td>
                           <td className="px-4 py-3 font-mono text-slate-600">{doc.date}</td>
+                          <td className="px-4 py-3 text-center">
+                            <span className="font-mono text-[10.5px] font-bold text-slate-700 bg-slate-100/80 px-2 py-0.5 rounded border border-slate-200">
+                              {formatStuckDate(doc.stuckSinceDate || doc.date)}
+                            </span>
+                          </td>
                           <td className="px-4 py-3 text-center">
                             {doc.isStuck ? (
                               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-rose-50 text-rose-700 border border-rose-200 rounded font-bold text-[10px]">

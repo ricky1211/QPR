@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   Search, 
   Filter, 
@@ -376,6 +376,14 @@ export default function ListQprDashboard({
     errorMsg: ""
   });
 
+  // User role checking: only admin can access edit/update file feature
+  const [isAdmin, setIsAdmin] = useState(false);
+  useEffect(() => {
+    const match = typeof document !== 'undefined' ? document.cookie.match(/(?:^|; )mtm_user=([^;]*)/) : null;
+    const role = match ? match[1] : (username || 'admin');
+    setIsAdmin(role === 'admin' || username === 'admin');
+  }, [username]);
+
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
@@ -384,6 +392,10 @@ export default function ListQprDashboard({
   };
 
   const handleOpenEditModal = (doc: any) => {
+    if (!isAdmin) {
+      alert("Akses Ditolak: Fitur edit nomor dan update file lampiran di List QPR hanya dapat diakses oleh Admin.");
+      return;
+    }
     setEditModalDoc(doc);
     if (doc.type === "QPR") {
       const qpr = doc.refObject || {};
@@ -438,6 +450,10 @@ export default function ListQprDashboard({
   };
 
   const handleSaveEditDoc = async () => {
+    if (!isAdmin) {
+      alert("Akses Ditolak: Hanya Admin yang berhak memperbarui file dan dokumen.");
+      return;
+    }
     if (!editModalDoc) return;
     const trimmedDocNumber = editForm.docNumber.trim();
     if (!trimmedDocNumber) {
@@ -1128,12 +1144,12 @@ export default function ListQprDashboard({
                             Detail
                           </button>
 
-                          {/* Edit Khusus Button for QPR & NCR (Ubah No Dokumen & Upload Lampiran) */}
-                          {(doc.type === "QPR" || doc.type === "NCR") && (
+                          {/* Edit Khusus Button for QPR & NCR (Ubah No Dokumen & Upload Lampiran) - Khusus Admin */}
+                          {(doc.type === "QPR" || doc.type === "NCR") && isAdmin && (
                             <button
                               onClick={() => handleOpenEditModal(doc)}
                               className="px-2.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-md transition-all cursor-pointer flex items-center gap-1 text-[10px] font-bold shadow-sm active:scale-95"
-                              title={doc.type === "QPR" ? "Edit No. QPR & Upload Lampiran" : "Edit No. NCR & Upload Lampiran"}
+                              title={doc.type === "QPR" ? "Edit No. QPR & Upload Lampiran (Khusus Admin)" : "Edit No. NCR & Upload Lampiran (Khusus Admin)"}
                             >
                               <Edit size={12} />
                               Edit
