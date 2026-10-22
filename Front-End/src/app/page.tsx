@@ -74,6 +74,10 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
     title: ""
   });
 
+  // State for email reminder modal & stuck count
+  const [openReminderModal, setOpenReminderModal] = useState(false);
+  const [stuckCount, setStuckCount] = useState<number>(0);
+
   // Ensure body scroll is never locked when switching tabs or navigating from triggers
   useEffect(() => {
     if (typeof document !== "undefined") {
@@ -1172,6 +1176,13 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
           notifications={notifications}
           handleClearNotifications={handleClearNotifications}
           activeTab={activeTab}
+          onOpenReminderModal={() => {
+            if (activeTab !== "dashboard") {
+              handleTabChange("dashboard");
+            }
+            setOpenReminderModal(true);
+          }}
+          stuckCount={stuckCount}
         />
 
         {/* CONTAINER CONTENT */}
@@ -1249,6 +1260,9 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
                 setCreatedSscBillings={setCreatedSscBillings}
                 username={username}
                 handleMarkClosedPaid={handleMarkClosedPaid}
+                openReminderModal={openReminderModal}
+                onCloseReminderModal={() => setOpenReminderModal(false)}
+                onStuckCountChange={(count) => setStuckCount(count)}
               />
             )}
 

@@ -52,11 +52,16 @@ export class EmailService {
     const recipients = Array.isArray(options.to) ? options.to.join(', ') : options.to;
     const fromAddress = process.env.MAIL_FROM || process.env.SMTP_FROM || '"QPR System MTM" <ahmad.hapizhudin@mtm.astra.co.id>';
 
-    this.logger.log(`\n================== [EMAIL DISPATCH TRIGGERED] ==================`);
-    this.logger.log(`TO      : ${recipients}`);
-    this.logger.log(`FROM    : ${fromAddress}`);
-    this.logger.log(`SUBJECT : ${options.subject}`);
-    this.logger.log(`================================================================`);
+    const logBanner = `
+================================================================
+📧 [EMAIL DISPATCH TRIGGERED]
+TO      : ${recipients}
+FROM    : ${fromAddress}
+SUBJECT : ${options.subject}
+TIME    : ${new Date().toLocaleString('id-ID')}
+================================================================`;
+    console.log(logBanner);
+    this.logger.log(logBanner);
 
     if (this.isConfigured && this.transporter) {
       try {
@@ -67,13 +72,16 @@ export class EmailService {
           text: options.text || options.subject,
           html: options.html,
         });
+        console.log(`[SMTP SUCCESS] Email successfully sent via SMTP! MessageId: ${info.messageId}`);
         this.logger.log(`Email successfully sent via SMTP! MessageId: ${info.messageId}`);
         return true;
       } catch (error: any) {
+        console.error(`[SMTP ERROR] Failed to send email via SMTP: ${error.message}`);
         this.logger.error(`Failed to send email via SMTP: ${error.message}`, error.stack);
         return false;
       }
     } else {
+      console.log(`[SIMULATED EMAIL DISPATCH] Email to ${recipients} logged successfully.`);
       this.logger.log(`[SIMULATED EMAIL DISPATCH] Email to ${recipients} logged successfully.`);
       return true;
     }
@@ -355,4 +363,105 @@ export class EmailService {
       html,
     });
   }
+
+  // Reminder: Pengingat tugas otorisasi yang belum selesai / data mengendap per peran
+  async notifyTaskReminder(
+    roleTitle: string,
+    recipients: string[],
+    documents: Array<{
+      docNumber: string;
+      type: string;
+      vendor: string;
+      stuckSinceDate?: string;
+      daysStuck?: number;
+      amount?: string;
+      requiredRole?: string;
+    }>,
+    actionUrl?: string,
+  ): Promise<boolean> {
+    const docRows = documents.map(d => {
+      const displayDate = d.stuckSinceDate
+        ? (typeof d.stuckSinceDate === 'string' && /[a-zA-Z]/.test(d.stuckSinceDate)
+            ? d.stuckSinceDate
+            : new Date(d.stuckSinceDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }))
+        : '-';
+      return `
+      <tr style="border-bottom: 1px solid #e2e8f0;">
+        <td style="padding: 10px 12px; font-weight: bold; font-family: monospace; color: #0f172a;">${d.docNumber}</td>
+        <td style="padding: 10px 12px; font-weight: 600; color: #475569;">${d.type}</td>
+        <td style="padding: 10px 12px; font-weight: 600; color: #334155;">${d.vendor}</td>
+        <td style="padding: 10px 12px; color: #dc2626; font-weight: bold;">${displayDate}</td>
+        <td style="padding: 10px 12px; font-weight: bold; color: #0f172a;">${d.amount || '-'}</td>
+      </tr>
+    `;
+    }).join('');
+
+    const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Reminder Tugas Mengendap: ${roleTitle}</title>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 24px; color: #1e293b; }
+        .card { max-width: 680px; margin: 0 auto; background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
+        .header { background: #0f172a; padding: 20px 24px; color: #ffffff; border-bottom: 3px solid #f59e0b; }
+        .header h1 { margin: 0; font-size: 18px; font-weight: 800; letter-spacing: 0.5px; }
+        .header p { margin: 4px 0 0; font-size: 12px; color: #cbd5e1; }
+        .content { padding: 24px; }
+        .title { font-size: 16px; font-weight: 800; color: #b45309; margin-top: 0; margin-bottom: 8px; }
+        .subtitle { font-size: 13px; color: #475569; margin-top: 0; margin-bottom: 20px; line-height: 1.5; }
+        .table { width: 100%; border-collapse: collapse; font-size: 12px; background: #f8fafc; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0; }
+        .th { background: #f1f5f9; padding: 10px 12px; text-align: left; font-size: 11px; text-transform: uppercase; font-weight: 800; color: #475569; }
+        .footer { padding: 16px 24px; background: #f1f5f9; font-size: 11px; color: #64748b; text-align: center; border-top: 1px solid #e2e8f0; }
+        .btn { background-color: #1e3a8a; color: #ffffff !important; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 14px; display: inline-block; }
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <div class="header">
+          <h1>PT. MENARA TERUS MAKMUR</h1>
+          <p>Quality Problem Report (QPR) & Confirmation Letter (CL) System</p>
+        </div>
+        <div class="content">
+          <h2 class="title">⚠️ Reminder Tugas Mengendap: ${roleTitle}</h2>
+          <p class="subtitle">
+            Pemberitahuan: Terdapat <strong>${documents.length} dokumen</strong> yang saat ini masih mengendap pada peran otorisasi <strong>${roleTitle}</strong> dan membutuhkan penyelesaian / tindakan segera dari Anda.
+          </p>
+          <table class="table">
+            <thead>
+              <tr>
+                <th class="th">No. Dokumen</th>
+                <th class="th">Tipe</th>
+                <th class="th">Supplier / Vendor</th>
+                <th class="th">Mengendap Sejak</th>
+                <th class="th">Nilai Klaim</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${docRows}
+            </tbody>
+          </table>
+          <div style="margin-top: 24px; text-align: center;">
+            <a href="${actionUrl || 'http://localhost:3000/qpr/'}" class="btn">
+              Buka Sistem QPR & Selesaikan Tugas
+            </a>
+          </div>
+        </div>
+        <div class="footer">
+          Email reminder otomatis dikirim oleh Sistem QPR PT. Menara Terus Makmur (Astra Otoparts Group).<br/>
+          Harap segera selesaikan tugas sebelum batas lead time terlampaui.
+        </div>
+      </div>
+    </body>
+    </html>
+    `;
+
+    return await this.sendMail({
+      to: recipients,
+      subject: `[REMINDER QPR/CL] Terdapat ${documents.length} Dokumen Mengendap pada Peran: ${roleTitle}`,
+      html,
+    });
+  }
 }
+

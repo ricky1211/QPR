@@ -26,6 +26,12 @@ export class QprsController {
     return this.qprsService.markConfirmationLettersSent(data);
   }
 
+  @Post('reminders/send')
+  async sendTaskReminders(@Body() data: any): Promise<any> {
+    console.log(`[API /api/qprs/reminders/send] Triggered at ${new Date().toLocaleTimeString('id-ID')}:`, JSON.stringify(data));
+    return this.qprsService.sendTaskReminders(data);
+  }
+
   @Get('confirmation-letters/check-due-dates')
   async checkDueDates(): Promise<any> {
     const notified = await this.qprsService.checkDueDatesForFinance();

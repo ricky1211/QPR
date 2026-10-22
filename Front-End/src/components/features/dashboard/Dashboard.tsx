@@ -26,12 +26,14 @@ import {
   DollarSign,
   Filter,
   Check,
-  PlusCircle
+  PlusCircle,
+  Mail,
+  Send
 } from "lucide-react";
 
 import ConfirmationLetterPrintPreview from "../role-views/ConfirmationLetterPrintPreview";
 import QprPrintPreview from "../role-views/QprPrintPreview";
-import { formatLeadTime } from "../../../services/qprService";
+import { formatLeadTime, qprService } from "../../../services/qprService";
 
 interface PipelineStage {
   name: string;
@@ -440,6 +442,9 @@ interface DashboardProps {
   setCreatedSscBillings?: React.Dispatch<React.SetStateAction<any[]>>;
   username?: string;
   handleMarkClosedPaid?: (clId: string) => void;
+  openReminderModal?: boolean;
+  onCloseReminderModal?: () => void;
+  onStuckCountChange?: (count: number) => void;
 }
 
 export default function Dashboard({
@@ -452,7 +457,10 @@ export default function Dashboard({
   createdSscBillings = [],
   setCreatedSscBillings,
   username = "admin",
-  handleMarkClosedPaid
+  handleMarkClosedPaid,
+  openReminderModal,
+  onCloseReminderModal,
+  onStuckCountChange
 }: DashboardProps) {
   const getDocAmount = React.useCallback((docOrBilling: any) => {
     return getDocumentAmount(docOrBilling, pendingQprs);
@@ -467,6 +475,18 @@ export default function Dashboard({
   const [roleDetailFilter, setRoleDetailFilter] = useState<"all" | "stuck" | "running" | "completed">("all");
   const [potongTagihFilter, setPotongTagihFilter] = useState<"all" | "unpaid" | "paid">("all");
   const [potongTagihSearch, setPotongTagihSearch] = useState("");
+
+  // Email Reminder Modal State
+  const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
+  const [selectedTargetRole, setSelectedTargetRole] = useState<string>("ALL");
+  const [isSendingReminder, setIsSendingReminder] = useState(false);
+  const [reminderResult, setReminderResult] = useState<{ success: boolean; message: string; details?: any[] } | null>(null);
+
+  useEffect(() => {
+    if (openReminderModal) {
+      setIsReminderModalOpen(true);
+    }
+  }, [openReminderModal]);
 
   // Live real-time interval ticker (updates every second so seconds increment dynamically)
   const [, setLiveTick] = useState(0);
@@ -853,16 +873,37 @@ export default function Dashboard({
     const diffHours = Math.max(0, diffTime / (1000 * 60 * 60));
 
     if (doc.clNumber || doc.type === "CL" || doc.type === "Confirmation Letter") {
-      const isClApproved = doc.closedPaid || doc.status === "CLOSED_PAID" || doc.status === "FULLY_APPROVED" || doc.vendorApproved;
-      return {
-        roles: ["Accounting"],
-        leadTimes: {
-          "Accounting": { 
-            hours: diffHours, 
-            days: diffHours, 
-            status: isClApproved ? "APPROVED" as const : "PENDING" as const 
-          }
+      const isSent = !!(doc.purchasingSentCl || doc.sentToVendor || doc.status === "FULLY_APPROVED" || doc.status === "APPROVED" || doc.status === "WAITING_VENDOR" || doc.status === "APPROVED_BY_VENDOR" || doc.dateSent);
+      const isVendorApproved = !!(doc.vendorApproved || doc.signedClFileName || doc.vendorApprovedDocName || doc.status === "APPROVED_BY_VENDOR");
+      const isClosed = doc.closedPaid || doc.status === "CLOSED_PAID";
+
+      const roles = ["Dept Accounting", "Purchasing", "Vendor", "Finance Accounting"];
+      const leadTimes: Record<string, { hours: number; days: number; status: "APPROVED" | "PENDING" | "UPCOMING" }> = {
+        "Dept Accounting": {
+          hours: isSent || isVendorApproved || isClosed ? diffHours * 0.25 : diffHours,
+          days: isSent || isVendorApproved || isClosed ? diffHours * 0.25 : diffHours,
+          status: "APPROVED",
         },
+        "Purchasing": {
+          hours: isSent || isVendorApproved || isClosed ? diffHours * 0.25 : diffHours,
+          days: isSent || isVendorApproved || isClosed ? diffHours * 0.25 : diffHours,
+          status: isSent || isVendorApproved || isClosed ? "APPROVED" : "PENDING",
+        },
+        "Vendor": {
+          hours: isVendorApproved || isClosed ? diffHours * 0.5 : (isSent ? diffHours : 0),
+          days: isVendorApproved || isClosed ? diffHours * 0.5 : (isSent ? diffHours : 0),
+          status: isVendorApproved || isClosed ? "APPROVED" : (isSent ? "PENDING" : "UPCOMING"),
+        },
+        "Finance Accounting": {
+          hours: isClosed ? diffHours : (isVendorApproved ? diffHours : 0),
+          days: isClosed ? diffHours : (isVendorApproved ? diffHours : 0),
+          status: isClosed ? "APPROVED" : (isVendorApproved ? "PENDING" : "UPCOMING"),
+        },
+      };
+
+      return {
+        roles,
+        leadTimes,
         totalLeadTime: diffHours
       };
     }
@@ -1251,7 +1292,7 @@ export default function Dashboard({
       });
       currentActiveConfirmationLetters.forEach(cl => {
         const isDeptApproved = !!(cl.clApprovalProgress?.deptAccounting || cl.status === "FULLY_APPROVED" || cl.status === "CLOSED_PAID");
-        const isSent = !!(cl.purchasingSentCl || cl.sentToVendor);
+        const isSent = !!(cl.purchasingSentCl || cl.sentToVendor || cl.status === "FULLY_APPROVED" || cl.status === "APPROVED" || cl.status === "WAITING_VENDOR" || cl.status === "APPROVED_BY_VENDOR" || cl.dateSent);
         const lt = getDocLeadTimes(cl);
         const item = {
           id: `cl-${cl.id}`,
@@ -1350,7 +1391,7 @@ export default function Dashboard({
     // 7. Vendor
     if (role.key === "Vendor") {
       currentActiveConfirmationLetters.forEach(cl => {
-        const isSent = !!(cl.purchasingSentCl || cl.sentToVendor);
+        const isSent = !!(cl.purchasingSentCl || cl.sentToVendor || cl.status === "FULLY_APPROVED" || cl.status === "APPROVED" || cl.status === "WAITING_VENDOR" || cl.status === "APPROVED_BY_VENDOR" || cl.dateSent);
         const clSentDate = cl.purchasingSentDate || cl.dateSent;
         const workingDays = clSentDate ? getWorkingDaysElapsed(clSentDate) : 0;
         const isDue10Days = isSent && workingDays >= 10;
@@ -1380,7 +1421,7 @@ export default function Dashboard({
     // 8. Finance Accounting
     if (role.key === "Finance Accounting") {
       currentActiveConfirmationLetters.forEach(cl => {
-        const isSent = !!(cl.purchasingSentCl || cl.sentToVendor);
+        const isSent = !!(cl.purchasingSentCl || cl.sentToVendor || cl.status === "FULLY_APPROVED" || cl.status === "APPROVED" || cl.status === "WAITING_VENDOR" || cl.status === "APPROVED_BY_VENDOR" || cl.dateSent);
         const clSentDate = cl.purchasingSentDate || cl.dateSent;
         const workingDays = clSentDate ? getWorkingDaysElapsed(clSentDate) : 0;
         const isDue10Days = isSent && workingDays >= 10;
@@ -1422,6 +1463,108 @@ export default function Dashboard({
     };
   };
 
+  // List of roles that currently have running / pending documents (dokumen mengendap)
+  const rolesWithPendingDocs = React.useMemo(() => {
+    return authRoles.map(role => {
+      const data = getRoleDocsData(role);
+      return {
+        roleKey: role.key,
+        roleTitle: role.title,
+        fullTitle: role.fullTitle,
+        type: role.type,
+        activeBg: role.activeBg,
+        titleColor: role.titleColor,
+        borderColor: role.borderColor,
+        labelColor: role.labelColor,
+        runningDocs: data.runningDocs,
+        totalRunning: data.totalRunning,
+        stuckDocs: data.stuckDocs,
+        totalStuck: data.totalStuck,
+        totalStuckDays: data.totalStuckDays,
+      };
+    }).filter(r => r.totalRunning > 0);
+  }, [authRoles, currentActiveNcrs, currentActiveQprs, currentActiveConfirmationLetters]);
+
+  const totalStuckDocsAllRoles = React.useMemo(() => {
+    return rolesWithPendingDocs.reduce((acc, r) => acc + r.totalRunning, 0);
+  }, [rolesWithPendingDocs]);
+
+  useEffect(() => {
+    if (onStuckCountChange) {
+      onStuckCountChange(totalStuckDocsAllRoles);
+    }
+  }, [totalStuckDocsAllRoles, onStuckCountChange]);
+
+  const handleOpenReminderModal = (preselectedRole?: string) => {
+    setSelectedTargetRole(preselectedRole || "ALL");
+    setReminderResult(null);
+    setIsReminderModalOpen(true);
+  };
+
+  const handleCloseReminderModal = () => {
+    setIsReminderModalOpen(false);
+    setReminderResult(null);
+    if (onCloseReminderModal) onCloseReminderModal();
+  };
+
+  const handleSendReminder = async () => {
+    try {
+      setIsSendingReminder(true);
+      setReminderResult(null);
+
+      // Filter ONLY roles that actually have runningDocs > 0!
+      const targetRoles = rolesWithPendingDocs.filter(r => {
+        if (selectedTargetRole !== "ALL" && r.roleKey !== selectedTargetRole) return false;
+        return r.runningDocs.length > 0;
+      });
+
+      if (targetRoles.length === 0) {
+        alert("Tidak ada peran dengan dokumen mengendap yang perlu dikirimi email reminder.");
+        setIsSendingReminder(false);
+        return;
+      }
+
+      const payload = {
+        targetRoleKey: selectedTargetRole !== "ALL" ? selectedTargetRole : undefined,
+        stuckRoles: targetRoles.map(r => ({
+          roleKey: r.roleKey,
+          roleTitle: r.roleTitle,
+          documents: r.runningDocs.map(d => ({
+            docNumber: d.docNumber,
+            type: d.type,
+            vendor: d.vendor,
+            stuckSinceDate: d.stuckSinceDate ? formatStuckDate(d.stuckSinceDate) : undefined,
+            daysStuck: d.daysStuck,
+            amount: d.amount,
+            requiredRole: d.requiredRole,
+          })),
+        })),
+      };
+
+      const res: any = await qprService.sendTaskReminders(payload);
+
+      if (res && res.success) {
+        setReminderResult({
+          success: true,
+          message: `Berhasil mengirim email reminder ke ${res.sentCount} peran/user yang memiliki dokumen mengendap!`,
+          details: res.sentDetails
+        });
+      } else {
+        setReminderResult({
+          success: false,
+          message: res?.message || "Gagal mengirim reminder.",
+        });
+      }
+    } catch (err: any) {
+      setReminderResult({
+        success: false,
+        message: err.message || "Terjadi kesalahan saat mengirim reminder.",
+      });
+    } finally {
+      setIsSendingReminder(false);
+    }
+  };
+
   // Combined list of all documents with their pipeline stages and lead time status (merged QPR & CL)
   const documentPipelineList: any[] = [
     ...currentActiveNcrs.map(n => {
@@ -1448,6 +1591,15 @@ export default function Dashboard({
     ...currentActiveQprs.map(q => {
       const lt = getDocLeadTimes(q);
       const linkedCl = currentActiveConfirmationLetters.find(cl => cl.qprNumber === q.qprNumber);
+      const isClSent = linkedCl && !!(linkedCl.purchasingSentCl || linkedCl.sentToVendor || linkedCl.status === "FULLY_APPROVED" || linkedCl.status === "APPROVED" || linkedCl.status === "WAITING_VENDOR" || linkedCl.status === "APPROVED_BY_VENDOR" || linkedCl.dateSent);
+      const isClVendorApproved = linkedCl && !!(linkedCl.vendorApproved || linkedCl.signedClFileName || linkedCl.vendorApprovedDocName || linkedCl.status === "APPROVED_BY_VENDOR");
+      const isClClosed = linkedCl && (linkedCl.status === "CLOSED_PAID" || linkedCl.closedPaid);
+      let calculatedRole = q.requiredRole;
+      if (linkedCl) {
+        if (isClClosed) calculatedRole = "Closed";
+        else if (isClVendorApproved) calculatedRole = "Finance";
+        else if (isClSent) calculatedRole = "Vendor";
+      }
       return {
         id: `qpr-${q.id}`,
         docNumber: q.qprNumber,
@@ -1456,7 +1608,7 @@ export default function Dashboard({
         date: q.date,
         createdAt: q.createdAt || q.date,
         updatedAt: q.updatedAt,
-        requiredRole: q.requiredRole,
+        requiredRole: calculatedRole,
         status: q.status,
         leadTime: lt.totalLeadTime,
         isClosed: q.status === "APPROVED" || q.status === "CLOSED" || q.status === "CLOSED_PAID" || (linkedCl && (linkedCl.status === "CLOSED_PAID" || linkedCl.closedPaid)),
@@ -1469,6 +1621,10 @@ export default function Dashboard({
     }),
     ...currentActiveConfirmationLetters.filter(cl => !currentActiveQprs.some(q => q.qprNumber === cl.qprNumber)).map(cl => {
       const lt = getDocLeadTimes(cl);
+      const isSent = !!(cl.purchasingSentCl || cl.sentToVendor || cl.status === "FULLY_APPROVED" || cl.status === "APPROVED" || cl.status === "WAITING_VENDOR" || cl.status === "APPROVED_BY_VENDOR" || cl.dateSent);
+      const isVendorApproved = !!(cl.vendorApproved || cl.signedClFileName || cl.vendorApprovedDocName || cl.status === "APPROVED_BY_VENDOR");
+      const isClosed = cl.status === "CLOSED_PAID" || cl.closedPaid === true;
+      const calculatedRole = isClosed ? "Closed" : isVendorApproved ? "Finance" : isSent ? "Vendor" : "Dept Accounting";
       return {
         id: `cl-${cl.id}`,
         docNumber: cl.clNumber,
@@ -1477,10 +1633,10 @@ export default function Dashboard({
         date: cl.dateSent || cl.date,
         createdAt: cl.createdAt || cl.dateSent || cl.date,
         updatedAt: cl.updatedAt,
-        requiredRole: cl.requiredRole || (cl.closedPaid ? "Closed" : "Dept Accounting"),
+        requiredRole: cl.requiredRole === "Closed" || cl.requiredRole === "Finance" || cl.requiredRole === "Vendor" ? cl.requiredRole : calculatedRole,
         status: cl.status,
         leadTime: lt.totalLeadTime,
-        isClosed: cl.status === "CLOSED_PAID" || cl.closedPaid === true,
+        isClosed: isClosed,
         closedPaid: cl.closedPaid,
         refObject: cl,
         linkedCl: cl,
@@ -1883,6 +2039,22 @@ export default function Dashboard({
               STATUS LEAD TIME &amp; DOKUMEN MENGENDAP BERDASARKAN PERAN OTORISASI
             </h4>
           </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => handleOpenReminderModal()}
+              className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-800 text-white rounded-xl text-xs font-black shadow-sm transition-all cursor-pointer active:scale-95 border border-blue-500/30 hover:shadow"
+              title="Kirim Email Reminder ke PIC yang Memiliki Dokumen Mengendap"
+            >
+              <Mail size={13} className="stroke-[2.5]" />
+              <span>Kirim Reminder Email</span>
+              {totalStuckDocsAllRoles > 0 && (
+                <span className="px-1.5 py-0.5 bg-white/25 text-white rounded-full text-[10px] font-black leading-none">
+                  {totalStuckDocsAllRoles}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5 sm:gap-3">
@@ -2011,6 +2183,17 @@ export default function Dashboard({
                   >
                     Riwayat Selesai ({roleData.totalCompleted})
                   </button>
+                  {roleData.totalRunning > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => handleOpenReminderModal(activeRole.key)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-2xs transition-all cursor-pointer active:scale-95"
+                      title={`Kirim email reminder khusus untuk ${activeRole.title}`}
+                    >
+                      <Mail size={12} />
+                      <span>Kirim Reminder ({roleData.totalRunning})</span>
+                    </button>
+                  )}
                   <button
                     onClick={() => setSelectedRoleCard(null)}
                     className="text-xs font-bold text-slate-400 hover:text-slate-600 px-3 py-1.5 rounded-lg hover:bg-slate-100 cursor-pointer transition-colors border border-slate-200 ml-1"
@@ -2455,6 +2638,217 @@ export default function Dashboard({
           qpr={previewQprDoc}
           onClose={() => setPreviewQprDoc(null)}
         />
+      )}
+
+      {/* ── 📧 MODAL: KIRIM EMAIL REMINDER DOKUMEN MENGENDAP ── */}
+      {isReminderModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden animate-zoom-in text-left">
+            {/* Modal Header */}
+            <div className="flex justify-between items-start bg-slate-50 px-6 py-4 border-b border-slate-150">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
+                  <Mail size={20} className="stroke-[2.5]" />
+                </div>
+                <div>
+                  <h4 className="text-base font-black text-slate-900 flex items-center gap-2">
+                    Kirim Email Reminder Dokumen Mengendap
+                  </h4>
+                  <p className="text-xs text-slate-500 font-semibold mt-0.5">
+                    Hanya ditujukan kepada user/PIC yang memiliki tugas belum diselesaikan.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseReminderModal}
+                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-lg transition-all cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-5 overflow-y-auto flex-1">
+              {/* Info banner confirming constraint */}
+              <div className="p-3.5 bg-blue-50/70 border border-blue-200 rounded-xl flex items-start gap-3 text-xs text-blue-900">
+                <ShieldCheck size={18} className="text-blue-600 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <span className="font-extrabold block">Aturan Pengiriman Terverifikasi</span>
+                  <p className="text-blue-800 leading-relaxed font-medium">
+                    Sistem memastikan email reminder <strong>hanya terkirim ke peran atau user yang memiliki dokumen mengendap</strong>. Peran dengan 0 dokumen mengendap tidak akan pernah menerima email ini.
+                  </p>
+                </div>
+              </div>
+
+              {/* Status Result Alert */}
+              {reminderResult && (
+                <div className={`p-4 rounded-xl border flex items-start gap-3 text-xs ${
+                  reminderResult.success 
+                    ? "bg-emerald-50 border-emerald-300 text-emerald-900" 
+                    : "bg-rose-50 border-rose-300 text-rose-900"
+                }`}>
+                  {reminderResult.success ? (
+                    <CheckCircle2 size={18} className="text-emerald-600 shrink-0 mt-0.5" />
+                  ) : (
+                    <AlertTriangle size={18} className="text-rose-600 shrink-0 mt-0.5" />
+                  )}
+                  <div className="flex-1 space-y-1">
+                    <span className="font-bold block">{reminderResult.message}</span>
+                    {reminderResult.details && reminderResult.details.length > 0 && (
+                      <div className="mt-2 space-y-1 pt-2 border-t border-emerald-200/80">
+                        <span className="font-semibold text-[11px] block">Rincian Pengiriman:</span>
+                        <ul className="list-disc pl-4 space-y-0.5 text-[11px] text-emerald-800 font-mono">
+                          {reminderResult.details.map((d: any, idx: number) => (
+                            <li key={idx}>
+                              <strong>{d.roleTitle}</strong> ({d.documentCount} dok) → {d.recipients.join(", ")}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Target Role Selector Pills */}
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-2">
+                  Pilih Target Reminder:
+                </label>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedTargetRole("ALL")}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      selectedTargetRole === "ALL"
+                        ? "bg-slate-900 text-white shadow-sm"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
+                  >
+                    Semua Peran Mengendap ({totalStuckDocsAllRoles} Dokumen)
+                  </button>
+                  {rolesWithPendingDocs.map(role => (
+                    <button
+                      key={role.roleKey}
+                      type="button"
+                      onClick={() => setSelectedTargetRole(role.roleKey)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
+                        selectedTargetRole === role.roleKey
+                          ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                          : `bg-white text-slate-700 border-slate-200 hover:border-blue-400`
+                      }`}
+                    >
+                      {role.roleTitle} ({role.totalRunning})
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Roles Breakdown Preview */}
+              <div className="space-y-4">
+                <span className="text-xs font-black text-slate-800 uppercase tracking-wide block">
+                  Daftar Peran &amp; Dokumen Mengendap yang Akan Dikirimi Email:
+                </span>
+
+                {rolesWithPendingDocs.length === 0 ? (
+                  <div className="p-8 text-center border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+                    <CheckCircle2 size={32} className="text-emerald-500 mx-auto mb-2" />
+                    <p className="text-xs font-bold text-slate-700">Tidak Ada Dokumen Mengendap</p>
+                    <p className="text-[11px] text-slate-400 mt-1">Semua otorisasi dokumen telah selesai diproses oleh masing-masing peran.</p>
+                  </div>
+                ) : (
+                  rolesWithPendingDocs
+                    .filter(r => selectedTargetRole === "ALL" || r.roleKey === selectedTargetRole)
+                    .map(r => (
+                      <div key={r.roleKey} className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
+                        <div className="bg-slate-50/90 px-4 py-2.5 border-b border-slate-200 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-xs font-black ${r.titleColor}`}>
+                              {r.fullTitle || r.roleTitle}
+                            </span>
+                            <span className="px-2 py-0.5 bg-amber-100 text-amber-800 border border-amber-300 rounded font-bold text-[10px]">
+                              {r.totalRunning} Dokumen Mengendap
+                            </span>
+                          </div>
+                          <span className="text-[11px] font-semibold text-slate-500">
+                            Total Akumulasi: <strong className="text-slate-800">{formatLeadTime(r.runningDocs.reduce((acc: number, d: any) => acc + (d.daysStuck || 0), 0))}</strong>
+                          </span>
+                        </div>
+
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-xs text-left text-slate-600">
+                            <thead className="text-[10px] text-slate-500 bg-white uppercase font-extrabold border-b border-slate-100">
+                              <tr>
+                                <th className="px-3 py-2">No. Dokumen</th>
+                                <th className="px-3 py-2">Tipe</th>
+                                <th className="px-3 py-2">Vendor</th>
+                                <th className="px-3 py-2">Mengendap Sejak</th>
+                                <th className="px-3 py-2 text-right">Nilai Klaim</th>
+                                <th className="px-3 py-2 text-right">Lead Time</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 font-medium">
+                              {r.runningDocs.map((doc: any, docIdx: number) => (
+                                <tr key={doc.id || docIdx} className="hover:bg-slate-50/60">
+                                  <td className="px-3 py-2 font-mono font-bold text-slate-900">{doc.docNumber}</td>
+                                  <td className="px-3 py-2">
+                                    <span className="px-1.5 py-0.5 bg-slate-100 rounded text-[9.5px] font-bold text-slate-600">
+                                      {doc.type}
+                                    </span>
+                                  </td>
+                                  <td className="px-3 py-2 font-semibold text-slate-800">{doc.vendor}</td>
+                                  <td className="px-3 py-2 font-mono text-slate-500 text-[11px]">
+                                    {doc.stuckSinceDate ? formatStuckDate(doc.stuckSinceDate) : "—"}
+                                  </td>
+                                  <td className="px-3 py-2 font-mono text-right font-semibold text-slate-900">{doc.amount || "—"}</td>
+                                  <td className="px-3 py-2 font-mono font-bold text-amber-700 text-right">{formatLeadTime(doc.daysStuck)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    ))
+                )}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="bg-slate-50 px-6 py-4 border-t border-slate-150 flex items-center justify-between">
+              <span className="text-[11px] font-semibold text-slate-500">
+                Penerima: Sesuai matrix otorisasi Astra Otoparts &amp; Vendor
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleCloseReminderModal}
+                  className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                >
+                  Tutup
+                </button>
+                <button
+                  type="button"
+                  disabled={isSendingReminder || rolesWithPendingDocs.length === 0}
+                  onClick={handleSendReminder}
+                  className="inline-flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 text-white rounded-xl text-xs font-black shadow-md transition-all cursor-pointer active:scale-95"
+                >
+                  {isSendingReminder ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Mengirim Email...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send size={13} className="stroke-[2.5]" />
+                      <span>Kirim Reminder Sekarang</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>

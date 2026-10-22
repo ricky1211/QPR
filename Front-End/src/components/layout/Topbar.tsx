@@ -1,7 +1,7 @@
 "use client";
  
 import React, { useTransition, useState } from "react";
-import { RefreshCw, Bell, ShieldAlert, CheckCircle2, FileText, Menu, LogOut } from "lucide-react";
+import { RefreshCw, Bell, ShieldAlert, CheckCircle2, FileText, Menu, LogOut, Mail } from "lucide-react";
 import { logoutAction } from "@/app/actions/auth";
 import { webhookService } from "@/services/webhookService";
  
@@ -12,7 +12,19 @@ export default function Topbar({
   setShowNotifications,
   notifications,
   handleClearNotifications,
-  activeTab
+  activeTab,
+  onOpenReminderModal,
+  stuckCount
+}: {
+  sidebarOpen: boolean;
+  setSidebarOpen: (open: boolean) => void;
+  showNotifications: boolean;
+  setShowNotifications: (show: boolean) => void;
+  notifications: any[];
+  handleClearNotifications: () => void;
+  activeTab: string;
+  onOpenReminderModal?: () => void;
+  stuckCount?: number;
 }) {
   const [isSyncing, setIsSyncing] = useState(false);
   const [displayName, setDisplayName] = useState("");
@@ -88,6 +100,20 @@ export default function Topbar({
           title="Sinkronisasi Data"
         >
           <RefreshCw size={15} className={isSyncing ? "animate-spin text-blue-600" : ""} />
+        </button>
+
+        {/* Email Reminder Button */}
+        <button
+          onClick={onOpenReminderModal}
+          className="p-2 sm:p-2.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-md border border-slate-200 transition-all touch-manipulation cursor-pointer relative"
+          title="Kirim Email Reminder ke User / Role dengan Tugas Mengendap"
+        >
+          <Mail size={15} />
+          {stuckCount !== undefined && stuckCount > 0 && (
+            <span className="absolute -top-1 -right-1 min-w-[15px] h-3.5 px-1 bg-amber-500 text-white font-black rounded-full text-[8.5px] flex items-center justify-center border border-white">
+              {stuckCount}
+            </span>
+          )}
         </button>
 
         {/* Notification Bell Panel */}

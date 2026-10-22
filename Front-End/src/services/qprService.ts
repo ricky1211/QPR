@@ -54,6 +54,26 @@ export const qprService = {
     method: 'POST',
     body: JSON.stringify(data),
   }),
+  sendTaskReminders: (data: {
+    targetRoleKey?: string;
+    stuckRoles: Array<{
+      roleKey: string;
+      roleTitle: string;
+      recipients?: string[];
+      documents: Array<{
+        docNumber: string;
+        type: string;
+        vendor: string;
+        stuckSinceDate?: string;
+        daysStuck?: number;
+        amount?: string;
+        requiredRole?: string;
+      }>;
+    }>;
+  }) => apiRequest('/qprs/reminders/send', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
 };
 
 export const generateNextQprNumber = (qprs: any[] = [], dateStr?: string): string => {

@@ -1050,4 +1050,123 @@ export class QprsService implements OnModuleInit {
       sentDate: effectiveSentDate,
     };
   }
+
+  async sendTaskReminders(data: {
+    targetRoleKey?: string;
+    stuckRoles: Array<{
+      roleKey: string;
+      roleTitle: string;
+      recipients?: string[];
+      documents: Array<{
+        docNumber: string;
+        type: string;
+        vendor: string;
+        stuckSinceDate?: string;
+        daysStuck?: number;
+        amount?: string;
+        requiredRole?: string;
+      }>;
+    }>;
+  }): Promise<{ success: boolean; sentCount: number; sentDetails: any[]; message?: string }> {
+    const targetRoleKey = data.targetRoleKey;
+    const stuckRoles = data.stuckRoles || (data as any).roles;
+    if (!stuckRoles || !Array.isArray(stuckRoles)) {
+      return { success: false, sentCount: 0, sentDetails: [], message: 'Data stuckRoles tidak valid' };
+    }
+
+    const defaultRoleRecipients: Record<string, string[]> = {
+      'Section Head QA': QPR_EMAIL_RECIPIENTS.sectionHead,
+      'Dept. Head QA': QPR_EMAIL_RECIPIENTS.deptHead,
+      'Div. Head': QPR_EMAIL_RECIPIENTS.divHead,
+      'Purchasing': QPR_EMAIL_RECIPIENTS.purchasing,
+      'Accounting (Create CL)': QPR_EMAIL_RECIPIENTS.accounting,
+      'Dept Accounting': QPR_EMAIL_RECIPIENTS.deptAccounting,
+      'Vendor': ['irvan.hn@mtm.astra.co.id', 'septian.nugraha@mtm.astra.co.id'],
+      'Finance Accounting': QPR_EMAIL_RECIPIENTS.finance,
+    };
+
+    const actionUrls: Record<string, string> = {
+      'Section Head QA': 'http://localhost:3000/qpr/approve-qpr',
+      'Dept. Head QA': 'http://localhost:3000/qpr/approve-qpr',
+      'Div. Head': 'http://localhost:3000/qpr/approve-qpr',
+      'Purchasing': 'http://localhost:3000/qpr/approve-qpr',
+      'Accounting (Create CL)': 'http://localhost:3000/qpr/confirmation-letter',
+      'Dept Accounting': 'http://localhost:3000/qpr/approve-cl',
+      'Vendor': 'http://localhost:3000/qpr/approve-cl',
+      'Finance Accounting': 'http://localhost:3000/qpr/i-memo',
+    };
+
+    console.log(`[QprsService] sendTaskReminders invoked at ${new Date().toLocaleTimeString('id-ID')}. Total stuckRoles: ${stuckRoles.length}`);
+    stuckRoles.forEach(r => {
+      console.log(`  - Role: ${r.roleTitle || r.roleKey} | Dokumen: ${r.documents ? r.documents.length : 0}`);
+    });
+
+    // FILTER CRITICAL: Only process roles that actually have pending / stuck documents!
+    const rolesToProcess = stuckRoles.filter(role => {
+      if (!role.documents || role.documents.length === 0) return false;
+      if (targetRoleKey && role.roleKey !== targetRoleKey && role.roleTitle !== targetRoleKey) return false;
+      return true;
+    });
+
+    if (rolesToProcess.length === 0) {
+      console.log(`[QprsService] ⚠️ Tidak ada peran dengan dokumen mengendap. Email reminder tidak dikirim.`);
+      return {
+        success: true,
+        sentCount: 0,
+        sentDetails: [],
+        message: 'Tidak ada dokumen mengendap pada peran ini. Email reminder tidak dikirim.',
+      };
+    }
+
+    console.log(`[QprsService] 🚀 Memproses pengiriman reminder untuk ${rolesToProcess.length} peran...`);
+
+    const sentDetails: any[] = [];
+
+    for (const role of rolesToProcess) {
+      let recipients = role.recipients && role.recipients.length > 0
+        ? role.recipients
+        : (defaultRoleRecipients[role.roleKey] || defaultRoleRecipients[role.roleTitle] || QPR_EMAIL_RECIPIENTS.sectionHead);
+
+      // If role is Vendor, also try to fetch any vendor email stored in DB
+      if (role.roleKey === 'Vendor' || role.roleTitle === 'Vendor') {
+        try {
+          const vendorNames: string[] = Array.from(new Set(role.documents.map(d => String(d.vendor || '')).filter(Boolean)));
+          const foundVendors = await this.prisma.vendor.findMany({
+            where: { vendorName: { in: vendorNames } },
+            select: { vendorName: true, email: true },
+          });
+          const vendorEmails = foundVendors.map(v => v.email).filter(Boolean) as string[];
+          if (vendorEmails.length > 0) {
+            recipients = Array.from(new Set([...vendorEmails, ...recipients]));
+          }
+        } catch (e: any) {
+          this.logger.warn(`Failed to resolve vendor emails: ${e.message}`);
+        }
+      }
+
+      const actionUrl = actionUrls[role.roleKey] || actionUrls[role.roleTitle] || 'http://localhost:3000/qpr/';
+
+      await this.emailService.notifyTaskReminder(
+        role.roleTitle || role.roleKey,
+        recipients,
+        role.documents,
+        actionUrl,
+      );
+
+      sentDetails.push({
+        roleKey: role.roleKey,
+        roleTitle: role.roleTitle,
+        recipients,
+        documentCount: role.documents.length,
+        documents: role.documents.map(d => d.docNumber),
+      });
+    }
+
+    return {
+      success: true,
+      sentCount: sentDetails.length,
+      sentDetails,
+    };
+  }
 }
+
