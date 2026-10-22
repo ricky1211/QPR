@@ -1,7 +1,8 @@
 "use client";
 
-import React from "react";
-import { X, Printer, Edit, FileText } from "lucide-react";
+import React, { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
+import { X, Printer, Edit, FileText, Layers, CheckCircle2 } from "lucide-react";
 import { qprService, mapQprFromDb } from "@/services/qprService";
 
 interface QprPreviewProps {
@@ -82,7 +83,13 @@ function CheckItem({ label, checked, onClick }: { label: string; checked: boolea
 }
 
 export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRevision, hideVendorToggle = false }: QprPreviewProps) {
-  const [isVendorCopy, setIsVendorCopy] = React.useState(false);
+  const [isVendorCopy, setIsVendorCopy] = useState(false);
+  const [activeTab, setActiveTab] = useState<"all" | "qpr" | "attachments">("all");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const base64ToBlobUrl = (base64Str: string): string => {
     if (!base64Str) return "";
@@ -209,16 +216,44 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
         ? tableParts[0].partNumber
         : (qpr.partNumber || "-"));
 
+  const parseClaimTypes = (val: any): string[] => {
+    if (!val) return [];
+    if (Array.isArray(val)) return val;
+    if (typeof val === "string") {
+      try {
+        if (val.startsWith("[")) {
+          const parsed = JSON.parse(val);
+          if (Array.isArray(parsed)) return parsed;
+        }
+      } catch (e) {}
+      return val.split(",").map((s: string) => s.trim().toUpperCase()).filter(Boolean);
+    }
+    return [];
+  };
+
   // Local state for interactive editing
-  const [localClaimTypes, setLocalClaimTypes] = React.useState<string[]>(
-    Array.isArray(qpr.claimType) ? qpr.claimType : ["PROSES PACKING", "PROSES CHECK"]
-  );
+  const [localClaimTypes, setLocalClaimTypes] = React.useState<string[]>(() => {
+    const parsed = parseClaimTypes(qpr.claimType);
+    return parsed.length > 0 ? parsed : ["MATERIAL", "PROSES M/C"];
+  });
   const [localIsMoreThanOne, setLocalIsMoreThanOne] = React.useState(isMoreThanOne);
   const [localClaimCount, setLocalClaimCount] = React.useState(claimCount);
 
+  const initialStatus = qpr.statusAction || qpr.disposition || "Reject";
+  const [localStatus, setLocalStatus] = React.useState<"Rework" | "Return" | "Reject">(
+    /rework/i.test(initialStatus) ? "Rework" : /return/i.test(initialStatus) ? "Return" : "Reject"
+  );
+
+  const initialCategory = qpr.partCategory || "Function";
+  const [localCategory, setLocalCategory] = React.useState<"Ordinary" | "Function" | "Safety">(
+    /ordinary/i.test(initialCategory) ? "Ordinary" : /safety/i.test(initialCategory) ? "Safety" : "Function"
+  );
+  const [sigOverrides, setSigOverrides] = React.useState<Record<number, boolean>>({});
+
   React.useEffect(() => {
-    if (Array.isArray(qpr.claimType)) {
-      setLocalClaimTypes(qpr.claimType);
+    const parsed = parseClaimTypes(qpr.claimType);
+    if (parsed.length > 0) {
+      setLocalClaimTypes(parsed);
     }
   }, [qpr.claimType]);
 
@@ -260,7 +295,13 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
   const shortVendorName = getShortVendorName(qpr.supplierName);
 
   const handlePrint = () => {
-    window.print();
+    const printRoot = document.getElementById("qpr-print-root");
+    if (printRoot) {
+      printRoot.setAttribute("data-active-tab", activeTab);
+    }
+    setTimeout(() => {
+      window.print();
+    }, 60);
   };
 
   React.useEffect(() => {
@@ -300,6 +341,8 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
     !!qpr.approvalProgress?.approvedAtSectionHead ||
     !!qpr.approvalProgress?.checksumSectionHead ||
     qpr.status === "APPROVED" ||
+    qpr.status === "APPROVED_INTERNAL" ||
+    qpr.status === "APPROVED_BY_VENDOR" ||
     qpr.status === "CLOSED" ||
     qpr.status === "CLOSED_PAID" ||
     qpr.requiredRole === "Dept Head" ||
@@ -315,6 +358,8 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
     !!qpr.approvalProgress?.approvedAtDeptHead ||
     !!qpr.approvalProgress?.checksumDeptHead ||
     qpr.status === "APPROVED" ||
+    qpr.status === "APPROVED_INTERNAL" ||
+    qpr.status === "APPROVED_BY_VENDOR" ||
     qpr.status === "CLOSED" ||
     qpr.status === "CLOSED_PAID" ||
     qpr.requiredRole === "Div Head" ||
@@ -329,6 +374,8 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
     !!qpr.approvalProgress?.approvedAtDivHead ||
     !!qpr.approvalProgress?.checksumDivHead ||
     qpr.status === "APPROVED" ||
+    qpr.status === "APPROVED_INTERNAL" ||
+    qpr.status === "APPROVED_BY_VENDOR" ||
     qpr.status === "CLOSED" ||
     qpr.status === "CLOSED_PAID" ||
     qpr.requiredRole === "Purchasing" ||
@@ -341,13 +388,15 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
   const isPurchasingSigned = !isDraftOrRevise && (
     !!qpr.approvalProgress?.approvedAtPurchasing ||
     !!qpr.approvalProgress?.checksumPurchasing ||
+    qpr.status === "APPROVED" ||
+    qpr.status === "APPROVED_INTERNAL" ||
+    qpr.status === "APPROVED_BY_VENDOR" ||
     qpr.status === "CLOSED" ||
     qpr.status === "CLOSED_PAID" ||
     qpr.requiredRole === "Closed" ||
     qpr.requiredRole === "CLOSED" ||
     qpr.requiredRole === "Vendor" ||
-    (Array.isArray(qpr.approvedBy) && qpr.approvedBy.includes("Purchasing")) ||
-    (qpr.status === "APPROVED" && qpr.requiredRole !== "Purchasing")
+    (Array.isArray(qpr.approvedBy) && qpr.approvedBy.includes("Purchasing"))
   );
 
   const documentContent = (
@@ -369,7 +418,15 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
         {/* Company Header */}
         <div className="flex items-center" style={{ borderBottom: "1.5px solid #000000", padding: "6px 10px", color: "#000000" }}>
           <div style={{ width: "170px", minWidth: "170px", marginRight: "12px", display: "flex", alignItems: "center" }}>
-            <img src="/qpr/logo-mtm.jpg" alt="PT MTM Logo" style={{ height: "26px", objectFit: "contain", display: "block" }} />
+            <img 
+              src="/qpr/logo-mtm.jpg" 
+              alt="PT MTM Logo" 
+              style={{ height: "26px", objectFit: "contain", display: "block" }} 
+              onError={(e) => {
+                e.currentTarget.onerror = null;
+                e.currentTarget.src = "/logo-mtm.jpg";
+              }}
+            />
           </div>
           <div className="flex-1 text-center font-bold text-black" style={{ fontSize: "7.5px", lineHeight: "1.6", color: "#000000" }}>
             <div className="font-black text-black" style={{ fontSize: "9px", color: "#000000" }}>PT MENARA TERUS MAKMUR</div>
@@ -499,14 +556,24 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
                 <div style={{ borderBottom: "1px solid #000" }}>
                   <div style={{ textAlign: "center", fontWeight: "bold", fontSize: "7px", borderBottom: "1px solid #000", padding: "2.5px 2px", background: "#f1f5f9" }}>STATUS</div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", borderBottom: "1px solid #000" }}>
-                    {["Rework", "Return", "Reject"].map((s, i) => (
-                      <div key={s} style={{ borderRight: i < 2 ? "1px solid #000" : "none", textAlign: "center", padding: "1px 2px", fontWeight: "bold", fontSize: "6.5px" }}>{s}</div>
+                    {(["Rework", "Return", "Reject"] as const).map((s, i) => (
+                      <div 
+                        key={s} 
+                        onClick={() => setLocalStatus(s)}
+                        style={{ borderRight: i < 2 ? "1px solid #000" : "none", textAlign: "center", padding: "1px 2px", fontWeight: "bold", fontSize: "6.5px", cursor: "pointer" }}
+                      >
+                        {s}
+                      </div>
                     ))}
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr" }}>
-                    {[false, false, true].map((checked, i) => (
-                      <div key={i} style={{ borderRight: i < 2 ? "1px solid #000" : "none", padding: "3px 2px", display: "flex", justifyContent: "center" }}>
-                        <span style={{ width: "12px", height: "12px", border: "1px solid #000", display: "inline-block", backgroundColor: checked ? "#ef4444" : "white" }} />
+                    {(["Rework", "Return", "Reject"] as const).map((s, i) => (
+                      <div 
+                        key={s} 
+                        onClick={() => setLocalStatus(s)}
+                        style={{ borderRight: i < 2 ? "1px solid #000" : "none", padding: "3px 2px", display: "flex", justifyContent: "center", cursor: "pointer" }}
+                      >
+                        <span style={{ width: "12px", height: "12px", border: "1px solid #000", display: "inline-block", backgroundColor: localStatus === s ? "#ef4444" : "white" }} />
                       </div>
                     ))}
                   </div>
@@ -516,14 +583,24 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
                 <div style={{ borderBottom: "1px solid #000" }}>
                   <div style={{ textAlign: "center", fontWeight: "bold", fontSize: "7px", borderBottom: "1px solid #000", padding: "2.5px 2px", background: "#f1f5f9" }}>PART CATEGORY</div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", borderBottom: "1px solid #000" }}>
-                    {["Ordinary", "Function", "Safety"].map((s, i) => (
-                      <div key={s} style={{ borderRight: i < 2 ? "1px solid #000" : "none", textAlign: "center", padding: "1px 2px", fontWeight: "bold", fontSize: "6.5px" }}>{s}</div>
+                    {(["Ordinary", "Function", "Safety"] as const).map((s, i) => (
+                      <div 
+                        key={s} 
+                        onClick={() => setLocalCategory(s)}
+                        style={{ borderRight: i < 2 ? "1px solid #000" : "none", textAlign: "center", padding: "1px 2px", fontWeight: "bold", fontSize: "6.5px", cursor: "pointer" }}
+                      >
+                        {s}
+                      </div>
                     ))}
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr" }}>
-                    {[false, true, false].map((checked, i) => (
-                      <div key={i} style={{ borderRight: i < 2 ? "1px solid #000" : "none", padding: "3px 2px", display: "flex", justifyContent: "center" }}>
-                        <span style={{ width: "12px", height: "12px", border: "1px solid #000", display: "inline-block", backgroundColor: checked ? "#ef4444" : "white" }} />
+                    {(["Ordinary", "Function", "Safety"] as const).map((s, i) => (
+                      <div 
+                        key={s} 
+                        onClick={() => setLocalCategory(s)}
+                        style={{ borderRight: i < 2 ? "1px solid #000" : "none", padding: "3px 2px", display: "flex", justifyContent: "center", cursor: "pointer" }}
+                      >
+                        <span style={{ width: "12px", height: "12px", border: "1px solid #000", display: "inline-block", backgroundColor: localCategory === s ? "#ef4444" : "white" }} />
                       </div>
                     ))}
                   </div>
@@ -606,7 +683,7 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
         </div>
 
         {/* JENIS CLAIM + Signature */}
-        <div style={{ display: "flex", borderTop: "1px solid #000", marginTop: "auto" }}>
+        <div style={{ display: "flex", borderTop: "1px solid #000", borderBottom: "1.5px solid #000", marginTop: "auto" }}>
           {/* Jenis Claim */}
           <div style={{ flex: 1, borderRight: "1px solid #000", padding: "10px 12px" }}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 24px" }}>
@@ -614,11 +691,14 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
                 <CheckItem
                   key={opt}
                   label={opt}
-                  checked={localClaimTypes.includes(opt)}
+                  checked={localClaimTypes.some(c => c.trim().toUpperCase() === opt.trim().toUpperCase())}
                   onClick={() => {
-                    setLocalClaimTypes(prev =>
-                      prev.includes(opt) ? prev.filter(c => c !== opt) : [...prev, opt]
-                    );
+                    setLocalClaimTypes(prev => {
+                      const exists = prev.some(c => c.trim().toUpperCase() === opt.trim().toUpperCase());
+                      return exists
+                        ? prev.filter(c => c.trim().toUpperCase() !== opt.trim().toUpperCase())
+                        : [...prev, opt];
+                    });
                   }}
                 />
               ))}
@@ -627,27 +707,29 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
 
           {/* Signature Block */}
           <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-            <div style={{ borderBottom: "1px solid #000", textAlign: "center", padding: "4px", fontSize: "8px", fontWeight: "bold", color: "#1e293b" }}>
+            <div 
+              contentEditable
+              suppressContentEditableWarning
+              className="focus:bg-yellow-50 focus:outline-none print:bg-transparent"
+              style={{ borderBottom: "1px solid #000", textAlign: "center", padding: "4px", fontSize: "8px", fontWeight: "bold", color: "#1e293b" }}
+            >
               Cikarang, {formatDateIndo(qpr.date)}
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr", flex: 1 }}>
               {[
                 { 
                   type: "Prepared", 
-                  name: "Deny M.", 
+                  name: qpr.creatorName || qpr.user?.name || qpr.createdByName || "Deny M.", 
                   role: "(Creator)",
-                  isSigned: true,
+                  defaultSigned: true,
                   sigSvg: (
                     <img 
                       src="/qpr/TTD-DENY.M.png" 
                       alt="Deny M. Signature" 
                       style={{ height: "28px", width: "auto", objectFit: "contain" }} 
                       onError={(e) => {
-                        if (!e.currentTarget.src.includes("/qpr/")) {
-                          e.currentTarget.src = "/qpr/TTD-DENY.M.png";
-                        } else {
-                          e.currentTarget.src = "/TTD-DENY.M.png";
-                        }
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = "/TTD-DENY.M.png";
                       }}
                     />
                   )
@@ -656,18 +738,15 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
                   type: "Checked", 
                   name: "Septian N.", 
                   role: "(Section Head)",
-                  isSigned: isSectionHeadSigned,
+                  defaultSigned: isSectionHeadSigned,
                   sigSvg: (
                     <img 
                       src="/qpr/TTD-PakSeptian.jpeg" 
                       alt="Septian N. Signature" 
                       style={{ height: "28px", width: "auto", objectFit: "contain" }} 
                       onError={(e) => {
-                        if (!e.currentTarget.src.includes("/qpr/")) {
-                          e.currentTarget.src = "/qpr/TTD-PakSeptian.jpeg";
-                        } else {
-                          e.currentTarget.src = "/TTD-PakSeptian.jpeg";
-                        }
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = "/TTD-PakSeptian.jpeg";
                       }}
                     />
                   )
@@ -676,7 +755,7 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
                   type: "Approved", 
                   name: "Septian N.", 
                   role: "(Dept. Head Quality)",
-                  isSigned: isDeptHeadSigned,
+                  defaultSigned: isDeptHeadSigned,
                   sigSvg: (
                     <img 
                       src="/qpr/TTD-PakSeptian.jpeg" 
@@ -684,9 +763,7 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
                       style={{ height: "28px", width: "auto", objectFit: "contain" }} 
                       onError={(e) => {
                         e.currentTarget.onerror = null;
-                        if (!e.currentTarget.src.includes("/qpr/")) {
-                          e.currentTarget.src = "/qpr/TTD-PakSeptian.jpeg";
-                        }
+                        e.currentTarget.src = "/TTD-PakSeptian.jpeg";
                       }}
                     />
                   )
@@ -695,17 +772,15 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
                   type: "Approved", 
                   name: "Putu R. S.", 
                   role: "(Div. Head)",
-                  isSigned: isDivHeadSigned,
+                  defaultSigned: isDivHeadSigned,
                   sigSvg: (
                     <img 
-                      src="/TTD-PakPutu.jpeg" 
+                      src="/qpr/TTD-PakPutu.jpeg" 
                       alt="Putu R. S. Signature" 
                       style={{ height: "28px", width: "auto", objectFit: "contain" }} 
                       onError={(e) => {
                         e.currentTarget.onerror = null;
-                        if (!e.currentTarget.src.includes("/qpr/")) {
-                          e.currentTarget.src = "/qpr/TTD-PakPutu.jpeg";
-                        }
+                        e.currentTarget.src = "/TTD-PakPutu.jpeg";
                       }}
                     />
                   )
@@ -714,37 +789,49 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
                   type: "Acknowledged", 
                   name: "Irvan H. N.", 
                   role: "(Purchasing)",
-                  isSigned: isPurchasingSigned,
+                  defaultSigned: isPurchasingSigned,
                   sigSvg: (
                     <img 
-                      src="/TTD-PURCHASING.jpeg" 
+                      src="/qpr/TTD-PURCHASING.jpeg" 
                       alt="Irvan H. N. Signature" 
                       style={{ height: "28px", width: "auto", objectFit: "contain" }} 
                       onError={(e) => {
                         e.currentTarget.onerror = null;
-                        if (!e.currentTarget.src.includes("/qpr/")) {
-                          e.currentTarget.src = "/qpr/TTD-PURCHASING.jpeg";
-                        }
+                        e.currentTarget.src = "/TTD-PURCHASING.jpeg";
                       }}
                     />
                   )
                 }
-              ].map((sig, i) => (
-                <div key={i} style={{ borderRight: i < 4 ? "1px solid #000" : "none", textAlign: "center", display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: "60px" }}>
-                  <div style={{ borderBottom: "1px solid #000", padding: "1px 2px", fontWeight: "bold", fontSize: "7px", background: "#f8fafc" }}>{sig.type}</div>
-                  <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", minHeight: "30px", padding: "1px" }}>
-                    {sig.isSigned ? (
-                      sig.sigSvg
-                    ) : (
-                      <span style={{ fontSize: "6.5px", color: "#cbd5e1", fontStyle: "italic" }}>(Pending)</span>
-                    )}
+              ].map((sig, i) => {
+                const isSigned = sigOverrides[i] !== undefined ? sigOverrides[i] : sig.defaultSigned;
+                return (
+                  <div 
+                    key={i} 
+                    onClick={() => {
+                      setSigOverrides(prev => ({
+                        ...prev,
+                        [i]: !(prev[i] !== undefined ? prev[i] : sig.defaultSigned)
+                      }));
+                    }}
+                    title="Klik untuk mengubah status tanda tangan"
+                    className="cursor-pointer hover:bg-slate-50 transition-colors"
+                    style={{ borderRight: i < 4 ? "1px solid #000" : "none", textAlign: "center", display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: "60px" }}
+                  >
+                    <div style={{ borderBottom: "1px solid #000", padding: "1px 2px", fontWeight: "bold", fontSize: "7px", background: "#f8fafc" }}>{sig.type}</div>
+                    <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", minHeight: "30px", padding: "1px" }}>
+                      {isSigned ? (
+                        sig.sigSvg
+                      ) : (
+                        <span style={{ fontSize: "6.5px", color: "#cbd5e1", fontStyle: "italic" }}>(Pending)</span>
+                      )}
+                    </div>
+                    <div style={{ borderTop: "1px solid #000", padding: "1.5px 2px", fontSize: "6.5px", color: "#1e293b", textAlign: "center", lineHeight: "1.25", fontWeight: "bold" }}>
+                      <div style={{ textDecoration: "underline", color: "#000000" }}>{sig.name}</div>
+                      <div style={{ fontSize: "5.5px", fontWeight: "normal", color: "#475569", marginTop: "1px" }}>{sig.role}</div>
+                    </div>
                   </div>
-                  <div style={{ borderTop: "1px solid #000", padding: "1.5px 2px", fontSize: "6.5px", color: "#1e293b", textAlign: "center", lineHeight: "1.25", fontWeight: "bold" }}>
-                    <div style={{ textDecoration: "underline", color: "#000000" }}>{sig.name}</div>
-                    <div style={{ fontSize: "5.5px", fontWeight: "normal", color: "#475569", marginTop: "1px" }}>{sig.role}</div>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
@@ -1125,7 +1212,7 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
             </label>
           </div>
         )}
-        <div id="qpr-print-root" className="w-full flex flex-col gap-6">
+        <div id="qpr-print-root" data-active-tab="all" className="w-full flex flex-col gap-6">
           {documentContent}
           {attachmentPrintPages}
         </div>
@@ -1133,10 +1220,48 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
     );
   }
 
-  return (
-    <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 overflow-y-auto flex flex-col items-center p-4">
+  if (!mounted) return null;
+
+  const modalJSX = (
+    <div
+      id="qpr-print-modal-root"
+      className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 overflow-y-auto flex flex-col items-center p-4 print:p-0 print:bg-white print:overflow-visible"
+    >
       {/* Action Bar */}
-      <div className="fixed top-4 right-4 flex gap-2.5 z-50 print:hidden items-center">
+      <div className="fixed top-4 right-4 flex flex-wrap gap-2.5 z-50 print:hidden items-center">
+        {/* Print Tab Selector */}
+        <div className="flex items-center bg-slate-800/95 p-1 rounded-lg border border-slate-700 shadow-lg">
+          <button
+            type="button"
+            onClick={() => setActiveTab("all")}
+            className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all cursor-pointer ${
+              activeTab === "all" ? "bg-blue-600 text-white shadow-sm" : "text-slate-300 hover:text-white hover:bg-slate-700/60"
+            }`}
+          >
+            Semua (QPR + Bukti)
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("qpr")}
+            className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all cursor-pointer ${
+              activeTab === "qpr" ? "bg-blue-600 text-white shadow-sm" : "text-slate-300 hover:text-white hover:bg-slate-700/60"
+            }`}
+          >
+            Hanya Dokumen QPR
+          </button>
+          {parsedAttachments.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setActiveTab("attachments")}
+              className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all cursor-pointer ${
+                activeTab === "attachments" ? "bg-blue-600 text-white shadow-sm" : "text-slate-300 hover:text-white hover:bg-slate-700/60"
+              }`}
+            >
+              Hanya Bukti Lampiran
+            </button>
+          )}
+        </div>
+
         <label className="flex items-center gap-2 px-3 py-2 bg-slate-800/90 text-white rounded-lg text-xs font-bold shadow-lg border border-slate-700 cursor-pointer hover:bg-slate-750 transition-colors">
           <input
             type="checkbox"
@@ -1151,7 +1276,7 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-lg transition-colors cursor-pointer"
         >
           <Printer size={14} />
-          Cetak / Print (QPR + Bukti Lampiran)
+          Cetak / Print ({activeTab === "qpr" ? "QPR Saja" : activeTab === "attachments" ? "Bukti Saja" : "QPR + Bukti Lampiran"})
         </button>
         {onEditRevision && qpr.status === "UNDER_REVISION" && (
           <button
@@ -1173,10 +1298,10 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
         )}
       </div>
 
-      <div className="pt-16 pb-8 w-full flex flex-col items-center gap-6">
-        <div id="qpr-print-root" className="w-full flex flex-col items-center gap-6">
-          {documentContent}
-          {attachmentPrintPages}
+      <div className="pt-16 pb-8 w-full flex flex-col items-center gap-6 print:pt-0 print:pb-0 print:gap-0">
+        <div id="qpr-print-root" data-active-tab={activeTab} className="w-full flex flex-col items-center gap-6 print:gap-0">
+          {(activeTab === "all" || activeTab === "qpr") && documentContent}
+          {(activeTab === "all" || activeTab === "attachments") && attachmentPrintPages}
         </div>
       </div>
 
@@ -1184,7 +1309,7 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
         @media print {
           @page {
             size: A4 portrait;
-            margin: 5mm 8mm !important;
+            margin: 6mm 8mm !important;
           }
           html, body {
             height: auto !important;
@@ -1198,33 +1323,68 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
-          body.print-qpr-active * { 
-            visibility: hidden !important; 
+
+          /* Hide entire Next.js app tree outside the print portal */
+          body.print-qpr-active > *:not(#qpr-print-modal-root) {
+            display: none !important;
+            visibility: hidden !important;
           }
-          body.print-qpr-active #qpr-print-root,
-          body.print-qpr-active #qpr-print-root * { 
-            visibility: visible !important; 
-          }
-          body.print-qpr-active .fixed,
-          body.print-qpr-active .backdrop-blur-sm,
-          body.print-qpr-active div[class*="fixed"] {
+
+          /* Show only the modal root in pure static document flow */
+          body.print-qpr-active #qpr-print-modal-root {
+            display: block !important;
             position: static !important;
-            overflow: visible !important;
+            inset: auto !important;
+            width: 100% !important;
             height: auto !important;
-            max-height: none !important;
-            background: transparent !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+            overflow: visible !important;
+            float: none !important;
+          }
+
+          body.print-qpr-active #qpr-print-modal-root > div {
             padding: 0 !important;
             margin: 0 !important;
+            gap: 0 !important;
+            width: 100% !important;
           }
+
           body.print-qpr-active #qpr-print-root {
+            display: block !important;
             position: static !important;
             width: 100% !important;
             max-width: 194mm !important;
             margin: 0 auto !important;
             padding: 0 !important;
-            display: block !important;
             overflow: visible !important;
           }
+
+          /* Reset all table borders and padding so globals.css padding doesn't inflate rows */
+          #qpr-print-root table,
+          #qpr-print-area table,
+          #qpr-attachments-print-area table {
+            border-collapse: collapse !important;
+            width: 100% !important;
+            border: 1px solid #000000 !important;
+            margin: 0 !important;
+          }
+          #qpr-print-root th,
+          #qpr-print-root td,
+          #qpr-print-area th,
+          #qpr-print-area td,
+          #qpr-attachments-print-area th,
+          #qpr-attachments-print-area td {
+            border: 1px solid #000000 !important;
+            padding: 2.5px 4px !important;
+            height: auto !important;
+          }
+          #qpr-print-root table tr:hover {
+            background-color: transparent !important;
+          }
+
+          /* Page 1: QPR Document (Strictly 1 Page fit) */
           body.print-qpr-active #qpr-print-area {
             position: relative !important;
             left: 0 !important;
@@ -1241,23 +1401,41 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
             box-sizing: border-box !important;
             page-break-inside: avoid !important;
             break-inside: avoid !important;
-            page-break-after: always !important;
-            break-after: page !important;
             display: flex !important;
             flex-direction: column !important;
             justify-content: space-between !important;
             overflow: hidden !important;
             background: #ffffff !important;
           }
-          body.print-qpr-active #qpr-attachments-print-area {
+
+          /* Tab-based visibility in print */
+          body.print-qpr-active #qpr-print-root[data-active-tab="qpr"] #qpr-attachments-print-area {
+            display: none !important;
+          }
+          body.print-qpr-active #qpr-print-root[data-active-tab="qpr"] #qpr-print-area {
+            page-break-after: auto !important;
+            break-after: auto !important;
+          }
+
+          body.print-qpr-active #qpr-print-root[data-active-tab="attachments"] #qpr-print-area {
+            display: none !important;
+          }
+
+          /* When active tab is 'all': Page 1 page-breaks cleanly into Page 2 without ghost break */
+          body.print-qpr-active #qpr-print-root[data-active-tab="all"] #qpr-print-area {
+            page-break-after: always !important;
+            break-after: page !important;
+          }
+          body.print-qpr-active #qpr-print-root[data-active-tab="all"] #qpr-attachments-print-area {
             display: block !important;
             width: 100% !important;
             margin: 0 !important;
             padding: 0 !important;
-            page-break-before: always !important;
-            break-before: page !important;
-            overflow: visible !important;
+            page-break-before: auto !important;
+            break-before: auto !important;
           }
+
+          /* Page 2+: Attachments */
           body.print-qpr-active .qpr-attachment-print-page {
             position: relative !important;
             left: 0 !important;
@@ -1286,10 +1464,18 @@ export default function QprPrintPreview({ qpr, onClose, inline = false, onEditRe
             page-break-after: auto !important;
             break-after: auto !important;
           }
+
+          /* Hide all UI elements with print:hidden */
+          .print\:hidden {
+            display: none !important;
+            visibility: hidden !important;
+          }
         }
       `}</style>
     </div>
   );
+
+  return createPortal(modalJSX, document.body);
 }
 
 

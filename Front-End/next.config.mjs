@@ -15,7 +15,6 @@ const cleanBackendUrl = BACKEND_URL.replace(/\/api\/?$/, '').replace(/\/+$/, '')
 const nextConfig = {
   basePath: '/qpr',
   trailingSlash: true,
-  outputFileTracingRoot: path.join(__dirname, '..', '..'),
   images: {
     qualities: [75, 90],
   },
@@ -43,6 +42,12 @@ const nextConfig = {
       {
         source: '/apple-touch-icon-precomposed.png',
         destination: '/qpr/logo-mtm-icon.png',
+        permanent: false,
+        basePath: false,
+      },
+      {
+        source: '/:asset.:ext(png|jpg|jpeg|svg|ico|webp)',
+        destination: '/qpr/:asset.:ext',
         permanent: false,
         basePath: false,
       },

@@ -662,7 +662,7 @@ export default function ListQprDashboard({
         <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex items-center group hover:shadow-md transition-all">
           <div className="space-y-1.5 text-left">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Total Arsip Dokumen</span>
-            <h4 className="text-2xl font-black text-slate-800">{totalCount}</h4>
+            <h4 className="text-2xl font-black text-slate-800" suppressHydrationWarning>{totalCount}</h4>
             <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-full inline-block">
               QPR &amp; CL
             </span>
@@ -673,7 +673,7 @@ export default function ListQprDashboard({
         <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex items-center group hover:shadow-md transition-all">
           <div className="space-y-1.5 text-left">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Total Laporan CL</span>
-            <h4 className="text-2xl font-black text-slate-800">{clCount}</h4>
+            <h4 className="text-2xl font-black text-slate-800" suppressHydrationWarning>{clCount}</h4>
             <span className="text-xs font-bold text-orange-600 bg-orange-50 px-2.5 py-1 rounded-full inline-block">
               Confirmation Letter
             </span>
@@ -684,7 +684,7 @@ export default function ListQprDashboard({
         <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex items-center group hover:shadow-md transition-all">
           <div className="space-y-1.5 text-left">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Total Klaim QPR</span>
-            <h4 className="text-2xl font-black text-slate-800">{qprCount}</h4>
+            <h4 className="text-2xl font-black text-slate-800" suppressHydrationWarning>{qprCount}</h4>
             <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full inline-block">
               Semua Status
             </span>
@@ -695,7 +695,7 @@ export default function ListQprDashboard({
         <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex items-center group hover:shadow-md transition-all">
           <div className="space-y-1.5 text-left">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Proses Approval</span>
-            <h4 className="text-2xl font-black text-amber-600">{pendingCount}</h4>
+            <h4 className="text-2xl font-black text-amber-600" suppressHydrationWarning>{pendingCount}</h4>
             <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full inline-block">
               Menunggu Tanda Tangan
             </span>

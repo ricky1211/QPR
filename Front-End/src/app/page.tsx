@@ -426,80 +426,76 @@ export default function Home({ initialTab = "" }: { initialTab?: string }) {
   // so they survive Next.js route changes (each sub-route remounts <Home />).
   const [pendingNcrs, setPendingNcrs] = useState<any[]>([]);
   const [vendors, setVendors] = useState<any[]>([]);
-  const [pendingQprs, setPendingQprs] = useState<any[]>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const saved = sessionStorage.getItem("mtm_qpr_pendingQprs");
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed)) return parsed;
-        }
-      } catch {}
-    }
-    return [];
-  });
-  const [confirmationLetters, setConfirmationLetters] = useState<any[]>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const saved = sessionStorage.getItem("mtm_qpr_confirmationLetters");
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed)) {
-            // Auto-synchronize and normalize amounts for all stored CLs with exact item sums + VAT
-            return parsed.map((cl: any) => {
-              if (!cl || typeof cl !== "object") return cl;
-              let numAmount = 0;
-              if (cl.items && Array.isArray(cl.items) && cl.items.length > 0) {
-                let subtotal = 0;
-                cl.items.forEach((it: any) => {
-                  if (!it) return;
-                  const qty = it.qtyClaim ?? it.billableQty ?? it.qtyNG ?? it.qty ?? it.qtyNg ?? 0;
-                  const price = typeof it.unitPrice === "string" ? parseFloat(it.unitPrice) : (it.unitPrice || 0);
-                  const amt = it.amount ?? it.subtotal ?? (qty * price);
-                  subtotal += (amt || 0);
-                });
-                if (subtotal > 0) {
-                  const tax = Math.round(subtotal * 0.11);
-                  numAmount = Math.round(subtotal + tax);
-                }
-              }
-              if (numAmount === 0) {
-                if (typeof cl.amount === "number") {
-                  numAmount = Math.round(cl.amount);
-                } else if (typeof cl.rawAmount === "number") {
-                  numAmount = Math.round(cl.rawAmount);
-                } else {
-                  const str = String(cl.amount || "").replace(/Rp\.?/gi, "").trim();
-                  if (str.includes(",")) {
-                    const parts = str.split(",");
-                    const intP = parts[0].replace(/[^0-9]/g, "");
-                    const decP = (parts[1] || "").replace(/[^0-9]/g, "");
-                    numAmount = Math.round(parseFloat(`${intP}.${decP}`) || 0);
-                  } else if (/^\d+\.\d{1,2}$/.test(str)) {
-                    numAmount = Math.round(parseFloat(str) || 0);
-                  } else {
-                    numAmount = parseInt(str.replace(/[^0-9]/g, ""), 10) || 0;
-                  }
-                }
-              }
-              if (numAmount > 0) {
-                return {
-                  ...cl,
-                  amount: `Rp ${numAmount.toLocaleString("id-ID")}`,
-                  rawAmount: numAmount,
-                  claimAmount: numAmount,
-                  totalClaimAmount: numAmount
-                };
-              }
-              return cl;
-            });
-          }
-        }
-      } catch {}
-    }
-    return [];
-  });
+  const [pendingQprs, setPendingQprs] = useState<any[]>([]);
+  const [confirmationLetters, setConfirmationLetters] = useState<any[]>([]);
   const [createdSscBillings, setCreatedSscBillings] = useState<any[]>([]);
+
+  // Restore pendingQprs and confirmationLetters on mount to prevent SSR hydration mismatch
+  useEffect(() => {
+    try {
+      const savedQprs = sessionStorage.getItem("mtm_qpr_pendingQprs");
+      if (savedQprs) {
+        const parsed = JSON.parse(savedQprs);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setPendingQprs(parsed);
+        }
+      }
+      const savedCls = sessionStorage.getItem("mtm_qpr_confirmationLetters");
+      if (savedCls) {
+        const parsed = JSON.parse(savedCls);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const normalized = parsed.map((cl: any) => {
+            if (!cl || typeof cl !== "object") return cl;
+            let numAmount = 0;
+            if (cl.items && Array.isArray(cl.items) && cl.items.length > 0) {
+              let subtotal = 0;
+              cl.items.forEach((it: any) => {
+                if (!it) return;
+                const qty = it.qtyClaim ?? it.billableQty ?? it.qtyNG ?? it.qty ?? it.qtyNg ?? 0;
+                const price = typeof it.unitPrice === "string" ? parseFloat(it.unitPrice) : (it.unitPrice || 0);
+                const amt = it.amount ?? it.subtotal ?? (qty * price);
+                subtotal += (amt || 0);
+              });
+              if (subtotal > 0) {
+                const tax = Math.round(subtotal * 0.11);
+                numAmount = Math.round(subtotal + tax);
+              }
+            }
+            if (numAmount === 0) {
+              if (typeof cl.amount === "number") {
+                numAmount = Math.round(cl.amount);
+              } else if (typeof cl.rawAmount === "number") {
+                numAmount = Math.round(cl.rawAmount);
+              } else {
+                const str = String(cl.amount || "").replace(/Rp\.?/gi, "").trim();
+                if (str.includes(",")) {
+                  const parts = str.split(",");
+                  const intP = parts[0].replace(/[^0-9]/g, "");
+                  const decP = (parts[1] || "").replace(/[^0-9]/g, "");
+                  numAmount = Math.round(parseFloat(`${intP}.${decP}`) || 0);
+                } else if (/^\d+\.\d{1,2}$/.test(str)) {
+                  numAmount = Math.round(parseFloat(str) || 0);
+                } else {
+                  numAmount = parseInt(str.replace(/[^0-9]/g, ""), 10) || 0;
+                }
+              }
+            }
+            if (numAmount > 0) {
+              return {
+                ...cl,
+                amount: `Rp ${numAmount.toLocaleString("id-ID")}`,
+                rawAmount: numAmount,
+                claimAmount: numAmount,
+                totalClaimAmount: numAmount
+              };
+            }
+            return cl;
+          });
+          setConfirmationLetters(normalized);
+        }
+      }
+    } catch {}
+  }, []);
 
   // Persist pendingQprs to sessionStorage whenever it changes
   useEffect(() => {
